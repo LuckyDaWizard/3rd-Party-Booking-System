@@ -65,3 +65,7 @@ These rules come from real issues encountered during development:
 1. **UI consistency tests** — When testing UI components like modals/dialogs, verify that styling props (padding, text alignment, heading hierarchy) match the reference implementation on other pages. Add visual regression or snapshot tests that catch inconsistencies across pages.
 
 2. **Always read before writing tests** — Before writing or updating tests for a component, always read the actual component code first. Never assume structure or props from memory.
+
+3. **Client store testing** — The app uses React context stores (`client-store.tsx`, `sidebar-store.tsx`). When testing components that use these stores, wrap them in the appropriate providers with mock data.
+
+4. **Floating input testing** — The `FloatingInput` component uses CSS peer selectors for label animation. Test the clear button functionality and verify labels move on focus/value changes.

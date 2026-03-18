@@ -57,3 +57,5 @@ These rules come from real issues encountered during development:
 1. **Nested `.git` directories** — When scaffolding or initializing any new project/service inside this repo, always check for and remove any nested `.git` directory. A nested `.git` folder prevents the parent repo from tracking files. Run `rm -rf <project>/.git` after scaffolding.
 
 2. **Always read before editing** — Before modifying any code, always read the target file AND any reference files first. Never assume structure or patterns from memory — inspect the actual code to avoid mismatches and reverts.
+
+3. **Client-side state stores** — The frontend uses React context providers in `src/lib/` for shared state (e.g., `client-store.tsx`). When building backend APIs, ensure the data shape matches what these stores expect (e.g., `ClientRecord` type with id, status, clientName, units, email, number).

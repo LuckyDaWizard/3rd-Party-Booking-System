@@ -61,3 +61,12 @@ These rules come from real issues encountered during development. All agents mus
 2. **UI consistency across pages** — Before building or modifying any modal, popup, dialog, or shared component, first identify the existing reference implementation (e.g., the home page popup) and match its styling exactly: padding, heading styles, text alignment, border radius, button styles. Never create a visually different version of the same component pattern on a different page.
 
 3. **Always read before editing** — Before modifying any component, always read both the target file AND the reference file (the component you're trying to match). Never assume styling or structure from memory — inspect the actual code first to avoid mismatches and reverts.
+
+4. **Design references in Project Files/** — The `Project Files/` folder contains design reference images organized by feature (Home Page, Patient History, Client Management, Sign In, etc.). Always check this folder before planning new features and reference specific images in task specs.
+
+5. **Established patterns to reuse** — When planning new features, reference these existing patterns:
+   - **Client-side stores**: React context in `src/lib/` (e.g., `client-store.tsx`, `sidebar-store.tsx`)
+   - **Floating inputs**: reusable floating label + clear button input pattern
+   - **Multi-step flows**: step indicators, success banners, skip links
+   - **Top bar layout**: white rounded row with Back (left) + action button (right)
+   - **Colors**: brand `#3ea3db`, danger `#FF3A69`, content bg `#f4f4f4`

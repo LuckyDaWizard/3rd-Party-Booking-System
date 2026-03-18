@@ -85,3 +85,9 @@ These rules come from real issues encountered during development. Flag these in 
 2. **Nested `.git` directories** — If a PR adds a scaffolded project (e.g., from `create-next-app`), verify it does not include a nested `.git` directory. This prevents the parent repo from tracking files correctly. Block the merge if found.
 
 3. **Code modified without reading reference** — If a component is supposed to match another component's styling, verify both components are actually consistent. Don't approve based on the diff alone — compare against the reference implementation.
+
+4. **Color consistency** — Verify danger/delete buttons use `#FF3A69` (not `bg-red-500`), brand buttons use `#3ea3db`. Flag any hardcoded colors that deviate from the established palette.
+
+5. **Top bar button proportions** — Back button and action buttons in the top bar must both use `size="sm"` with matching `px-6 py-2 rounded-lg` for consistent height. Flag mismatched button sizes in the same row.
+
+6. **State management** — New shared state should use React context providers in `src/lib/`, not prop drilling or local state. Verify providers are wrapped in the dashboard layout.

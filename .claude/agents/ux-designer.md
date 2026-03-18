@@ -61,3 +61,14 @@ These rules come from real issues encountered during development:
 1. **UI consistency across pages** — When specifying modals, popups, dialogs, or any shared component pattern, always reference the existing implementation first. All instances of the same component pattern (e.g., action modals) must have identical styling: padding, heading hierarchy, text alignment, border radius, button styles. Never design a visually different version of the same pattern for a different page.
 
 2. **Always inspect before specifying** — Before creating specs for modifications, always review the existing component code on both the target page and the reference page. Specs must be grounded in the actual codebase, not assumptions.
+
+3. **Design system colors** — Use the established color palette:
+   - Brand/primary: `#3ea3db`
+   - Danger/delete: `#FF3A69`
+   - Content background: `#f4f4f4`
+   - Dark buttons: `bg-gray-900`
+   - Form inputs: white background with `border-gray-300`
+
+4. **Established form patterns** — Specify floating label inputs (label moves to border on focus/fill, X clear button) for client/unit forms. Use custom dropdowns (not native selects) with light blue hover state and rounded containers.
+
+5. **Design references** — Always check `Project Files/` folder for existing design mockups before creating new specs.
