@@ -485,8 +485,9 @@ export default function CreateBookingPage() {
 
         <Button
           data-testid="discard-flow-button"
+          size="sm"
           onClick={handleDiscard}
-          className="rounded-xl bg-red-500 text-white hover:bg-red-600"
+          className="rounded-lg bg-red-500 px-6 py-2 text-white hover:bg-red-600"
         >
           Discard Flow
         </Button>
@@ -566,7 +567,7 @@ export default function CreateBookingPage() {
             <Button
               data-testid="confirm-discard-button"
               onClick={handleConfirmDiscard}
-              className="h-10 w-full rounded-xl bg-red-500 text-white hover:bg-red-600"
+              className="h-10 w-full rounded-xl bg-[#FF3A69] text-white hover:bg-[#FF3A69]/90"
             >
               Yes, Discard
             </Button>

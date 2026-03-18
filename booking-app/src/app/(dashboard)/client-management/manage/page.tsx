@@ -1,0 +1,240 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, ArrowRight, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useClientStore } from "@/lib/client-store"
+
+// ---------------------------------------------------------------------------
+// Floating Input Component
+// ---------------------------------------------------------------------------
+
+function FloatingInput({
+  id,
+  label,
+  value,
+  onChange,
+  onClear,
+  type = "text",
+  "data-testid": dataTestId,
+  className = "",
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  onClear: () => void
+  type?: string
+  "data-testid"?: string
+  className?: string
+}) {
+  const hasValue = value.length > 0
+
+  return (
+    <div className={`relative ${className}`}>
+      <input
+        id={id}
+        data-testid={dataTestId}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder=" "
+        className="peer h-14 w-full rounded-lg border border-gray-300 bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white active:bg-white autofill:bg-white"
+      />
+      <label
+        htmlFor={id}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-400 transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-500"
+      >
+        {label}
+      </label>
+      {hasValue && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+          aria-label={`Clear ${label}`}
+        >
+          <X className="size-4" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default function ManageClientPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const clientId = searchParams.get("id") ?? ""
+  const { getClient, updateClient, deleteClient, toggleClientStatus } = useClientStore()
+
+  const client = getClient(clientId)
+
+  const [clientName, setClientName] = useState("")
+  const [contactPersonName, setContactPersonName] = useState("")
+  const [contactPersonSurname, setContactPersonSurname] = useState("")
+  const [emailAddress, setEmailAddress] = useState("")
+  const [contactNumber, setContactNumber] = useState("")
+
+  useEffect(() => {
+    if (client) {
+      setClientName(client.clientName)
+      setEmailAddress(client.email)
+      setContactNumber(client.number)
+      // Split client name into contact person name/surname if possible
+      setContactPersonName("")
+      setContactPersonSurname("")
+    }
+  }, [client])
+
+  if (!client) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-gray-500">Client not found</p>
+      </div>
+    )
+  }
+
+  function handleUpdateInformation() {
+    updateClient(clientId, {
+      clientName,
+      email: emailAddress,
+      number: contactNumber,
+    })
+    router.push("/client-management")
+  }
+
+  function handleDisableClient() {
+    toggleClientStatus(clientId)
+    router.push("/client-management")
+  }
+
+  function handleDeleteClient() {
+    deleteClient(clientId)
+    router.push("/client-management")
+  }
+
+  return (
+    <div
+      data-testid="manage-client-page"
+      className="flex flex-1 flex-col"
+    >
+      {/* Top bar */}
+      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
+        <Button
+          data-testid="top-back-button"
+          variant="outline"
+          size="sm"
+          onClick={() => router.push("/client-management")}
+          className="rounded-lg border-black px-6 py-2 gap-3"
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
+
+        <Button
+          data-testid="delete-client-button"
+          size="sm"
+          onClick={handleDeleteClient}
+          className="rounded-lg bg-[#FF3A69] px-6 py-2 text-white hover:bg-[#FF3A69]/90"
+        >
+          Delete Client
+        </Button>
+      </div>
+
+      {/* Content area */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-8 py-8">
+        {/* Heading */}
+        <div className="flex flex-col items-center gap-1 text-center">
+          <h1
+            data-testid="page-heading"
+            className="text-3xl font-bold text-gray-900"
+          >
+            Manage {client.clientName}
+          </h1>
+          <p className="text-base text-gray-500">
+            Update client information and status below
+          </p>
+        </div>
+
+        {/* Form */}
+        <div className="flex w-full max-w-md flex-col gap-4">
+          <FloatingInput
+            id="client-name"
+            data-testid="input-client-name"
+            label="Client Name"
+            value={clientName}
+            onChange={setClientName}
+            onClear={() => setClientName("")}
+          />
+
+          <div className="flex w-full gap-4">
+            <FloatingInput
+              id="contact-person-name"
+              data-testid="input-contact-person-name"
+              label="Contact Person Name"
+              value={contactPersonName}
+              onChange={setContactPersonName}
+              onClear={() => setContactPersonName("")}
+              className="flex-1"
+            />
+            <FloatingInput
+              id="contact-person-surname"
+              data-testid="input-contact-person-surname"
+              label="Contact Person Surname"
+              value={contactPersonSurname}
+              onChange={setContactPersonSurname}
+              onClear={() => setContactPersonSurname("")}
+              className="flex-1"
+            />
+          </div>
+
+          <FloatingInput
+            id="email-address"
+            data-testid="input-email-address"
+            label="Email Address"
+            type="email"
+            value={emailAddress}
+            onChange={setEmailAddress}
+            onClear={() => setEmailAddress("")}
+          />
+
+          <FloatingInput
+            id="contact-number"
+            data-testid="input-contact-number"
+            label="Contact Number"
+            type="tel"
+            value={contactNumber}
+            onChange={setContactNumber}
+            onClear={() => setContactNumber("")}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex w-full max-w-md flex-col items-center gap-3">
+          <Button
+            data-testid="update-button"
+            onClick={handleUpdateInformation}
+            className="h-11 w-full rounded-xl bg-gray-300 text-gray-600 hover:bg-gray-900 hover:text-white"
+          >
+            Update Information
+            <ArrowRight className="ml-1 size-4" />
+          </Button>
+
+          <Button
+            data-testid="disable-client-button"
+            variant="outline"
+            onClick={handleDisableClient}
+            className="h-11 w-full rounded-xl border border-black"
+          >
+            {client.status === "Active" ? "Disable Client" : "Enable Client"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
