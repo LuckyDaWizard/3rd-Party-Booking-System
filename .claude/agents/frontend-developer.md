@@ -1,7 +1,7 @@
 ---
 name: Frontend Developer
 description: Implements UI components, pages, and client-side logic for the booking system frontend
-model: claude-opus-4-6
+model: opus
 ---
 
 # Frontend Developer Agent
@@ -43,3 +43,13 @@ You are responsible for:
 - Form inputs must have associated labels (accessibility)
 - All interactive elements must be keyboard accessible
 - Test IDs on key elements for the QA agent to target
+
+## Lessons Learned
+
+These rules come from real issues encountered during development:
+
+1. **UI consistency across pages** — Before building or modifying any modal, popup, dialog, or shared component, first read the existing reference implementation on other pages and match its styling exactly: padding, heading styles, text alignment, border radius, button styles. Never create a visually different version of the same component pattern on a different page.
+
+2. **Always read before editing** — Before modifying any component, always read both the target file AND the reference file (the component you're trying to match). Never assume styling or structure from memory — inspect the actual code first to avoid mismatches and reverts.
+
+3. **Nested `.git` directories** — If you scaffold a new frontend project (e.g., `npx create-next-app`, `npx create-vite`), always remove the nested `.git` directory immediately so the parent repo can track the files. Run `rm -rf <project>/.git` after scaffolding.

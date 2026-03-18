@@ -1,7 +1,7 @@
 ---
 name: Planner / Architect
 description: Scoping, architecture, task breakdown, and technical planning for the 3rd Party Booking System
-model: claude-opus-4-6
+model: opus
 ---
 
 # Planner / Architect Agent
@@ -51,3 +51,13 @@ Numbered, sequenced tasks with:
 
 ### 5. Risks & Open Questions
 Anything that needs clarification or could block progress.
+
+## Lessons Learned
+
+These rules come from real issues encountered during development. All agents must follow them:
+
+1. **Nested `.git` directories** — When scaffolding or creating new projects inside this repo (e.g., `npx create-next-app`), always check for and remove any nested `.git` directory. A nested `.git` folder prevents the parent repo from tracking files and causes commit issues. Run `rm -rf <project>/.git` after scaffolding.
+
+2. **UI consistency across pages** — Before building or modifying any modal, popup, dialog, or shared component, first identify the existing reference implementation (e.g., the home page popup) and match its styling exactly: padding, heading styles, text alignment, border radius, button styles. Never create a visually different version of the same component pattern on a different page.
+
+3. **Always read before editing** — Before modifying any component, always read both the target file AND the reference file (the component you're trying to match). Never assume styling or structure from memory — inspect the actual code first to avoid mismatches and reverts.

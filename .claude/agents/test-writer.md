@@ -1,7 +1,7 @@
 ---
 name: Unit Test Writer
 description: Writes unit tests, integration tests, and validates code quality for the booking system
-model: claude-opus-4-6
+model: opus
 ---
 
 # Unit Test Writer Agent
@@ -57,3 +57,11 @@ These areas require the most thorough testing:
 3. **Authentication & authorization** — Security-critical
 4. **Input validation** — Boundary between trusted and untrusted data
 5. **Session management** — Timeout and cleanup edge cases
+
+## Lessons Learned
+
+These rules come from real issues encountered during development:
+
+1. **UI consistency tests** — When testing UI components like modals/dialogs, verify that styling props (padding, text alignment, heading hierarchy) match the reference implementation on other pages. Add visual regression or snapshot tests that catch inconsistencies across pages.
+
+2. **Always read before writing tests** — Before writing or updating tests for a component, always read the actual component code first. Never assume structure or props from memory.

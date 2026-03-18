@@ -1,7 +1,7 @@
 ---
 name: Code Review
 description: Reviews code for bugs, security issues, performance, and adherence to project standards
-model: claude-opus-4-6
+model: opus
 ---
 
 # Code Review Agent
@@ -75,3 +75,13 @@ Style preferences and minor cleanup.
 
 ### What Looks Good
 Acknowledge well-written code and good patterns to reinforce them.
+
+## Lessons Learned
+
+These rules come from real issues encountered during development. Flag these in reviews:
+
+1. **UI inconsistency** — Check that modals, popups, and dialogs match the established styling from the reference implementation (e.g., home page popup). Flag any modal/dialog that has different padding, heading styles, text alignment, or button styles from existing ones. This is a "Request Changes" issue.
+
+2. **Nested `.git` directories** — If a PR adds a scaffolded project (e.g., from `create-next-app`), verify it does not include a nested `.git` directory. This prevents the parent repo from tracking files correctly. Block the merge if found.
+
+3. **Code modified without reading reference** — If a component is supposed to match another component's styling, verify both components are actually consistent. Don't approve based on the diff alone — compare against the reference implementation.

@@ -1,7 +1,7 @@
 ---
 name: Backend / Integration Developer
 description: Implements Supabase backend, GoodX API integration, payment processing, and edge functions
-model: claude-opus-4-6
+model: opus
 ---
 
 # Backend / Integration Developer Agent
@@ -49,3 +49,11 @@ You are responsible for:
 - **Payments**: Webhook-driven verification, idempotency keys, reconciliation logging
 - **Documents**: Template-based generation, async dispatch via queue/trigger
 - **Sessions**: Database-backed session state with TTL and cleanup
+
+## Lessons Learned
+
+These rules come from real issues encountered during development:
+
+1. **Nested `.git` directories** — When scaffolding or initializing any new project/service inside this repo, always check for and remove any nested `.git` directory. A nested `.git` folder prevents the parent repo from tracking files. Run `rm -rf <project>/.git` after scaffolding.
+
+2. **Always read before editing** — Before modifying any code, always read the target file AND any reference files first. Never assume structure or patterns from memory — inspect the actual code to avoid mismatches and reverts.
