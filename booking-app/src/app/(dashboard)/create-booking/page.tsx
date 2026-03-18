@@ -470,15 +470,16 @@ export default function CreateBookingPage() {
       {/* Top bar */}
       <div
         data-testid="create-booking-top-bar"
-        className="flex items-center justify-between"
+        className="flex items-center justify-between rounded-xl bg-white px-6 py-4"
       >
         <Button
           data-testid="top-back-button"
           variant="outline"
+          size="sm"
           onClick={handleTopBack}
-          className="gap-1.5 rounded-xl"
+          className="rounded-lg border-black px-6 py-2 gap-3"
         >
-          <ArrowLeft data-icon="inline-start" className="size-4" />
+          <ArrowLeft className="size-4" />
           Back
         </Button>
 

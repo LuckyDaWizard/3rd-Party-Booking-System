@@ -126,7 +126,7 @@ export default function SwitchUnitPage() {
           data-testid="back-button"
           variant="outline"
           onClick={handleBack}
-          className="h-11 w-full rounded-xl"
+          className="h-11 w-full rounded-xl border border-black"
         >
           Back
         </Button>

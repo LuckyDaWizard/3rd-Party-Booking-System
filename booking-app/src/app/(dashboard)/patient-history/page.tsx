@@ -243,7 +243,7 @@ function OptionsModal({ open, onOpenChange }: OptionsModalProps) {
           <Button
             data-testid="options-cancel-button"
             variant="outline"
-            className="w-full"
+            className="w-full border border-black"
             size="lg"
             onClick={handleCancel}
           >
@@ -288,7 +288,7 @@ export default function PatientHistoryPage() {
   return (
     <div data-testid="patient-history-page" className="flex flex-col gap-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Link href="/">
           <Button
             data-testid="back-button"
@@ -496,7 +496,7 @@ export default function PatientHistoryPage() {
         <Link href="/">
           <Button
             data-testid="back-home-button"
-            className="w-[400px] bg-gray-900 text-white hover:bg-gray-800"
+            className="w-[250px] justify-center gap-2 rounded-xl bg-gray-900 py-6 text-sm font-medium text-white hover:bg-gray-800"
             size="lg"
           >
             Back Home
