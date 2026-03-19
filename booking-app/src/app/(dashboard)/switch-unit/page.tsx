@@ -39,7 +39,7 @@ export default function SwitchUnitPage() {
   function handleConfirmSwitch() {
     // TODO: Persist the selected unit (e.g. via context or Supabase)
     setIsConfirmOpen(false)
-    router.push("/")
+    router.push("/home")
   }
 
   function handleBack() {

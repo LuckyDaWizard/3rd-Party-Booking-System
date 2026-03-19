@@ -4,6 +4,13 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ArrowRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { useClientStore } from "@/lib/client-store"
 
 // ---------------------------------------------------------------------------
@@ -74,6 +81,8 @@ export default function ManageClientPage() {
 
   const client = getClient(clientId)
 
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isStatusOpen, setIsStatusOpen] = useState(false)
   const [clientName, setClientName] = useState("")
   const [contactPersonName, setContactPersonName] = useState("")
   const [contactPersonSurname, setContactPersonSurname] = useState("")
@@ -83,11 +92,10 @@ export default function ManageClientPage() {
   useEffect(() => {
     if (client) {
       setClientName(client.clientName)
+      setContactPersonName(client.contactPersonName)
+      setContactPersonSurname(client.contactPersonSurname)
       setEmailAddress(client.email)
       setContactNumber(client.number)
-      // Split client name into contact person name/surname if possible
-      setContactPersonName("")
-      setContactPersonSurname("")
     }
   }, [client])
 
@@ -99,23 +107,43 @@ export default function ManageClientPage() {
     )
   }
 
-  function handleUpdateInformation() {
-    updateClient(clientId, {
+  async function handleUpdateInformation() {
+    await updateClient(clientId, {
       clientName,
+      contactPersonName,
+      contactPersonSurname,
       email: emailAddress,
       number: contactNumber,
     })
     router.push("/client-management")
   }
 
-  function handleDisableClient() {
-    toggleClientStatus(clientId)
-    router.push("/client-management")
+  async function handleDisableClient() {
+    const wasActive = client!.status === "Active"
+    const name = client!.clientName
+    await toggleClientStatus(clientId)
+    const params = new URLSearchParams({
+      statusChanged: wasActive ? "disabled" : "activated",
+      clientName: name,
+    })
+    router.push(`/client-management?${params.toString()}`)
   }
 
-  function handleDeleteClient() {
-    deleteClient(clientId)
-    router.push("/client-management")
+  async function handleDeleteClient() {
+    const deletedData = {
+      clientName: client!.clientName,
+      contactPersonName: client!.contactPersonName,
+      contactPersonSurname: client!.contactPersonSurname,
+      units: client!.units,
+      email: client!.email,
+      number: client!.number,
+    }
+    await deleteClient(clientId)
+    const params = new URLSearchParams({
+      deleted: client!.clientName,
+      data: JSON.stringify(deletedData),
+    })
+    router.push(`/client-management?${params.toString()}`)
   }
 
   return (
@@ -139,7 +167,7 @@ export default function ManageClientPage() {
         <Button
           data-testid="delete-client-button"
           size="sm"
-          onClick={handleDeleteClient}
+          onClick={() => setIsDeleteOpen(true)}
           className="rounded-lg bg-[#FF3A69] px-6 py-2 text-white hover:bg-[#FF3A69]/90"
         >
           Delete Client
@@ -228,13 +256,104 @@ export default function ManageClientPage() {
           <Button
             data-testid="disable-client-button"
             variant="outline"
-            onClick={handleDisableClient}
+            onClick={() => setIsStatusOpen(true)}
             className="h-11 w-full rounded-xl border border-black"
           >
-            {client.status === "Active" ? "Disable Client" : "Enable Client"}
+            {client.status === "Active" ? "Disable Client" : "Activate Client"}
           </Button>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="rounded-2xl p-8">
+          <DialogHeader className="flex flex-col items-center gap-2 text-center">
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Are you sure you want to delete {client.clientName}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Deleting this client will permanently remove all associated records.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center gap-3 pt-4">
+            <Button
+              data-testid="confirm-delete-button"
+              onClick={handleDeleteClient}
+              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+            >
+              Yes, delete client
+              <ArrowRight className="ml-1 size-4" />
+            </Button>
+
+            <Button
+              data-testid="disable-instead-button"
+              variant="outline"
+              onClick={async () => {
+                setIsDeleteOpen(false)
+                const name = client!.clientName
+                await toggleClientStatus(clientId)
+                const params = new URLSearchParams({
+                  statusChanged: "disabled",
+                  clientName: name,
+                })
+                router.push(`/client-management?${params.toString()}`)
+              }}
+              className="h-11 w-full rounded-xl border border-black"
+            >
+              Disable client instead
+            </Button>
+
+            <button
+              type="button"
+              data-testid="cancel-delete-button"
+              onClick={() => setIsDeleteOpen(false)}
+              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+            >
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable / Activate Confirmation Dialog */}
+      <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
+        <DialogContent className="rounded-2xl p-8">
+          <DialogHeader className="flex flex-col items-center gap-2 text-center">
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              {client.status === "Active" ? "Disable" : "Activate"} {client.clientName}?
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              {client.status === "Active"
+                ? "Disabling this client will restrict access to all associated units and users. This can be reversed"
+                : "Activating this client will restore system access and permissions."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center gap-3 pt-4">
+            <Button
+              data-testid="confirm-status-button"
+              onClick={async () => {
+                setIsStatusOpen(false)
+                await handleDisableClient()
+              }}
+              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+            >
+              Yes, {client.status === "Active" ? "disable" : "activate"} client
+              <ArrowRight className="ml-1 size-4" />
+            </Button>
+
+            <button
+              type="button"
+              data-testid="cancel-status-button"
+              onClick={() => setIsStatusOpen(false)}
+              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+            >
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

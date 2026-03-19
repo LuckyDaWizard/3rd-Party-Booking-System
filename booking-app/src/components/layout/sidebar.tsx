@@ -25,7 +25,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Home", href: "/", icon: Home },
+  { label: "Home", href: "/home", icon: Home },
   { label: "Create a Booking", href: "/create-booking", icon: CalendarPlus },
   { label: "Patient History", href: "/patient-history", icon: ClipboardList },
   { label: "Client Management", href: "/client-management", icon: UserCircle },
@@ -100,8 +100,8 @@ export function Sidebar() {
       >
         {navItems.map((item) => {
           const isActive =
-            item.href === "/"
-              ? pathname === "/"
+            item.href === "/home"
+              ? pathname === "/home"
               : pathname.startsWith(item.href)
 
           return (

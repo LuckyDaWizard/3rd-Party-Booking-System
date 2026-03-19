@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, Search, Plus, ChevronDown } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, Search, Plus, ChevronDown, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -68,9 +68,30 @@ export default function ClientManagementPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [selectedClient, setSelectedClient] = React.useState("")
   const [isClientDropdownOpen, setIsClientDropdownOpen] = React.useState(false)
+  const [deleteBanner, setDeleteBanner] = React.useState<{ name: string; data: string } | null>(null)
+  const [statusBanner, setStatusBanner] = React.useState<{ type: "activated" | "disabled"; name: string } | null>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
   const router = useRouter()
-  const { clients } = useClientStore()
+  const searchParams = useSearchParams()
+  const { clients, loading, addClient } = useClientStore()
+
+  // Check for banners from URL params
+  React.useEffect(() => {
+    const deletedName = searchParams.get("deleted")
+    const deletedData = searchParams.get("data")
+    const statusChanged = searchParams.get("statusChanged")
+    const clientName = searchParams.get("clientName")
+
+    if (deletedName) {
+      setDeleteBanner({ name: deletedName, data: deletedData ?? "" })
+    }
+    if (statusChanged && clientName) {
+      setStatusBanner({ type: statusChanged as "activated" | "disabled", name: clientName })
+    }
+    if (deletedName || statusChanged) {
+      window.history.replaceState({}, "", "/client-management")
+    }
+  }, [searchParams])
 
   React.useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -99,7 +120,7 @@ export default function ClientManagementPage() {
     <div data-testid="client-management-page" className="flex flex-col gap-8">
       {/* Top bar */}
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/">
+        <Link href="/home">
           <Button
             data-testid="back-button"
             variant="outline"
@@ -111,6 +132,77 @@ export default function ClientManagementPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Delete success banner */}
+      {deleteBanner && (
+        <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 px-6 py-5">
+          <div className="flex flex-col gap-2">
+            <span className="text-base font-bold text-gray-900">
+              {deleteBanner.name} Deleted
+            </span>
+            <p className="text-sm text-gray-500">
+              The client has been successfully removed from the system. You can undo this action by clicking the button below
+            </p>
+            <Button
+              data-testid="undo-delete-button"
+              size="sm"
+              className="w-fit rounded-lg bg-gray-900 px-4 py-2 text-xs text-white hover:bg-gray-800"
+              onClick={async () => {
+                try {
+                  const data = JSON.parse(deleteBanner.data)
+                  await addClient({
+                    clientName: data.clientName,
+                    contactPersonName: data.contactPersonName ?? "",
+                    contactPersonSurname: data.contactPersonSurname ?? "",
+                    units: data.units ?? "-",
+                    email: data.email,
+                    number: data.number,
+                  })
+                  setDeleteBanner(null)
+                } catch {
+                  setDeleteBanner(null)
+                }
+              }}
+            >
+              Undo Client Delete
+            </Button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDeleteBanner(null)}
+            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Status change banner */}
+      {statusBanner && (
+        <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 px-6 py-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-base font-bold text-gray-900">
+              {statusBanner.type === "activated"
+                ? `${statusBanner.name} has been activated successfully`
+                : "Client Disabled"}
+            </span>
+            <p className="text-sm text-gray-500">
+              {statusBanner.type === "activated"
+                ? "Access has been restored and the client is now active on the system."
+                : `${statusBanner.name}'s access to all associated units and users has been paused.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStatusBanner(null)}
+            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
 
       {/* Heading */}
       <div className="flex items-center justify-between">

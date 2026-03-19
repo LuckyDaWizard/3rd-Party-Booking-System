@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog"
 
 // ---------------------------------------------------------------------------
@@ -289,7 +288,7 @@ export default function PatientHistoryPage() {
     <div data-testid="patient-history-page" className="flex flex-col gap-8">
       {/* Top bar */}
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/">
+        <Link href="/home">
           <Button
             data-testid="back-button"
             variant="outline"
@@ -493,7 +492,7 @@ export default function PatientHistoryPage() {
 
       {/* Back Home button */}
       <div className="flex justify-center pb-4">
-        <Link href="/">
+        <Link href="/home">
           <Button
             data-testid="back-home-button"
             className="w-[250px] justify-center gap-2 rounded-xl bg-gray-900 py-6 text-sm font-medium text-white hover:bg-gray-800"

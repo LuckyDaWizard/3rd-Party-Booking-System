@@ -46,7 +46,7 @@ export default function SignInPage() {
       const isValid = pin === TEST_PIN;
 
       if (isValid) {
-        router.push("/");
+        router.push("/home");
         return;
       }
 

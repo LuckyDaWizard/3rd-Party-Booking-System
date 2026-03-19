@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { supabase } from "./supabase"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,49 +13,12 @@ export interface ClientRecord {
   id: string
   status: ClientStatus
   clientName: string
+  contactPersonName: string
+  contactPersonSurname: string
   units: string
   email: string
   number: string
 }
-
-// ---------------------------------------------------------------------------
-// Initial data
-// ---------------------------------------------------------------------------
-
-const INITIAL_CLIENTS: ClientRecord[] = [
-  {
-    id: "1",
-    status: "Active",
-    clientName: "MediRite Pharmacy",
-    units: "MediRite Pharmacy",
-    email: "contact@mediRite.co.za",
-    number: "078 456 7890",
-  },
-  {
-    id: "2",
-    status: "Active",
-    clientName: "Arrie Nel Pharmacy Group",
-    units: "Eastgate Shopping Centre",
-    email: "contact@arrienel-demo.co.za",
-    number: "073 116 3913",
-  },
-  {
-    id: "3",
-    status: "Active",
-    clientName: "Alpha Pharm",
-    units: "Alpha Rustenburg",
-    email: "contact@arrienel-demo.co.za",
-    number: "072 222 1990",
-  },
-  {
-    id: "4",
-    status: "Disabled",
-    clientName: "Mediclinic Pharmacy",
-    units: "Checkers Hyper Cresta",
-    email: "support@medirite-demo.co.za",
-    number: "084 156 2000",
-  },
-]
 
 // ---------------------------------------------------------------------------
 // Context
@@ -62,54 +26,175 @@ const INITIAL_CLIENTS: ClientRecord[] = [
 
 interface ClientStoreContextValue {
   clients: ClientRecord[]
-  addClient: (client: Omit<ClientRecord, "id" | "status">) => string
-  updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => void
-  updateClientUnit: (id: string, units: string) => void
-  deleteClient: (id: string) => void
-  toggleClientStatus: (id: string) => void
+  loading: boolean
+  addClient: (client: Omit<ClientRecord, "id" | "status">) => Promise<string>
+  updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
+  updateClientUnit: (id: string, units: string) => Promise<void>
+  deleteClient: (id: string) => Promise<void>
+  toggleClientStatus: (id: string) => Promise<void>
   getClient: (id: string) => ClientRecord | undefined
+  refreshClients: () => Promise<void>
 }
 
 const ClientStoreContext = createContext<ClientStoreContextValue | null>(null)
 
-export function ClientStoreProvider({ children }: { children: ReactNode }) {
-  const [clients, setClients] = useState<ClientRecord[]>(INITIAL_CLIENTS)
+// ---------------------------------------------------------------------------
+// Helpers — map between DB snake_case and frontend camelCase
+// ---------------------------------------------------------------------------
 
-  function addClient(client: Omit<ClientRecord, "id" | "status">) {
-    const id = String(Date.now())
-    const newClient: ClientRecord = {
-      ...client,
-      id,
-      status: "Active",
+interface DbClient {
+  id: string
+  client_name: string
+  email: string
+  contact_number: string
+  status: ClientStatus
+  contact_person_name: string | null
+  contact_person_surname: string | null
+}
+
+interface DbUnit {
+  unit_name: string
+}
+
+function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
+  return {
+    id: row.id,
+    status: row.status,
+    clientName: row.client_name,
+    contactPersonName: row.contact_person_name ?? "",
+    contactPersonSurname: row.contact_person_surname ?? "",
+    units: unitName,
+    email: row.email,
+    number: row.contact_number,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+
+export function ClientStoreProvider({ children }: { children: ReactNode }) {
+  const [clients, setClients] = useState<ClientRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchClients = useCallback(async () => {
+    setLoading(true)
+    const { data: clientRows, error } = await supabase
+      .from("clients")
+      .select("*")
+      .order("created_at", { ascending: true })
+
+    if (error) {
+      console.error("Error fetching clients:", error)
+      setLoading(false)
+      return
     }
-    setClients((prev) => [...prev, newClient])
+
+    // Fetch units for each client
+    const mapped: ClientRecord[] = await Promise.all(
+      (clientRows as DbClient[]).map(async (row) => {
+        const { data: units } = await supabase
+          .from("units")
+          .select("unit_name")
+          .eq("client_id", row.id)
+          .limit(1)
+
+        const unitName = (units as DbUnit[] | null)?.[0]?.unit_name ?? "-"
+        return mapDbToClient(row, unitName)
+      })
+    )
+
+    setClients(mapped)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    fetchClients()
+  }, [fetchClients])
+
+  async function addClient(client: Omit<ClientRecord, "id" | "status">) {
+    const { data, error } = await supabase
+      .from("clients")
+      .insert({
+        client_name: client.clientName,
+        contact_person_name: client.contactPersonName,
+        contact_person_surname: client.contactPersonSurname,
+        email: client.email,
+        contact_number: client.number,
+        status: "Active",
+      })
+      .select("id")
+      .single()
+
+    if (error) {
+      console.error("Error adding client:", error)
+      throw error
+    }
+
+    const id = data.id
+
+    // If unit name provided, insert unit
+    if (client.units && client.units !== "-") {
+      await supabase.from("units").insert({
+        client_id: id,
+        unit_name: client.units,
+      })
+    }
+
+    await fetchClients()
     return id
   }
 
-  function updateClient(id: string, updates: Partial<Omit<ClientRecord, "id">>) {
-    setClients((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    )
+  async function updateClient(id: string, updates: Partial<Omit<ClientRecord, "id">>) {
+    const dbUpdates: Record<string, unknown> = {}
+    if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName
+    if (updates.contactPersonName !== undefined) dbUpdates.contact_person_name = updates.contactPersonName
+    if (updates.contactPersonSurname !== undefined) dbUpdates.contact_person_surname = updates.contactPersonSurname
+    if (updates.email !== undefined) dbUpdates.email = updates.email
+    if (updates.number !== undefined) dbUpdates.contact_number = updates.number
+    if (updates.status !== undefined) dbUpdates.status = updates.status
+
+    if (Object.keys(dbUpdates).length > 0) {
+      const { error } = await supabase.from("clients").update(dbUpdates).eq("id", id)
+      if (error) console.error("Error updating client:", error)
+    }
+
+    await fetchClients()
   }
 
-  function updateClientUnit(id: string, units: string) {
-    setClients((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, units } : c))
-    )
+  async function updateClientUnit(id: string, unitName: string) {
+    // Update the first unit or insert one
+    const { data: existingUnits } = await supabase
+      .from("units")
+      .select("id")
+      .eq("client_id", id)
+      .limit(1)
+
+    if (existingUnits && existingUnits.length > 0) {
+      await supabase.from("units").update({ unit_name: unitName }).eq("id", existingUnits[0].id)
+    } else {
+      await supabase.from("units").insert({ client_id: id, unit_name: unitName })
+    }
+
+    await fetchClients()
   }
 
-  function deleteClient(id: string) {
-    setClients((prev) => prev.filter((c) => c.id !== id))
+  async function deleteClient(id: string) {
+    const { error } = await supabase.from("clients").delete().eq("id", id)
+    if (error) {
+      console.error("Error deleting client:", error)
+      return
+    }
+    await fetchClients()
   }
 
-  function toggleClientStatus(id: string) {
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? { ...c, status: c.status === "Active" ? "Disabled" : "Active" }
-          : c
-      )
-    )
+  async function toggleClientStatus(id: string) {
+    const client = clients.find((c) => c.id === id)
+    if (!client) return
+
+    const newStatus = client.status === "Active" ? "Disabled" : "Active"
+    await supabase.from("clients").update({ status: newStatus }).eq("id", id)
+    await fetchClients()
   }
 
   function getClient(id: string) {
@@ -117,7 +202,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ClientStoreContext.Provider value={{ clients, addClient, updateClient, updateClientUnit, deleteClient, toggleClientStatus, getClient }}>
+    <ClientStoreContext.Provider value={{ clients, loading, addClient, updateClient, updateClientUnit, deleteClient, toggleClientStatus, getClient, refreshClients: fetchClients }}>
       {children}
     </ClientStoreContext.Provider>
   )

@@ -431,7 +431,7 @@ export default function CreateBookingPage() {
     } else {
       // Final step -- submit / complete
       // TODO: integrate with Supabase to persist booking and send payment link
-      router.push("/")
+      router.push("/home")
     }
   }
 
@@ -439,7 +439,7 @@ export default function CreateBookingPage() {
     if (currentStep > 1) {
       setCurrentStep((prev) => prev - 1)
     } else {
-      router.push("/")
+      router.push("/home")
     }
   }
 
@@ -447,7 +447,7 @@ export default function CreateBookingPage() {
     if (currentStep > 1) {
       setCurrentStep((prev) => prev - 1)
     } else {
-      router.push("/")
+      router.push("/home")
     }
   }
 
@@ -457,7 +457,7 @@ export default function CreateBookingPage() {
 
   function handleConfirmDiscard() {
     setIsDiscardOpen(false)
-    router.push("/")
+    router.push("/home")
   }
 
   const isLoadingStep = currentStep === 3

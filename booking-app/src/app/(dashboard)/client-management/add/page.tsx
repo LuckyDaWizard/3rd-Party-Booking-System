@@ -456,22 +456,28 @@ export default function AddNewClientPage() {
     clientDetails.emailAddress.trim() !== "" &&
     clientDetails.contactNumber.trim() !== ""
 
-  function handleNext() {
-    if (currentStep === 1 && isStep1Complete) {
-      const id = addClient({
-        clientName: clientDetails.clientName,
-        units: "-",
-        email: clientDetails.emailAddress,
-        number: clientDetails.contactNumber,
-      })
-      setNewClientId(id)
-      setCurrentStep(2)
-      setShowBanner(true)
-    } else if (currentStep === 2) {
-      if (unitDetails.unitName.trim() && newClientId) {
-        updateClientUnit(newClientId, unitDetails.unitName)
+  async function handleNext() {
+    try {
+      if (currentStep === 1 && isStep1Complete) {
+        const id = await addClient({
+          clientName: clientDetails.clientName,
+          contactPersonName: clientDetails.contactPersonName,
+          contactPersonSurname: clientDetails.contactPersonSurname,
+          units: "-",
+          email: clientDetails.emailAddress,
+          number: clientDetails.contactNumber,
+        })
+        setNewClientId(id)
+        setCurrentStep(2)
+        setShowBanner(true)
+      } else if (currentStep === 2) {
+        if (unitDetails.unitName.trim() && newClientId) {
+          await updateClientUnit(newClientId, unitDetails.unitName)
+        }
+        router.push("/client-management")
       }
-      router.push("/client-management")
+    } catch (err) {
+      console.error("Failed to save client:", err)
     }
   }
 
