@@ -99,3 +99,9 @@ These rules come from real issues encountered during development. Flag these in 
 9. **Query ordering** — List queries must use `.order("created_at", { ascending: false })` so newest records appear first. Flag any store that uses `ascending: true`.
 
 10. **Management page consistency** — All entity management pages (clients, units, users) must follow the same 3-page structure (list/add/manage) with identical patterns: floating inputs, custom dropdowns, status toggle dialogs, delete confirmation with "disable instead" option, notification banners via URL params. Flag any new entity page that deviates from this template.
+
+11. **Use `useSearchParams()` not `window.location`** — In Next.js components, flag any use of `window.location.search` or `window.location.pathname` for reading URL state. These don't trigger re-renders. The correct approach is `useSearchParams()` and `usePathname()` from `next/navigation`. This caused a real bug where sidebar active states didn't update when filter tabs changed.
+
+12. **Button active states** — Verify that conditional buttons (e.g., "Continue" enabled when all digits filled) use conditional className to visually activate immediately, not hover-only transitions. Flag patterns like `bg-gray-300 hover:bg-gray-900` when the button should be `bg-gray-900` as soon as the condition is met.
+
+13. **Junction table reviews** — When reviewing many-to-many relationships, verify: `ON DELETE CASCADE` on both foreign keys, `UNIQUE` constraint on the pair, `GRANT ALL` for anon/authenticated, and that the store handles insert + delete of junction rows (not just the main entity).

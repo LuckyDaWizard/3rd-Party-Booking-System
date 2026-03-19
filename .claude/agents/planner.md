@@ -84,3 +84,9 @@ These rules come from real issues encountered during development. All agents mus
    - Provider registration in `(dashboard)/layout.tsx`
 
 8. **Newest records first** — All list queries must use `ascending: false` on `created_at` so the most recently added record appears at the top.
+
+9. **Many-to-many relationships** — When entities require multi-assignment (e.g., a user belongs to multiple units), plan for: a junction table (e.g., `user_units`) with CASCADE deletes and UNIQUE constraints, store methods for managing assignments (`updateUserUnits`), and a multi-select chip UI component on the frontend.
+
+10. **Two-step sensitive action flows** — For sensitive operations (PIN reset, account deletion), plan two-step confirmation: first a "are you sure?" dialog, then a verification step (e.g., enter a code). Spec both dialogs in the task breakdown.
+
+11. **URL-driven filter state** — When page filters need to sync with sidebar navigation, use URL query params (`?tab=value`) as the source of truth. Use `useSearchParams()` in Next.js for reactive reads — never `window.location`.

@@ -80,3 +80,9 @@ These rules come from real issues encountered during development:
    - Spec new entities using this template to maintain consistency.
 
 7. **Notification banner pattern** — After destructive or status-change actions, show a green dismissible banner at the top of the list page. Include a bold title, descriptive subtitle, and X dismiss button. For deletes, optionally include an "Undo" button.
+
+8. **Multi-select chip pattern** — For assigning multiple entities (e.g., units to a user), use a searchable dropdown. Selected items appear as removable blue chips below the input. Already-selected items are filtered from the dropdown. Chips use brand color styling (`bg-[#3ea3db]/10`, blue text, × remove button).
+
+9. **Two-step confirmation for sensitive actions** — Sensitive operations like PIN resets should use a two-dialog flow: (1) "Are you sure?" confirmation with action + cancel, (2) verification step with individual digit code inputs + "Continue" + cancel. The Continue button should visually activate (gray → dark) immediately when all digits are entered — not require hover.
+
+10. **Button state transitions** — Buttons that depend on form conditions must change appearance immediately when the condition is met. Never use hover-only transitions for state changes. Disabled buttons are gray; enabled buttons are dark. The transition should be instant and obvious.

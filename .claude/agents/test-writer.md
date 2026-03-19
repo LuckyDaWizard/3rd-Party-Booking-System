@@ -77,3 +77,9 @@ These rules come from real issues encountered during development:
 7. **Notification banners** — Test that URL params (`?deleted=Name`, `?statusChanged=disabled&unitName=Name`) trigger the correct banner on list pages, and that the URL is cleaned up after display via `window.history.replaceState`.
 
 8. **Management page test template** — Each entity has 3 pages (list/add/manage). Write tests for: list filtering (all/active/disabled), search functionality, add form validation + submission, manage form pre-population from DB, delete confirmation dialog flow, status toggle dialog flow.
+
+9. **Multi-select chip testing** — Test the multi-select dropdown: selecting adds a chip, removing a chip updates the list, already-selected items are filtered from dropdown options, search within the dropdown filters correctly. Verify junction table rows are created/deleted on save.
+
+10. **Verification code input testing** — Test the OTP-style digit inputs: entering a digit auto-focuses next input, backspace on empty input focuses previous, button activates visually when all digits are filled, button is disabled when digits are incomplete.
+
+11. **URL-driven filter sync** — Test that clicking page filter tabs updates the URL query params, and that navigating via sidebar dropdown links sets the correct filter state on the page. Use `useSearchParams()` mocks in tests.

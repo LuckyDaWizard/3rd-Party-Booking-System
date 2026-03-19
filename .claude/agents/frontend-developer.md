@@ -78,3 +78,13 @@ These rules come from real issues encountered during development:
 10. **Persist all form fields to DB** — When saving a record, ensure ALL form fields are included in the insert/update call. Never save just the name — include contact person, email, province, and all other fields. This was a bug when units were created with only `unit_name` but the form captured 5+ fields.
 
 11. **Notification banners via URL params** — After delete/status-change actions, pass banner info via URL search params (e.g., `?deleted=Name` or `?statusChanged=disabled&unitName=Name`), read them on the list page with `useSearchParams()`, show the banner, then clean the URL with `window.history.replaceState()`.
+
+12. **Multi-select chips pattern** — For many-to-many assignments (e.g., assigning multiple units to a user), use a searchable dropdown that adds selected items as removable blue chips (`bg-[#3ea3db]/10 border-[#3ea3db]/30 text-[#3ea3db]`) below the input. Already-selected items are filtered out of the dropdown options.
+
+13. **OTP/verification code inputs** — For PIN verification flows, use individual digit `<input>` elements with: `maxLength={1}`, `inputMode="numeric"`, auto-focus advance to next input on entry, backspace navigates to previous input. Button should visually activate immediately when all digits are filled.
+
+14. **Button active states** — Buttons that depend on form completion must visually change (e.g., from `bg-gray-300` to `bg-gray-900`) immediately when the condition is met. Never rely on hover alone to show the active state. Use conditional className, not `disabled` + hover.
+
+15. **Use `useSearchParams()` for query param tracking** — In Next.js, never use `window.location.search` to read query params in components — it won't trigger re-renders. Always use `useSearchParams()` from `next/navigation` so the component reacts to URL changes (e.g., sidebar active states synced with page filters).
+
+16. **Two-step confirmation flows** — For sensitive actions like PIN resets, use a two-dialog pattern: first dialog confirms intent ("Are you sure?"), second dialog requires verification (e.g., enter a code). Chain them by closing the first and opening the second on confirm.

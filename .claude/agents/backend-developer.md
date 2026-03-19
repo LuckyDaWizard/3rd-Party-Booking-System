@@ -67,3 +67,7 @@ These rules come from real issues encountered during development:
 6. **DB column naming** — All database columns use `snake_case` (e.g., `client_name`, `contact_person_name`, `created_at`). Frontend stores map these to `camelCase`. When adding new columns to an existing table, use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` and include sensible defaults.
 
 7. **Query ordering** — All list queries should use `.order("created_at", { ascending: false })` so newest records appear first in the UI.
+
+8. **Many-to-many relationships** — Use junction tables for many-to-many assignments (e.g., `user_units` for users ↔ units). Always include: `ON DELETE CASCADE` on both foreign keys, a `UNIQUE` constraint on the pair, and `GRANT ALL` for anon/authenticated roles. The frontend store should handle insert/delete of junction rows alongside the main entity.
+
+9. **PIN/verification flows** — PIN reset requires a two-step confirmation. The actual reset logic should generate a new PIN and (in future) send it via SMS/email. Store PINs securely — current implementation uses plaintext as placeholder but should be hashed in production.
