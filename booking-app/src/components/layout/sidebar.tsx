@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
@@ -10,24 +11,40 @@ import {
   UserCircle,
   Building2,
   Users,
-  Plus,
+  Headset,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useSidebar } from "@/lib/sidebar-store"
 
+interface NavChild {
+  label: string
+  href: string
+}
+
 interface NavItem {
   label: string
   href: string
   icon: React.ComponentType<{ className?: string }>
+  children?: NavChild[]
 }
 
 const navItems: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
   { label: "Create a Booking", href: "/create-booking", icon: CalendarPlus },
-  { label: "Patient History", href: "/patient-history", icon: ClipboardList },
+  {
+    label: "Patient History",
+    href: "/patient-history",
+    icon: ClipboardList,
+    children: [
+      { label: "All Patients", href: "/patient-history" },
+      { label: "In Progress", href: "/patient-history?tab=in-progress" },
+      { label: "Completed", href: "/patient-history?tab=completed" },
+    ],
+  },
   { label: "Client Management", href: "/client-management", icon: UserCircle },
   { label: "Unit Management", href: "/unit-management", icon: Building2 },
   { label: "User Management", href: "/user-management", icon: Users },
@@ -36,6 +53,7 @@ const navItems: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname()
   const { collapsed, toggle } = useSidebar()
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   return (
     <aside
@@ -104,6 +122,123 @@ export function Sidebar() {
               ? pathname === "/home"
               : pathname.startsWith(item.href)
 
+          const hasChildren = item.children && item.children.length > 0
+          const isDropdownOpen = openDropdown === item.href
+
+          if (hasChildren) {
+            // Collapsed: popout menu to the right
+            if (collapsed) {
+              return (
+                <div key={item.href} className="relative">
+                  <button
+                    type="button"
+                    data-testid={`nav-link-${item.href.replace(/\//g, "").replace(/-/g, "-") || "home"}`}
+                    onClick={() =>
+                      setOpenDropdown(isDropdownOpen ? null : item.href)
+                    }
+                    className={cn(
+                      "flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-colors",
+                      isActive
+                        ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    )}
+                    title={item.label}
+                  >
+                    <item.icon
+                      className={cn(
+                        "size-5 shrink-0",
+                        isActive ? "text-[#3ea3db]" : "text-gray-400"
+                      )}
+                    />
+                  </button>
+                  {isDropdownOpen && (
+                    <div className="absolute left-full top-0 z-50 ml-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        {item.label}
+                      </div>
+                      <div className="flex flex-col gap-0.5 px-2 pb-2">
+                        {item.children!.map((child) => {
+                          const isChildActive = pathname === child.href
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              onClick={() => setOpenDropdown(null)}
+                              className={cn(
+                                "rounded-lg px-3 py-2 text-sm transition-colors",
+                                isChildActive
+                                  ? "text-[#3ea3db] font-medium bg-[#3ea3db]/10"
+                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                              )}
+                            >
+                              {child.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            // Expanded: inline dropdown
+            return (
+              <div key={item.href} className="flex flex-col">
+                <button
+                  type="button"
+                  data-testid={`nav-link-${item.href.replace(/\//g, "").replace(/-/g, "-") || "home"}`}
+                  onClick={() =>
+                    setOpenDropdown(isDropdownOpen ? null : item.href)
+                  }
+                  className={cn(
+                    "flex items-center justify-between rounded-lg text-sm font-medium transition-colors gap-3 px-3 py-2.5",
+                    isActive
+                      ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  )}
+                >
+                  <span className="flex items-center gap-3">
+                    <item.icon
+                      className={cn(
+                        "size-5 shrink-0",
+                        isActive ? "text-[#3ea3db]" : "text-gray-400"
+                      )}
+                    />
+                    {item.label}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 shrink-0 text-gray-400 transition-transform",
+                      isDropdownOpen ? "rotate-180" : ""
+                    )}
+                  />
+                </button>
+                {isDropdownOpen && (
+                  <div className="ml-8 mt-1 flex flex-col gap-0.5">
+                    {item.children!.map((child) => {
+                      const isChildActive = pathname + (window?.location?.search ?? "") === child.href || pathname === child.href
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={cn(
+                            "rounded-lg px-3 py-2 text-sm transition-colors",
+                            isChildActive
+                              ? "text-[#3ea3db] font-medium"
+                              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
           return (
             <Link
               key={item.href}
@@ -144,11 +279,11 @@ export function Sidebar() {
           size="lg"
         >
           {collapsed ? (
-            <Plus className="size-4" />
+            <Headset className="size-4" />
           ) : (
             <>
               Contact Support
-              <Plus className="size-4" />
+              <Headset className="size-4" />
             </>
           )}
         </Button>
