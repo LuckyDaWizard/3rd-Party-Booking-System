@@ -82,7 +82,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     const { data: clientRows, error } = await supabase
       .from("clients")
       .select("*")
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
 
     if (error) {
       console.error("Error fetching clients:", error)

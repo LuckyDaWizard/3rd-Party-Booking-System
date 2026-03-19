@@ -72,3 +72,11 @@ These rules come from real issues encountered during development:
 4. **Established form patterns** — Specify floating label inputs (label moves to border on focus/fill, X clear button) for client/unit forms. Use custom dropdowns (not native selects) with light blue hover state and rounded containers.
 
 5. **Design references** — Always check `Project Files/` folder for existing design mockups before creating new specs.
+
+6. **Management page UX template** — All entity management flows (clients, units, users) must follow the same UX pattern:
+   - **List**: status filter tabs with counts, entity-specific dropdown filter + search, row cards with status badge + key fields + Manage button, green notification banners for delete/status actions
+   - **Add**: centered card layout, heading + subtitle, floating input fields, single submit button
+   - **Manage**: pre-filled editable form, "Update Information" (gray → dark on hover) + "Disable/Activate" (outline with black border) buttons, red "Delete X" in top bar, confirmation dialogs with "disable instead" fallback option
+   - Spec new entities using this template to maintain consistency.
+
+7. **Notification banner pattern** — After destructive or status-change actions, show a green dismissible banner at the top of the list page. Include a bold title, descriptive subtitle, and X dismiss button. For deletes, optionally include an "Undo" button.

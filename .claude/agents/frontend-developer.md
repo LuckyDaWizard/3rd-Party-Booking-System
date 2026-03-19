@@ -66,3 +66,15 @@ These rules come from real issues encountered during development:
 6. **Client-side state stores** — Use React context providers in `src/lib/` for shared state (e.g., `client-store.tsx`, `sidebar-store.tsx`). Wrap providers in the dashboard layout.
 
 7. **Collapsible sidebar** — Sidebar uses `sidebar-store.tsx` context. Collapsed state shows favicon + icons only. Layout offsets content with dynamic `pl-` class.
+
+8. **Management page template** — Every entity (clients, units, users) follows the same 3-page structure:
+   - **List page** (`page.tsx`): top bar with Back, heading with "New X" button, filter tabs (All/Active/Disabled with counts), dropdown filter + search input, row cards with status badge + fields + Manage button, notification banners (delete/status change) read from URL params
+   - **Add page** (`add/page.tsx`): top bar with Back, centered heading + subtitle, floating input form fields, submit button
+   - **Manage page** (`manage/page.tsx`): top bar with Back + Delete button (`#FF3A69`), centered heading "Manage {name}", editable floating inputs pre-filled from DB, "Update Information" + "Disable/Activate" buttons, delete confirmation dialog, status toggle dialog
+   - When building a new entity page set, copy the client-management equivalent and adapt field names/labels.
+
+9. **Supabase data fetching** — All stores fetch with `.order("created_at", { ascending: false })` so newest records appear first. Each store maps DB snake_case to frontend camelCase.
+
+10. **Persist all form fields to DB** — When saving a record, ensure ALL form fields are included in the insert/update call. Never save just the name — include contact person, email, province, and all other fields. This was a bug when units were created with only `unit_name` but the form captured 5+ fields.
+
+11. **Notification banners via URL params** — After delete/status-change actions, pass banner info via URL search params (e.g., `?deleted=Name` or `?statusChanged=disabled&unitName=Name`), read them on the list page with `useSearchParams()`, show the banner, then clean the URL with `window.history.replaceState()`.

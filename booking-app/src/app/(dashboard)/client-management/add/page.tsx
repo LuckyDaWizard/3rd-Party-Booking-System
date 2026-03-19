@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, FileText, X, CheckCircle, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useClientStore } from "@/lib/client-store"
+import { useUnitStore } from "@/lib/unit-store"
 
 // ---------------------------------------------------------------------------
 // Floating Input Component
@@ -428,7 +429,8 @@ function StepUnitDetails({
 
 export default function AddNewClientPage() {
   const router = useRouter()
-  const { addClient, updateClientUnit } = useClientStore()
+  const { addClient, refreshClients } = useClientStore()
+  const { addUnit } = useUnitStore()
   const [currentStep, setCurrentStep] = useState(1)
   const [showBanner, setShowBanner] = useState(false)
   const [newClientId, setNewClientId] = useState("")
@@ -472,7 +474,16 @@ export default function AddNewClientPage() {
         setShowBanner(true)
       } else if (currentStep === 2) {
         if (unitDetails.unitName.trim() && newClientId) {
-          await updateClientUnit(newClientId, unitDetails.unitName)
+          await addUnit({
+            unitName: unitDetails.unitName,
+            clientId: newClientId,
+            clientName: clientDetails.clientName,
+            contactPersonName: unitDetails.contactPersonName,
+            contactPersonSurname: unitDetails.contactPersonSurname,
+            email: unitDetails.emailAddress,
+            province: unitDetails.province,
+          })
+          await refreshClients()
         }
         router.push("/client-management")
       }

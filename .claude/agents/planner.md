@@ -65,8 +65,22 @@ These rules come from real issues encountered during development. All agents mus
 4. **Design references in Project Files/** — The `Project Files/` folder contains design reference images organized by feature (Home Page, Patient History, Client Management, Sign In, etc.). Always check this folder before planning new features and reference specific images in task specs.
 
 5. **Established patterns to reuse** — When planning new features, reference these existing patterns:
-   - **Client-side stores**: React context in `src/lib/` (e.g., `client-store.tsx`, `sidebar-store.tsx`)
+   - **Client-side stores**: React context in `src/lib/` (e.g., `client-store.tsx`, `unit-store.tsx`, `sidebar-store.tsx`)
    - **Floating inputs**: reusable floating label + clear button input pattern
    - **Multi-step flows**: step indicators, success banners, skip links
    - **Top bar layout**: white rounded row with Back (left) + action button (right)
    - **Colors**: brand `#3ea3db`, danger `#FF3A69`, content bg `#f4f4f4`
+
+6. **Management entity template** — Every manageable entity (clients, units, users) follows a 3-page pattern:
+   - **List page**: filters (All/Active/Disabled), dropdown + search, row cards, notification banners via URL params
+   - **Add page**: centered form with floating inputs, submit button
+   - **Manage page**: pre-filled form, Update + Disable/Activate buttons, Delete dialog with "disable instead" option
+   - When planning a new entity, spec all 3 pages plus the Supabase table, store, and provider registration in the dashboard layout.
+
+7. **Supabase setup checklist** — When planning DB changes, always include:
+   - Table creation SQL with appropriate columns, defaults, and constraints
+   - `GRANT ALL ON TABLE <table> TO anon, authenticated` — without this, the frontend gets 401 errors
+   - Frontend store creation mirroring the client-store pattern (context provider, CRUD methods, snake_case ↔ camelCase mapping)
+   - Provider registration in `(dashboard)/layout.tsx`
+
+8. **Newest records first** — All list queries must use `ascending: false` on `created_at` so the most recently added record appears at the top.

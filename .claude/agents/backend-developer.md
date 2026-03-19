@@ -58,4 +58,12 @@ These rules come from real issues encountered during development:
 
 2. **Always read before editing** — Before modifying any code, always read the target file AND any reference files first. Never assume structure or patterns from memory — inspect the actual code to avoid mismatches and reverts.
 
-3. **Client-side state stores** — The frontend uses React context providers in `src/lib/` for shared state (e.g., `client-store.tsx`). When building backend APIs, ensure the data shape matches what these stores expect (e.g., `ClientRecord` type with id, status, clientName, units, email, number).
+3. **Client-side state stores** — The frontend uses React context providers in `src/lib/` for shared state (e.g., `client-store.tsx`, `unit-store.tsx`). When building backend APIs, ensure the data shape matches what these stores expect (e.g., `ClientRecord` type with id, status, clientName, units, email, number; `UnitRecord` with id, status, unitName, clientId, clientName, contactPersonName, contactPersonSurname, email, province).
+
+4. **Supabase table setup** — After creating tables via SQL, you MUST grant permissions for the anon and authenticated roles: `GRANT ALL ON TABLE <table> TO anon; GRANT ALL ON TABLE <table> TO authenticated;` — otherwise RLS will block all access and the frontend will get 401 "permission denied" errors (code 42501).
+
+5. **Supabase anon key format** — The correct anon key starts with `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` (a JWT). The newer "publishable key" format (`sb_publishable_...`) does NOT work with `@supabase/supabase-js`. Always use the key from Settings → API → "Legacy anon, service_role API keys" tab.
+
+6. **DB column naming** — All database columns use `snake_case` (e.g., `client_name`, `contact_person_name`, `created_at`). Frontend stores map these to `camelCase`. When adding new columns to an existing table, use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` and include sensible defaults.
+
+7. **Query ordering** — All list queries should use `.order("created_at", { ascending: false })` so newest records appear first in the UI.

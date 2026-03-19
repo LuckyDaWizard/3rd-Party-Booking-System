@@ -69,3 +69,11 @@ These rules come from real issues encountered during development:
 3. **Client store testing** — The app uses React context stores (`client-store.tsx`, `sidebar-store.tsx`). When testing components that use these stores, wrap them in the appropriate providers with mock data.
 
 4. **Floating input testing** — The `FloatingInput` component uses CSS peer selectors for label animation. Test the clear button functionality and verify labels move on focus/value changes.
+
+5. **Unit store testing** — `unit-store.tsx` follows the same pattern as `client-store.tsx`. When testing unit-related components, wrap them in both `ClientStoreProvider` and `UnitStoreProvider` (some pages like add-unit use both).
+
+6. **Form submission completeness** — Write tests that verify ALL form fields are included in the Supabase insert/update payload. A real bug occurred when only `unit_name` was saved but the form captured 5+ fields. Test that contact person, email, province etc. are all persisted.
+
+7. **Notification banners** — Test that URL params (`?deleted=Name`, `?statusChanged=disabled&unitName=Name`) trigger the correct banner on list pages, and that the URL is cleaned up after display via `window.history.replaceState`.
+
+8. **Management page test template** — Each entity has 3 pages (list/add/manage). Write tests for: list filtering (all/active/disabled), search functionality, add form validation + submission, manage form pre-population from DB, delete confirmation dialog flow, status toggle dialog flow.

@@ -91,3 +91,11 @@ These rules come from real issues encountered during development. Flag these in 
 5. **Top bar button proportions** — Back button and action buttons in the top bar must both use `size="sm"` with matching `px-6 py-2 rounded-lg` for consistent height. Flag mismatched button sizes in the same row.
 
 6. **State management** — New shared state should use React context providers in `src/lib/`, not prop drilling or local state. Verify providers are wrapped in the dashboard layout.
+
+7. **All form fields must be persisted** — When reviewing add/edit forms, verify that EVERY field captured in the form is included in the Supabase insert/update call. Flag any form where fields are displayed but not saved (e.g., a unit form that captures email and province but only saves unit_name). This was a real bug.
+
+8. **Supabase table permissions** — When reviewing DB migration SQL, verify it includes `GRANT ALL ON TABLE <table> TO anon, authenticated`. Without this, the frontend gets 401 "permission denied" errors. Block the merge if grants are missing.
+
+9. **Query ordering** — List queries must use `.order("created_at", { ascending: false })` so newest records appear first. Flag any store that uses `ascending: true`.
+
+10. **Management page consistency** — All entity management pages (clients, units, users) must follow the same 3-page structure (list/add/manage) with identical patterns: floating inputs, custom dropdowns, status toggle dialogs, delete confirmation with "disable instead" option, notification banners via URL params. Flag any new entity page that deviates from this template.

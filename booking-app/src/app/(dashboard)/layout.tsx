@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { ClientStoreProvider } from "@/lib/client-store"
+import { UnitStoreProvider } from "@/lib/unit-store"
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-store"
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,9 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <ClientStoreProvider>
-        <DashboardContent>{children}</DashboardContent>
+        <UnitStoreProvider>
+          <DashboardContent>{children}</DashboardContent>
+        </UnitStoreProvider>
       </ClientStoreProvider>
     </SidebarProvider>
   )
