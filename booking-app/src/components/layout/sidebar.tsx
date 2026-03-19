@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useSearchParams } from "next/navigation"
@@ -55,6 +55,30 @@ export function Sidebar() {
   const searchParams = useSearchParams()
   const { collapsed, toggle } = useSidebar()
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const sidebarRef = useRef<HTMLElement>(null)
+
+  // Close dropdown when pathname changes to a non-matching page
+  const prevPathnameRef = useRef(pathname)
+  useEffect(() => {
+    if (prevPathnameRef.current !== pathname) {
+      prevPathnameRef.current = pathname
+      if (openDropdown && !pathname.startsWith(openDropdown)) {
+        setOpenDropdown(null)
+      }
+    }
+  }, [pathname, openDropdown])
+
+  // Close collapsed popout when clicking outside the sidebar
+  useEffect(() => {
+    if (!collapsed || !openDropdown) return
+    function handleClickOutside(e: MouseEvent) {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [collapsed, openDropdown])
 
   // Build full current URL path + search for child active matching
   const currentSearch = searchParams.toString()
@@ -62,6 +86,7 @@ export function Sidebar() {
 
   return (
     <aside
+      ref={sidebarRef}
       data-testid="sidebar"
       className={cn(
         "fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-white transition-all duration-300",

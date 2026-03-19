@@ -86,3 +86,5 @@ These rules come from real issues encountered during development:
 9. **Two-step confirmation for sensitive actions** — Sensitive operations like PIN resets should use a two-dialog flow: (1) "Are you sure?" confirmation with action + cancel, (2) verification step with individual digit code inputs + "Continue" + cancel. The Continue button should visually activate (gray → dark) immediately when all digits are entered — not require hover.
 
 10. **Button state transitions** — Buttons that depend on form conditions must change appearance immediately when the condition is met. Never use hover-only transitions for state changes. Disabled buttons are gray; enabled buttons are dark. The transition should be instant and obvious.
+
+11. **Sidebar dropdown behavior** — Collapsible nav items with sub-pages (e.g., Patient History → All/In Progress/Completed) must: open on click from any page, auto-close when navigating to a non-matching section, close on click-outside when in collapsed popout mode. Active child items should show with radio-button indicators and brand-color highlight.

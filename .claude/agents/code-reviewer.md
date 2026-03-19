@@ -105,3 +105,5 @@ These rules come from real issues encountered during development. Flag these in 
 12. **Button active states** — Verify that conditional buttons (e.g., "Continue" enabled when all digits filled) use conditional className to visually activate immediately, not hover-only transitions. Flag patterns like `bg-gray-300 hover:bg-gray-900` when the button should be `bg-gray-900` as soon as the condition is met.
 
 13. **Junction table reviews** — When reviewing many-to-many relationships, verify: `ON DELETE CASCADE` on both foreign keys, `UNIQUE` constraint on the pair, `GRANT ALL` for anon/authenticated, and that the store handles insert + delete of junction rows (not just the main entity).
+
+14. **Sidebar dropdown useEffect race condition** — When reviewing sidebar/nav dropdown auto-close logic, flag any `useEffect` that closes a dropdown based on pathname without tracking the *previous* pathname. The pattern must use a `prevPathnameRef` to only close on actual navigation changes — otherwise the dropdown closes immediately when opened from a non-matching page.

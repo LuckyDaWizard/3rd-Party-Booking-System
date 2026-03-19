@@ -88,3 +88,5 @@ These rules come from real issues encountered during development:
 15. **Use `useSearchParams()` for query param tracking** — In Next.js, never use `window.location.search` to read query params in components — it won't trigger re-renders. Always use `useSearchParams()` from `next/navigation` so the component reacts to URL changes (e.g., sidebar active states synced with page filters).
 
 16. **Two-step confirmation flows** — For sensitive actions like PIN resets, use a two-dialog pattern: first dialog confirms intent ("Are you sure?"), second dialog requires verification (e.g., enter a code). Chain them by closing the first and opening the second on confirm.
+
+17. **Sidebar dropdown auto-close on navigation** — When the sidebar has collapsible dropdowns (e.g., Patient History sub-items), auto-close the dropdown when navigating to a non-matching page. Use a `prevPathnameRef` to detect *pathname changes* rather than checking on every render — otherwise the dropdown closes immediately when opened from a different page before navigation completes. Also close on click-outside for collapsed popout menus.
