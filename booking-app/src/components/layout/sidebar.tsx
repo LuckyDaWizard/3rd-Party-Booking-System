@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import {
   Home,
   CalendarPlus,
@@ -52,8 +52,13 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { collapsed, toggle } = useSidebar()
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+
+  // Build full current URL path + search for child active matching
+  const currentSearch = searchParams.toString()
+  const currentFullPath = currentSearch ? `${pathname}?${currentSearch}` : pathname
 
   return (
     <aside
@@ -63,10 +68,28 @@ export function Sidebar() {
         collapsed ? "w-[72px]" : "w-60"
       )}
     >
+      {/* Collapse toggle */}
+      <button
+        type="button"
+        data-testid="sidebar-toggle"
+        onClick={toggle}
+        className={cn(
+          "mt-3 mb-0 flex items-center rounded-lg px-3 py-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600",
+          collapsed ? "mx-3 justify-center" : "ml-auto mr-3 w-fit"
+        )}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? (
+          <ChevronsRight className="size-4" />
+        ) : (
+          <ChevronsLeft className="size-4" />
+        )}
+      </button>
+
       {/* Logo area */}
       <div
         className={cn(
-          "flex items-center py-6",
+          "flex items-center py-4",
           collapsed ? "justify-center px-2" : "px-5"
         )}
         data-testid="sidebar-logo"
@@ -91,24 +114,6 @@ export function Sidebar() {
           />
         )}
       </div>
-
-      {/* Collapse toggle */}
-      <button
-        type="button"
-        data-testid="sidebar-toggle"
-        onClick={toggle}
-        className={cn(
-          "mx-3 mb-2 flex items-center rounded-lg px-3 py-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600",
-          collapsed ? "justify-center" : "justify-end"
-        )}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {collapsed ? (
-          <ChevronsRight className="size-4" />
-        ) : (
-          <ChevronsLeft className="size-4" />
-        )}
-      </button>
 
       {/* Navigation */}
       <nav
@@ -158,19 +163,31 @@ export function Sidebar() {
                       </div>
                       <div className="flex flex-col gap-0.5 px-2 pb-2">
                         {item.children!.map((child) => {
-                          const isChildActive = pathname === child.href
+                          const isChildActive = child.href.includes("?")
+                            ? currentFullPath === child.href
+                            : currentFullPath === child.href
                           return (
                             <Link
                               key={child.href}
                               href={child.href}
                               onClick={() => setOpenDropdown(null)}
                               className={cn(
-                                "rounded-lg px-3 py-2 text-sm transition-colors",
+                                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
                                 isChildActive
                                   ? "text-[#3ea3db] font-medium bg-[#3ea3db]/10"
                                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                               )}
                             >
+                              <span className={cn(
+                                "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
+                                isChildActive
+                                  ? "border-[#3ea3db]"
+                                  : "border-gray-300"
+                              )}>
+                                {isChildActive && (
+                                  <span className="size-2 rounded-full bg-[#3ea3db]" />
+                                )}
+                              </span>
                               {child.label}
                             </Link>
                           )
@@ -217,7 +234,10 @@ export function Sidebar() {
                 {isDropdownOpen && (
                   <div className="ml-8 mt-1 flex flex-col gap-0.5">
                     {item.children!.map((child) => {
-                      const isChildActive = pathname + (window?.location?.search ?? "") === child.href || pathname === child.href
+                      const childHasQuery = child.href.includes("?")
+                      const isChildActive = childHasQuery
+                        ? currentFullPath === child.href
+                        : currentFullPath === child.href
                       return (
                         <Link
                           key={child.href}

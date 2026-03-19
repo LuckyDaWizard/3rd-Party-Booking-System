@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
 import { ArrowLeft, Search, Plus, ArrowRight, MoreVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -268,10 +269,22 @@ function OptionsModal({ open, onOpenChange }: OptionsModalProps) {
 // ---------------------------------------------------------------------------
 
 export default function PatientHistoryPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
     "all" | "in-progress" | "completed"
   >("all")
   const [searchQuery, setSearchQuery] = React.useState("")
+
+  // Sync filter with URL tab param
+  React.useEffect(() => {
+    if (tabParam === "in-progress" || tabParam === "completed") {
+      setActiveFilter(tabParam)
+    } else {
+      setActiveFilter("all")
+    }
+  }, [tabParam])
   const [optionsModalOpen, setOptionsModalOpen] = React.useState(false)
 
   const allCount = countByFilter(MOCK_PATIENTS, "all")
@@ -335,7 +348,7 @@ export default function PatientHistoryPage() {
           <button
             type="button"
             data-testid="filter-all"
-            onClick={() => setActiveFilter("all")}
+            onClick={() => router.push("/patient-history")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "all"
                 ? "bg-[#3ea3db] text-white"
@@ -357,7 +370,7 @@ export default function PatientHistoryPage() {
           <button
             type="button"
             data-testid="filter-in-progress"
-            onClick={() => setActiveFilter("in-progress")}
+            onClick={() => router.push("/patient-history?tab=in-progress")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "in-progress"
                 ? "bg-[#3ea3db] text-white"
@@ -379,7 +392,7 @@ export default function PatientHistoryPage() {
           <button
             type="button"
             data-testid="filter-completed"
-            onClick={() => setActiveFilter("completed")}
+            onClick={() => router.push("/patient-history?tab=completed")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "completed"
                 ? "bg-[#3ea3db] text-white"
