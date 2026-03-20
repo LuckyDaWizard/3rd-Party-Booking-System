@@ -14,7 +14,7 @@ export default function PaymentSuccessPage() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer)
-          router.push("/home")
+          router.push("/create-booking/patient-metrics")
           return 0
         }
         return prev - 1
@@ -38,7 +38,7 @@ export default function PaymentSuccessPage() {
         </p>
 
         <Button
-          onClick={() => router.push("/home")}
+          onClick={() => router.push("/create-booking/patient-metrics")}
           className="h-12 w-64 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
         >
           Redirecting ({formatted})
