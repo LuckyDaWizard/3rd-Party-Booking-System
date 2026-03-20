@@ -182,7 +182,7 @@ export function Sidebar() {
                     />
                   </button>
                   {isDropdownOpen && (
-                    <div className="absolute left-full top-0 z-50 ml-2 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+                    <div className="absolute left-full top-0 z-50 ml-2 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
                       <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         {item.label}
                       </div>
@@ -203,16 +203,6 @@ export function Sidebar() {
                                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                               )}
                             >
-                              <span className={cn(
-                                "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
-                                isChildActive
-                                  ? "border-[#3ea3db]"
-                                  : "border-gray-300"
-                              )}>
-                                {isChildActive && (
-                                  <span className="size-2 rounded-full bg-[#3ea3db]" />
-                                )}
-                              </span>
                               {child.label}
                             </Link>
                           )
