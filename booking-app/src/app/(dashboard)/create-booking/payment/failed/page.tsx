@@ -1,0 +1,48 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import { XCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
+export default function PaymentFailedPage() {
+  const router = useRouter()
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white">
+      <div className="flex flex-col items-center gap-6">
+        <XCircle className="size-16 text-[#FF3A69]" strokeWidth={1.5} />
+
+        <h1 className="text-3xl font-extrabold text-gray-900">Payment Unsuccessful</h1>
+
+        <p className="text-center text-base text-gray-500">
+          The payment was unsuccessful. Please try again.
+        </p>
+
+        <Button
+          onClick={() => router.push("/create-booking/payment?type=device")}
+          className="h-12 w-64 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
+        >
+          Try Again
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            // TODO: send payment link flow
+          }}
+          className="h-12 w-64 rounded-xl border border-black text-base font-semibold"
+        >
+          Send Payment Link
+        </Button>
+
+        <button
+          type="button"
+          onClick={() => router.push("/home")}
+          className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+        >
+          Back Home
+        </button>
+      </div>
+    </div>
+  )
+}

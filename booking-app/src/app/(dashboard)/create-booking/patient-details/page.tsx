@@ -1,0 +1,1227 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft, ArrowRight, FileText, X, ChevronDown, CheckCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
+
+// ---------------------------------------------------------------------------
+// Floating Input Component
+// ---------------------------------------------------------------------------
+
+function FloatingInput({
+  id,
+  label,
+  value,
+  onChange,
+  onClear,
+  type = "text",
+  readOnly = false,
+  "data-testid": dataTestId,
+  className = "",
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  onClear: () => void
+  type?: string
+  readOnly?: boolean
+  "data-testid"?: string
+  className?: string
+}) {
+  const hasValue = value.length > 0
+
+  return (
+    <div className={`relative ${className}`}>
+      <input
+        id={id}
+        data-testid={dataTestId}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        placeholder=" "
+        className={`peer h-14 w-full rounded-lg border border-gray-300 bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white active:bg-white autofill:bg-white ${
+          readOnly ? "cursor-default bg-gray-50" : ""
+        }`}
+      />
+      <label
+        htmlFor={id}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-400 transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-500"
+      >
+        {label}
+      </label>
+      {hasValue && !readOnly && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+          aria-label={`Clear ${label}`}
+        >
+          <X className="size-4" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Floating Select Component
+// ---------------------------------------------------------------------------
+
+function FloatingSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  "data-testid": dataTestId,
+  className = "",
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  "data-testid"?: string
+  className?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? ""
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isOpen])
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        id={id}
+        type="button"
+        data-testid={dataTestId}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors ${
+          isOpen ? "border-gray-900" : "border-gray-300"
+        }`}
+      >
+        <span className={`${value ? "text-gray-900" : "text-transparent"}`}>
+          {selectedLabel || label}
+        </span>
+      </button>
+      <label
+        className={`pointer-events-none absolute left-3 bg-white px-1 text-sm transition-all ${
+          value || isOpen
+            ? "top-0 -translate-y-1/2 text-xs text-gray-500"
+            : "top-1/2 -translate-y-1/2 text-gray-400"
+        }`}
+      >
+        {label}
+      </label>
+      <ChevronDown
+        className={`pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-transform ${
+          isOpen ? "rotate-180" : ""
+        }`}
+      />
+
+      {isOpen && (
+        <div className="absolute left-0 bottom-full z-10 mb-1 max-h-96 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+          <div className="mx-2 my-2 flex max-h-80 flex-col gap-1 overflow-y-auto">
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                data-testid={`option-${opt.value}`}
+                onClick={() => {
+                  onChange(opt.value)
+                  setIsOpen(false)
+                }}
+                className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
+                  opt.value === value ? "bg-[#3ea3db]/15 font-medium" : ""
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const TOTAL_STEPS = 4
+
+const STEP_LABELS = [
+  "Basic Info",
+  "Address",
+  "Contact Details",
+  "Payment Type",
+]
+
+const ID_TYPE_OPTIONS = [
+  { value: "national_id", label: "National ID" },
+  { value: "passport", label: "Passport" },
+]
+
+const NATIONALITY_OPTIONS = [
+  { value: "south_african", label: "South African" },
+  { value: "zimbabwean", label: "Zimbabwean" },
+  { value: "mozambican", label: "Mozambican" },
+  { value: "nigerian", label: "Nigerian" },
+  { value: "kenyan", label: "Kenyan" },
+  { value: "ghanaian", label: "Ghanaian" },
+  { value: "tanzanian", label: "Tanzanian" },
+  { value: "malawian", label: "Malawian" },
+  { value: "zambian", label: "Zambian" },
+  { value: "botswanan", label: "Botswanan" },
+  { value: "namibian", label: "Namibian" },
+  { value: "lesotho", label: "Lesotho" },
+  { value: "eswatini", label: "Eswatini" },
+  { value: "other", label: "Other" },
+]
+
+const PROVINCES = [
+  "Eastern Cape",
+  "Free State",
+  "Gauteng",
+  "KwaZulu-Natal",
+  "Limpopo",
+  "Mpumalanga",
+  "North West",
+  "Northern Cape",
+  "Western Cape",
+]
+
+const COUNTRY_CODES = [
+  { code: "ZA", dial: "+27" },
+  { code: "BW", dial: "+267" },
+  { code: "MZ", dial: "+258" },
+  { code: "NA", dial: "+264" },
+  { code: "ZW", dial: "+263" },
+  { code: "SZ", dial: "+268" },
+  { code: "LS", dial: "+266" },
+  { code: "NG", dial: "+234" },
+  { code: "KE", dial: "+254" },
+  { code: "GH", dial: "+233" },
+  { code: "GB", dial: "+44" },
+  { code: "US", dial: "+1" },
+]
+
+function CountryCodeSelect({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (code: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = COUNTRY_CODES.find((c) => c.code === value) ?? COUNTRY_CODES[0]
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative w-24">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3"
+      >
+        <span className="text-sm font-medium text-gray-900">{selected.code}</span>
+        <ChevronDown className={`size-3 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+      <label className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-white px-1 text-xs text-gray-500">
+        Country
+      </label>
+      {isOpen && (
+        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-52 w-32 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+          <div className="overflow-y-auto max-h-52 mr-1">
+            {COUNTRY_CODES.map((country) => (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => {
+                  onChange(country.code)
+                  setIsOpen(false)
+                }}
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-[#3ea3db]/15 ${
+                  value === country.code ? "bg-[#3ea3db]/15 font-medium" : "text-gray-700"
+                }`}
+              >
+                <span className="font-medium">{country.code}</span>
+                <span className="text-gray-500">{country.dial}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface BasicInfoData {
+  firstNames: string
+  surname: string
+  idType: string
+  idNumber: string
+  title: string
+  nationality: string
+  gender: string
+  dateOfBirth: string
+}
+
+// ---------------------------------------------------------------------------
+// Step 1 - Basic Info
+// ---------------------------------------------------------------------------
+
+function StepBasicInfo({
+  data,
+  onChange,
+}: {
+  data: BasicInfoData
+  onChange: (updated: BasicInfoData) => void
+}) {
+  function handleChange(field: keyof BasicInfoData, value: string) {
+    onChange({ ...data, [field]: value })
+  }
+
+  function handleClear(field: keyof BasicInfoData) {
+    onChange({ ...data, [field]: "" })
+  }
+
+  // Determine the ID field label based on selected type
+  const idFieldLabel =
+    data.idType === "passport" ? "Passport No" : "National ID No"
+
+  return (
+    <div
+      data-testid="step-basic-info"
+      className="flex w-full max-w-4xl flex-col gap-6"
+    >
+      {/* Step label */}
+      <div className="flex flex-col gap-1">
+        <span
+          data-testid="step-label"
+          className="text-xs font-semibold uppercase tracking-wider text-gray-400"
+        >
+          Step 1 of {TOTAL_STEPS}
+        </span>
+        <h1
+          data-testid="step-heading"
+          className="text-3xl font-bold text-gray-900"
+        >
+          Patient Details
+        </h1>
+        <p className="text-base text-gray-500">
+          Please provide the patient&apos;s details
+        </p>
+      </div>
+
+      {/* Form fields - 2-column layout */}
+      <div className="flex w-full flex-col gap-4">
+        {/* Row 1: First Names + Surname */}
+        <div className="grid grid-cols-2 gap-6">
+          <FloatingInput
+            id="firstNames"
+            data-testid="input-first-names"
+            label="First Names"
+            value={data.firstNames}
+            onChange={(v) => handleChange("firstNames", v)}
+            onClear={() => handleClear("firstNames")}
+          />
+          <FloatingInput
+            id="surname"
+            data-testid="input-surname"
+            label="Surname"
+            value={data.surname}
+            onChange={(v) => handleChange("surname", v)}
+            onClear={() => handleClear("surname")}
+          />
+        </div>
+
+        {/* Row 2: ID Type (dropdown) + ID Number (pre-filled) */}
+        <div className="grid grid-cols-2 gap-6">
+          <FloatingSelect
+            id="idType"
+            data-testid="select-id-type"
+            label="ID Type"
+            value={data.idType}
+            onChange={(v) => handleChange("idType", v)}
+            options={ID_TYPE_OPTIONS}
+          />
+          <FloatingInput
+            id="idNumber"
+            data-testid="input-id-number"
+            label={idFieldLabel}
+            value={data.idNumber}
+            onChange={(v) => handleChange("idNumber", v)}
+            onClear={() => handleClear("idNumber")}
+            readOnly
+          />
+        </div>
+
+        {/* Row 3: Title + Nationality */}
+        <div className="grid grid-cols-2 gap-6">
+          <FloatingInput
+            id="title"
+            data-testid="input-title"
+            label="Title"
+            value={data.title}
+            onChange={(v) => handleChange("title", v)}
+            onClear={() => handleClear("title")}
+          />
+          <FloatingSelect
+            id="nationality"
+            data-testid="select-nationality"
+            label="Nationality"
+            value={data.nationality}
+            onChange={(v) => handleChange("nationality", v)}
+            options={NATIONALITY_OPTIONS}
+          />
+        </div>
+
+        {/* Row 4: Gender + Date of Birth */}
+        <div className="grid grid-cols-2 gap-6">
+          <FloatingInput
+            id="gender"
+            data-testid="input-gender"
+            label="Gender"
+            value={data.gender}
+            onChange={(v) => handleChange("gender", v)}
+            onClear={() => handleClear("gender")}
+          />
+          <FloatingInput
+            id="dateOfBirth"
+            data-testid="input-date-of-birth"
+            label="Date of Birth"
+            value={data.dateOfBirth}
+            onChange={(v) => handleChange("dateOfBirth", v)}
+            onClear={() => handleClear("dateOfBirth")}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
+export default function PatientDetailsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [currentStep, setCurrentStep] = useState(1)
+
+  // Read search params passed from the search page
+  const searchType = searchParams.get("searchType") ?? "id"
+  const idNumber = searchParams.get("idNumber") ?? ""
+  const passportNumber = searchParams.get("passportNumber") ?? ""
+  const firstNameParam = searchParams.get("firstName") ?? ""
+  const surnameParam = searchParams.get("surname") ?? ""
+  const dobParam = searchParams.get("dob") ?? ""
+
+  // Determine initial ID type and number from search params
+  const initialIdType = searchType === "passport" ? "passport" : "national_id"
+  const initialIdNumber =
+    searchType === "passport" ? passportNumber : idNumber
+
+  const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
+    firstNames: firstNameParam,
+    surname: surnameParam,
+    idType: initialIdType,
+    idNumber: initialIdNumber,
+    title: "",
+    nationality: "",
+    gender: "",
+    dateOfBirth: dobParam,
+  })
+
+  // Validation: all fields required for step 1
+  // Address state
+  const [addressInfo, setAddressInfo] = useState({
+    address: "",
+    suburb: "",
+    city: "",
+    province: "",
+    country: "",
+    postalCode: "",
+  })
+
+  const isStep1Complete =
+    basicInfo.firstNames.trim() !== "" &&
+    basicInfo.surname.trim() !== "" &&
+    basicInfo.idType.trim() !== "" &&
+    basicInfo.idNumber.trim() !== "" &&
+    basicInfo.title.trim() !== "" &&
+    basicInfo.nationality.trim() !== "" &&
+    basicInfo.gender.trim() !== "" &&
+    basicInfo.dateOfBirth.trim() !== ""
+
+  const isStep2Complete =
+    addressInfo.address.trim() !== "" &&
+    addressInfo.suburb.trim() !== "" &&
+    addressInfo.city.trim() !== "" &&
+    addressInfo.province.trim() !== "" &&
+    addressInfo.country.trim() !== "" &&
+    addressInfo.postalCode.trim() !== ""
+
+  // Contact details state
+  const [contactInfo, setContactInfo] = useState({
+    countryCode: "ZA",
+    contactNumber: "+27",
+    emailAddress: "",
+    scriptToAnotherEmail: false,
+    additionalEmail: "",
+  })
+
+  // Verification dialog
+  const [showVerification, setShowVerification] = useState(false)
+  const [bookingVerificationCode, setBookingVerificationCode] = useState("")
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false)
+  const [selectedPaymentType, setSelectedPaymentType] = useState("")
+
+  const isStep3Complete =
+    contactInfo.contactNumber.trim() !== "" &&
+    contactInfo.emailAddress.trim() !== "" &&
+    (!contactInfo.scriptToAnotherEmail || contactInfo.additionalEmail.trim() !== "")
+
+  function handleNext() {
+    if (currentStep === 1 && isStep1Complete) {
+      setCurrentStep(2)
+    } else if (currentStep === 2 && isStep2Complete) {
+      setCurrentStep(3)
+    } else if (currentStep === 3 && isStep3Complete) {
+      setCurrentStep(4)
+    } else if (currentStep === 4) {
+      setShowVerification(true)
+    } else if (currentStep === 5 && selectedPaymentType) {
+      if (selectedPaymentType === "device") {
+        router.push("/create-booking/payment?type=device")
+      } else if (selectedPaymentType === "link") {
+        router.push("/create-booking/payment?type=link")
+      }
+    }
+  }
+
+  function handleBack() {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    } else {
+      router.push("/create-booking")
+    }
+  }
+
+  function handleDiscardFlow() {
+    router.push("/home")
+  }
+
+  const isNextEnabled =
+    currentStep === 1 ? isStep1Complete :
+    currentStep === 2 ? isStep2Complete :
+    currentStep === 3 ? isStep3Complete :
+    currentStep === 4 ? true :
+    currentStep === 5 ? selectedPaymentType !== "" :
+    false
+
+  return (
+    <div
+      data-testid="patient-details-page"
+      className="flex flex-1 flex-col gap-4"
+    >
+      {/* Top bar */}
+      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
+        <Button
+          data-testid="top-back-button"
+          variant="outline"
+          size="sm"
+          onClick={handleBack}
+          className="rounded-lg border-black px-6 py-2 gap-3"
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
+        <Button
+          data-testid="discard-flow-button"
+          size="sm"
+          onClick={handleDiscardFlow}
+          className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
+          style={{ backgroundColor: "#FF3A69" }}
+        >
+          Discard Flow
+        </Button>
+      </div>
+
+      {/* Content area */}
+      <div className="flex flex-1 flex-col items-center gap-8 py-8">
+        {/* Success banner */}
+        {showSuccessBanner && (
+          <div className="flex w-full max-w-4xl items-start justify-between rounded-xl bg-green-100 px-6 py-5">
+            <div className="flex flex-col gap-1">
+              <span className="text-base font-bold text-gray-900">
+                Patient Profile Created Successfully
+              </span>
+              <p className="text-sm text-gray-500">
+                The patient&apos;s profile has been created successfully
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSuccessBanner(false)}
+              className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Step indicators */}
+        <nav
+          data-testid="step-indicators"
+          className="flex items-center gap-4"
+          aria-label="Booking steps"
+        >
+          {STEP_LABELS.map((label, index) => {
+            const stepNumber = index + 1
+            // Step 5 (payment) maps to step indicator 4
+            const displayStep = currentStep > 4 ? 4 : currentStep
+            const isActive = stepNumber === displayStep
+            const isCompleted = stepNumber < displayStep || (currentStep === 5 && stepNumber < 4)
+
+            return (
+              <div
+                key={label}
+                data-testid={`step-indicator-${stepNumber}`}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                    : isCompleted
+                    ? "text-green-500"
+                    : "text-gray-400"
+                }`}
+              >
+                {isCompleted ? (
+                  <CheckCircle className="size-4 text-green-500" />
+                ) : (
+                  <FileText className="size-4" />
+                )}
+                {label}
+              </div>
+            )
+          })}
+        </nav>
+
+        {/* Step content */}
+        {currentStep === 1 && (
+          <StepBasicInfo data={basicInfo} onChange={setBasicInfo} />
+        )}
+
+        {/* Step 2 - Address Details */}
+        {currentStep === 2 && (
+          <div
+            data-testid="step-address"
+            className="flex w-full max-w-4xl flex-col gap-6"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Step 2 of {TOTAL_STEPS}
+              </span>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Address Details
+              </h1>
+              <p className="text-base text-gray-500">
+                Please provide the patient&apos;s physical address below
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <FloatingInput
+                id="address"
+                label="Address"
+                value={addressInfo.address}
+                onChange={(v) => setAddressInfo({ ...addressInfo, address: v })}
+                onClear={() => setAddressInfo({ ...addressInfo, address: "" })}
+              />
+              <FloatingInput
+                id="suburb"
+                label="Suburb"
+                value={addressInfo.suburb}
+                onChange={(v) => setAddressInfo({ ...addressInfo, suburb: v })}
+                onClear={() => setAddressInfo({ ...addressInfo, suburb: "" })}
+              />
+              <FloatingInput
+                id="city"
+                label="City"
+                value={addressInfo.city}
+                onChange={(v) => setAddressInfo({ ...addressInfo, city: v })}
+                onClear={() => setAddressInfo({ ...addressInfo, city: "" })}
+              />
+              <FloatingSelect
+                id="province"
+                label="Province"
+                value={addressInfo.province}
+                onChange={(v) => setAddressInfo({ ...addressInfo, province: v })}
+                options={PROVINCES.map((p) => ({ value: p, label: p }))}
+              />
+              <FloatingInput
+                id="country"
+                label="Country"
+                value={addressInfo.country}
+                onChange={(v) => setAddressInfo({ ...addressInfo, country: v })}
+                onClear={() => setAddressInfo({ ...addressInfo, country: "" })}
+              />
+              <FloatingInput
+                id="postalCode"
+                label="Postal Code"
+                value={addressInfo.postalCode}
+                onChange={(v) => setAddressInfo({ ...addressInfo, postalCode: v })}
+                onClear={() => setAddressInfo({ ...addressInfo, postalCode: "" })}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 - Contact Details */}
+        {currentStep === 3 && (
+          <div
+            data-testid="step-contact-details"
+            className="flex w-full max-w-4xl flex-col gap-6"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Step 3 of {TOTAL_STEPS}
+              </span>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Contact Details
+              </h1>
+              <p className="text-base text-gray-500">
+                Please provide the patient&apos;s contact details
+              </p>
+            </div>
+
+            {/* Warning banner */}
+            <div className="flex items-center gap-4 rounded-xl bg-pink-100 px-6 py-4">
+              <span className="flex items-center gap-2 rounded-full bg-[#FF3A69] px-4 py-1.5 text-sm font-semibold text-white">
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                Warning
+              </span>
+              <p className="text-sm font-semibold text-gray-900">
+                Please ensure that the contact information is correct before proceeding to the next step
+              </p>
+            </div>
+
+            {/* Contact fields */}
+            <div className="flex gap-4">
+              {/* Country code selector */}
+              <CountryCodeSelect
+                value={contactInfo.countryCode}
+                onChange={(v) => {
+                  const country = COUNTRY_CODES.find((c) => c.code === v)
+                  const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
+                  let newNumber = contactInfo.contactNumber
+                  // Replace old dial code with new one
+                  if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
+                    newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
+                  } else if (country) {
+                    newNumber = country.dial + newNumber
+                  }
+                  setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
+                }}
+              />
+
+              {/* Contact Number */}
+              <FloatingInput
+                id="contactNumber"
+                label="Contact Number"
+                value={contactInfo.contactNumber}
+                onChange={(v) => setContactInfo({ ...contactInfo, contactNumber: v })}
+                onClear={() => setContactInfo({ ...contactInfo, contactNumber: "" })}
+                className="flex-1"
+              />
+
+              {/* Email Address */}
+              <FloatingInput
+                id="emailAddress"
+                label="Email Address"
+                value={contactInfo.emailAddress}
+                onChange={(v) => setContactInfo({ ...contactInfo, emailAddress: v })}
+                onClear={() => setContactInfo({ ...contactInfo, emailAddress: "" })}
+                className="flex-1"
+              />
+            </div>
+
+            {/* Script to another email */}
+            <div className="flex items-center justify-between rounded-xl bg-[#CDE5F2] px-6 py-4">
+              <p className="text-sm text-gray-700">
+                Would you like to script this to another email address
+              </p>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: true })}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
+                >
+                  Yes
+                  <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
+                    {contactInfo.scriptToAnotherEmail && (
+                      <span className="size-3 rounded-full bg-[#3ea3db]" />
+                    )}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: false })}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
+                >
+                  No
+                  <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
+                    {!contactInfo.scriptToAnotherEmail && (
+                      <span className="size-3 rounded-full bg-[#3ea3db]" />
+                    )}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Additional email section */}
+            {contactInfo.scriptToAnotherEmail && (
+              <div className="flex flex-col gap-3">
+                <p className="text-base text-gray-700">
+                  Please provide the additional email address
+                </p>
+                <FloatingInput
+                  id="additionalEmail"
+                  label="Email Address"
+                  value={contactInfo.additionalEmail}
+                  onChange={(v) => setContactInfo({ ...contactInfo, additionalEmail: v })}
+                  onClear={() => setContactInfo({ ...contactInfo, additionalEmail: "" })}
+                  className="max-w-md"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 4 - Verify Details */}
+        {currentStep === 4 && (
+          <div
+            data-testid="step-verify-details"
+            className="flex w-full max-w-4xl flex-col gap-8"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Step 4 of {TOTAL_STEPS}
+              </span>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Verify your Details
+              </h1>
+              <p className="text-base text-gray-500">
+                Please make sure you have provided the correct details
+              </p>
+            </div>
+
+            {/* Patient Details */}
+            <div className="flex flex-col gap-4">
+              <h2 className="text-xl font-bold text-gray-900">Patient Details</h2>
+              <div className="grid grid-cols-2 gap-6">
+                <FloatingInput
+                  id="verify-firstNames"
+                  label="First Names"
+                  value={basicInfo.firstNames}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, firstNames: v })}
+                  onClear={() => setBasicInfo({ ...basicInfo, firstNames: "" })}
+                />
+                <FloatingInput
+                  id="verify-surname"
+                  label="Surname"
+                  value={basicInfo.surname}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, surname: v })}
+                  onClear={() => setBasicInfo({ ...basicInfo, surname: "" })}
+                />
+                <FloatingInput
+                  id="verify-idType"
+                  label="ID Type"
+                  value={basicInfo.idType === "passport" ? "Passport" : "National ID"}
+                  onChange={() => {}}
+                  onClear={() => {}}
+                  readOnly
+                />
+                <FloatingInput
+                  id="verify-idNumber"
+                  label={basicInfo.idType === "passport" ? "Passport No" : "National ID No"}
+                  value={basicInfo.idNumber}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, idNumber: v })}
+                  onClear={() => setBasicInfo({ ...basicInfo, idNumber: "" })}
+                />
+                <FloatingInput
+                  id="verify-title"
+                  label="Title"
+                  value={basicInfo.title}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, title: v })}
+                  onClear={() => setBasicInfo({ ...basicInfo, title: "" })}
+                />
+                <FloatingInput
+                  id="verify-nationality"
+                  label="Nationality"
+                  value={basicInfo.nationality}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, nationality: v })}
+                  onClear={() => setBasicInfo({ ...basicInfo, nationality: "" })}
+                />
+                <FloatingInput
+                  id="verify-gender"
+                  label="Gender"
+                  value={basicInfo.gender}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, gender: v })}
+                  onClear={() => setBasicInfo({ ...basicInfo, gender: "" })}
+                />
+                <FloatingInput
+                  id="verify-dob"
+                  label="Date of Birth"
+                  value={basicInfo.dateOfBirth}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, dateOfBirth: v })}
+                  onClear={() => setBasicInfo({ ...basicInfo, dateOfBirth: "" })}
+                />
+              </div>
+            </div>
+
+            {/* Address Details */}
+            <div className="flex flex-col gap-4">
+              <h2 className="text-xl font-bold text-gray-900">Address Details</h2>
+              <div className="grid grid-cols-2 gap-6">
+                <FloatingInput
+                  id="verify-address"
+                  label="Address"
+                  value={addressInfo.address}
+                  onChange={(v) => setAddressInfo({ ...addressInfo, address: v })}
+                  onClear={() => setAddressInfo({ ...addressInfo, address: "" })}
+                />
+                <FloatingInput
+                  id="verify-suburb"
+                  label="Suburb"
+                  value={addressInfo.suburb}
+                  onChange={(v) => setAddressInfo({ ...addressInfo, suburb: v })}
+                  onClear={() => setAddressInfo({ ...addressInfo, suburb: "" })}
+                />
+                <FloatingInput
+                  id="verify-city"
+                  label="City"
+                  value={addressInfo.city}
+                  onChange={(v) => setAddressInfo({ ...addressInfo, city: v })}
+                  onClear={() => setAddressInfo({ ...addressInfo, city: "" })}
+                />
+                <FloatingInput
+                  id="verify-province"
+                  label="Province"
+                  value={addressInfo.province}
+                  onChange={(v) => setAddressInfo({ ...addressInfo, province: v })}
+                  onClear={() => setAddressInfo({ ...addressInfo, province: "" })}
+                />
+                <FloatingInput
+                  id="verify-country"
+                  label="Country"
+                  value={addressInfo.country}
+                  onChange={(v) => setAddressInfo({ ...addressInfo, country: v })}
+                  onClear={() => setAddressInfo({ ...addressInfo, country: "" })}
+                />
+                <FloatingInput
+                  id="verify-postalCode"
+                  label="Postal Code"
+                  value={addressInfo.postalCode}
+                  onChange={(v) => setAddressInfo({ ...addressInfo, postalCode: v })}
+                  onClear={() => setAddressInfo({ ...addressInfo, postalCode: "" })}
+                />
+              </div>
+            </div>
+
+            {/* Contact Details */}
+            <div className="flex flex-col gap-4">
+              <h2 className="text-xl font-bold text-gray-900">Contact Details</h2>
+
+              {/* Last Chance warning */}
+              <div className="flex items-center gap-4 rounded-xl bg-pink-100 px-6 py-4">
+                <span className="flex items-center gap-2 rounded-full bg-[#FF3A69] px-4 py-1.5 text-sm font-semibold text-white">
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  Last Chance
+                </span>
+                <p className="text-sm font-semibold text-gray-900">
+                  Please ensure that the contact information is correct before proceeding to the next step
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <CountryCodeSelect
+                  value={contactInfo.countryCode}
+                  onChange={(v) => {
+                    const country = COUNTRY_CODES.find((c) => c.code === v)
+                    const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
+                    let newNumber = contactInfo.contactNumber
+                    if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
+                      newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
+                    } else if (country) {
+                      newNumber = country.dial + newNumber
+                    }
+                    setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
+                  }}
+                />
+                <FloatingInput
+                  id="verify-contactNumber"
+                  label="Contact Number"
+                  value={contactInfo.contactNumber}
+                  onChange={(v) => setContactInfo({ ...contactInfo, contactNumber: v })}
+                  onClear={() => setContactInfo({ ...contactInfo, contactNumber: "" })}
+                  className="flex-1"
+                />
+                <FloatingInput
+                  id="verify-emailAddress"
+                  label="Email Address"
+                  value={contactInfo.emailAddress}
+                  onChange={(v) => setContactInfo({ ...contactInfo, emailAddress: v })}
+                  onClear={() => setContactInfo({ ...contactInfo, emailAddress: "" })}
+                  className="flex-1"
+                />
+              </div>
+
+              {/* Script to another email */}
+              <div className="flex items-center justify-between rounded-xl bg-[#CDE5F2] px-6 py-4">
+                <p className="text-sm text-gray-700">
+                  Would you like to script this to another email address
+                </p>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: true })}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
+                  >
+                    Yes
+                    <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
+                      {contactInfo.scriptToAnotherEmail && (
+                        <span className="size-3 rounded-full bg-[#3ea3db]" />
+                      )}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: false })}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
+                  >
+                    No
+                    <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
+                      {!contactInfo.scriptToAnotherEmail && (
+                        <span className="size-3 rounded-full bg-[#3ea3db]" />
+                      )}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Additional email */}
+              {contactInfo.scriptToAnotherEmail && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-base text-gray-700">
+                    Please provide the additional email address
+                  </p>
+                  <FloatingInput
+                    id="verify-additionalEmail"
+                    label="Email Address"
+                    value={contactInfo.additionalEmail}
+                    onChange={(v) => setContactInfo({ ...contactInfo, additionalEmail: v })}
+                    onClear={() => setContactInfo({ ...contactInfo, additionalEmail: "" })}
+                    className="max-w-md"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 5 - Payment Type */}
+        {currentStep === 5 && (
+          <div
+            data-testid="step-payment-type"
+            className="flex w-full max-w-4xl flex-col gap-6"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Step 4 of {TOTAL_STEPS}
+              </span>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Select a payment type
+              </h1>
+              <p className="text-base text-gray-500">
+                Please select the patient&apos;s payment type
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              {/* Pay on device */}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentType("device")}
+                className={`flex items-center gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
+                  selectedPaymentType === "device"
+                    ? "border-[#3ea3db] bg-[#CDE5F2]"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span className={`flex size-6 items-center justify-center rounded-full border-2 ${
+                  selectedPaymentType === "device" ? "border-[#3ea3db] bg-[#3ea3db]" : "border-gray-300 bg-white"
+                }`}>
+                  {selectedPaymentType === "device" && (
+                    <span className="size-3 rounded-full bg-white" />
+                  )}
+                </span>
+                <span className="text-sm font-medium text-gray-900">Pay on device</span>
+              </button>
+
+              {/* Send a payment link */}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentType("link")}
+                className={`flex items-center gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
+                  selectedPaymentType === "link"
+                    ? "border-[#3ea3db] bg-[#CDE5F2]"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span className={`flex size-6 items-center justify-center rounded-full border-2 ${
+                  selectedPaymentType === "link" ? "border-[#3ea3db] bg-[#3ea3db]" : "border-gray-300 bg-white"
+                }`}>
+                  {selectedPaymentType === "link" && (
+                    <span className="size-3 rounded-full bg-white" />
+                  )}
+                </span>
+                <span className="text-sm font-medium text-gray-900">Send a payment link</span>
+              </button>
+
+              {/* Medical Aid - Coming Soon */}
+              <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-6 py-5">
+                <span className="text-sm font-medium text-gray-400">Medical Aid</span>
+                <span className="rounded-full bg-[#3ea3db] px-4 py-1.5 text-xs font-semibold text-white">
+                  Coming Soon
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom navigation */}
+        <div className="flex w-full max-w-4xl justify-between pt-4">
+          <Button
+            data-testid="bottom-back-button"
+            variant="outline"
+            onClick={handleBack}
+            className="h-12 w-[38%] rounded-xl border border-black text-base font-semibold"
+          >
+            Back
+          </Button>
+          <Button
+            data-testid="next-button"
+            onClick={handleNext}
+            className={`h-12 w-[38%] gap-2 rounded-xl text-base font-semibold transition-all ${
+              isNextEnabled
+                ? "bg-gray-900 text-white hover:bg-gray-800"
+                : "bg-gray-300 text-gray-500 cursor-default"
+            }`}
+            disabled={!isNextEnabled}
+          >
+            Next
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Nurse Verification Dialog */}
+      {showVerification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl bg-white p-8">
+            <h2 className="text-center text-xl font-bold text-gray-900">
+              Enter your nurse verification
+              <br />
+              code to create booking
+            </h2>
+
+            <InputOTP
+              maxLength={5}
+              value={bookingVerificationCode}
+              onChange={setBookingVerificationCode}
+            >
+              <InputOTPGroup className="gap-3">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <InputOTPSlot
+                    key={i}
+                    index={i}
+                    className="!size-12 !rounded-lg !border border-input !bg-white text-lg font-semibold"
+                  />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+
+            <Button
+              onClick={() => {
+                setShowVerification(false)
+                setBookingVerificationCode("")
+                setShowSuccessBanner(true)
+                setCurrentStep(5)
+              }}
+              disabled={bookingVerificationCode.length < 5}
+              className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+                bookingVerificationCode.length === 5
+                  ? "bg-gray-900 text-white hover:bg-gray-800"
+                  : "bg-gray-300 text-gray-500 cursor-default"
+              }`}
+            >
+              Continue
+              <ArrowRight className="size-4" />
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowVerification(false)
+                setBookingVerificationCode("")
+              }}
+              className="text-sm font-semibold text-[#FF3A69] hover:opacity-80"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
