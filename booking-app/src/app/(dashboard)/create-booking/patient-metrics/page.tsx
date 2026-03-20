@@ -12,6 +12,7 @@ function MetricCard({
   value,
   onChange,
   optional = false,
+  unitInline = false,
 }: {
   label: string
   placeholder: string
@@ -19,6 +20,7 @@ function MetricCard({
   value: string
   onChange: (v: string) => void
   optional?: boolean
+  unitInline?: boolean
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -26,15 +28,30 @@ function MetricCard({
         {label}
         {optional && <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>}
       </span>
-      <div className="flex items-end gap-1 rounded-xl bg-gray-100 px-6 py-5">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full bg-transparent text-3xl font-bold text-gray-900 placeholder:text-gray-300 outline-none"
-        />
-        <span className="shrink-0 pb-1 text-xs text-gray-400">{unit}</span>
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-200 bg-white px-6 py-6">
+        {unitInline ? (
+          <div className="flex items-baseline justify-center gap-1">
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={placeholder}
+              className="w-16 bg-transparent text-center text-3xl font-bold text-gray-900 placeholder:text-gray-300 outline-none"
+            />
+            <span className="text-2xl font-bold text-gray-900">{unit}</span>
+          </div>
+        ) : (
+          <>
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={placeholder}
+              className="w-full bg-transparent text-center text-3xl font-bold text-gray-900 placeholder:text-gray-300 outline-none"
+            />
+            <span className="mt-1 text-xs text-gray-400">{unit}</span>
+          </>
+        )}
       </div>
     </div>
   )
@@ -152,15 +169,15 @@ export default function PatientMetricsPage() {
         <div className="flex w-full max-w-4xl justify-between pt-4">
           <Button
             variant="outline"
-            onClick={() => router.push("/home")}
+            onClick={() => router.push("/create-booking/creating")}
             className="h-12 w-[38%] rounded-xl border border-black text-base font-semibold"
           >
             Skip
           </Button>
           <Button
             onClick={() => {
-              // TODO: save metrics and proceed
-              router.push("/home")
+              // TODO: save metrics to database
+              router.push("/create-booking/creating")
             }}
             disabled={!isFormValid}
             className={`h-12 w-[38%] gap-2 rounded-xl text-base font-semibold transition-all ${
