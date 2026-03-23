@@ -623,7 +623,7 @@ export default function PatientDetailsPage() {
                   isActive
                     ? "bg-[#3ea3db]/10 text-[#3ea3db]"
                     : isCompleted
-                    ? "text-green-500"
+                    ? "bg-green-100 text-green-500"
                     : "text-gray-400"
                 }`}
               >

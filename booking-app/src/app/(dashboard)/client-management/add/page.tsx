@@ -543,7 +543,7 @@ export default function AddNewClientPage() {
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
               currentStep === 1
                 ? "bg-[#3ea3db]/10 text-[#3ea3db]"
-                : "text-green-600"
+                : "bg-green-100 text-green-500"
             }`}
           >
             {currentStep > 1 ? (
