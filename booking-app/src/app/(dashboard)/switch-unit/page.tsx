@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,25 +12,23 @@ import {
   DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog"
-
-interface Unit {
-  id: string
-  name: string
-}
-
-const UNITS: Unit[] = [
-  { id: "unicare-sandton", name: "Unicare Sandton" },
-  { id: "unicare-bassonia", name: "Unicare Bassonia" },
-]
-
-const DEFAULT_SELECTED_ID = "unicare-sandton"
+import { useUnitStore } from "@/lib/unit-store"
 
 export default function SwitchUnitPage() {
   const router = useRouter()
-  const [selectedUnitId, setSelectedUnitId] = useState<string>(DEFAULT_SELECTED_ID)
+  const { units, loading } = useUnitStore()
+  const activeUnits = units.filter((u) => u.status === "Active")
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("")
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
-  const selectedUnit = UNITS.find((u) => u.id === selectedUnitId)
+  // Auto-select first unit when loaded
+  useEffect(() => {
+    if (activeUnits.length > 0 && !selectedUnitId) {
+      setSelectedUnitId(activeUnits[0].id)
+    }
+  }, [activeUnits, selectedUnitId])
+
+  const selectedUnit = activeUnits.find((u) => u.id === selectedUnitId)
 
   function handleContinue() {
     setIsConfirmOpen(true)
@@ -75,40 +73,50 @@ export default function SwitchUnitPage() {
           role="radiogroup"
           aria-label="Select a unit"
         >
-          {UNITS.map((unit) => {
-            const isSelected = unit.id === selectedUnitId
-            return (
-              <button
-                key={unit.id}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                data-testid={`unit-option-${unit.id}`}
-                onClick={() => setSelectedUnitId(unit.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-4 text-left transition-colors ${
-                  isSelected
-                    ? "border-[#3ea3db] bg-[#3ea3db]/15"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                {/* Radio indicator */}
-                <span
-                  className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="size-6 animate-spin text-gray-400" />
+            </div>
+          ) : activeUnits.length === 0 ? (
+            <p className="py-8 text-center text-sm text-gray-500">
+              No active units available
+            </p>
+          ) : (
+            activeUnits.map((unit) => {
+              const isSelected = unit.id === selectedUnitId
+              return (
+                <button
+                  key={unit.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  data-testid={`unit-option-${unit.id}`}
+                  onClick={() => setSelectedUnitId(unit.id)}
+                  className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-4 text-left transition-colors ${
                     isSelected
-                      ? "border-[#3ea3db]"
-                      : "border-gray-300"
+                      ? "border-[#3ea3db] bg-[#3ea3db]/15"
+                      : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
-                  {isSelected && (
-                    <span className="size-2.5 rounded-full bg-[#3ea3db]" />
-                  )}
-                </span>
-                <span className="text-base font-medium text-gray-900">
-                  {unit.name}
-                </span>
-              </button>
-            )
-          })}
+                  {/* Radio indicator */}
+                  <span
+                    className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                      isSelected
+                        ? "border-[#3ea3db]"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {isSelected && (
+                      <span className="size-2.5 rounded-full bg-[#3ea3db]" />
+                    )}
+                  </span>
+                  <span className="text-base font-medium text-gray-900">
+                    {unit.unitName}
+                  </span>
+                </button>
+              )
+            })
+          )}
         </div>
 
         {/* Continue button */}
@@ -141,10 +149,10 @@ export default function SwitchUnitPage() {
         >
           <DialogHeader>
             <DialogTitle data-testid="dialog-title">
-              Switch to {selectedUnit?.name}?
+              Switch to {selectedUnit?.unitName}?
             </DialogTitle>
             <DialogDescription data-testid="dialog-description">
-              You&apos;ve selected {selectedUnit?.name}. Please confirm if this
+              You&apos;ve selected {selectedUnit?.unitName}. Please confirm if this
               is correct.
             </DialogDescription>
           </DialogHeader>

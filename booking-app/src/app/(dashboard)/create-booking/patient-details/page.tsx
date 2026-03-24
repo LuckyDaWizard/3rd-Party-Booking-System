@@ -383,7 +383,6 @@ function StepBasicInfo({
             value={data.idNumber}
             onChange={(v) => handleChange("idNumber", v)}
             onClear={() => handleClear("idNumber")}
-            readOnly
           />
         </div>
 
