@@ -1,20 +1,36 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useBookingStore } from "@/lib/booking-store"
 
 export default function PaymentSuccessPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingId = searchParams.get("bookingId") ?? ""
+  const { completePayment, setActiveBookingId } = useBookingStore()
   const [countdown, setCountdown] = useState(10)
+  const hasMarked = useRef(false)
+
+  useEffect(() => {
+    if (bookingId) setActiveBookingId(bookingId)
+
+    // Mark payment as complete (once)
+    if (!hasMarked.current && bookingId) {
+      hasMarked.current = true
+      completePayment(bookingId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingId])
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer)
-          router.push("/create-booking/patient-metrics")
+          router.push(`/create-booking/patient-metrics?bookingId=${bookingId}`)
           return 0
         }
         return prev - 1
@@ -22,7 +38,7 @@ export default function PaymentSuccessPage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [router])
+  }, [router, bookingId])
 
   const formatted = `00:${countdown.toString().padStart(2, "0")}`
 
@@ -38,7 +54,7 @@ export default function PaymentSuccessPage() {
         </p>
 
         <Button
-          onClick={() => router.push("/create-booking/patient-metrics")}
+          onClick={() => router.push(`/create-booking/patient-metrics?bookingId=${bookingId}`)}
           className="h-12 w-64 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
         >
           Redirecting ({formatted})

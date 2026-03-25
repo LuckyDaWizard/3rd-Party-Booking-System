@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useSidebar } from "@/lib/sidebar-store"
+import { useAuth, type UserRole } from "@/lib/auth-store"
 
 interface NavChild {
   label: string
@@ -30,6 +31,8 @@ interface NavItem {
   href: string
   icon: React.ComponentType<{ className?: string }>
   children?: NavChild[]
+  /** Which roles can see this item. If omitted, all roles can see it. */
+  roles?: UserRole[]
 }
 
 const navItems: NavItem[] = [
@@ -45,15 +48,21 @@ const navItems: NavItem[] = [
       { label: "Completed", href: "/patient-history?tab=completed" },
     ],
   },
-  { label: "Client Management", href: "/client-management", icon: UserCircle },
-  { label: "Unit Management", href: "/unit-management", icon: Building2 },
-  { label: "User Management", href: "/user-management", icon: Users },
+  { label: "Client Management", href: "/client-management", icon: UserCircle, roles: ["system_admin"] },
+  { label: "Unit Management", href: "/unit-management", icon: Building2, roles: ["system_admin", "unit_manager"] },
+  { label: "User Management", href: "/user-management", icon: Users, roles: ["system_admin", "unit_manager"] },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { collapsed, toggle } = useSidebar()
+  const { user } = useAuth()
+
+  // Filter nav items by user role
+  const visibleNavItems = navItems.filter(
+    (item) => !item.roles || (user && item.roles.includes(user.role))
+  )
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const sidebarRef = useRef<HTMLElement>(null)
 
@@ -146,7 +155,7 @@ export function Sidebar() {
         className="flex flex-1 flex-col gap-1 px-3"
         aria-label="Main navigation"
       >
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive =
             item.href === "/home"
               ? pathname === "/home"

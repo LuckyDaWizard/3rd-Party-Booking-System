@@ -1,10 +1,19 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useBookingStore } from "@/lib/booking-store"
 
 export default function TermsAndConditionsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingId = searchParams.get("bookingId") ?? ""
+  const { updateBooking, setActiveBookingId } = useBookingStore()
+
+  useEffect(() => {
+    if (bookingId) setActiveBookingId(bookingId)
+  }, [bookingId, setActiveBookingId])
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6">
@@ -21,21 +30,35 @@ export default function TermsAndConditionsPage() {
 
       <div className="flex w-full max-w-sm flex-col gap-3">
         <Button
-          onClick={() => router.push("/home")}
+          onClick={async () => {
+            if (bookingId) {
+              await updateBooking(bookingId, {
+                termsAccepted: true,
+                termsAcceptedAt: new Date().toISOString(),
+                currentStep: "terms",
+              })
+              // Clear active booking — flow is complete
+              setActiveBookingId(null)
+            }
+            router.push("/home")
+          }}
           className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
         >
           Accept
         </Button>
 
-        <Button
-          variant="outline"
-          onClick={() => {
-            // TODO: show full terms and conditions
-          }}
-          className="h-12 w-full rounded-xl border border-black text-base font-semibold"
+        <a
+          href="https://carefirst.co.za/terms-and-conditions/"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-          View full T&apos;s and C&apos;s
-        </Button>
+          <Button
+            variant="outline"
+            className="h-12 w-full rounded-xl border border-black text-base font-semibold"
+          >
+            View full T&apos;s and C&apos;s
+          </Button>
+        </a>
       </div>
     </div>
   )

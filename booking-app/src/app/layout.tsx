@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Roboto, Mulish } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const roboto = Roboto({
   variable: "--font-sans",
@@ -32,7 +33,7 @@ export default function RootLayout({
       <body
         className={`${roboto.variable} ${mulish.variable} antialiased`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

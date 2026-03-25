@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useBookingStore } from "@/lib/booking-store"
 
 function MetricCard({
   label,
@@ -59,6 +60,13 @@ function MetricCard({
 
 export default function PatientMetricsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingId = searchParams.get("bookingId") ?? ""
+  const { updateBooking, discardBooking, setActiveBookingId } = useBookingStore()
+
+  useEffect(() => {
+    if (bookingId) setActiveBookingId(bookingId)
+  }, [bookingId, setActiveBookingId])
 
   const [bloodPressure, setBloodPressure] = useState("")
   const [glucose, setGlucose] = useState("")
@@ -90,7 +98,10 @@ export default function PatientMetricsPage() {
         </Button>
         <Button
           size="sm"
-          onClick={() => router.push("/home")}
+          onClick={async () => {
+            if (bookingId) await discardBooking(bookingId)
+            router.push("/home")
+          }}
           className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
           style={{ backgroundColor: "#FF3A69" }}
         >
@@ -169,15 +180,30 @@ export default function PatientMetricsPage() {
         <div className="flex w-full max-w-4xl justify-between pt-4">
           <Button
             variant="outline"
-            onClick={() => router.push("/create-booking/creating")}
+            onClick={() => {
+              // Skip without saving metrics
+              router.push(`/create-booking/creating?bookingId=${bookingId}`)
+            }}
             className="h-12 w-[38%] rounded-xl border border-black text-base font-semibold"
           >
             Skip
           </Button>
           <Button
-            onClick={() => {
-              // TODO: save metrics to database
-              router.push("/create-booking/creating")
+            onClick={async () => {
+              // Save metrics to database
+              if (bookingId) {
+                await updateBooking(bookingId, {
+                  bloodPressure,
+                  glucose,
+                  temperature,
+                  oxygenSaturation,
+                  urineDipstick,
+                  heartRate,
+                  additionalComments: comments,
+                  currentStep: "patient-metrics",
+                })
+              }
+              router.push(`/create-booking/creating?bookingId=${bookingId}`)
             }}
             disabled={!isFormValid}
             className={`h-12 w-[38%] gap-2 rounded-xl text-base font-semibold transition-all ${

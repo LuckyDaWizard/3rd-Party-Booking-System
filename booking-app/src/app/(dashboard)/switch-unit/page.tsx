@@ -13,20 +13,29 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { useUnitStore } from "@/lib/unit-store"
+import { useAuth } from "@/lib/auth-store"
+
 
 export default function SwitchUnitPage() {
   const router = useRouter()
   const { units, loading } = useUnitStore()
-  const activeUnits = units.filter((u) => u.status === "Active")
+  const { user, activeUnitId: currentActiveUnitId, setActiveUnitId } = useAuth()
+
+  // System admins see all active units; everyone else only sees their assigned units
+  const activeUnits = units.filter((u) =>
+    u.status === "Active" &&
+    (user?.role === "system_admin" || (user?.unitIds ?? []).includes(u.id))
+  )
   const [selectedUnitId, setSelectedUnitId] = useState<string>("")
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
 
-  // Auto-select first unit when loaded
+  // Auto-select current active unit or first unit
   useEffect(() => {
     if (activeUnits.length > 0 && !selectedUnitId) {
-      setSelectedUnitId(activeUnits[0].id)
+      const currentUnit = activeUnits.find((u) => u.id === currentActiveUnitId)
+      setSelectedUnitId(currentUnit?.id ?? activeUnits[0].id)
     }
-  }, [activeUnits, selectedUnitId])
+  }, [activeUnits, selectedUnitId, currentActiveUnitId])
 
   const selectedUnit = activeUnits.find((u) => u.id === selectedUnitId)
 
@@ -35,7 +44,7 @@ export default function SwitchUnitPage() {
   }
 
   function handleConfirmSwitch() {
-    // TODO: Persist the selected unit (e.g. via context or Supabase)
+    if (selectedUnitId) setActiveUnitId(selectedUnitId)
     setIsConfirmOpen(false)
     router.push("/home")
   }

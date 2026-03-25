@@ -1,9 +1,9 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-store"
 
 export interface HeaderProps {
   userName?: string
@@ -16,11 +16,10 @@ export function Header({
   companyName = "Company",
   avatarUrl,
 }: HeaderProps) {
-  const router = useRouter()
+  const { signOut } = useAuth()
 
   function handleLogout() {
-    // TODO: integrate with Supabase auth signOut
-    router.push("/sign-in")
+    signOut()
   }
 
   const initials = userName

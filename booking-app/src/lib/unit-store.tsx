@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { supabase } from "./supabase"
+import { useAuth } from "./auth-store"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,6 +80,7 @@ function mapDbToUnit(row: DbUnit, clientName: string): UnitRecord {
 export function UnitStoreProvider({ children }: { children: ReactNode }) {
   const [units, setUnits] = useState<UnitRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const { user: authUser } = useAuth()
 
   const fetchUnits = useCallback(async () => {
     setLoading(true)
@@ -108,9 +110,14 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
       mapDbToUnit(row, clientMap.get(row.client_id) ?? "Unknown")
     )
 
-    setUnits(mapped)
+    // Unit managers only see their assigned units
+    if (authUser && authUser.role === "unit_manager") {
+      setUnits(mapped.filter((u) => authUser.unitIds.includes(u.id)))
+    } else {
+      setUnits(mapped)
+    }
     setLoading(false)
-  }, [])
+  }, [authUser])
 
   useEffect(() => {
     fetchUnits()

@@ -13,16 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useBookingStore, type BookingStatus } from "@/lib/booking-store"
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type PatientStatus =
-  | "Payment Complete"
-  | "Payment Incomplete"
-  | "Successful"
-  | "Discarded"
+type PatientStatus = BookingStatus
 
 interface PatientRecord {
   id: string
@@ -34,53 +31,6 @@ interface PatientRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Mock data
-// ---------------------------------------------------------------------------
-
-const MOCK_PATIENTS: PatientRecord[] = [
-  {
-    id: "1",
-    status: "Payment Complete",
-    patientName: "M S Junkoon",
-    patientIdNumber: "97XXXXXXXXX81",
-    patientType: "Cash Reservation",
-    date: "2024-03-13 11:44",
-  },
-  {
-    id: "2",
-    status: "Payment Incomplete",
-    patientName: "A B Naidoo",
-    patientIdNumber: "85XXXXXXXXX42",
-    patientType: "Cash Reservation",
-    date: "2024-03-13 10:30",
-  },
-  {
-    id: "3",
-    status: "Successful",
-    patientName: "J K Mokoena",
-    patientIdNumber: "90XXXXXXXXX17",
-    patientType: "Cash Reservation",
-    date: "2024-03-12 15:22",
-  },
-  {
-    id: "4",
-    status: "Payment Complete",
-    patientName: "T R Singh",
-    patientIdNumber: "88XXXXXXXXX63",
-    patientType: "Cash Reservation",
-    date: "2024-03-12 09:15",
-  },
-  {
-    id: "5",
-    status: "Discarded",
-    patientName: "L M van Wyk",
-    patientIdNumber: "93XXXXXXXXX55",
-    patientType: "Cash Reservation",
-    date: "2024-03-11 14:08",
-  },
-]
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -88,12 +38,16 @@ function getStatusStyle(status: PatientStatus): string {
   switch (status) {
     case "Payment Complete":
       return "bg-yellow-100 text-yellow-700 border-transparent"
-    case "Payment Incomplete":
+    case "In Progress":
+      return "bg-blue-100 text-blue-600 border-transparent"
+    case "Abandoned":
       return "bg-pink-100 text-pink-600 border-transparent"
     case "Successful":
       return "bg-green-100 text-green-600 border-transparent"
     case "Discarded":
       return "bg-gray-900 text-white border-transparent"
+    default:
+      return "bg-gray-100 text-gray-600 border-transparent"
   }
 }
 
@@ -105,7 +59,9 @@ function countByFilter(
   if (filter === "in-progress")
     return patients.filter(
       (p) =>
-        p.status === "Payment Complete" || p.status === "Payment Incomplete"
+        p.status === "Payment Complete" ||
+        p.status === "In Progress" ||
+        p.status === "Abandoned"
     ).length
   // completed
   return patients.filter(
@@ -123,7 +79,9 @@ function filterPatients(
   if (filter === "in-progress") {
     filtered = filtered.filter(
       (p) =>
-        p.status === "Payment Complete" || p.status === "Payment Incomplete"
+        p.status === "Payment Complete" ||
+        p.status === "In Progress" ||
+        p.status === "Abandoned"
     )
   } else if (filter === "completed") {
     filtered = filtered.filter(
@@ -150,18 +108,25 @@ function filterPatients(
 interface OptionsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  bookingId: string | null
+  onDiscard: (id: string) => void
 }
 
 type OptionChoice = "reshare" | "process-on-device" | null
 
-function OptionsModal({ open, onOpenChange }: OptionsModalProps) {
+function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModalProps) {
+  const router = useRouter()
   const [selected, setSelected] = React.useState<OptionChoice>(null)
 
   function handleContinue() {
-    if (!selected) return
-    // Placeholder: navigate or perform action based on selection
+    if (!selected || !bookingId) return
     onOpenChange(false)
     setSelected(null)
+
+    if (selected === "process-on-device") {
+      router.push(`/create-booking/payment?bookingId=${bookingId}&type=device`)
+    }
+    // TODO: handle "reshare" option
   }
 
   function handleCancel() {
@@ -170,6 +135,7 @@ function OptionsModal({ open, onOpenChange }: OptionsModalProps) {
   }
 
   function handleDiscard() {
+    if (bookingId) onDiscard(bookingId)
     onOpenChange(false)
     setSelected(null)
   }
@@ -271,6 +237,7 @@ function OptionsModal({ open, onOpenChange }: OptionsModalProps) {
 export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { bookings, loading, discardBooking } = useBookingStore()
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
     "all" | "in-progress" | "completed"
@@ -286,13 +253,30 @@ export default function PatientHistoryPage() {
     }
   }, [tabParam])
   const [optionsModalOpen, setOptionsModalOpen] = React.useState(false)
+  const [selectedBookingId, setSelectedBookingId] = React.useState<string | null>(null)
 
-  const allCount = countByFilter(MOCK_PATIENTS, "all")
-  const inProgressCount = countByFilter(MOCK_PATIENTS, "in-progress")
-  const completedCount = countByFilter(MOCK_PATIENTS, "completed")
+  // Map booking records to patient records for display
+  const allPatients: PatientRecord[] = bookings.map((b) => ({
+    id: b.id,
+    status: b.status,
+    patientName: [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
+    patientIdNumber: b.idNumber || "N/A",
+    patientType: "Cash Reservation",
+    date: new Date(b.createdAt).toLocaleString("en-ZA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  }))
+
+  const allCount = countByFilter(allPatients, "all")
+  const inProgressCount = countByFilter(allPatients, "in-progress")
+  const completedCount = countByFilter(allPatients, "completed")
 
   const visiblePatients = filterPatients(
-    MOCK_PATIENTS,
+    allPatients,
     activeFilter,
     searchQuery
   )
@@ -323,14 +307,16 @@ export default function PatientHistoryPage() {
         >
           Patient History
         </h1>
-        <Button
-          data-testid="new-patient-button"
-          className="w-auto justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
-          size="lg"
-        >
-          New Patient
-          <Plus className="ml-3 size-4" />
-        </Button>
+        <Link href="/create-booking">
+          <Button
+            data-testid="new-patient-button"
+            className="w-auto justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+            size="lg"
+          >
+            New Patient
+            <Plus className="ml-3 size-4" />
+          </Button>
+        </Link>
       </div>
       <p
         data-testid="page-subtitle"
@@ -428,7 +414,11 @@ export default function PatientHistoryPage() {
 
       {/* Patient Cards */}
       <div data-testid="patient-table" className="flex min-w-0 flex-col gap-3 overflow-x-auto">
-        {visiblePatients.length === 0 ? (
+        {loading ? (
+          <div className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400">
+            Loading bookings...
+          </div>
+        ) : visiblePatients.length === 0 ? (
           <div
             className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400"
             data-testid="empty-state"
@@ -486,12 +476,15 @@ export default function PatientHistoryPage() {
                   >
                     Start Consult
                   </Button>
-                ) : patient.status !== "Discarded" ? (
+                ) : patient.status === "In Progress" || patient.status === "Abandoned" ? (
                   <Button
                     data-testid={`options-button-${patient.id}`}
                     className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
                     size="lg"
-                    onClick={() => setOptionsModalOpen(true)}
+                    onClick={() => {
+                      setSelectedBookingId(patient.id)
+                      setOptionsModalOpen(true)
+                    }}
                   >
                     Options
                     <MoreVertical className="ml-3 size-4" />
@@ -520,6 +513,10 @@ export default function PatientHistoryPage() {
       <OptionsModal
         open={optionsModalOpen}
         onOpenChange={setOptionsModalOpen}
+        bookingId={selectedBookingId}
+        onDiscard={async (id) => {
+          await discardBooking(id)
+        }}
       />
     </div>
   )

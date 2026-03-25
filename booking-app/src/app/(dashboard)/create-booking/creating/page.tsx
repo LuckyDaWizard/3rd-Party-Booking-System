@@ -1,18 +1,30 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useBookingStore } from "@/lib/booking-store"
 
 export default function CreatingBookingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingId = searchParams.get("bookingId") ?? ""
+  const { updateBooking, setActiveBookingId } = useBookingStore()
+  const hasUpdated = useRef(false)
 
   useEffect(() => {
+    if (bookingId && !hasUpdated.current) {
+      hasUpdated.current = true
+      setActiveBookingId(bookingId)
+      updateBooking(bookingId, { currentStep: "creating" })
+    }
+
     const timer = setTimeout(() => {
-      router.push("/create-booking/terms")
+      router.push(`/create-booking/terms?bookingId=${bookingId}`)
     }, 6000)
 
     return () => clearTimeout(timer)
-  }, [router])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingId])
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6">

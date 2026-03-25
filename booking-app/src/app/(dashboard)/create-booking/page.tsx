@@ -6,6 +6,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { X } from "lucide-react"
+import { useBookingStore } from "@/lib/booking-store"
+import { useAuth } from "@/lib/auth-store"
 
 function FloatingInput({
   id,
@@ -59,6 +61,8 @@ type SearchTab = "id" | "passport" | "dob"
 
 export default function CreateBookingPage() {
   const router = useRouter()
+  const { createBooking } = useBookingStore()
+  const { activeUnitId } = useAuth()
   const [activeTab, setActiveTab] = useState<SearchTab>("id")
 
   // Form fields
@@ -203,8 +207,29 @@ export default function CreateBookingPage() {
         {/* Next button */}
         <div className="mt-8 w-full max-w-xs">
           <Button
-            onClick={() => {
+            onClick={async () => {
+              // Build booking data from search fields
+              const bookingData: Record<string, string | null> = {
+                searchType: activeTab,
+                unitId: activeUnitId ?? null,
+              }
+              if (activeTab === "id") {
+                bookingData.idType = "national_id"
+                bookingData.idNumber = idNumber
+              } else if (activeTab === "passport") {
+                bookingData.idType = "passport"
+                bookingData.idNumber = passportNumber
+              } else if (activeTab === "dob") {
+                bookingData.firstNames = firstName
+                bookingData.surname = surname
+                bookingData.dateOfBirth = dob
+              }
+
+              // Create booking in Supabase and get the ID
+              const bookingId = await createBooking(bookingData)
+
               const params = new URLSearchParams()
+              params.set("bookingId", bookingId)
               params.set("searchType", activeTab)
               if (activeTab === "id") {
                 params.set("idNumber", idNumber)

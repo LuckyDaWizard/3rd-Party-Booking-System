@@ -3,11 +3,20 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-
-const CURRENT_UNIT = "Unicare Sandton"
-const PATIENT_HISTORY_COUNT = 2
+import { useAuth } from "@/lib/auth-store"
+import { useBookingStore } from "@/lib/booking-store"
 
 export default function HomeDashboardPage() {
+  const { user, activeUnitName } = useAuth()
+  const { bookings } = useBookingStore()
+  const canSwitchUnit = user?.role === "system_admin" || user?.role === "unit_manager" || (user?.unitIds?.length ?? 0) > 1
+  const unitDisplay = activeUnitName ?? "No unit assigned"
+
+  // Count bookings that need attention (in progress or abandoned)
+  const pendingCount = bookings.filter(
+    (b) => b.status === "In Progress" || b.status === "Abandoned"
+  ).length
+
   return (
     <div
       data-testid="home-dashboard"
@@ -39,18 +48,20 @@ export default function HomeDashboardPage() {
             data-testid="current-unit-name"
             className="text-xl font-bold text-gray-900"
           >
-            {CURRENT_UNIT}
+            {unitDisplay}
           </span>
-          <Link href="/switch-unit">
-            <Button
-              data-testid="switch-unit-button"
-              variant="outline"
-              size="sm"
-              className="rounded-lg border-black px-6 py-2 text-xs"
-            >
-              Switch Unit
-            </Button>
-          </Link>
+          {canSwitchUnit && (
+            <Link href="/switch-unit">
+              <Button
+                data-testid="switch-unit-button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg border-black px-6 py-2 text-xs"
+              >
+                Switch Unit
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Action cards */}
@@ -80,15 +91,19 @@ export default function HomeDashboardPage() {
                 <span className="text-base font-bold text-gray-900">
                   Patient History
                 </span>
-                <Badge
-                  data-testid="patient-history-badge"
-                  className="size-5 items-center justify-center rounded-full bg-red-400 text-[10px] text-white border-transparent p-0"
-                >
-                  {PATIENT_HISTORY_COUNT}
-                </Badge>
+                {pendingCount > 0 && (
+                  <Badge
+                    data-testid="patient-history-badge"
+                    className="size-5 items-center justify-center rounded-full bg-red-400 text-[10px] text-white border-transparent p-0"
+                  >
+                    {pendingCount}
+                  </Badge>
+                )}
               </div>
               <span className="text-sm text-gray-500">
-                View the patients of the last 24 hours.
+                {bookings.length === 0
+                  ? "No patient bookings yet."
+                  : `View ${bookings.length} booking${bookings.length === 1 ? "" : "s"} for your unit.`}
               </span>
             </div>
           </Link>

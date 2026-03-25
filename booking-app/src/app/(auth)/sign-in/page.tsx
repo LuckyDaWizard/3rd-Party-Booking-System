@@ -1,89 +1,96 @@
-"use client";
+"use client"
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useCallback, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { ArrowRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
-} from "@/components/ui/input-otp";
+} from "@/components/ui/input-otp"
+import { useAuth } from "@/lib/auth-store"
 
-const MAX_ATTEMPTS = 5;
-const PIN_LENGTH = 5;
-const TEST_PIN = "12345";
+const MAX_ATTEMPTS = 5
+const PIN_LENGTH = 5
 
-type SignInState = "idle" | "loading" | "error" | "lockout";
+type SignInState = "idle" | "loading" | "error" | "lockout"
 
 export default function SignInPage() {
-  const router = useRouter();
-  const [pin, setPin] = useState("");
-  const [state, setState] = useState<SignInState>("idle");
-  const [attemptCount, setAttemptCount] = useState(0);
+  const router = useRouter()
+  const { signIn, user } = useAuth()
+  const [pin, setPin] = useState("")
+  const [state, setState] = useState<SignInState>("idle")
+  const [attemptCount, setAttemptCount] = useState(0)
+  const [customError, setCustomError] = useState<string | null>(null)
+
+  // If already signed in, redirect to home
+  useEffect(() => {
+    if (user) router.push("/home")
+  }, [user, router])
 
   const errorMessage =
-    state === "error"
+    customError ??
+    (state === "error"
       ? "Invalid Code - Please Retry"
       : state === "lockout"
         ? "Invalid Code - Max attempts exceeded please contact your admin to reset your access pin"
-        : null;
+        : null)
 
-  const isInputDisabled = state === "loading" || state === "lockout";
-  const isButtonDisabled = state === "loading" || state === "lockout";
-  const hasError = state === "error" || state === "lockout";
+  const isInputDisabled = state === "loading" || state === "lockout"
+  const isButtonDisabled = state === "loading" || state === "lockout"
+  const hasError = state === "error" || state === "lockout"
 
   const handleSubmit = useCallback(async () => {
-    if (pin.length !== PIN_LENGTH || isButtonDisabled) return;
+    if (pin.length !== PIN_LENGTH || isButtonDisabled) return
 
-    setState("loading");
+    setState("loading")
+    setCustomError(null)
 
     try {
-      // TODO: Replace with actual Supabase auth call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const result = await signIn(pin)
 
-      const isValid = pin === TEST_PIN;
-
-      if (isValid) {
-        router.push("/home");
-        return;
+      if (result.success) {
+        router.push("/home")
+        return
       }
 
-      const newAttemptCount = attemptCount + 1;
-      setAttemptCount(newAttemptCount);
-      setPin("");
+      const newAttemptCount = attemptCount + 1
+      setAttemptCount(newAttemptCount)
+      setPin("")
 
       if (newAttemptCount >= MAX_ATTEMPTS) {
-        setState("lockout");
+        setState("lockout")
       } else {
-        setState("error");
+        setState("error")
+        if (result.error) setCustomError(result.error)
       }
     } catch {
-      const newAttemptCount = attemptCount + 1;
-      setAttemptCount(newAttemptCount);
-      setPin("");
+      const newAttemptCount = attemptCount + 1
+      setAttemptCount(newAttemptCount)
+      setPin("")
 
       if (newAttemptCount >= MAX_ATTEMPTS) {
-        setState("lockout");
+        setState("lockout")
       } else {
-        setState("error");
+        setState("error")
       }
     }
-  }, [pin, isButtonDisabled, attemptCount]);
+  }, [pin, isButtonDisabled, attemptCount, signIn, router])
 
   const handlePinChange = useCallback(
     (value: string) => {
-      if (isInputDisabled) return;
-      setPin(value);
+      if (isInputDisabled) return
+      setPin(value)
 
-      // Clear error state when user starts typing again
       if (state === "error") {
-        setState("idle");
+        setState("idle")
+        setCustomError(null)
       }
     },
     [isInputDisabled, state]
-  );
+  )
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-8">
@@ -118,8 +125,8 @@ export default function SignInPage() {
       <form
         className="flex w-full flex-col items-center gap-6"
         onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
+          e.preventDefault()
+          handleSubmit()
         }}
         data-testid="sign-in-form"
       >
@@ -188,5 +195,5 @@ export default function SignInPage() {
         </Button>
       </form>
     </div>
-  );
+  )
 }

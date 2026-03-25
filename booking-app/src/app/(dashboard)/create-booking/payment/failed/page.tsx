@@ -1,11 +1,20 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useBookingStore } from "@/lib/booking-store"
 
 export default function PaymentFailedPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingId = searchParams.get("bookingId") ?? ""
+  const { setActiveBookingId } = useBookingStore()
+
+  useEffect(() => {
+    if (bookingId) setActiveBookingId(bookingId)
+  }, [bookingId, setActiveBookingId])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white">
@@ -19,7 +28,7 @@ export default function PaymentFailedPage() {
         </p>
 
         <Button
-          onClick={() => router.push("/create-booking/payment?type=device")}
+          onClick={() => router.push(`/create-booking/payment?bookingId=${bookingId}&type=device`)}
           className="h-12 w-64 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
         >
           Try Again

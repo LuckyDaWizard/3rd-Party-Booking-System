@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useRef, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ArrowRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useBookingStore } from "@/lib/booking-store"
 
 function FloatingInput({
   id,
@@ -53,6 +54,13 @@ function FloatingInput({
 
 export default function PaymentPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const bookingId = searchParams.get("bookingId") ?? ""
+  const { discardBooking, setActiveBookingId } = useBookingStore()
+
+  useEffect(() => {
+    if (bookingId) setActiveBookingId(bookingId)
+  }, [bookingId, setActiveBookingId])
 
   const [nameOnCard, setNameOnCard] = useState("")
   const [cardNumber, setCardNumber] = useState("")
@@ -78,9 +86,9 @@ export default function PaymentPage() {
     payAttemptRef.current += 1
     // Alternate between success and failure for demo purposes
     if (payAttemptRef.current % 2 === 1) {
-      router.push("/create-booking/payment/success")
+      router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
     } else {
-      router.push("/create-booking/payment/failed")
+      router.push(`/create-booking/payment/failed?bookingId=${bookingId}`)
     }
   }
 
@@ -99,7 +107,10 @@ export default function PaymentPage() {
         </Button>
         <Button
           size="sm"
-          onClick={() => router.push("/home")}
+          onClick={async () => {
+            if (bookingId) await discardBooking(bookingId)
+            router.push("/home")
+          }}
           className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
           style={{ backgroundColor: "#FF3A69" }}
         >

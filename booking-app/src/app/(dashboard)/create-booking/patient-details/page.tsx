@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ArrowRight, FileText, X, ChevronDown, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
+import { useBookingStore } from "@/lib/booking-store"
 
 // ---------------------------------------------------------------------------
 // Floating Input Component
@@ -437,15 +438,22 @@ function StepBasicInfo({
 export default function PatientDetailsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { updateBooking, discardBooking, setActiveBookingId } = useBookingStore()
   const [currentStep, setCurrentStep] = useState(1)
 
-  // Read search params passed from the search page
+  // Read booking ID and search params
+  const bookingId = searchParams.get("bookingId") ?? ""
   const searchType = searchParams.get("searchType") ?? "id"
   const idNumber = searchParams.get("idNumber") ?? ""
   const passportNumber = searchParams.get("passportNumber") ?? ""
   const firstNameParam = searchParams.get("firstName") ?? ""
   const surnameParam = searchParams.get("surname") ?? ""
   const dobParam = searchParams.get("dob") ?? ""
+
+  // Set active booking ID on mount
+  useEffect(() => {
+    if (bookingId) setActiveBookingId(bookingId)
+  }, [bookingId, setActiveBookingId])
 
   // Determine initial ID type and number from search params
   const initialIdType = searchType === "passport" ? "passport" : "national_id"
@@ -512,20 +520,62 @@ export default function PatientDetailsPage() {
     contactInfo.emailAddress.trim() !== "" &&
     (!contactInfo.scriptToAnotherEmail || contactInfo.additionalEmail.trim() !== "")
 
-  function handleNext() {
+  async function handleNext() {
     if (currentStep === 1 && isStep1Complete) {
+      // Save basic info to DB
+      if (bookingId) {
+        await updateBooking(bookingId, {
+          firstNames: basicInfo.firstNames,
+          surname: basicInfo.surname,
+          idType: basicInfo.idType,
+          idNumber: basicInfo.idNumber,
+          title: basicInfo.title,
+          nationality: basicInfo.nationality,
+          gender: basicInfo.gender,
+          dateOfBirth: basicInfo.dateOfBirth,
+          currentStep: "patient-details",
+        })
+      }
       setCurrentStep(2)
     } else if (currentStep === 2 && isStep2Complete) {
+      // Save address info to DB
+      if (bookingId) {
+        await updateBooking(bookingId, {
+          address: addressInfo.address,
+          suburb: addressInfo.suburb,
+          city: addressInfo.city,
+          province: addressInfo.province,
+          country: addressInfo.country,
+          postalCode: addressInfo.postalCode,
+        })
+      }
       setCurrentStep(3)
     } else if (currentStep === 3 && isStep3Complete) {
+      // Save contact info to DB
+      if (bookingId) {
+        await updateBooking(bookingId, {
+          countryCode: contactInfo.countryCode,
+          contactNumber: contactInfo.contactNumber,
+          emailAddress: contactInfo.emailAddress,
+          scriptToAnotherEmail: contactInfo.scriptToAnotherEmail,
+          additionalEmail: contactInfo.additionalEmail,
+        })
+      }
       setCurrentStep(4)
     } else if (currentStep === 4) {
       setShowVerification(true)
     } else if (currentStep === 5 && selectedPaymentType) {
+      // Save payment type to DB
+      if (bookingId) {
+        await updateBooking(bookingId, {
+          paymentType: selectedPaymentType,
+          currentStep: "payment",
+        })
+      }
       if (selectedPaymentType === "device") {
-        router.push("/create-booking/payment?type=device")
+        router.push(`/create-booking/payment?bookingId=${bookingId}&type=device`)
       } else if (selectedPaymentType === "link") {
-        router.push("/create-booking/payment?type=link")
+        router.push(`/create-booking/payment?bookingId=${bookingId}&type=link`)
       }
     }
   }
@@ -538,7 +588,33 @@ export default function PatientDetailsPage() {
     }
   }
 
-  function handleDiscardFlow() {
+  async function handleDiscardFlow() {
+    // Save all current data before discarding
+    if (bookingId) {
+      await updateBooking(bookingId, {
+        firstNames: basicInfo.firstNames,
+        surname: basicInfo.surname,
+        idType: basicInfo.idType,
+        idNumber: basicInfo.idNumber,
+        title: basicInfo.title,
+        nationality: basicInfo.nationality,
+        gender: basicInfo.gender,
+        dateOfBirth: basicInfo.dateOfBirth,
+        address: addressInfo.address,
+        suburb: addressInfo.suburb,
+        city: addressInfo.city,
+        province: addressInfo.province,
+        country: addressInfo.country,
+        postalCode: addressInfo.postalCode,
+        countryCode: contactInfo.countryCode,
+        contactNumber: contactInfo.contactNumber,
+        emailAddress: contactInfo.emailAddress,
+        scriptToAnotherEmail: contactInfo.scriptToAnotherEmail,
+        additionalEmail: contactInfo.additionalEmail,
+        paymentType: selectedPaymentType || null,
+      })
+      await discardBooking(bookingId)
+    }
     router.push("/home")
   }
 
