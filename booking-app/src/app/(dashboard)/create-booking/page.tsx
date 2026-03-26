@@ -252,11 +252,52 @@ export default function CreateBookingPage() {
                 }
               }
 
-              // Build booking data from search fields
-              const bookingData: Record<string, string | null> = {
+              // Search for existing patient
+              let existingPatient: Record<string, unknown> | null = null
+              if (activeTab === "id" || activeTab === "passport") {
+                const searchId = activeTab === "id" ? idNumber : passportNumber
+                const { data: existing } = await supabase
+                  .from("bookings")
+                  .select("*")
+                  .eq("id_number", searchId)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+
+                if (existing && existing.length > 0) {
+                  existingPatient = existing[0]
+                }
+              } else if (activeTab === "dob") {
+                const { data: existing } = await supabase
+                  .from("bookings")
+                  .select("*")
+                  .ilike("first_names", firstName.trim())
+                  .ilike("surname", surname.trim())
+                  .eq("date_of_birth", dob)
+                  .order("created_at", { ascending: false })
+
+                if (existing && existing.length > 1) {
+                  // Multiple matches — redirect to selection page
+                  const matchIds = existing.map((r) => r.id).join(",")
+                  const selParams = new URLSearchParams()
+                  selParams.set("matchIds", matchIds)
+                  selParams.set("searchType", "dob")
+                  selParams.set("firstName", firstName)
+                  selParams.set("surname", surname)
+                  selParams.set("dob", dob)
+                  setSubmitting(false)
+                  router.push(`/create-booking/select-patient?${selParams.toString()}`)
+                  return
+                } else if (existing && existing.length === 1) {
+                  existingPatient = existing[0]
+                }
+              }
+
+              // Build booking data from search fields + existing patient data
+              const bookingData: Record<string, string | null | boolean> = {
                 searchType: activeTab,
                 unitId: activeUnitId ?? null,
               }
+
               if (activeTab === "id") {
                 bookingData.idType = "national_id"
                 bookingData.idNumber = idNumber
@@ -267,6 +308,27 @@ export default function CreateBookingPage() {
                 bookingData.firstNames = firstName
                 bookingData.surname = surname
                 bookingData.dateOfBirth = dob
+              }
+
+              // Pre-fill from existing patient if found
+              if (existingPatient) {
+                bookingData.firstNames = (existingPatient.first_names as string) ?? bookingData.firstNames ?? null
+                bookingData.surname = (existingPatient.surname as string) ?? bookingData.surname ?? null
+                bookingData.idType = (existingPatient.id_type as string) ?? bookingData.idType ?? null
+                bookingData.idNumber = (existingPatient.id_number as string) ?? bookingData.idNumber ?? null
+                bookingData.title = (existingPatient.title as string) ?? null
+                bookingData.nationality = (existingPatient.nationality as string) ?? null
+                bookingData.gender = (existingPatient.gender as string) ?? null
+                bookingData.dateOfBirth = (existingPatient.date_of_birth as string) ?? bookingData.dateOfBirth ?? null
+                bookingData.address = (existingPatient.address as string) ?? null
+                bookingData.suburb = (existingPatient.suburb as string) ?? null
+                bookingData.city = (existingPatient.city as string) ?? null
+                bookingData.province = (existingPatient.province as string) ?? null
+                bookingData.country = (existingPatient.country as string) ?? null
+                bookingData.postalCode = (existingPatient.postal_code as string) ?? null
+                bookingData.countryCode = (existingPatient.country_code as string) ?? null
+                bookingData.contactNumber = (existingPatient.contact_number as string) ?? null
+                bookingData.emailAddress = (existingPatient.email_address as string) ?? null
               }
 
               // Create booking in Supabase and get the ID

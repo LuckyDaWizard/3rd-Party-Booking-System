@@ -268,6 +268,16 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   // ------- Create a new booking -------
   const createBooking = useCallback(
     async (data: Partial<BookingRecord>): Promise<string> => {
+      // Abandon any existing "In Progress" bookings before creating a new one
+      const oldId = activeBookingIdRef.current
+      if (oldId) {
+        await supabase
+          .from("bookings")
+          .update({ status: "Abandoned" })
+          .eq("id", oldId)
+          .eq("status", "In Progress")
+      }
+
       const dbData = mapBookingToDb({
         status: "In Progress",
         currentStep: "search",

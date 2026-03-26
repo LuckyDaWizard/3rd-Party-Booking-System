@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
-import { ArrowLeft, Search, Plus, ArrowRight, MoreVertical, Download } from "lucide-react"
+import { ArrowLeft, Search, Plus, ArrowRight, MoreVertical, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -61,17 +61,22 @@ function getStatusStyle(status: PatientStatus): string {
   }
 }
 
+type FilterType = "all" | "in-progress" | "incomplete" | "completed"
+
 function countByFilter(
   patients: PatientRecord[],
-  filter: "all" | "in-progress" | "completed"
+  filter: FilterType
 ): number {
   if (filter === "all") return patients.length
   if (filter === "in-progress")
     return patients.filter(
       (p) =>
         p.status === "Payment Complete" ||
-        p.status === "In Progress" ||
-        p.status === "Abandoned"
+        p.status === "In Progress"
+    ).length
+  if (filter === "incomplete")
+    return patients.filter(
+      (p) => p.status === "Abandoned"
     ).length
   // completed
   return patients.filter(
@@ -81,7 +86,7 @@ function countByFilter(
 
 function filterPatients(
   patients: PatientRecord[],
-  filter: "all" | "in-progress" | "completed",
+  filter: FilterType,
   search: string
 ): PatientRecord[] {
   let filtered = patients
@@ -90,8 +95,11 @@ function filterPatients(
     filtered = filtered.filter(
       (p) =>
         p.status === "Payment Complete" ||
-        p.status === "In Progress" ||
-        p.status === "Abandoned"
+        p.status === "In Progress"
+    )
+  } else if (filter === "incomplete") {
+    filtered = filtered.filter(
+      (p) => p.status === "Abandoned"
     )
   } else if (filter === "completed") {
     filtered = filtered.filter(
@@ -251,14 +259,14 @@ export default function PatientHistoryPage() {
   const { isSystemAdmin } = useAuth()
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
-    "all" | "in-progress" | "completed"
+    FilterType
   >("all")
   const [searchQuery, setSearchQuery] = React.useState("")
 
   // Sync filter with URL tab param
   React.useEffect(() => {
-    if (tabParam === "in-progress" || tabParam === "completed") {
-      setActiveFilter(tabParam)
+    if (tabParam === "in-progress" || tabParam === "incomplete" || tabParam === "completed") {
+      setActiveFilter(tabParam as FilterType)
     } else {
       setActiveFilter("all")
     }
@@ -284,12 +292,28 @@ export default function PatientHistoryPage() {
 
   const allCount = countByFilter(allPatients, "all")
   const inProgressCount = countByFilter(allPatients, "in-progress")
+  const incompleteCount = countByFilter(allPatients, "incomplete")
   const completedCount = countByFilter(allPatients, "completed")
 
-  const visiblePatients = filterPatients(
+  const filteredPatients = filterPatients(
     allPatients,
     activeFilter,
     searchQuery
+  )
+
+  // Pagination
+  const ITEMS_PER_PAGE = 10
+  const [currentPage, setCurrentPage] = React.useState(1)
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / ITEMS_PER_PAGE))
+
+  // Reset to page 1 when filter or search changes
+  React.useEffect(() => {
+    setCurrentPage(1)
+  }, [activeFilter, searchQuery])
+
+  const visiblePatients = filteredPatients.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   )
 
   return (
@@ -383,6 +407,28 @@ export default function PatientHistoryPage() {
               }`}
             >
               {inProgressCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="filter-incomplete"
+            onClick={() => router.push("/patient-history?tab=incomplete")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeFilter === "incomplete"
+                ? "bg-[#3ea3db] text-white"
+                : "text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Incomplete
+            <span
+              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
+                activeFilter === "incomplete"
+                  ? "bg-white text-gray-900"
+                  : "bg-gray-300 text-gray-700"
+              }`}
+            >
+              {incompleteCount}
             </span>
           </button>
 
@@ -531,6 +577,57 @@ export default function PatientHistoryPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredPatients.length > ITEMS_PER_PAGE && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredPatients.length)} of {filteredPatients.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
+                currentPage === 1
+                  ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                  page === currentPage
+                    ? "bg-[#3ea3db] text-white"
+                    : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
+                currentPage === totalPages
+                  ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Back Home button */}
       <div className="flex justify-center pb-4">
