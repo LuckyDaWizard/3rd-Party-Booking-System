@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useUserStore, type UserStatus, type UserRecord } from "@/lib/user-store"
 import { useClientStore } from "@/lib/client-store"
+import { useAuth } from "@/lib/auth-store"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,6 +84,10 @@ export default function UserManagementPage() {
   const searchParams = useSearchParams()
   const { users, loading } = useUserStore()
   const { clients } = useClientStore()
+  const { user: authUser } = useAuth()
+
+  // Hide the logged-in user from the list
+  const listUsers = users.filter((u) => u.id !== authUser?.id)
 
   // Check for banners from URL params
   React.useEffect(() => {
@@ -120,11 +125,11 @@ export default function UserManagementPage() {
 
   const uniqueClientNames = Array.from(new Set(clients.map((c) => c.clientName)))
 
-  const allCount = countByFilter(users, "all")
-  const activeCount = countByFilter(users, "active")
-  const disabledCount = countByFilter(users, "disabled")
+  const allCount = countByFilter(listUsers, "all")
+  const activeCount = countByFilter(listUsers, "active")
+  const disabledCount = countByFilter(listUsers, "disabled")
 
-  const visibleUsers = filterUsers(users, activeFilter, searchQuery, selectedClient)
+  const visibleUsers = filterUsers(listUsers, activeFilter, searchQuery, selectedClient)
 
   return (
     <div data-testid="user-management-page" className="flex flex-col gap-8">

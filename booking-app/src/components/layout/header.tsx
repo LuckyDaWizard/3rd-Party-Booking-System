@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -16,7 +17,7 @@ export function Header({
   companyName = "Company",
   avatarUrl,
 }: HeaderProps) {
-  const { signOut } = useAuth()
+  const { signOut, user } = useAuth()
 
   function handleLogout() {
     signOut()
@@ -35,27 +36,32 @@ export function Header({
       className="sticky top-0 z-20 flex h-16 items-center justify-end border-b border-border bg-white px-6"
     >
       <div className="flex items-center gap-3">
-        <Avatar data-testid="header-avatar" size="default">
-          {avatarUrl ? (
-            <AvatarImage src={avatarUrl} alt={userName} />
-          ) : null}
-          <AvatarFallback>{initials}</AvatarFallback>
-        </Avatar>
+        <Link
+          href={user ? `/user-management/manage?id=${user.id}` : "#"}
+          className="flex items-center gap-3 rounded-lg px-2 py-1 transition-colors hover:bg-gray-50"
+        >
+          <Avatar data-testid="header-avatar" size="default">
+            {avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt={userName} />
+            ) : null}
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
 
-        <div className="flex flex-col">
-          <span
-            data-testid="header-user-name"
-            className="text-sm font-medium leading-tight text-gray-900"
-          >
-            {userName}
-          </span>
-          <span
-            data-testid="header-company-name"
-            className="text-xs leading-tight text-gray-500"
-          >
-            {companyName}
-          </span>
-        </div>
+          <div className="flex flex-col">
+            <span
+              data-testid="header-user-name"
+              className="text-sm font-medium leading-tight text-gray-900"
+            >
+              {userName}
+            </span>
+            <span
+              data-testid="header-company-name"
+              className="text-xs leading-tight text-gray-500"
+            >
+              {companyName}
+            </span>
+          </div>
+        </Link>
 
         <Button
           data-testid="logout-btn"
