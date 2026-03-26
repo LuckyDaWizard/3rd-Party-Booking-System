@@ -43,7 +43,7 @@ function getStatusStyle(status: PatientStatus): string {
     case "In Progress":
       return "bg-blue-100 text-blue-600 border-transparent"
     case "Abandoned":
-      return "bg-pink-100 text-pink-600 border-transparent"
+      return "bg-[#FF3A69] text-white border-transparent"
     case "Successful":
       return "bg-green-100 text-green-600 border-transparent"
     case "Discarded":
@@ -441,7 +441,7 @@ export default function PatientHistoryPage() {
                   data-testid={`status-badge-${patient.id}`}
                   className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
                 >
-                  {patient.status}
+                  {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
                 </Badge>
               </div>
 
