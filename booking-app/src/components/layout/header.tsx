@@ -38,7 +38,7 @@ export function Header({
       <div className="flex items-center gap-3">
         <Link
           href={user ? `/user-management/manage?id=${user.id}` : "#"}
-          className="flex items-center gap-3 rounded-lg px-2 py-1 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-gray-50"
         >
           <Avatar data-testid="header-avatar" size="default">
             {avatarUrl ? (

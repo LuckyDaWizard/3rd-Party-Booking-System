@@ -45,6 +45,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "All Patients", href: "/patient-history" },
       { label: "In Progress", href: "/patient-history?tab=in-progress" },
+      { label: "Incomplete", href: "/patient-history?tab=incomplete" },
       { label: "Completed", href: "/patient-history?tab=completed" },
     ],
   },
@@ -121,7 +122,8 @@ export function Sidebar() {
       </button>
 
       {/* Logo area */}
-      <div
+      <Link
+        href="/home"
         className={cn(
           "flex items-center py-4",
           collapsed ? "justify-center px-2" : "px-5"
@@ -147,7 +149,7 @@ export function Sidebar() {
             className="h-auto w-[200px]"
           />
         )}
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav
