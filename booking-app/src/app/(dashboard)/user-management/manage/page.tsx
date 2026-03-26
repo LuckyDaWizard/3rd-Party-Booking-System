@@ -73,6 +73,98 @@ function FloatingInput({
 }
 
 // ---------------------------------------------------------------------------
+// Floating Select Component
+// ---------------------------------------------------------------------------
+
+function FloatingSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  "data-testid": dataTestId,
+  className = "",
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  "data-testid"?: string
+  className?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? ""
+  const selectRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (selectRef.current && !selectRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isOpen])
+
+  return (
+    <div ref={selectRef} className={`relative ${className}`}>
+      <button
+        id={id}
+        type="button"
+        data-testid={dataTestId}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors ${
+          isOpen ? "border-gray-900" : "border-gray-300"
+        }`}
+      >
+        <span className={`${value ? "text-gray-900" : "text-transparent"}`}>
+          {selectedLabel || label}
+        </span>
+      </button>
+      <label
+        className={`pointer-events-none absolute left-3 bg-white px-1 text-sm transition-all ${
+          value || isOpen
+            ? "top-0 -translate-y-1/2 text-xs text-gray-500"
+            : "top-1/2 -translate-y-1/2 text-gray-400"
+        }`}
+      >
+        {label}
+      </label>
+      <ChevronDown
+        className={`pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-transform ${
+          isOpen ? "rotate-180" : ""
+        }`}
+      />
+
+      {isOpen && (
+        <div className="absolute left-0 bottom-full z-10 mb-1 max-h-96 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+          <div className="mx-2 my-2 flex max-h-80 flex-col gap-1 overflow-y-auto">
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value)
+                  setIsOpen(false)
+                }}
+                className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
+                  opt.value === value ? "bg-[#3ea3db]/15 font-medium" : ""
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Multi-Select Unit Dropdown with Chips
 // ---------------------------------------------------------------------------
 
@@ -231,6 +323,20 @@ export default function ManageUserPage() {
   const [surname, setSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
   const [contactNumber, setContactNumber] = useState("")
+  const [userRole, setUserRole] = useState("")
+
+  const { isSystemAdmin } = useAuth()
+
+  // System admin can assign any role; unit managers can only set regular users
+  const roleOptions = isSystemAdmin
+    ? [
+        { value: "user", label: "User" },
+        { value: "unit_manager", label: "Unit Manager" },
+        { value: "system_admin", label: "System Admin" },
+      ]
+    : [
+        { value: "user", label: "User" },
+      ]
 
   useEffect(() => {
     if (user) {
@@ -239,6 +345,7 @@ export default function ManageUserPage() {
       setEmailAddress(user.email)
       setContactNumber(user.contactNumber)
       setSelectedUnitIds(user.units.map((u) => u.unitId))
+      setUserRole(user.role)
     }
   }, [user])
 
@@ -257,6 +364,7 @@ export default function ManageUserPage() {
     surname !== user.surname ||
     emailAddress !== user.email ||
     contactNumber !== user.contactNumber ||
+    userRole !== user.role ||
     selectedUnitIds.length !== originalUnitIds.length ||
     selectedUnitIds.some((id) => !originalUnitIds.includes(id))
 
@@ -266,6 +374,7 @@ export default function ManageUserPage() {
       surname,
       email: emailAddress,
       contactNumber,
+      role: userRole,
     })
     await updateUserUnits(userId, selectedUnitIds)
     router.push("/user-management")
@@ -390,6 +499,16 @@ export default function ManageUserPage() {
             value={contactNumber}
             onChange={setContactNumber}
             onClear={() => setContactNumber("")}
+          />
+
+          {/* Access Role */}
+          <FloatingSelect
+            id="role"
+            data-testid="select-role"
+            label="Select Access Role"
+            value={userRole}
+            onChange={setUserRole}
+            options={roleOptions}
           />
         </div>
 

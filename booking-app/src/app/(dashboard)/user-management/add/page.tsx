@@ -338,6 +338,7 @@ export default function AddUserPage() {
     ? [
         { value: "user", label: "User" },
         { value: "unit_manager", label: "Unit Manager" },
+        { value: "system_admin", label: "System Admin" },
       ]
     : [
         { value: "user", label: "User" },

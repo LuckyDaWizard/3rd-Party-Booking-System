@@ -18,6 +18,7 @@ export interface UserUnitInfo {
 export interface UserRecord {
   id: string
   status: UserStatus
+  role: string
   firstNames: string
   surname: string
   email: string
@@ -69,6 +70,7 @@ interface DbUser {
   email: string
   contact_number: string
   pin: string
+  role: string
   unit_id: string | null
   client_id: string | null
   status: UserStatus
@@ -154,6 +156,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
       return {
         id: row.id,
         status: row.status,
+        role: row.role ?? "user",
         firstNames: row.first_names,
         surname: row.surname,
         email: row.email,
@@ -225,6 +228,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     if (updates.surname !== undefined) dbUpdates.surname = updates.surname
     if (updates.email !== undefined) dbUpdates.email = updates.email
     if (updates.contactNumber !== undefined) dbUpdates.contact_number = updates.contactNumber
+    if (updates.role !== undefined) dbUpdates.role = updates.role
     if (updates.pin !== undefined) dbUpdates.pin = updates.pin
     if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId || null
     if (updates.status !== undefined) dbUpdates.status = updates.status
