@@ -9,6 +9,7 @@ import { X } from "lucide-react"
 import { useBookingStore } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
+import { DatePickerField } from "@/components/ui/date-picker-dialog"
 
 function FloatingInput({
   id,
@@ -176,9 +177,9 @@ export default function CreateBookingPage() {
                 onChange={setSurname}
                 onClear={() => setSurname("")}
               />
-              <FloatingInput
+              <DatePickerField
                 id="dob"
-                label="DD/MM/YYYY"
+                label="Date of Birth"
                 value={dob}
                 onChange={setDob}
                 onClear={() => setDob("")}

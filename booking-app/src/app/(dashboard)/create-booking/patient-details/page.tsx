@@ -8,6 +8,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { useBookingStore } from "@/lib/booking-store"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-store"
+import { DatePickerField } from "@/components/ui/date-picker-dialog"
 
 // ---------------------------------------------------------------------------
 // Floating Input Component
@@ -419,7 +420,7 @@ function StepBasicInfo({
             onChange={(v) => handleChange("gender", v)}
             onClear={() => handleClear("gender")}
           />
-          <FloatingInput
+          <DatePickerField
             id="dateOfBirth"
             data-testid="input-date-of-birth"
             label="Date of Birth"
@@ -987,7 +988,7 @@ export default function PatientDetailsPage() {
                   onChange={(v) => setBasicInfo({ ...basicInfo, gender: v })}
                   onClear={() => setBasicInfo({ ...basicInfo, gender: "" })}
                 />
-                <FloatingInput
+                <DatePickerField
                   id="verify-dob"
                   label="Date of Birth"
                   value={basicInfo.dateOfBirth}
