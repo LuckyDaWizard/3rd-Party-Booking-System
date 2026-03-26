@@ -251,6 +251,16 @@ export default function ManageUnitPage() {
     router.push(`/unit-management?${params.toString()}`)
   }
 
+  // Check if any field has changed from the original
+  const hasChanges = unit ? (
+    clientId !== unit.clientId ||
+    unitName !== unit.unitName ||
+    contactPersonName !== unit.contactPersonName ||
+    contactPersonSurname !== unit.contactPersonSurname ||
+    emailAddress !== unit.email ||
+    province !== unit.province
+  ) : false
+
   // Build client options for the dropdown
   const clientOptions = clients.map((c) => ({
     value: c.id,
@@ -371,7 +381,12 @@ export default function ManageUnitPage() {
           <Button
             data-testid="update-button"
             onClick={handleUpdateInformation}
-            className="h-11 w-full rounded-xl bg-gray-300 text-gray-600 hover:bg-gray-900 hover:text-white"
+            disabled={!hasChanges}
+            className={`h-11 w-full rounded-xl ${
+              hasChanges
+                ? "bg-gray-900 text-white hover:bg-gray-800"
+                : "bg-gray-300 text-gray-600 cursor-not-allowed"
+            }`}
           >
             Update Information
             <ArrowRight className="ml-1 size-4" />

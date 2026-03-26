@@ -438,7 +438,7 @@ function StepBasicInfo({
 export default function PatientDetailsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { updateBooking, discardBooking, setActiveBookingId } = useBookingStore()
+  const { updateBooking, discardBooking, setActiveBookingId, getBooking } = useBookingStore()
   const [currentStep, setCurrentStep] = useState(1)
 
   // Read booking ID and search params
@@ -450,36 +450,38 @@ export default function PatientDetailsPage() {
   const surnameParam = searchParams.get("surname") ?? ""
   const dobParam = searchParams.get("dob") ?? ""
 
+  // Load existing booking data if resuming
+  const existingBooking = bookingId ? getBooking(bookingId) : undefined
+
   // Set active booking ID on mount
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
 
-  // Determine initial ID type and number from search params
-  const initialIdType = searchType === "passport" ? "passport" : "national_id"
-  const initialIdNumber =
-    searchType === "passport" ? passportNumber : idNumber
+  // Determine initial ID type and number from search params or existing booking
+  const initialIdType = existingBooking?.idType ?? (searchType === "passport" ? "passport" : "national_id")
+  const initialIdNumber = existingBooking?.idNumber ?? (searchType === "passport" ? passportNumber : idNumber)
 
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
-    firstNames: firstNameParam,
-    surname: surnameParam,
+    firstNames: existingBooking?.firstNames ?? firstNameParam,
+    surname: existingBooking?.surname ?? surnameParam,
     idType: initialIdType,
     idNumber: initialIdNumber,
-    title: "",
-    nationality: "",
-    gender: "",
-    dateOfBirth: dobParam,
+    title: existingBooking?.title ?? "",
+    nationality: existingBooking?.nationality ?? "",
+    gender: existingBooking?.gender ?? "",
+    dateOfBirth: existingBooking?.dateOfBirth ?? dobParam,
   })
 
   // Validation: all fields required for step 1
   // Address state
   const [addressInfo, setAddressInfo] = useState({
-    address: "",
-    suburb: "",
-    city: "",
-    province: "",
-    country: "",
-    postalCode: "",
+    address: existingBooking?.address ?? "",
+    suburb: existingBooking?.suburb ?? "",
+    city: existingBooking?.city ?? "",
+    province: existingBooking?.province ?? "",
+    country: existingBooking?.country ?? "",
+    postalCode: existingBooking?.postalCode ?? "",
   })
 
   const isStep1Complete =
@@ -502,11 +504,11 @@ export default function PatientDetailsPage() {
 
   // Contact details state
   const [contactInfo, setContactInfo] = useState({
-    countryCode: "ZA",
-    contactNumber: "+27",
-    emailAddress: "",
-    scriptToAnotherEmail: false,
-    additionalEmail: "",
+    countryCode: existingBooking?.countryCode ?? "ZA",
+    contactNumber: existingBooking?.contactNumber ?? "+27",
+    emailAddress: existingBooking?.emailAddress ?? "",
+    scriptToAnotherEmail: existingBooking?.scriptToAnotherEmail ?? false,
+    additionalEmail: existingBooking?.additionalEmail ?? "",
   })
 
   // Verification dialog

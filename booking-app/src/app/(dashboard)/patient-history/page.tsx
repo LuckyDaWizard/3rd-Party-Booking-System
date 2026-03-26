@@ -36,6 +36,14 @@ interface PatientRecord {
 // Helpers
 // ---------------------------------------------------------------------------
 
+function maskIdNumber(id: string | null): string {
+  if (!id || id.length < 4) return id || "N/A"
+  const first2 = id.slice(0, 2)
+  const last2 = id.slice(-2)
+  const masked = "X".repeat(id.length - 4)
+  return `${first2}${masked}${last2}`
+}
+
 function getStatusStyle(status: PatientStatus): string {
   switch (status) {
     case "Payment Complete":
@@ -239,7 +247,7 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
 export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { bookings, loading, discardBooking } = useBookingStore()
+  const { bookings, loading, discardBooking, updateBooking } = useBookingStore()
   const { isSystemAdmin } = useAuth()
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
@@ -263,7 +271,7 @@ export default function PatientHistoryPage() {
     id: b.id,
     status: b.status,
     patientName: [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
-    patientIdNumber: b.idNumber || "N/A",
+    patientIdNumber: maskIdNumber(b.idNumber),
     patientType: "Cash Reservation",
     date: new Date(b.createdAt).toLocaleString("en-ZA", {
       year: "numeric",
@@ -479,7 +487,32 @@ export default function PatientHistoryPage() {
                   >
                     Start Consult
                   </Button>
-                ) : patient.status === "In Progress" || patient.status === "Abandoned" ? (
+                ) : patient.status === "Abandoned" ? (
+                  <Button
+                    data-testid={`continue-button-${patient.id}`}
+                    className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-4 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+                    size="lg"
+                    onClick={() => {
+                      // Resume booking from the start with pre-filled data
+                      const params = new URLSearchParams()
+                      params.set("bookingId", patient.id)
+                      params.set("searchType", "id")
+                      if (patient.patientIdNumber && patient.patientIdNumber !== "N/A") {
+                        // Use the raw (unmasked) ID from the booking
+                        const booking = bookings.find((b) => b.id === patient.id)
+                        if (booking?.idNumber) {
+                          params.set("idNumber", booking.idNumber)
+                        }
+                      }
+                      // Update booking status back to In Progress
+                      updateBooking(patient.id, { status: "In Progress" })
+                      router.push(`/create-booking/patient-details?${params.toString()}`)
+                    }}
+                  >
+                    Continue
+                    <ArrowRight className="ml-1 size-4" />
+                  </Button>
+                ) : patient.status === "In Progress" ? (
                   <Button
                     data-testid={`options-button-${patient.id}`}
                     className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
