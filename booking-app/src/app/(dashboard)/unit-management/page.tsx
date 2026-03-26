@@ -86,6 +86,7 @@ export default function UnitManagementPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [selectedProvince, setSelectedProvince] = React.useState("")
   const [isProvinceDropdownOpen, setIsProvinceDropdownOpen] = React.useState(false)
+  const [addedBanner, setAddedBanner] = React.useState<string | null>(null)
   const [deleteBanner, setDeleteBanner] = React.useState<string | null>(null)
   const [statusBanner, setStatusBanner] = React.useState<{ type: "activated" | "disabled"; name: string } | null>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -95,17 +96,21 @@ export default function UnitManagementPage() {
 
   // Check for banners from URL params
   React.useEffect(() => {
+    const addedName = searchParams.get("added")
     const deletedName = searchParams.get("deleted")
     const statusChanged = searchParams.get("statusChanged")
     const unitName = searchParams.get("unitName")
 
+    if (addedName) {
+      setAddedBanner(addedName)
+    }
     if (deletedName) {
       setDeleteBanner(deletedName)
     }
     if (statusChanged && unitName) {
       setStatusBanner({ type: statusChanged as "activated" | "disabled", name: unitName })
     }
-    if (deletedName || statusChanged) {
+    if (addedName || deletedName || statusChanged) {
       window.history.replaceState({}, "", "/unit-management")
     }
   }, [searchParams])
@@ -145,6 +150,28 @@ export default function UnitManagementPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Unit added banner */}
+      {addedBanner && (
+        <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 px-6 py-5">
+          <div className="flex flex-col gap-1">
+            <span className="text-base font-bold text-gray-900">
+              Unit Successfully Added
+            </span>
+            <p className="text-sm text-gray-500">
+              {addedBanner} has been added to the system successfully.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAddedBanner(null)}
+            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
 
       {/* Delete success banner */}
       {deleteBanner && (

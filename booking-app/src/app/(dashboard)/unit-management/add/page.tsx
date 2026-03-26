@@ -308,7 +308,8 @@ export default function AddUnitPage() {
         email: emailAddress,
         province,
       })
-      router.push("/unit-management")
+      const params = new URLSearchParams({ added: unitName })
+      router.push(`/unit-management?${params.toString()}`)
     } catch (err) {
       console.error("Failed to add unit:", err)
     }
