@@ -46,6 +46,7 @@ interface AuthContextValue {
   activeUnitId: string | null
   activeUnitName: string | null
   setActiveUnitId: (unitId: string) => void
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -228,6 +229,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isUnitManager = user?.role === "unit_manager"
   const isUser = user?.role === "user"
 
+  const refreshUser = useCallback(async () => {
+    if (!user) return
+    const refreshed = await loadUser(user.id)
+    if (refreshed) setUser(refreshed)
+  }, [user, loadUser])
+
   const setActiveUnitId = useCallback((unitId: string) => {
     setActiveUnitIdState(unitId)
     localStorage.setItem(ACTIVE_UNIT_STORAGE_KEY, unitId)
@@ -285,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         activeUnitId,
         activeUnitName,
         setActiveUnitId,
+        refreshUser,
       }}
     >
       {children}

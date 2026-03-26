@@ -245,6 +245,16 @@ export default function ManageUserPage() {
     )
   }
 
+  // Check if any field has changed from the original
+  const originalUnitIds = user.units.map((u) => u.unitId)
+  const hasChanges =
+    firstNames !== user.firstNames ||
+    surname !== user.surname ||
+    emailAddress !== user.email ||
+    contactNumber !== user.contactNumber ||
+    selectedUnitIds.length !== originalUnitIds.length ||
+    selectedUnitIds.some((id) => !originalUnitIds.includes(id))
+
   async function handleUpdateInformation() {
     await updateUser(userId, {
       firstNames,
@@ -383,7 +393,12 @@ export default function ManageUserPage() {
           <Button
             data-testid="update-button"
             onClick={handleUpdateInformation}
-            className="h-11 w-full rounded-xl bg-gray-300 text-gray-600 hover:bg-gray-900 hover:text-white"
+            disabled={!hasChanges}
+            className={`h-11 w-full rounded-xl ${
+              hasChanges
+                ? "bg-gray-900 text-white hover:bg-gray-800"
+                : "bg-gray-300 text-gray-600 cursor-not-allowed"
+            }`}
           >
             Update Information
             <ArrowRight className="ml-1 size-4" />

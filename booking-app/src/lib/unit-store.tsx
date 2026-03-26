@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ function mapDbToUnit(row: DbUnit, clientName: string): UnitRecord {
 export function UnitStoreProvider({ children }: { children: ReactNode }) {
   const [units, setUnits] = useState<UnitRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const { user: authUser } = useAuth()
+  const { user: authUser, refreshUser } = useAuth()
 
   const fetchUnits = useCallback(async () => {
     setLoading(true)
@@ -123,6 +124,17 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
     fetchUnits()
   }, [fetchUnits])
 
+  // Normalize province to proper casing
+  const VALID_PROVINCES = [
+    "Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal",
+    "Limpopo", "Mpumalanga", "North West", "Northern Cape", "Western Cape",
+  ]
+
+  function normalizeProvince(input: string): string {
+    const match = VALID_PROVINCES.find((p) => p.toLowerCase() === input.toLowerCase())
+    return match ?? input
+  }
+
   async function addUnit(unit: Omit<UnitRecord, "id" | "status">) {
     const { data, error } = await supabase
       .from("units")
@@ -132,7 +144,7 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
         contact_person_name: unit.contactPersonName,
         contact_person_surname: unit.contactPersonSurname,
         email: unit.email,
-        province: unit.province,
+        province: normalizeProvince(unit.province),
         status: "Active",
       })
       .select("id")
@@ -143,8 +155,20 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
       throw error
     }
 
+    const newUnitId = data.id
+
+    // Auto-assign the creating user to the new unit
+    if (authUser) {
+      await supabase.from("user_units").insert({
+        user_id: authUser.id,
+        unit_id: newUnitId,
+      })
+      // Refresh auth user so unitIds includes the new unit
+      await refreshUser()
+    }
+
     await fetchUnits()
-    return data.id
+    return newUnitId
   }
 
   async function updateUnit(id: string, updates: Partial<Omit<UnitRecord, "id">>) {
@@ -153,7 +177,7 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
     if (updates.contactPersonName !== undefined) dbUpdates.contact_person_name = updates.contactPersonName
     if (updates.contactPersonSurname !== undefined) dbUpdates.contact_person_surname = updates.contactPersonSurname
     if (updates.email !== undefined) dbUpdates.email = updates.email
-    if (updates.province !== undefined) dbUpdates.province = updates.province
+    if (updates.province !== undefined) dbUpdates.province = normalizeProvince(updates.province)
     if (updates.status !== undefined) dbUpdates.status = updates.status
     if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId
 

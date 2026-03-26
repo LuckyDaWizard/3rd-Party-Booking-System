@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { supabase } from "./supabase"
+import { useAuth } from "./auth-store"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,6 +77,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
 export function ClientStoreProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<ClientRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const { user: authUser } = useAuth()
 
   const fetchClients = useCallback(async () => {
     setLoading(true)
@@ -104,9 +106,23 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
       })
     )
 
-    setClients(mapped)
+    // Unit managers only see clients linked to their assigned units
+    if (authUser && authUser.role === "unit_manager" && authUser.unitIds.length > 0) {
+      // Get client IDs from manager's assigned units
+      const { data: managerUnits } = await supabase
+        .from("units")
+        .select("client_id")
+        .in("id", authUser.unitIds)
+
+      const allowedClientIds = new Set(
+        (managerUnits as { client_id: string }[] | null)?.map((u) => u.client_id) ?? []
+      )
+      setClients(mapped.filter((c) => allowedClientIds.has(c.id)))
+    } else {
+      setClients(mapped)
+    }
     setLoading(false)
-  }, [])
+  }, [authUser])
 
   useEffect(() => {
     fetchClients()
