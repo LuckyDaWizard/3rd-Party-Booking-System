@@ -39,6 +39,7 @@ interface AddUserInput {
   email: string
   contactNumber: string
   pin: string
+  role: string
   unitIds: string[]
   clientId: string
 }
@@ -190,6 +191,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
         email: user.email,
         contact_number: user.contactNumber,
         pin: user.pin,
+        role: user.role,
         unit_id: user.unitIds[0] || null,
         client_id: user.clientId || null,
         status: "Active",

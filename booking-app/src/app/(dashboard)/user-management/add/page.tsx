@@ -7,6 +7,8 @@ import { ArrowLeft, ArrowRight, X, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUnitStore } from "@/lib/unit-store"
 import { useUserStore } from "@/lib/user-store"
+import { useAuth } from "@/lib/auth-store"
+import { supabase } from "@/lib/supabase"
 
 // ---------------------------------------------------------------------------
 // Floating Input Component
@@ -18,7 +20,9 @@ function FloatingInput({
   value,
   onChange,
   onClear,
+  onBlur,
   type = "text",
+  error,
   "data-testid": dataTestId,
   className = "",
 }: {
@@ -27,38 +31,147 @@ function FloatingInput({
   value: string
   onChange: (value: string) => void
   onClear: () => void
+  onBlur?: () => void
   type?: string
+  error?: string
   "data-testid"?: string
   className?: string
 }) {
   const hasValue = value.length > 0
+  const hasError = !!error
 
   return (
-    <div className={`relative ${className}`}>
-      <input
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <div className="relative">
+        <input
+          id={id}
+          data-testid={dataTestId}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          placeholder=" "
+          className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:bg-white active:bg-white autofill:bg-white ${
+            hasError
+              ? "border-[#FF3A69] focus:border-[#FF3A69]"
+              : "border-gray-300 focus:border-gray-900"
+          }`}
+        />
+        <label
+          htmlFor={id}
+          className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs ${
+            hasError
+              ? "text-[#FF3A69] peer-focus:text-[#FF3A69] peer-[:not(:placeholder-shown)]:text-[#FF3A69]"
+              : "text-gray-400 peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:text-gray-500"
+          }`}
+        >
+          {label}
+        </label>
+        {hasValue && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+            aria-label={`Clear ${label}`}
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+      {hasError && (
+        <p className="text-xs text-[#FF3A69]">{error}</p>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Floating Select Component
+// ---------------------------------------------------------------------------
+
+function FloatingSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  "data-testid": dataTestId,
+  className = "",
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  "data-testid"?: string
+  className?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? ""
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isOpen])
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
         id={id}
+        type="button"
         data-testid={dataTestId}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder=" "
-        className="peer h-14 w-full rounded-lg border border-gray-300 bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white active:bg-white autofill:bg-white"
-      />
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors ${
+          isOpen ? "border-gray-900" : "border-gray-300"
+        }`}
+      >
+        <span className={`${value ? "text-gray-900" : "text-transparent"}`}>
+          {selectedLabel || label}
+        </span>
+      </button>
       <label
-        htmlFor={id}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-400 transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-500"
+        className={`pointer-events-none absolute left-3 bg-white px-1 text-sm transition-all ${
+          value || isOpen
+            ? "top-0 -translate-y-1/2 text-xs text-gray-500"
+            : "top-1/2 -translate-y-1/2 text-gray-400"
+        }`}
       >
         {label}
       </label>
-      {hasValue && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
-          aria-label={`Clear ${label}`}
-        >
-          <X className="size-4" />
-        </button>
+      <ChevronDown
+        className={`pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-transform ${
+          isOpen ? "rotate-180" : ""
+        }`}
+      />
+
+      {isOpen && (
+        <div className="absolute left-0 bottom-full z-10 mb-1 max-h-96 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+          <div className="mx-2 my-2 flex max-h-80 flex-col gap-1 overflow-y-auto">
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value)
+                  setIsOpen(false)
+                }}
+                className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
+                  opt.value === value ? "bg-[#3ea3db]/15 font-medium" : ""
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
@@ -209,19 +322,77 @@ export default function AddUserPage() {
   const router = useRouter()
   const { units } = useUnitStore()
   const { addUser } = useUserStore()
+  const { isSystemAdmin } = useAuth()
 
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
   const [firstNames, setFirstNames] = useState("")
   const [surname, setSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
   const [contactNumber, setContactNumber] = useState("")
+  const [role, setRole] = useState("")
+  const [emailError, setEmailError] = useState("")
+  const [contactError, setContactError] = useState("")
+
+  // System admin can assign any role; unit managers can only create regular users
+  const roleOptions = isSystemAdmin
+    ? [
+        { value: "user", label: "User" },
+        { value: "unit_manager", label: "Unit Manager" },
+      ]
+    : [
+        { value: "user", label: "User" },
+      ]
 
   const isFormComplete =
     firstNames.trim() !== "" &&
-    surname.trim() !== ""
+    surname.trim() !== "" &&
+    role.trim() !== "" &&
+    !emailError &&
+    !contactError
+
+  async function checkEmailExists(email: string) {
+    if (!email.trim()) {
+      setEmailError("")
+      return
+    }
+    const { data } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email.trim())
+      .limit(1)
+
+    if (data && data.length > 0) {
+      setEmailError("This email is already assigned to an existing user")
+    } else {
+      setEmailError("")
+    }
+  }
+
+  async function checkContactExists(contact: string) {
+    if (!contact.trim()) {
+      setContactError("")
+      return
+    }
+    const { data } = await supabase
+      .from("users")
+      .select("id")
+      .eq("contact_number", contact.trim())
+      .limit(1)
+
+    if (data && data.length > 0) {
+      setContactError("This contact number is already assigned to an existing user")
+    } else {
+      setContactError("")
+    }
+  }
 
   async function handleSubmit() {
     if (!isFormComplete) return
+
+    // Final check before submit
+    await checkEmailExists(emailAddress)
+    await checkContactExists(contactNumber)
+    if (emailError || contactError) return
 
     // Get client from first selected unit
     const firstUnit = units.find((u) => u.id === selectedUnitIds[0])
@@ -233,6 +404,7 @@ export default function AddUserPage() {
         email: emailAddress,
         contactNumber,
         pin: "1234",
+        role,
         unitIds: selectedUnitIds,
         clientId: firstUnit?.clientId ?? "",
       })
@@ -316,9 +488,14 @@ export default function AddUserPage() {
             data-testid="email-input"
             label="Email Address"
             value={emailAddress}
-            onChange={setEmailAddress}
-            onClear={() => setEmailAddress("")}
+            onChange={(v) => {
+              setEmailAddress(v)
+              if (emailError) setEmailError("")
+            }}
+            onClear={() => { setEmailAddress(""); setEmailError("") }}
+            onBlur={() => checkEmailExists(emailAddress)}
             type="email"
+            error={emailError}
           />
 
           {/* Contact Number */}
@@ -327,9 +504,24 @@ export default function AddUserPage() {
             data-testid="contact-number-input"
             label="Contact Number"
             value={contactNumber}
-            onChange={setContactNumber}
-            onClear={() => setContactNumber("")}
+            onChange={(v) => {
+              setContactNumber(v)
+              if (contactError) setContactError("")
+            }}
+            onClear={() => { setContactNumber(""); setContactError("") }}
+            onBlur={() => checkContactExists(contactNumber)}
             type="tel"
+            error={contactError}
+          />
+
+          {/* Access Role */}
+          <FloatingSelect
+            id="role"
+            data-testid="select-role"
+            label="Select Access Role"
+            value={role}
+            onChange={setRole}
+            options={roleOptions}
           />
         </div>
 
