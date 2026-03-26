@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
-import { ArrowLeft, Search, Plus, ArrowRight, MoreVertical } from "lucide-react"
+import { ArrowLeft, Search, Plus, ArrowRight, MoreVertical, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useBookingStore, type BookingStatus } from "@/lib/booking-store"
+import { useAuth } from "@/lib/auth-store"
+import * as XLSX from "xlsx"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -238,6 +240,7 @@ export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { bookings, loading, discardBooking } = useBookingStore()
+  const { isSystemAdmin } = useAuth()
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
     "all" | "in-progress" | "completed"
@@ -518,6 +521,43 @@ export default function PatientHistoryPage() {
           await discardBooking(id)
         }}
       />
+
+      {/* Export to Excel - System Admin only */}
+      {isSystemAdmin && (
+        <button
+          type="button"
+          onClick={() => {
+            const exportData = bookings.map((b) => ({
+              "Patient Name": [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
+              "ID Number": b.idNumber || "N/A",
+              "ID Type": b.idType || "",
+              "Status": b.status,
+              "Date": new Date(b.createdAt).toLocaleString("en-ZA"),
+              "Gender": b.gender || "",
+              "Date of Birth": b.dateOfBirth || "",
+              "Contact Number": b.contactNumber || "",
+              "Email": b.emailAddress || "",
+              "Address": [b.address, b.suburb, b.city, b.province, b.postalCode].filter(Boolean).join(", "),
+              "Payment Type": b.paymentType || "",
+              "Blood Pressure": b.bloodPressure || "",
+              "Glucose": b.glucose || "",
+              "Temperature": b.temperature || "",
+              "Oxygen Saturation": b.oxygenSaturation || "",
+              "Heart Rate": b.heartRate || "",
+              "Terms Accepted": b.termsAccepted ? "Yes" : "No",
+            }))
+
+            const ws = XLSX.utils.json_to_sheet(exportData)
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, "Patient History")
+            XLSX.writeFile(wb, `patient-history-${new Date().toISOString().slice(0, 10)}.xlsx`)
+          }}
+          className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-[#3ea3db] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-[#3ea3db]/90 hover:shadow-xl"
+        >
+          <Download className="size-4" />
+          Export to Excel
+        </button>
+      )}
     </div>
   )
 }
