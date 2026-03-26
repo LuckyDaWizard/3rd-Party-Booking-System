@@ -49,7 +49,7 @@ function getStatusStyle(status: PatientStatus): string {
     case "Payment Complete":
       return "bg-yellow-100 text-yellow-700 border-transparent"
     case "In Progress":
-      return "bg-blue-100 text-blue-600 border-transparent"
+      return "bg-[#CDE5F2] text-[#3ea3db] border-transparent"
     case "Abandoned":
       return "bg-[#FF3A69] text-white border-transparent"
     case "Successful":
