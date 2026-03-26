@@ -439,10 +439,10 @@ export default function PatientDetailsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { updateBooking, discardBooking, setActiveBookingId, getBooking } = useBookingStore()
-  const [currentStep, setCurrentStep] = useState(1)
-
   // Read booking ID and search params
   const bookingId = searchParams.get("bookingId") ?? ""
+  const stepParam = searchParams.get("step")
+  const [currentStep, setCurrentStep] = useState(stepParam ? parseInt(stepParam, 10) : 1)
   const searchType = searchParams.get("searchType") ?? "id"
   const idNumber = searchParams.get("idNumber") ?? ""
   const passportNumber = searchParams.get("passportNumber") ?? ""

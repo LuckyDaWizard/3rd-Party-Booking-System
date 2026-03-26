@@ -99,7 +99,13 @@ export default function PaymentPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.back()}
+          onClick={() => {
+            const params = new URLSearchParams()
+            if (bookingId) params.set("bookingId", bookingId)
+            params.set("searchType", "id")
+            params.set("step", "5")
+            router.push(`/create-booking/patient-details?${params.toString()}`)
+          }}
           className="gap-3 rounded-lg border-black px-6 py-2"
         >
           <ArrowLeft className="size-4" />
