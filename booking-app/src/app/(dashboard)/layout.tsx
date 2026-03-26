@@ -84,6 +84,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <Header
           userName={`${user.firstNames} ${user.surname}`}
           companyName={user.clientName ?? "CareFirst"}
+          avatarUrl={user.avatarUrl ?? undefined}
         />
 
         <main

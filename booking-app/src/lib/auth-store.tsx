@@ -28,6 +28,7 @@ export interface AuthUser {
   clientName: string | null
   unitIds: string[]
   unitNames: string[]
+  avatarUrl: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,7 @@ interface DbUser {
   role: UserRole
   status: "Active" | "Disabled"
   client_id: string | null
+  avatar_url: string | null
 }
 
 interface DbUserUnit {
@@ -152,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clientName,
       unitIds,
       unitNames,
+      avatarUrl: u.avatar_url ?? null,
     }
   }, [])
 
