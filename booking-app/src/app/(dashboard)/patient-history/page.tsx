@@ -490,7 +490,7 @@ export default function PatientHistoryPage() {
                 ) : patient.status === "Abandoned" ? (
                   <Button
                     data-testid={`continue-button-${patient.id}`}
-                    className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-4 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+                    className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
                     size="lg"
                     onClick={() => {
                       // Resume booking from the start with pre-filled data
