@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog"
 import { useUserStore } from "@/lib/user-store"
 import { useUnitStore } from "@/lib/unit-store"
+import { useAuth } from "@/lib/auth-store"
+import { supabase } from "@/lib/supabase"
 
 // ---------------------------------------------------------------------------
 // Floating Input Component
@@ -215,11 +217,14 @@ export default function ManageUserPage() {
 
   const user = getUser(userId)
 
+  const { activeUnitId } = useAuth()
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isStatusOpen, setIsStatusOpen] = useState(false)
   const [isResetPinOpen, setIsResetPinOpen] = useState(false)
   const [isVerificationOpen, setIsVerificationOpen] = useState(false)
   const [verificationCode, setVerificationCode] = useState<string[]>(["", "", "", "", ""])
+  const [verificationError, setVerificationError] = useState("")
+  const [verifying, setVerifying] = useState(false)
   const verificationRefs = useRef<(HTMLInputElement | null)[]>([])
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
   const [firstNames, setFirstNames] = useState("")
@@ -555,27 +560,75 @@ export default function ManageUserPage() {
               ))}
             </div>
 
+            {verificationError && (
+              <p className="text-center text-sm font-medium text-[#FF3A69]">
+                {verificationError}
+              </p>
+            )}
+
             <Button
               data-testid="confirm-verification-button"
-              disabled={verificationCode.some((d) => !d)}
+              disabled={verificationCode.some((d) => !d) || verifying}
               onClick={async () => {
+                setVerificationError("")
+                setVerifying(true)
+
+                const pin = verificationCode.join("")
+
+                // Validate PIN against unit managers for this unit or system admins
+                const { data: validUsers } = await supabase
+                  .from("users")
+                  .select("id, role")
+                  .eq("pin", pin)
+                  .eq("status", "Active")
+                  .in("role", ["unit_manager", "system_admin"])
+                  .limit(1)
+
+                if (!validUsers || validUsers.length === 0) {
+                  setVerificationError("Invalid verification code")
+                  setVerifying(false)
+                  return
+                }
+
+                // If unit_manager, check they belong to the current unit
+                const matchedUser = validUsers[0]
+                if (matchedUser.role === "unit_manager" && activeUnitId) {
+                  const { data: userUnits } = await supabase
+                    .from("user_units")
+                    .select("unit_id")
+                    .eq("user_id", matchedUser.id)
+                    .eq("unit_id", activeUnitId)
+                    .limit(1)
+
+                  if (!userUnits || userUnits.length === 0) {
+                    setVerificationError("This manager is not assigned to your unit")
+                    setVerifying(false)
+                    return
+                  }
+                }
+
+                setVerifying(false)
                 setIsVerificationOpen(false)
+                setVerificationError("")
                 await handleResetPin()
               }}
               className={`h-11 w-full rounded-xl transition-colors ${
-                verificationCode.every((d) => d)
+                verificationCode.every((d) => d) && !verifying
                   ? "bg-gray-900 text-white hover:bg-gray-800"
                   : "bg-gray-300 text-gray-600"
               }`}
             >
-              Continue
-              <ArrowRight className="ml-1 size-4" />
+              {verifying ? "Verifying..." : "Continue"}
+              {!verifying && <ArrowRight className="ml-1 size-4" />}
             </Button>
 
             <button
               type="button"
               data-testid="cancel-verification-button"
-              onClick={() => setIsVerificationOpen(false)}
+              onClick={() => {
+                setIsVerificationOpen(false)
+                setVerificationError("")
+              }}
               className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
             >
               Cancel

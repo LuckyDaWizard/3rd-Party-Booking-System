@@ -6,6 +6,8 @@ import { ArrowLeft, ArrowRight, FileText, X, ChevronDown, CheckCircle } from "lu
 import { Button } from "@/components/ui/button"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { useBookingStore } from "@/lib/booking-store"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth-store"
 
 // ---------------------------------------------------------------------------
 // Floating Input Component
@@ -516,6 +518,9 @@ export default function PatientDetailsPage() {
   const [bookingVerificationCode, setBookingVerificationCode] = useState("")
   const [showSuccessBanner, setShowSuccessBanner] = useState(false)
   const [selectedPaymentType, setSelectedPaymentType] = useState("")
+  const [verificationError, setVerificationError] = useState("")
+  const [verifying, setVerifying] = useState(false)
+  const { activeUnitId } = useAuth()
 
   const isStep3Complete =
     contactInfo.contactNumber.trim() !== "" &&
@@ -1268,22 +1273,65 @@ export default function PatientDetailsPage() {
               </InputOTPGroup>
             </InputOTP>
 
+            {verificationError && (
+              <p className="text-center text-sm font-medium text-[#FF3A69]">
+                {verificationError}
+              </p>
+            )}
+
             <Button
-              onClick={() => {
+              onClick={async () => {
+                setVerificationError("")
+                setVerifying(true)
+
+                // Validate PIN against unit managers for this unit or system admins
+                const { data: validUsers } = await supabase
+                  .from("users")
+                  .select("id, role")
+                  .eq("pin", bookingVerificationCode)
+                  .eq("status", "Active")
+                  .in("role", ["unit_manager", "system_admin"])
+                  .limit(1)
+
+                if (!validUsers || validUsers.length === 0) {
+                  setVerificationError("Invalid verification code")
+                  setVerifying(false)
+                  return
+                }
+
+                // If unit_manager, check they belong to the current unit
+                const matchedUser = validUsers[0]
+                if (matchedUser.role === "unit_manager" && activeUnitId) {
+                  const { data: userUnits } = await supabase
+                    .from("user_units")
+                    .select("unit_id")
+                    .eq("user_id", matchedUser.id)
+                    .eq("unit_id", activeUnitId)
+                    .limit(1)
+
+                  if (!userUnits || userUnits.length === 0) {
+                    setVerificationError("This manager is not assigned to your unit")
+                    setVerifying(false)
+                    return
+                  }
+                }
+
+                setVerifying(false)
                 setShowVerification(false)
                 setBookingVerificationCode("")
+                setVerificationError("")
                 setShowSuccessBanner(true)
                 setCurrentStep(5)
               }}
-              disabled={bookingVerificationCode.length < 5}
+              disabled={bookingVerificationCode.length < 5 || verifying}
               className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
-                bookingVerificationCode.length === 5
+                bookingVerificationCode.length === 5 && !verifying
                   ? "bg-gray-900 text-white hover:bg-gray-800"
                   : "bg-gray-300 text-gray-500 cursor-default"
               }`}
             >
-              Continue
-              <ArrowRight className="size-4" />
+              {verifying ? "Verifying..." : "Continue"}
+              {!verifying && <ArrowRight className="size-4" />}
             </Button>
 
             <button

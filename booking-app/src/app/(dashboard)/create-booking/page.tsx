@@ -8,6 +8,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { X } from "lucide-react"
 import { useBookingStore } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
+import { supabase } from "@/lib/supabase"
 
 function FloatingInput({
   id,
@@ -74,6 +75,8 @@ export default function CreateBookingPage() {
 
   // Verification code
   const [verificationCode, setVerificationCode] = useState("")
+  const [verificationError, setVerificationError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const isCodeComplete = verificationCode.length === 5
 
@@ -206,8 +209,48 @@ export default function CreateBookingPage() {
 
         {/* Next button */}
         <div className="mt-8 w-full max-w-xs">
+          {verificationError && (
+            <p className="text-center text-sm font-medium text-[#FF3A69]">
+              {verificationError}
+            </p>
+          )}
           <Button
             onClick={async () => {
+              setVerificationError("")
+              setSubmitting(true)
+
+              // Validate PIN against unit managers for this unit or system admins
+              const { data: validUsers } = await supabase
+                .from("users")
+                .select("id, role")
+                .eq("pin", verificationCode)
+                .eq("status", "Active")
+                .in("role", ["unit_manager", "system_admin"])
+                .limit(1)
+
+              if (!validUsers || validUsers.length === 0) {
+                setVerificationError("Invalid verification code")
+                setSubmitting(false)
+                return
+              }
+
+              // If unit_manager, check they belong to the current unit
+              const matchedUser = validUsers[0]
+              if (matchedUser.role === "unit_manager" && activeUnitId) {
+                const { data: userUnits } = await supabase
+                  .from("user_units")
+                  .select("unit_id")
+                  .eq("user_id", matchedUser.id)
+                  .eq("unit_id", activeUnitId)
+                  .limit(1)
+
+                if (!userUnits || userUnits.length === 0) {
+                  setVerificationError("This manager is not assigned to your unit")
+                  setSubmitting(false)
+                  return
+                }
+              }
+
               // Build booking data from search fields
               const bookingData: Record<string, string | null> = {
                 searchType: activeTab,
@@ -240,14 +283,15 @@ export default function CreateBookingPage() {
                 params.set("surname", surname)
                 params.set("dob", dob)
               }
+              setSubmitting(false)
               router.push(`/create-booking/patient-details?${params.toString()}`)
             }}
             className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
-              isFormValid
+              isFormValid && !submitting
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
-            disabled={!isFormValid}
+            disabled={!isFormValid || submitting}
           >
             Next
             <ArrowRight className="size-4" />
