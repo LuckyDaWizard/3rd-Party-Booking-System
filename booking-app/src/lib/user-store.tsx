@@ -169,9 +169,10 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    // Filter by active unit for unit managers
+    // Filter by active unit for unit managers, and hide system admins from non-admins
     if (authUser && authUser.role === "unit_manager" && activeUnitId) {
       const filtered = mapped.filter((u) =>
+        u.role !== "system_admin" &&
         u.units.some((unit) => unit.unitId === activeUnitId)
       )
       setUsers(filtered)
