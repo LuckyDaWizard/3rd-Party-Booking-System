@@ -20,8 +20,10 @@ function FloatingInput({
   value,
   onChange,
   onClear,
+  onBlur,
   type = "text",
   readOnly = false,
+  error,
   "data-testid": dataTestId,
   className = "",
 }: {
@@ -30,33 +32,46 @@ function FloatingInput({
   value: string
   onChange: (value: string) => void
   onClear: () => void
+  onBlur?: () => void
   type?: string
   readOnly?: boolean
+  error?: string
   "data-testid"?: string
   className?: string
 }) {
   const hasValue = value.length > 0
+  const hasError = !!error
 
   return (
-    <div className={`relative ${className}`}>
-      <input
-        id={id}
-        data-testid={dataTestId}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        readOnly={readOnly}
-        placeholder=" "
-        className={`peer h-14 w-full rounded-lg border border-gray-300 bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white active:bg-white autofill:bg-white ${
-          readOnly ? "cursor-default bg-gray-50" : ""
-        }`}
-      />
-      <label
-        htmlFor={id}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-400 transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-500"
-      >
-        {label}
-      </label>
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <div className="relative">
+        <input
+          id={id}
+          data-testid={dataTestId}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          readOnly={readOnly}
+          placeholder=" "
+          className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:bg-white active:bg-white autofill:bg-white ${
+            hasError
+              ? "border-[#FF3A69] focus:border-[#FF3A69]"
+              : readOnly
+                ? "border-gray-300 cursor-default bg-gray-50"
+                : "border-gray-300 focus:border-gray-900"
+          }`}
+        />
+        <label
+          htmlFor={id}
+          className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs ${
+            hasError
+              ? "text-[#FF3A69] peer-focus:text-[#FF3A69] peer-[:not(:placeholder-shown)]:text-[#FF3A69]"
+              : "text-gray-400 peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:text-gray-500"
+          }`}
+        >
+          {label}
+        </label>
       {hasValue && !readOnly && (
         <button
           type="button"
@@ -66,6 +81,10 @@ function FloatingInput({
         >
           <X className="size-4" />
         </button>
+      )}
+      </div>
+      {hasError && (
+        <p className="text-xs text-[#FF3A69]">{error}</p>
       )}
     </div>
   )
@@ -182,6 +201,21 @@ const ID_TYPE_OPTIONS = [
   { value: "passport", label: "Passport" },
 ]
 
+const TITLE_OPTIONS = [
+  { value: "Mr", label: "Mr" },
+  { value: "Mrs", label: "Mrs" },
+  { value: "Ms", label: "Ms" },
+  { value: "Miss", label: "Miss" },
+  { value: "Dr", label: "Dr" },
+  { value: "Prof", label: "Prof" },
+  { value: "Rev", label: "Rev" },
+]
+
+const GENDER_OPTIONS = [
+  { value: "Male", label: "Male" },
+  { value: "Female", label: "Female" },
+]
+
 const NATIONALITY_OPTIONS = [
   { value: "south_african", label: "South African" },
   { value: "zimbabwean", label: "Zimbabwean" },
@@ -287,6 +321,90 @@ function CountryCodeSelect({
 }
 
 // ---------------------------------------------------------------------------
+// SA ID Number Validation & Extraction
+// ---------------------------------------------------------------------------
+
+function validateSaIdNumber(id: string): { valid: boolean; error?: string } {
+  if (!/^\d+$/.test(id)) return { valid: false, error: "ID number must contain only digits" }
+  if (id.length !== 13) return { valid: false, error: "ID number must be exactly 13 digits" }
+
+  // Validate date of birth (positions 1-6)
+  const yy = parseInt(id.slice(0, 2), 10)
+  const mm = parseInt(id.slice(2, 4), 10)
+  const dd = parseInt(id.slice(4, 6), 10)
+  if (mm < 1 || mm > 12) return { valid: false, error: "Invalid month in ID number" }
+  if (dd < 1 || dd > 31) return { valid: false, error: "Invalid day in ID number" }
+
+  // Validate citizenship digit (position 11)
+  const citizenship = parseInt(id[10], 10)
+  if (citizenship !== 0 && citizenship !== 1) return { valid: false, error: "Invalid citizenship digit" }
+
+  // Luhn check digit validation
+  let sum = 0
+  for (let i = 0; i < 12; i++) {
+    let digit = parseInt(id[i], 10)
+    if (i % 2 === 1) {
+      digit *= 2
+      if (digit > 9) digit -= 9
+    }
+    sum += digit
+  }
+  const checkDigit = (10 - (sum % 10)) % 10
+  if (checkDigit !== parseInt(id[12], 10)) return { valid: false, error: "Invalid ID number (check digit failed)" }
+
+  return { valid: true }
+}
+
+function extractFromSaId(id: string): {
+  dateOfBirth: string
+  gender: string
+  nationality: string
+} | null {
+  if (id.length !== 13 || !/^\d+$/.test(id)) return null
+
+  const yy = parseInt(id.slice(0, 2), 10)
+  const mm = id.slice(2, 4)
+  const dd = id.slice(4, 6)
+  const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy
+  const dateOfBirth = `${year}-${mm}-${dd}`
+
+  const genderSeq = parseInt(id.slice(6, 10), 10)
+  const gender = genderSeq >= 5000 ? "Male" : "Female"
+
+  const citizenDigit = parseInt(id[10], 10)
+  const nationality = citizenDigit === 0 ? "south_african" : "other"
+
+  return { dateOfBirth, gender, nationality }
+}
+
+// ---------------------------------------------------------------------------
+// SA Phone Number Validation
+// ---------------------------------------------------------------------------
+
+function validateSaPhone(phone: string): { valid: boolean; error?: string } {
+  if (!phone || phone === "+27") return { valid: false }
+  const cleaned = phone.replace(/[\s-]/g, "")
+  // +27 format: +27XXXXXXXXX (12 chars)
+  if (cleaned.startsWith("+27")) {
+    if (cleaned.length !== 12) return { valid: false, error: "Contact number must be 12 digits with +27" }
+    if (!/^\+27[0-9]{9}$/.test(cleaned)) return { valid: false, error: "Invalid South African contact number" }
+    return { valid: true }
+  }
+  // 0 format: 0XXXXXXXXX (10 chars)
+  if (cleaned.startsWith("0")) {
+    if (cleaned.length !== 10) return { valid: false, error: "Contact number must be 10 digits" }
+    if (!/^0[0-9]{9}$/.test(cleaned)) return { valid: false, error: "Invalid South African contact number" }
+    return { valid: true }
+  }
+  return { valid: false, error: "Contact number must start with 0 or +27" }
+}
+
+function formatSaPhone(value: string): string {
+  // Only allow digits and leading +
+  return value.replace(/[^0-9+]/g, "").replace(/(?!^)\+/g, "")
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -312,12 +430,47 @@ function StepBasicInfo({
   data: BasicInfoData
   onChange: (updated: BasicInfoData) => void
 }) {
+  const [idError, setIdError] = useState("")
+
   function handleChange(field: keyof BasicInfoData, value: string) {
     onChange({ ...data, [field]: value })
   }
 
   function handleClear(field: keyof BasicInfoData) {
     onChange({ ...data, [field]: "" })
+  }
+
+  function handleIdNumberChange(value: string) {
+    // Only allow digits for national ID
+    const cleaned = data.idType === "national_id" ? value.replace(/\D/g, "").slice(0, 13) : value
+    onChange({ ...data, idNumber: cleaned })
+    if (idError) setIdError("")
+  }
+
+  function handleIdBlur() {
+    if (data.idType !== "national_id" || !data.idNumber) {
+      setIdError("")
+      return
+    }
+
+    const validation = validateSaIdNumber(data.idNumber)
+    if (!validation.valid) {
+      setIdError(validation.error ?? "Invalid ID number")
+      return
+    }
+
+    setIdError("")
+
+    // Auto-populate fields from ID
+    const extracted = extractFromSaId(data.idNumber)
+    if (extracted) {
+      onChange({
+        ...data,
+        dateOfBirth: extracted.dateOfBirth,
+        gender: extracted.gender,
+        nationality: extracted.nationality,
+      })
+    }
   }
 
   // Determine the ID field label based on selected type
@@ -357,7 +510,7 @@ function StepBasicInfo({
             data-testid="input-first-names"
             label="First Names"
             value={data.firstNames}
-            onChange={(v) => handleChange("firstNames", v)}
+            onChange={(v) => handleChange("firstNames", v.replace(/[^a-zA-Z\s-]/g, ""))}
             onClear={() => handleClear("firstNames")}
           />
           <FloatingInput
@@ -365,7 +518,7 @@ function StepBasicInfo({
             data-testid="input-surname"
             label="Surname"
             value={data.surname}
-            onChange={(v) => handleChange("surname", v)}
+            onChange={(v) => handleChange("surname", v.replace(/[^a-zA-Z\s-]/g, ""))}
             onClear={() => handleClear("surname")}
           />
         </div>
@@ -385,20 +538,22 @@ function StepBasicInfo({
             data-testid="input-id-number"
             label={idFieldLabel}
             value={data.idNumber}
-            onChange={(v) => handleChange("idNumber", v)}
-            onClear={() => handleClear("idNumber")}
+            onChange={handleIdNumberChange}
+            onClear={() => { handleClear("idNumber"); setIdError("") }}
+            onBlur={handleIdBlur}
+            error={idError}
           />
         </div>
 
         {/* Row 3: Title + Nationality */}
         <div className="grid grid-cols-2 gap-6">
-          <FloatingInput
+          <FloatingSelect
             id="title"
-            data-testid="input-title"
+            data-testid="select-title"
             label="Title"
             value={data.title}
             onChange={(v) => handleChange("title", v)}
-            onClear={() => handleClear("title")}
+            options={TITLE_OPTIONS}
           />
           <FloatingSelect
             id="nationality"
@@ -412,13 +567,13 @@ function StepBasicInfo({
 
         {/* Row 4: Gender + Date of Birth */}
         <div className="grid grid-cols-2 gap-6">
-          <FloatingInput
+          <FloatingSelect
             id="gender"
-            data-testid="input-gender"
+            data-testid="select-gender"
             label="Gender"
             value={data.gender}
             onChange={(v) => handleChange("gender", v)}
-            onClear={() => handleClear("gender")}
+            options={GENDER_OPTIONS}
           />
           <DatePickerField
             id="dateOfBirth"
@@ -521,11 +676,56 @@ export default function PatientDetailsPage() {
   const [selectedPaymentType, setSelectedPaymentType] = useState("")
   const [verificationError, setVerificationError] = useState("")
   const [verifying, setVerifying] = useState(false)
+  const [emailError, setEmailError] = useState("")
+  const [contactError, setContactError] = useState("")
   const { activeUnitId } = useAuth()
+
+  async function checkEmailExists(email: string) {
+    if (!email.trim()) { setEmailError(""); return }
+    const { data } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("email_address", email.trim())
+      .neq("id", bookingId || "")
+      .limit(1)
+    if (data && data.length > 0) {
+      setEmailError("This email is already associated with another patient")
+    } else {
+      setEmailError("")
+    }
+  }
+
+  async function checkContactExists(contact: string) {
+    if (!contact.trim() || contact.trim() === "+27") { setContactError(""); return }
+
+    // Validate SA format first
+    const validation = validateSaPhone(contact)
+    if (!validation.valid) {
+      setContactError(validation.error ?? "Invalid contact number")
+      return
+    }
+
+    // Then check for duplicates
+    const { data } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("contact_number", contact.trim())
+      .neq("id", bookingId || "")
+      .limit(1)
+    if (data && data.length > 0) {
+      setContactError("This contact number is already associated with another patient")
+    } else {
+      setContactError("")
+    }
+  }
 
   const isStep3Complete =
     contactInfo.contactNumber.trim() !== "" &&
+    contactInfo.contactNumber.trim() !== "+27" &&
+    validateSaPhone(contactInfo.contactNumber).valid &&
     contactInfo.emailAddress.trim() !== "" &&
+    !emailError &&
+    !contactError &&
     (!contactInfo.scriptToAnotherEmail || contactInfo.additionalEmail.trim() !== "")
 
   async function handleNext() {
@@ -848,8 +1048,13 @@ export default function PatientDetailsPage() {
                 id="contactNumber"
                 label="Contact Number"
                 value={contactInfo.contactNumber}
-                onChange={(v) => setContactInfo({ ...contactInfo, contactNumber: v })}
-                onClear={() => setContactInfo({ ...contactInfo, contactNumber: "" })}
+                onChange={(v) => {
+                  setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
+                  if (contactError) setContactError("")
+                }}
+                onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}
+                onBlur={() => checkContactExists(contactInfo.contactNumber)}
+                error={contactError}
                 className="flex-1"
               />
 
@@ -858,8 +1063,13 @@ export default function PatientDetailsPage() {
                 id="emailAddress"
                 label="Email Address"
                 value={contactInfo.emailAddress}
-                onChange={(v) => setContactInfo({ ...contactInfo, emailAddress: v })}
-                onClear={() => setContactInfo({ ...contactInfo, emailAddress: "" })}
+                onChange={(v) => {
+                  setContactInfo({ ...contactInfo, emailAddress: v })
+                  if (emailError) setEmailError("")
+                }}
+                onClear={() => { setContactInfo({ ...contactInfo, emailAddress: "" }); setEmailError("") }}
+                onBlur={() => checkEmailExists(contactInfo.emailAddress)}
+                error={emailError}
                 className="flex-1"
               />
             </div>
@@ -942,14 +1152,14 @@ export default function PatientDetailsPage() {
                   id="verify-firstNames"
                   label="First Names"
                   value={basicInfo.firstNames}
-                  onChange={(v) => setBasicInfo({ ...basicInfo, firstNames: v })}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, firstNames: v.replace(/[^a-zA-Z\s-]/g, "") })}
                   onClear={() => setBasicInfo({ ...basicInfo, firstNames: "" })}
                 />
                 <FloatingInput
                   id="verify-surname"
                   label="Surname"
                   value={basicInfo.surname}
-                  onChange={(v) => setBasicInfo({ ...basicInfo, surname: v })}
+                  onChange={(v) => setBasicInfo({ ...basicInfo, surname: v.replace(/[^a-zA-Z\s-]/g, "") })}
                   onClear={() => setBasicInfo({ ...basicInfo, surname: "" })}
                 />
                 <FloatingInput
@@ -967,12 +1177,12 @@ export default function PatientDetailsPage() {
                   onChange={(v) => setBasicInfo({ ...basicInfo, idNumber: v })}
                   onClear={() => setBasicInfo({ ...basicInfo, idNumber: "" })}
                 />
-                <FloatingInput
+                <FloatingSelect
                   id="verify-title"
                   label="Title"
                   value={basicInfo.title}
                   onChange={(v) => setBasicInfo({ ...basicInfo, title: v })}
-                  onClear={() => setBasicInfo({ ...basicInfo, title: "" })}
+                  options={TITLE_OPTIONS}
                 />
                 <FloatingInput
                   id="verify-nationality"
@@ -981,12 +1191,12 @@ export default function PatientDetailsPage() {
                   onChange={(v) => setBasicInfo({ ...basicInfo, nationality: v })}
                   onClear={() => setBasicInfo({ ...basicInfo, nationality: "" })}
                 />
-                <FloatingInput
+                <FloatingSelect
                   id="verify-gender"
                   label="Gender"
                   value={basicInfo.gender}
                   onChange={(v) => setBasicInfo({ ...basicInfo, gender: v })}
-                  onClear={() => setBasicInfo({ ...basicInfo, gender: "" })}
+                  options={GENDER_OPTIONS}
                 />
                 <DatePickerField
                   id="verify-dob"
@@ -1085,16 +1295,26 @@ export default function PatientDetailsPage() {
                   id="verify-contactNumber"
                   label="Contact Number"
                   value={contactInfo.contactNumber}
-                  onChange={(v) => setContactInfo({ ...contactInfo, contactNumber: v })}
-                  onClear={() => setContactInfo({ ...contactInfo, contactNumber: "" })}
+                  onChange={(v) => {
+                    setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
+                    if (contactError) setContactError("")
+                  }}
+                  onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}
+                  onBlur={() => checkContactExists(contactInfo.contactNumber)}
+                  error={contactError}
                   className="flex-1"
                 />
                 <FloatingInput
                   id="verify-emailAddress"
                   label="Email Address"
                   value={contactInfo.emailAddress}
-                  onChange={(v) => setContactInfo({ ...contactInfo, emailAddress: v })}
-                  onClear={() => setContactInfo({ ...contactInfo, emailAddress: "" })}
+                  onChange={(v) => {
+                    setContactInfo({ ...contactInfo, emailAddress: v })
+                    if (emailError) setEmailError("")
+                  }}
+                  onClear={() => { setContactInfo({ ...contactInfo, emailAddress: "" }); setEmailError("") }}
+                  onBlur={() => checkEmailExists(contactInfo.emailAddress)}
+                  error={emailError}
                   className="flex-1"
                 />
               </div>

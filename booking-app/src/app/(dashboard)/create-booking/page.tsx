@@ -17,7 +17,9 @@ function FloatingInput({
   value,
   onChange,
   onClear,
+  onBlur,
   type = "text",
+  error,
   className = "",
 }: {
   id: string
@@ -25,41 +27,78 @@ function FloatingInput({
   value: string
   onChange: (value: string) => void
   onClear: () => void
+  onBlur?: () => void
   type?: string
+  error?: string
   className?: string
 }) {
   const hasValue = value.length > 0
+  const hasError = !!error
 
   return (
-    <div className={`relative ${className}`}>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder=" "
-        className="peer h-14 w-full rounded-lg border border-gray-300 bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white"
-      />
-      <label
-        htmlFor={id}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-400 transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-500"
-      >
-        {label}
-      </label>
-      {hasValue && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <div className="relative">
+        <input
+          id={id}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          placeholder=" "
+          className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:bg-white ${
+            hasError
+              ? "border-[#FF3A69] focus:border-[#FF3A69]"
+              : "border-gray-300 focus:border-gray-900"
+          }`}
+        />
+        <label
+          htmlFor={id}
+          className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs ${
+            hasError
+              ? "text-[#FF3A69] peer-focus:text-[#FF3A69] peer-[:not(:placeholder-shown)]:text-[#FF3A69]"
+              : "text-gray-400 peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:text-gray-500"
+          }`}
         >
-          <X className="size-4" />
-        </button>
+          {label}
+        </label>
+        {hasValue && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+      {hasError && (
+        <p className="text-xs text-[#FF3A69]">{error}</p>
       )}
     </div>
   )
 }
 
 type SearchTab = "id" | "passport" | "dob"
+
+function validateSaIdNumber(id: string): { valid: boolean; error?: string } {
+  if (!/^\d+$/.test(id)) return { valid: false, error: "ID number must contain only digits" }
+  if (id.length !== 13) return { valid: false, error: "ID number must be exactly 13 digits" }
+  const mm = parseInt(id.slice(2, 4), 10)
+  const dd = parseInt(id.slice(4, 6), 10)
+  if (mm < 1 || mm > 12) return { valid: false, error: "Invalid month in ID number" }
+  if (dd < 1 || dd > 31) return { valid: false, error: "Invalid day in ID number" }
+  const citizenship = parseInt(id[10], 10)
+  if (citizenship !== 0 && citizenship !== 1) return { valid: false, error: "Invalid citizenship digit" }
+  let sum = 0
+  for (let i = 0; i < 12; i++) {
+    let digit = parseInt(id[i], 10)
+    if (i % 2 === 1) { digit *= 2; if (digit > 9) digit -= 9 }
+    sum += digit
+  }
+  const checkDigit = (10 - (sum % 10)) % 10
+  if (checkDigit !== parseInt(id[12], 10)) return { valid: false, error: "Invalid ID number (check digit failed)" }
+  return { valid: true }
+}
 
 export default function CreateBookingPage() {
   const router = useRouter()
@@ -69,6 +108,7 @@ export default function CreateBookingPage() {
 
   // Form fields
   const [idNumber, setIdNumber] = useState("")
+  const [idError, setIdError] = useState("")
   const [passportNumber, setPassportNumber] = useState("")
   const [firstName, setFirstName] = useState("")
   const [surname, setSurname] = useState("")
@@ -85,7 +125,7 @@ export default function CreateBookingPage() {
     if (!isCodeComplete) return false
     switch (activeTab) {
       case "id":
-        return idNumber.trim().length > 0
+        return idNumber.trim().length > 0 && !idError
       case "passport":
         return passportNumber.trim().length > 0
       case "dob":
@@ -146,8 +186,19 @@ export default function CreateBookingPage() {
               id="idNumber"
               label="National ID Number"
               value={idNumber}
-              onChange={setIdNumber}
-              onClear={() => setIdNumber("")}
+              onChange={(v) => {
+                const cleaned = v.replace(/\D/g, "").slice(0, 13)
+                setIdNumber(cleaned)
+                if (idError) setIdError("")
+              }}
+              onClear={() => { setIdNumber(""); setIdError("") }}
+              onBlur={() => {
+                if (!idNumber) return
+                const result = validateSaIdNumber(idNumber)
+                if (!result.valid) setIdError(result.error ?? "Invalid ID number")
+                else setIdError("")
+              }}
+              error={idError}
             />
           )}
 
@@ -167,14 +218,14 @@ export default function CreateBookingPage() {
                 id="firstName"
                 label="First Names"
                 value={firstName}
-                onChange={setFirstName}
+                onChange={(v) => setFirstName(v.replace(/[^a-zA-Z\s-]/g, ""))}
                 onClear={() => setFirstName("")}
               />
               <FloatingInput
                 id="surname"
                 label="Surname"
                 value={surname}
-                onChange={setSurname}
+                onChange={(v) => setSurname(v.replace(/[^a-zA-Z\s-]/g, ""))}
                 onClear={() => setSurname("")}
               />
               <DatePickerField
