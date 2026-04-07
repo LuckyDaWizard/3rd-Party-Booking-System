@@ -1479,12 +1479,12 @@ export default function PatientDetailsPage() {
             </h2>
 
             <InputOTP
-              maxLength={5}
+              maxLength={6}
               value={bookingVerificationCode}
               onChange={setBookingVerificationCode}
             >
               <InputOTPGroup className="gap-3">
-                {Array.from({ length: 5 }, (_, i) => (
+                {Array.from({ length: 6 }, (_, i) => (
                   <InputOTPSlot
                     key={i}
                     index={i}
@@ -1544,9 +1544,9 @@ export default function PatientDetailsPage() {
                 setShowSuccessBanner(true)
                 setCurrentStep(5)
               }}
-              disabled={bookingVerificationCode.length < 5 || verifying}
+              disabled={bookingVerificationCode.length < 6 || verifying}
               className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
-                bookingVerificationCode.length === 5 && !verifying
+                bookingVerificationCode.length === 6 && !verifying
                   ? "bg-gray-900 text-white hover:bg-gray-800"
                   : "bg-gray-300 text-gray-500 cursor-default"
               }`}

@@ -187,86 +187,76 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchUsers])
 
   async function addUser(user: AddUserInput) {
-    const { data, error } = await supabase
-      .from("users")
-      .insert({
-        first_names: user.firstNames,
+    // Routed through /api/admin/users so the server-side service-role client
+    // can create both the auth.users entry and the public.users row atomically.
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        firstNames: user.firstNames,
         surname: user.surname,
         email: user.email,
-        contact_number: user.contactNumber,
+        contactNumber: user.contactNumber,
         pin: user.pin,
         role: user.role,
-        unit_id: user.unitIds[0] || null,
-        client_id: user.clientId || null,
-        status: "Active",
-      })
-      .select("id")
-      .single()
+        unitIds: user.unitIds,
+        clientId: user.clientId || null,
+      }),
+    })
 
-    if (error) {
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error adding user:", error)
-      throw error
+      throw new Error(error || "Failed to create user")
     }
 
-    const userId = data.id
-
-    // Insert user-unit assignments
-    if (user.unitIds.length > 0) {
-      const rows = user.unitIds.map((unitId) => ({
-        user_id: userId,
-        unit_id: unitId,
-      }))
-      await supabase.from("user_units").insert(rows)
-    }
-
+    const { id: userId } = (await res.json()) as { id: string }
     await fetchUsers()
     return userId
   }
 
   async function updateUser(id: string, updates: Partial<Omit<UserRecord, "id" | "unitName" | "clientName" | "units">>) {
-    const dbUpdates: Record<string, unknown> = {}
-    if (updates.firstNames !== undefined) dbUpdates.first_names = updates.firstNames
-    if (updates.surname !== undefined) dbUpdates.surname = updates.surname
-    if (updates.email !== undefined) dbUpdates.email = updates.email
-    if (updates.contactNumber !== undefined) dbUpdates.contact_number = updates.contactNumber
-    if (updates.role !== undefined) dbUpdates.role = updates.role
-    if (updates.pin !== undefined) dbUpdates.pin = updates.pin
-    if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId || null
-    if (updates.status !== undefined) dbUpdates.status = updates.status
+    // Routed through /api/admin/users/[id] so PIN changes also update the
+    // linked auth.users (email + password) atomically.
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(updates),
+    })
 
-    if (Object.keys(dbUpdates).length > 0) {
-      const { error } = await supabase.from("users").update(dbUpdates).eq("id", id)
-      if (error) console.error("Error updating user:", error)
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
+      console.error("Error updating user:", error)
+      throw new Error(error || "Failed to update user")
     }
 
     await fetchUsers()
   }
 
   async function updateUserUnits(userId: string, unitIds: string[]) {
-    // Delete existing assignments
-    await supabase.from("user_units").delete().eq("user_id", userId)
+    // Routed through PATCH /api/admin/users/[id] which handles deleting old
+    // user_units rows, inserting new ones, and updating the legacy unit_id column.
+    const res = await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ unitIds }),
+    })
 
-    // Insert new assignments
-    if (unitIds.length > 0) {
-      const rows = unitIds.map((unitId) => ({
-        user_id: userId,
-        unit_id: unitId,
-      }))
-      await supabase.from("user_units").insert(rows)
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
+      console.error("Error updating user units:", error)
+      throw new Error(error || "Failed to update user units")
     }
-
-    // Also update legacy unit_id column
-    await supabase
-      .from("users")
-      .update({ unit_id: unitIds[0] || null })
-      .eq("id", userId)
 
     await fetchUsers()
   }
 
   async function deleteUser(id: string) {
-    const { error } = await supabase.from("users").delete().eq("id", id)
-    if (error) {
+    // Routed through DELETE /api/admin/users/[id] so the linked auth.users
+    // entry is also removed.
+    const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error deleting user:", error)
       return
     }
@@ -277,8 +267,16 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     const user = users.find((u) => u.id === id)
     if (!user) return
 
-    const newStatus = user.status === "Active" ? "Disabled" : "Active"
-    await supabase.from("users").update({ status: newStatus }).eq("id", id)
+    const newStatus: UserStatus = user.status === "Active" ? "Disabled" : "Active"
+    const res = await fetch(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
+      console.error("Error toggling user status:", error)
+    }
     await fetchUsers()
   }
 

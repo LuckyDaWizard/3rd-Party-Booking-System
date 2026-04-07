@@ -314,7 +314,7 @@ export default function ManageUserPage() {
   const [isStatusOpen, setIsStatusOpen] = useState(false)
   const [isResetPinOpen, setIsResetPinOpen] = useState(false)
   const [isVerificationOpen, setIsVerificationOpen] = useState(false)
-  const [verificationCode, setVerificationCode] = useState<string[]>(["", "", "", "", ""])
+  const [verificationCode, setVerificationCode] = useState<string[]>(["", "", "", "", "", ""])
   const [verificationError, setVerificationError] = useState("")
   const [verifying, setVerifying] = useState(false)
   const verificationRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -617,7 +617,7 @@ export default function ManageUserPage() {
               data-testid="confirm-reset-pin-button"
               onClick={() => {
                 setIsResetPinOpen(false)
-                setVerificationCode(["", "", "", "", ""])
+                setVerificationCode(["", "", "", "", "", ""])
                 setIsVerificationOpen(true)
                 setTimeout(() => verificationRefs.current[0]?.focus(), 100)
               }}

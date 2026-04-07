@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/lib/auth-store"
 
 const MAX_ATTEMPTS = 5
-const PIN_LENGTH = 5
+const PIN_LENGTH = 6
 
 type SignInState = "idle" | "loading" | "error" | "lockout"
 

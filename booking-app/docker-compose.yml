@@ -11,6 +11,13 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      # Server-side only — never set NEXT_PUBLIC_ prefix on this.
+      # Read by src/lib/supabase-admin.ts in API routes.
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      # Server-side fallback so getSupabaseAdmin() can resolve the URL even
+      # if the client bundle's inlined NEXT_PUBLIC_SUPABASE_URL isn't visible
+      # to server runtime (it usually is, but be explicit).
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.booking.rule=PathPrefix(`/`)"

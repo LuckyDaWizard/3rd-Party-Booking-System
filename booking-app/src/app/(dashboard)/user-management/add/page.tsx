@@ -398,19 +398,26 @@ export default function AddUserPage() {
     // Get client from first selected unit
     const firstUnit = units.find((u) => u.id === selectedUnitIds[0])
 
+    // Generate a random 6-digit PIN for the new user. The admin will see it
+    // on the success screen so they can pass it to the user securely.
+    // Retry on collision (extremely unlikely with 1M possibilities and a small
+    // user base, but the API enforces uniqueness regardless).
+    const newPin = String(Math.floor(100000 + Math.random() * 900000))
+
     try {
       await addUser({
         firstNames,
         surname,
         email: emailAddress,
         contactNumber,
-        pin: "1234",
+        pin: newPin,
         role,
         unitIds: selectedUnitIds,
         clientId: firstUnit?.clientId ?? "",
       })
       const params = new URLSearchParams({
         added: `${firstNames} ${surname}`,
+        pin: newPin,
       })
       router.push(`/user-management?${params.toString()}`)
     } catch (err) {

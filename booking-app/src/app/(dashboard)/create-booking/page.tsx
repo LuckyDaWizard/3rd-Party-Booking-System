@@ -119,7 +119,7 @@ export default function CreateBookingPage() {
   const [verificationError, setVerificationError] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  const isCodeComplete = verificationCode.length === 5
+  const isCodeComplete = verificationCode.length === 6
 
   const isFormValid = (() => {
     if (!isCodeComplete) return false
@@ -243,12 +243,12 @@ export default function CreateBookingPage() {
         <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-4">
           <p className="text-base text-gray-700">Enter nurse verification code to start journey</p>
           <InputOTP
-            maxLength={5}
+            maxLength={6}
             value={verificationCode}
             onChange={setVerificationCode}
           >
             <InputOTPGroup className="gap-6">
-              {Array.from({ length: 5 }, (_, i) => (
+              {Array.from({ length: 6 }, (_, i) => (
                 <InputOTPSlot
                   key={i}
                   index={i}
