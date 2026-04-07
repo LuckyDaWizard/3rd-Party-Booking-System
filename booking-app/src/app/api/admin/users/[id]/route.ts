@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
+import { requireSystemAdmin } from "@/lib/api-auth"
 
 // =============================================================================
 // PATCH /api/admin/users/[id]   — update an existing user
@@ -35,6 +36,9 @@ interface RouteContext {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const denied = await requireSystemAdmin()
+  if (denied) return denied
+
   const { id } = await context.params
   if (!id) {
     return NextResponse.json({ error: "Missing user id" }, { status: 400 })
@@ -188,6 +192,9 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
+  const denied = await requireSystemAdmin()
+  if (denied) return denied
+
   const { id } = await context.params
   if (!id) {
     return NextResponse.json({ error: "Missing user id" }, { status: 400 })

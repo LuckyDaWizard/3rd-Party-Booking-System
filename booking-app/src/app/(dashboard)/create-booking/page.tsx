@@ -271,36 +271,22 @@ export default function CreateBookingPage() {
               setVerificationError("")
               setSubmitting(true)
 
-              // Validate PIN against unit managers for this unit or system admins
-              const { data: validUsers } = await supabase
-                .from("users")
-                .select("id, role")
-                .eq("pin", verificationCode)
-                .eq("status", "Active")
-                .in("role", ["unit_manager", "system_admin"])
-                .limit(1)
-
-              if (!validUsers || validUsers.length === 0) {
+              // Two-person sign-off: ask the server to verify the PIN belongs
+              // to a unit_manager assigned to activeUnitId, or any system_admin.
+              // Direct supabase lookup is forbidden under Phase 5 RLS — only
+              // the service role can read other users' PINs.
+              const verifyRes = await fetch("/api/verify/manager-pin", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ pin: verificationCode, unitId: activeUnitId }),
+              })
+              const verifyData = (await verifyRes.json().catch(() => ({}))) as {
+                valid?: boolean
+              }
+              if (!verifyRes.ok || !verifyData.valid) {
                 setVerificationError("Invalid verification code")
                 setSubmitting(false)
                 return
-              }
-
-              // If unit_manager, check they belong to the current unit
-              const matchedUser = validUsers[0]
-              if (matchedUser.role === "unit_manager" && activeUnitId) {
-                const { data: userUnits } = await supabase
-                  .from("user_units")
-                  .select("unit_id")
-                  .eq("user_id", matchedUser.id)
-                  .eq("unit_id", activeUnitId)
-                  .limit(1)
-
-                if (!userUnits || userUnits.length === 0) {
-                  setVerificationError("This manager is not assigned to your unit")
-                  setSubmitting(false)
-                  return
-                }
               }
 
               // Search for existing patient

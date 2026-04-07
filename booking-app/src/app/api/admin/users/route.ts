@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
+import { requireSystemAdmin } from "@/lib/api-auth"
 
 // =============================================================================
 // POST /api/admin/users
@@ -40,6 +41,9 @@ interface CreateUserBody {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireSystemAdmin()
+  if (denied) return denied
+
   let body: CreateUserBody
   try {
     body = (await request.json()) as CreateUserBody
