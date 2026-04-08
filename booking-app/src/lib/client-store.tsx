@@ -57,6 +57,11 @@ interface DbUnit {
   unit_name: string
 }
 
+interface DbUnitWithClientId {
+  client_id: string
+  unit_name: string
+}
+
 function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
   return {
     id: row.id,
@@ -92,19 +97,31 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Fetch units for each client
-    const mapped: ClientRecord[] = await Promise.all(
-      (clientRows as DbClient[]).map(async (row) => {
-        const { data: units } = await supabase
-          .from("units")
-          .select("unit_name")
-          .eq("client_id", row.id)
-          .limit(1)
+    // Fetch ALL units for ALL clients in a single query, then group by
+    // client_id. This replaces the previous N+1 pattern that also incorrectly
+    // limited each client to just its first unit (breaking display for any
+    // client with multiple units, e.g. Brian The Analyst → Linden, Sandton).
+    const clientIds = (clientRows as DbClient[]).map((c) => c.id)
+    const unitsByClient = new Map<string, string[]>()
+    if (clientIds.length > 0) {
+      const { data: allUnits } = await supabase
+        .from("units")
+        .select("client_id, unit_name")
+        .in("client_id", clientIds)
+        .order("unit_name", { ascending: true })
 
-        const unitName = (units as DbUnit[] | null)?.[0]?.unit_name ?? "-"
-        return mapDbToClient(row, unitName)
-      })
-    )
+      for (const row of (allUnits as DbUnitWithClientId[] | null) ?? []) {
+        const list = unitsByClient.get(row.client_id) ?? []
+        list.push(row.unit_name)
+        unitsByClient.set(row.client_id, list)
+      }
+    }
+
+    const mapped: ClientRecord[] = (clientRows as DbClient[]).map((row) => {
+      const names = unitsByClient.get(row.id) ?? []
+      const display = names.length > 0 ? names.join(", ") : "-"
+      return mapDbToClient(row, display)
+    })
 
     // Unit managers only see clients linked to their assigned units
     if (authUser && authUser.role === "unit_manager" && authUser.unitIds.length > 0) {
