@@ -333,7 +333,7 @@ export default function ManageUnitPage() {
           />
 
           {/* Contact Person Name + Surname */}
-          <div className="flex w-full gap-4">
+          <div className="flex w-full flex-col gap-4 sm:flex-row">
             <FloatingInput
               id="contact-person-name"
               data-testid="input-contact-person-name"
@@ -405,7 +405,7 @@ export default function ManageUnitPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="rounded-2xl p-8">
+        <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
               Are you sure you want to delete {unit.unitName}?
@@ -457,7 +457,7 @@ export default function ManageUnitPage() {
 
       {/* Disable / Activate Confirmation Dialog */}
       <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
-        <DialogContent className="rounded-2xl p-8">
+        <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
               {unit.status === "Active" ? "Disable" : "Activate"} {unit.unitName}?

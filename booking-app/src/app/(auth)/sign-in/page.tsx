@@ -161,12 +161,12 @@ export default function SignInPage() {
             aria-label="Access pin"
             data-testid="sign-in-pin-input"
           >
-            <InputOTPGroup className="gap-3">
+            <InputOTPGroup className="gap-2 sm:gap-3">
               {Array.from({ length: PIN_LENGTH }, (_, i) => (
                 <InputOTPSlot
                   key={i}
                   index={i}
-                  className={`!size-12 !rounded-lg !border text-lg font-semibold ${
+                  className={`!size-10 !rounded-lg !border text-lg font-semibold sm:!size-12 ${
                     hasError
                       ? "!border-destructive bg-destructive/5"
                       : "border-input"

@@ -271,7 +271,7 @@ function StepClientDetails({
           onClear={() => handleClear("clientName")}
         />
 
-        <div className="flex w-full gap-4">
+        <div className="flex w-full flex-col gap-4 sm:flex-row">
           <FloatingInput
             id="contact-person-name"
             data-testid="input-contact-person-name"
@@ -379,7 +379,7 @@ function StepUnitDetails({
           onClear={() => handleChange("unitName", "")}
         />
 
-        <div className="flex w-full gap-4">
+        <div className="flex w-full flex-col gap-4 sm:flex-row">
           <FloatingInput
             id="unit-contact-person-name"
             data-testid="input-unit-contact-person-name"

@@ -54,11 +54,26 @@ const navItems: NavItem[] = [
   { label: "User Management", href: "/user-management", icon: Users, roles: ["system_admin", "unit_manager"] },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  /**
+   * "desktop" — fixed left rail with collapse toggle (default, lg: and up).
+   * "drawer"  — full-width slide-over content for mobile (no collapse toggle,
+   *             no fixed positioning, the parent Sheet handles those).
+   */
+  mode?: "desktop" | "drawer"
+}
+
+export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { collapsed, toggle } = useSidebar()
+  const { collapsed: rawCollapsed, toggle, closeMobile } = useSidebar()
   const { user } = useAuth()
+
+  // Drawer mode is always "expanded" — the slide-over panel doesn't collapse,
+  // it's either open or closed. Force collapsed=false in drawer mode so the
+  // existing rendering logic doesn't try to show the icon-only popout pattern.
+  const collapsed = mode === "drawer" ? false : rawCollapsed
+  const isDrawer = mode === "drawer"
 
   // Filter nav items by user role
   const visibleNavItems = navItems.filter(
@@ -99,31 +114,39 @@ export function Sidebar() {
       ref={sidebarRef}
       data-testid="sidebar"
       className={cn(
-        "fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-white transition-all duration-300",
-        collapsed ? "w-[72px]" : "w-60"
+        "flex flex-col border-r border-border bg-white",
+        isDrawer
+          ? // Drawer mode: fill the parent Sheet panel, no fixed positioning.
+            "h-full w-full"
+          : // Desktop mode: fixed left rail with width transitions.
+            "fixed left-0 top-0 z-30 h-screen transition-all duration-300",
+        !isDrawer && (collapsed ? "w-[72px]" : "w-60")
       )}
     >
-      {/* Collapse toggle */}
-      <button
-        type="button"
-        data-testid="sidebar-toggle"
-        onClick={toggle}
-        className={cn(
-          "mt-3 mb-0 flex items-center rounded-lg px-3 py-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600",
-          collapsed ? "mx-3 justify-center" : "ml-auto mr-3 w-fit"
-        )}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {collapsed ? (
-          <ChevronsRight className="size-4" />
-        ) : (
-          <ChevronsLeft className="size-4" />
-        )}
-      </button>
+      {/* Collapse toggle — desktop only. Drawer mode uses the Sheet's close button. */}
+      {!isDrawer && (
+        <button
+          type="button"
+          data-testid="sidebar-toggle"
+          onClick={toggle}
+          className={cn(
+            "mt-3 mb-0 flex items-center rounded-lg px-3 py-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600",
+            collapsed ? "mx-3 justify-center" : "ml-auto mr-3 w-fit"
+          )}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? (
+            <ChevronsRight className="size-4" />
+          ) : (
+            <ChevronsLeft className="size-4" />
+          )}
+        </button>
+      )}
 
       {/* Logo area */}
       <Link
         href="/home"
+        onClick={isDrawer ? closeMobile : undefined}
         className={cn(
           "flex items-center py-4",
           collapsed ? "justify-center px-2" : "px-5"
@@ -268,6 +291,7 @@ export function Sidebar() {
                         <Link
                           key={child.href}
                           href={child.href}
+                          onClick={isDrawer ? closeMobile : undefined}
                           className={cn(
                             "rounded-lg px-3 py-2 text-sm transition-colors",
                             isChildActive
@@ -290,6 +314,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               data-testid={`nav-link-${item.href.replace(/\//g, "").replace(/-/g, "-") || "home"}`}
+              onClick={isDrawer ? closeMobile : undefined}
               className={cn(
                 "flex items-center rounded-lg text-sm font-medium transition-colors",
                 collapsed

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useUnitStore, type UnitStatus, type UnitRecord } from "@/lib/unit-store"
 import { ListPagination, usePagination } from "@/components/list-pagination"
+import { DataCard } from "@/components/data-card"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -231,17 +232,18 @@ export default function UnitManagementPage() {
         </div>
       )}
 
-      {/* Heading */}
+      {/* Heading — on desktop (sm+) the button sits on the right of the title;
+          on mobile the button is rendered separately below the subtitle. */}
       <div className="flex items-center justify-between">
         <h1
           data-testid="page-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-2xl font-bold text-gray-900 sm:text-3xl"
         >
           Unit Management
         </h1>
         <Button
           data-testid="new-unit-button"
-          className="w-auto justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+          className="hidden justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:inline-flex"
           size="lg"
           onClick={() => router.push("/unit-management/add")}
         >
@@ -255,6 +257,17 @@ export default function UnitManagementPage() {
       >
         Add new units and link them to clients from one central place
       </p>
+
+      {/* Mobile-only primary action */}
+      <Button
+        data-testid="new-unit-button-mobile"
+        className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:hidden"
+        size="lg"
+        onClick={() => router.push("/unit-management/add")}
+      >
+        New Unit
+        <Plus className="ml-1 size-4" />
+      </Button>
 
       {/* Filters + Select Province + Search */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -329,9 +342,9 @@ export default function UnitManagementPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
           {/* Select Province dropdown */}
-          <div ref={dropdownRef} className="relative w-48 shrink-0">
+          <div ref={dropdownRef} className="relative w-full sm:w-48 sm:shrink-0">
             <button
               type="button"
               data-testid="select-province-dropdown"
@@ -381,7 +394,7 @@ export default function UnitManagementPage() {
           </div>
 
           {/* Search */}
-          <div className="relative w-72">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
             <Input
               data-testid="search-input"
@@ -410,59 +423,81 @@ export default function UnitManagementPage() {
             No units found
           </div>
         ) : (
-          pagedUnits.map((unit) => (
-            <div
-              key={unit.id}
-              data-testid={`unit-row-${unit.id}`}
-              className="grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
-            >
-              {/* Status badge */}
-              <div className="flex items-center">
-                <Badge
-                  data-testid={`status-badge-${unit.id}`}
-                  className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(unit.status)}`}
+          pagedUnits.map((unit) => {
+            const statusBadge = (
+              <Badge
+                data-testid={`status-badge-${unit.id}`}
+                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(unit.status)}`}
+              >
+                {unit.status}
+              </Badge>
+            )
+            const manageButton = (
+              <Button
+                data-testid={`manage-button-${unit.id}`}
+                className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                size="lg"
+                onClick={() => router.push(`/unit-management/manage?id=${unit.id}`)}
+              >
+                Manage
+              </Button>
+            )
+
+            return (
+              <React.Fragment key={unit.id}>
+                {/* Mobile / tablet card — below md: */}
+                <div className="md:hidden">
+                  <DataCard
+                    data-testid={`unit-card-${unit.id}`}
+                    status={statusBadge}
+                    action={manageButton}
+                    fields={[
+                      { label: "Unit Name", value: unit.unitName },
+                      { label: "Client", value: unit.clientName },
+                      { label: "Email", value: unit.email || "-" },
+                      { label: "Province", value: unit.province || "-" },
+                    ]}
+                  />
+                </div>
+
+                {/* Desktop row — md: and up. Existing layout, unchanged. */}
+                <div
+                  data-testid={`unit-row-${unit.id}`}
+                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
                 >
-                  {unit.status}
-                </Badge>
-              </div>
+                  {/* Status badge */}
+                  <div className="flex items-center">{statusBadge}</div>
 
-              {/* Unit Name */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Unit Name</span>
-                <span className="truncate text-sm text-gray-600">{unit.unitName}</span>
-              </div>
+                  {/* Unit Name */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Unit Name</span>
+                    <span className="truncate text-sm text-gray-600">{unit.unitName}</span>
+                  </div>
 
-              {/* Client */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Client</span>
-                <span className="truncate text-sm text-gray-600">{unit.clientName}</span>
-              </div>
+                  {/* Client */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Client</span>
+                    <span className="truncate text-sm text-gray-600">{unit.clientName}</span>
+                  </div>
 
-              {/* Email */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Email</span>
-                <span className="truncate text-sm text-gray-600">{unit.email || "-"}</span>
-              </div>
+                  {/* Email */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Email</span>
+                    <span className="truncate text-sm text-gray-600">{unit.email || "-"}</span>
+                  </div>
 
-              {/* Province */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Province</span>
-                <span className="truncate text-sm text-gray-600">{unit.province || "-"}</span>
-              </div>
+                  {/* Province */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Province</span>
+                    <span className="truncate text-sm text-gray-600">{unit.province || "-"}</span>
+                  </div>
 
-              {/* Action */}
-              <div className="flex">
-                <Button
-                  data-testid={`manage-button-${unit.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                  size="lg"
-                  onClick={() => router.push(`/unit-management/manage?id=${unit.id}`)}
-                >
-                  Manage
-                </Button>
-              </div>
-            </div>
-          ))
+                  {/* Action */}
+                  <div className="flex">{manageButton}</div>
+                </div>
+              </React.Fragment>
+            )
+          })
         )}
       </div>
 

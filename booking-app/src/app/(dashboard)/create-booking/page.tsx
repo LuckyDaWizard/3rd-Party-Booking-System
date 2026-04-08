@@ -158,7 +158,7 @@ export default function CreateBookingPage() {
 
       {/* Main content */}
       <div className="flex flex-col items-center py-8">
-        <h1 className="text-3xl font-extrabold text-gray-900">Search Patient Details</h1>
+        <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Search Patient Details</h1>
         <p className="mt-2 text-gray-500">Please provide the patient&apos;s identification details</p>
 
         {/* Tab toggle */}
@@ -247,12 +247,12 @@ export default function CreateBookingPage() {
             value={verificationCode}
             onChange={setVerificationCode}
           >
-            <InputOTPGroup className="gap-6">
+            <InputOTPGroup className="gap-2 sm:gap-6">
               {Array.from({ length: 6 }, (_, i) => (
                 <InputOTPSlot
                   key={i}
                   index={i}
-                  className="!size-12 !rounded-lg !border border-input !bg-white text-lg font-semibold"
+                  className="!size-10 !rounded-lg !border border-input !bg-white text-lg font-semibold sm:!size-12"
                 />
               ))}
             </InputOTPGroup>

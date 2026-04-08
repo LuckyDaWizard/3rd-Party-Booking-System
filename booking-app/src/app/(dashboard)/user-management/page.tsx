@@ -11,6 +11,7 @@ import { useUserStore, type UserStatus, type UserRecord } from "@/lib/user-store
 import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 import { ListPagination, usePagination } from "@/components/list-pagination"
+import { DataCard } from "@/components/data-card"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -228,17 +229,18 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* Heading */}
+      {/* Heading — on desktop (sm+) the button sits on the right of the title;
+          on mobile the button is rendered separately below the subtitle. */}
       <div className="flex items-center justify-between">
         <h1
           data-testid="page-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-2xl font-bold text-gray-900 sm:text-3xl"
         >
           User Management
         </h1>
         <Button
           data-testid="new-user-button"
-          className="w-auto justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+          className="hidden justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:inline-flex"
           size="lg"
           onClick={() => router.push("/user-management/add")}
         >
@@ -252,6 +254,17 @@ export default function UserManagementPage() {
       >
         Manage user access, reset PINs, and assign units
       </p>
+
+      {/* Mobile-only primary action */}
+      <Button
+        data-testid="new-user-button-mobile"
+        className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:hidden"
+        size="lg"
+        onClick={() => router.push("/user-management/add")}
+      >
+        New User
+        <Plus className="ml-1 size-4" />
+      </Button>
 
       {/* Filters + Select Client + Search */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -326,9 +339,9 @@ export default function UserManagementPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
           {/* Select Client dropdown */}
-          <div ref={dropdownRef} className="relative w-48 shrink-0">
+          <div ref={dropdownRef} className="relative w-full sm:w-48 sm:shrink-0">
             <button
               type="button"
               data-testid="select-client-dropdown"
@@ -377,7 +390,7 @@ export default function UserManagementPage() {
           </div>
 
           {/* Search */}
-          <div className="relative w-72">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
             <Input
               data-testid="search-input"
@@ -406,65 +419,88 @@ export default function UserManagementPage() {
             No users found
           </div>
         ) : (
-          pagedUsers.map((user) => (
-            <div
-              key={user.id}
-              data-testid={`user-row-${user.id}`}
-              className="grid grid-cols-[120px_1fr_1fr_1fr_1fr_1fr_140px] items-center gap-6 rounded-xl bg-white px-6 py-5"
-            >
-              {/* Status badge */}
-              <div className="flex items-center">
-                <Badge
-                  data-testid={`status-badge-${user.id}`}
-                  className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(user.status)}`}
+          pagedUsers.map((user) => {
+            const statusBadge = (
+              <Badge
+                data-testid={`status-badge-${user.id}`}
+                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(user.status)}`}
+              >
+                {user.status}
+              </Badge>
+            )
+            const manageButton = (
+              <Button
+                data-testid={`manage-button-${user.id}`}
+                className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                size="lg"
+                onClick={() => router.push(`/user-management/manage?id=${user.id}`)}
+              >
+                Manage
+              </Button>
+            )
+
+            return (
+              <React.Fragment key={user.id}>
+                {/* Mobile / tablet card — below md: */}
+                <div className="md:hidden">
+                  <DataCard
+                    data-testid={`user-card-${user.id}`}
+                    status={statusBadge}
+                    action={manageButton}
+                    fields={[
+                      { label: "First Names", value: user.firstNames },
+                      { label: "Surname", value: user.surname },
+                      { label: "Unit", value: user.unitName },
+                      { label: "Email", value: user.email },
+                      { label: "Number", value: user.contactNumber },
+                    ]}
+                  />
+                </div>
+
+                {/* Desktop row — md: and up. Existing layout, unchanged. */}
+                <div
+                  data-testid={`user-row-${user.id}`}
+                  className="hidden md:grid grid-cols-[120px_1fr_1fr_1fr_1fr_1fr_140px] items-center gap-6 rounded-xl bg-white px-6 py-5"
                 >
-                  {user.status}
-                </Badge>
-              </div>
+                  {/* Status badge */}
+                  <div className="flex items-center">{statusBadge}</div>
 
-              {/* First Names */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">First Names</span>
-                <span className="truncate text-sm text-gray-600">{user.firstNames}</span>
-              </div>
+                  {/* First Names */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">First Names</span>
+                    <span className="truncate text-sm text-gray-600">{user.firstNames}</span>
+                  </div>
 
-              {/* Surname */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Surname</span>
-                <span className="truncate text-sm text-gray-600">{user.surname}</span>
-              </div>
+                  {/* Surname */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Surname</span>
+                    <span className="truncate text-sm text-gray-600">{user.surname}</span>
+                  </div>
 
-              {/* Unit */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Unit</span>
-                <span className="truncate text-sm text-gray-600">{user.unitName}</span>
-              </div>
+                  {/* Unit */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Unit</span>
+                    <span className="truncate text-sm text-gray-600">{user.unitName}</span>
+                  </div>
 
-              {/* Email */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Email</span>
-                <span className="truncate text-sm text-gray-600">{user.email}</span>
-              </div>
+                  {/* Email */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Email</span>
+                    <span className="truncate text-sm text-gray-600">{user.email}</span>
+                  </div>
 
-              {/* Number */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Number</span>
-                <span className="truncate text-sm text-gray-600">{user.contactNumber}</span>
-              </div>
+                  {/* Number */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Number</span>
+                    <span className="truncate text-sm text-gray-600">{user.contactNumber}</span>
+                  </div>
 
-              {/* Action */}
-              <div className="flex">
-                <Button
-                  data-testid={`manage-button-${user.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                  size="lg"
-                  onClick={() => router.push(`/user-management/manage?id=${user.id}`)}
-                >
-                  Manage
-                </Button>
-              </div>
-            </div>
-          ))
+                  {/* Action */}
+                  <div className="flex">{manageButton}</div>
+                </div>
+              </React.Fragment>
+            )
+          })
         )}
       </div>
 

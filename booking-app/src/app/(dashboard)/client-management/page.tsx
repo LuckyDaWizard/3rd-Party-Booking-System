@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useClientStore, type ClientStatus, type ClientRecord } from "@/lib/client-store"
 import { ListPagination, usePagination } from "@/components/list-pagination"
+import { DataCard } from "@/components/data-card"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -214,17 +215,18 @@ export default function ClientManagementPage() {
         </div>
       )}
 
-      {/* Heading */}
+      {/* Heading — on desktop (sm+) the button sits on the right of the title;
+          on mobile the button is rendered separately below the subtitle (see below). */}
       <div className="flex items-center justify-between">
         <h1
           data-testid="page-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-2xl font-bold text-gray-900 sm:text-3xl"
         >
           Client Management
         </h1>
         <Button
           data-testid="new-client-button"
-          className="w-auto justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+          className="hidden justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:inline-flex"
           size="lg"
           onClick={() => router.push("/client-management/add")}
         >
@@ -238,6 +240,18 @@ export default function ClientManagementPage() {
       >
         Add, update, and manage client status in one central place.
       </p>
+
+      {/* Mobile-only primary action — sits between subtitle and filters on
+          phones/small screens, where the desktop-placed button is hidden. */}
+      <Button
+        data-testid="new-client-button-mobile"
+        className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:hidden"
+        size="lg"
+        onClick={() => router.push("/client-management/add")}
+      >
+        New Client
+        <Plus className="ml-1 size-4" />
+      </Button>
 
       {/* Filters + Select + Search */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -312,9 +326,9 @@ export default function ClientManagementPage() {
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
           {/* Select Client dropdown */}
-          <div ref={dropdownRef} className="relative w-48 shrink-0">
+          <div ref={dropdownRef} className="relative w-full sm:w-48 sm:shrink-0">
             <button
               type="button"
               data-testid="select-client-dropdown"
@@ -364,7 +378,7 @@ export default function ClientManagementPage() {
           </div>
 
           {/* Search */}
-          <div className="relative w-72">
+          <div className="relative w-full sm:w-72">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
             <Input
               data-testid="search-input"
@@ -389,59 +403,81 @@ export default function ClientManagementPage() {
             No clients found
           </div>
         ) : (
-          pagedClients.map((client) => (
-            <div
-              key={client.id}
-              data-testid={`client-row-${client.id}`}
-              className="grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
-            >
-              {/* Status badge */}
-              <div className="flex items-center">
-                <Badge
-                  data-testid={`status-badge-${client.id}`}
-                  className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(client.status)}`}
+          pagedClients.map((client) => {
+            const statusBadge = (
+              <Badge
+                data-testid={`status-badge-${client.id}`}
+                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(client.status)}`}
+              >
+                {client.status}
+              </Badge>
+            )
+            const manageButton = (
+              <Button
+                data-testid={`manage-button-${client.id}`}
+                className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                size="lg"
+                onClick={() => router.push(`/client-management/manage?id=${client.id}`)}
+              >
+                Manage
+              </Button>
+            )
+
+            return (
+              <React.Fragment key={client.id}>
+                {/* Mobile / tablet card — below md: */}
+                <div className="md:hidden">
+                  <DataCard
+                    data-testid={`client-card-${client.id}`}
+                    status={statusBadge}
+                    action={manageButton}
+                    fields={[
+                      { label: "Client Name", value: client.clientName },
+                      { label: "Units", value: client.units },
+                      { label: "Email", value: client.email },
+                      { label: "Number", value: client.number },
+                    ]}
+                  />
+                </div>
+
+                {/* Desktop row — md: and up. Existing layout, unchanged. */}
+                <div
+                  data-testid={`client-row-${client.id}`}
+                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
                 >
-                  {client.status}
-                </Badge>
-              </div>
+                  {/* Status badge */}
+                  <div className="flex items-center">{statusBadge}</div>
 
-              {/* Client Name */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Client Name</span>
-                <span className="truncate text-sm text-gray-600">{client.clientName}</span>
-              </div>
+                  {/* Client Name */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Client Name</span>
+                    <span className="truncate text-sm text-gray-600">{client.clientName}</span>
+                  </div>
 
-              {/* Units */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Units</span>
-                <span className="truncate text-sm text-gray-600">{client.units}</span>
-              </div>
+                  {/* Units */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Units</span>
+                    <span className="truncate text-sm text-gray-600">{client.units}</span>
+                  </div>
 
-              {/* Email */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Email</span>
-                <span className="truncate text-sm text-gray-600">{client.email}</span>
-              </div>
+                  {/* Email */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Email</span>
+                    <span className="truncate text-sm text-gray-600">{client.email}</span>
+                  </div>
 
-              {/* Number */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Number</span>
-                <span className="truncate text-sm text-gray-600">{client.number}</span>
-              </div>
+                  {/* Number */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Number</span>
+                    <span className="truncate text-sm text-gray-600">{client.number}</span>
+                  </div>
 
-              {/* Action */}
-              <div className="flex">
-                <Button
-                  data-testid={`manage-button-${client.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                  size="lg"
-                  onClick={() => router.push(`/client-management/manage?id=${client.id}`)}
-                >
-                  Manage
-                </Button>
-              </div>
-            </div>
-          ))
+                  {/* Action */}
+                  <div className="flex">{manageButton}</div>
+                </div>
+              </React.Fragment>
+            )
+          })
         )}
       </div>
 

@@ -277,8 +277,8 @@ export function DatePickerField({
 
       {/* Dialog with inline calendar */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl bg-white p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl bg-white p-6 sm:p-8">
             <h2 className="text-center text-xl font-bold text-gray-900">
               Select {label}
             </h2>

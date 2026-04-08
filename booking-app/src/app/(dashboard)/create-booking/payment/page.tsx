@@ -134,13 +134,13 @@ export default function PaymentPage() {
       {/* Content */}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold text-gray-900">Enter payment details</h1>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Enter payment details</h1>
           <p className="text-base text-gray-500">Please enter the payment details</p>
         </div>
 
-        <div className="flex items-start gap-8">
+        <div className="flex flex-col items-stretch gap-6 md:flex-row md:items-start md:gap-8">
           {/* Left - Card form */}
-          <div className="flex flex-1 flex-col gap-6">
+          <div className="flex flex-col gap-6 md:flex-1">
             <FloatingInput
               id="nameOnCard"
               label="Name on Card"
@@ -160,7 +160,7 @@ export default function PaymentPage() {
               }}
               onClear={() => setCardNumber("")}
             />
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <FloatingInput
                 id="expiryDate"
                 label="Expiry Date"
@@ -188,8 +188,8 @@ export default function PaymentPage() {
             </p>
           </div>
 
-          {/* Right - Payment Summary */}
-        <div className="w-80 shrink-0">
+          {/* Right - Payment Summary. Full width on mobile, fixed 320px on md+ */}
+        <div className="w-full md:w-80 md:shrink-0">
           <div className="flex flex-col gap-6 rounded-xl bg-white p-6">
             <h2 className="text-xl font-bold text-gray-900">Payment Summary</h2>
 

@@ -62,7 +62,7 @@ export default function SwitchUnitPage() {
         {/* Heading */}
         <h1
           data-testid="switch-unit-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-center text-2xl font-bold text-gray-900 sm:text-3xl"
         >
           Select Unit
         </h1>
@@ -154,7 +154,7 @@ export default function SwitchUnitPage() {
         <DialogContent
           data-testid="switch-unit-dialog"
           showCloseButton={false}
-          className="border-none p-8 shadow-lg"
+          className="border-none p-6 shadow-lg sm:p-8"
         >
           <DialogHeader>
             <DialogTitle data-testid="dialog-title">

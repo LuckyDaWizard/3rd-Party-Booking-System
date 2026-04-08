@@ -549,7 +549,7 @@ export default function ManageUserPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="rounded-2xl p-8">
+        <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
               Are you sure you want to delete {user.firstNames} {user.surname}?
@@ -601,7 +601,7 @@ export default function ManageUserPage() {
 
       {/* Reset Pin Confirmation Dialog */}
       <Dialog open={isResetPinOpen} onOpenChange={setIsResetPinOpen}>
-        <DialogContent className="rounded-2xl p-8">
+        <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
               Are you sure you want to reset access pin?
@@ -673,7 +673,7 @@ export default function ManageUserPage() {
                       verificationRefs.current[index - 1]?.focus()
                     }
                   }}
-                  className="size-11 rounded-lg border border-gray-300 bg-gray-100 text-center text-base font-medium text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white"
+                  className="size-10 rounded-lg border border-gray-300 bg-gray-100 text-center text-base font-medium text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white sm:size-11"
                 />
               ))}
             </div>
@@ -741,7 +741,7 @@ export default function ManageUserPage() {
 
       {/* Disable / Activate Confirmation Dialog */}
       <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
-        <DialogContent className="rounded-2xl p-8">
+        <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
               {user.status === "Active" ? "Disable" : "Activate"} {user.firstNames} {user.surname}?

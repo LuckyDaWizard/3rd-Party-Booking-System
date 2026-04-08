@@ -492,7 +492,7 @@ function StepBasicInfo({
         </span>
         <h1
           data-testid="step-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-2xl font-bold text-gray-900 sm:text-3xl"
         >
           Patient Details
         </h1>
@@ -504,7 +504,7 @@ function StepBasicInfo({
       {/* Form fields - 2-column layout */}
       <div className="flex w-full flex-col gap-4">
         {/* Row 1: First Names + Surname */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FloatingInput
             id="firstNames"
             data-testid="input-first-names"
@@ -524,7 +524,7 @@ function StepBasicInfo({
         </div>
 
         {/* Row 2: ID Type (dropdown) + ID Number (pre-filled) */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FloatingSelect
             id="idType"
             data-testid="select-id-type"
@@ -546,7 +546,7 @@ function StepBasicInfo({
         </div>
 
         {/* Row 3: Title + Nationality */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FloatingSelect
             id="title"
             data-testid="select-title"
@@ -566,7 +566,7 @@ function StepBasicInfo({
         </div>
 
         {/* Row 4: Gender + Date of Birth */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FloatingSelect
             id="gender"
             data-testid="select-gender"
@@ -840,7 +840,7 @@ export default function PatientDetailsPage() {
       className="flex flex-1 flex-col gap-4"
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
+      <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 sm:px-6 sm:py-4">
         <Button
           data-testid="top-back-button"
           variant="outline"
@@ -888,7 +888,7 @@ export default function PatientDetailsPage() {
         {/* Step indicators */}
         <nav
           data-testid="step-indicators"
-          className="flex items-center gap-4"
+          className="flex w-full max-w-4xl flex-wrap items-center justify-center gap-2 sm:gap-4"
           aria-label="Booking steps"
         >
           {STEP_LABELS.map((label, index) => {
@@ -936,7 +936,7 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 2 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
                 Address Details
               </h1>
               <p className="text-base text-gray-500">
@@ -944,7 +944,7 @@ export default function PatientDetailsPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <FloatingInput
                 id="address"
                 label="Address"
@@ -1001,7 +1001,7 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 3 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
                 Contact Details
               </h1>
               <p className="text-base text-gray-500">
@@ -1010,7 +1010,7 @@ export default function PatientDetailsPage() {
             </div>
 
             {/* Warning banner */}
-            <div className="flex items-center gap-4 rounded-xl bg-pink-100 px-6 py-4">
+            <div className="flex flex-col items-start gap-3 rounded-xl bg-pink-100 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
               <span className="flex items-center gap-2 rounded-full bg-[#FF3A69] px-4 py-1.5 text-sm font-semibold text-white">
                 <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <circle cx="12" cy="12" r="10" />
@@ -1024,39 +1024,40 @@ export default function PatientDetailsPage() {
               </p>
             </div>
 
-            {/* Contact fields */}
-            <div className="flex gap-4">
-              {/* Country code selector */}
-              <CountryCodeSelect
-                value={contactInfo.countryCode}
-                onChange={(v) => {
-                  const country = COUNTRY_CODES.find((c) => c.code === v)
-                  const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
-                  let newNumber = contactInfo.contactNumber
-                  // Replace old dial code with new one
-                  if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
-                    newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
-                  } else if (country) {
-                    newNumber = country.dial + newNumber
-                  }
-                  setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
-                }}
-              />
-
-              {/* Contact Number */}
-              <FloatingInput
-                id="contactNumber"
-                label="Contact Number"
-                value={contactInfo.contactNumber}
-                onChange={(v) => {
-                  setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
-                  if (contactError) setContactError("")
-                }}
-                onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}
-                onBlur={() => checkContactExists(contactInfo.contactNumber)}
-                error={contactError}
-                className="flex-1"
-              />
+            {/* Contact fields — phone (code + number) on one row, email below
+                on mobile; everything on one row at md: and up. */}
+            <div className="flex flex-col gap-4 md:flex-row">
+              {/* Phone row (country code + number always together) */}
+              <div className="flex gap-4 md:flex-1">
+                <CountryCodeSelect
+                  value={contactInfo.countryCode}
+                  onChange={(v) => {
+                    const country = COUNTRY_CODES.find((c) => c.code === v)
+                    const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
+                    let newNumber = contactInfo.contactNumber
+                    // Replace old dial code with new one
+                    if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
+                      newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
+                    } else if (country) {
+                      newNumber = country.dial + newNumber
+                    }
+                    setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
+                  }}
+                />
+                <FloatingInput
+                  id="contactNumber"
+                  label="Contact Number"
+                  value={contactInfo.contactNumber}
+                  onChange={(v) => {
+                    setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
+                    if (contactError) setContactError("")
+                  }}
+                  onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}
+                  onBlur={() => checkContactExists(contactInfo.contactNumber)}
+                  error={contactError}
+                  className="flex-1"
+                />
+              </div>
 
               {/* Email Address */}
               <FloatingInput
@@ -1070,12 +1071,12 @@ export default function PatientDetailsPage() {
                 onClear={() => { setContactInfo({ ...contactInfo, emailAddress: "" }); setEmailError("") }}
                 onBlur={() => checkEmailExists(contactInfo.emailAddress)}
                 error={emailError}
-                className="flex-1"
+                className="md:flex-1"
               />
             </div>
 
             {/* Script to another email */}
-            <div className="flex items-center justify-between rounded-xl bg-[#CDE5F2] px-6 py-4">
+            <div className="flex flex-col items-start gap-3 rounded-xl bg-[#CDE5F2] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-gray-700">
                 Would you like to script this to another email address
               </p>
@@ -1136,7 +1137,7 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 4 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
                 Verify your Details
               </h1>
               <p className="text-base text-gray-500">
@@ -1147,7 +1148,7 @@ export default function PatientDetailsPage() {
             {/* Patient Details */}
             <div className="flex flex-col gap-4">
               <h2 className="text-xl font-bold text-gray-900">Patient Details</h2>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <FloatingInput
                   id="verify-firstNames"
                   label="First Names"
@@ -1211,7 +1212,7 @@ export default function PatientDetailsPage() {
             {/* Address Details */}
             <div className="flex flex-col gap-4">
               <h2 className="text-xl font-bold text-gray-900">Address Details</h2>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <FloatingInput
                   id="verify-address"
                   label="Address"
@@ -1262,7 +1263,7 @@ export default function PatientDetailsPage() {
               <h2 className="text-xl font-bold text-gray-900">Contact Details</h2>
 
               {/* Last Chance warning */}
-              <div className="flex items-center gap-4 rounded-xl bg-pink-100 px-6 py-4">
+              <div className="flex flex-col items-start gap-3 rounded-xl bg-pink-100 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
                 <span className="flex items-center gap-2 rounded-full bg-[#FF3A69] px-4 py-1.5 text-sm font-semibold text-white">
                   <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <circle cx="12" cy="12" r="10" />
@@ -1276,34 +1277,36 @@ export default function PatientDetailsPage() {
                 </p>
               </div>
 
-              <div className="flex gap-4">
-                <CountryCodeSelect
-                  value={contactInfo.countryCode}
-                  onChange={(v) => {
-                    const country = COUNTRY_CODES.find((c) => c.code === v)
-                    const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
-                    let newNumber = contactInfo.contactNumber
-                    if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
-                      newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
-                    } else if (country) {
-                      newNumber = country.dial + newNumber
-                    }
-                    setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
-                  }}
-                />
-                <FloatingInput
-                  id="verify-contactNumber"
-                  label="Contact Number"
-                  value={contactInfo.contactNumber}
-                  onChange={(v) => {
-                    setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
-                    if (contactError) setContactError("")
-                  }}
-                  onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}
-                  onBlur={() => checkContactExists(contactInfo.contactNumber)}
-                  error={contactError}
-                  className="flex-1"
-                />
+              <div className="flex flex-col gap-4 md:flex-row">
+                <div className="flex gap-4 md:flex-1">
+                  <CountryCodeSelect
+                    value={contactInfo.countryCode}
+                    onChange={(v) => {
+                      const country = COUNTRY_CODES.find((c) => c.code === v)
+                      const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
+                      let newNumber = contactInfo.contactNumber
+                      if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
+                        newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
+                      } else if (country) {
+                        newNumber = country.dial + newNumber
+                      }
+                      setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
+                    }}
+                  />
+                  <FloatingInput
+                    id="verify-contactNumber"
+                    label="Contact Number"
+                    value={contactInfo.contactNumber}
+                    onChange={(v) => {
+                      setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
+                      if (contactError) setContactError("")
+                    }}
+                    onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}
+                    onBlur={() => checkContactExists(contactInfo.contactNumber)}
+                    error={contactError}
+                    className="flex-1"
+                  />
+                </div>
                 <FloatingInput
                   id="verify-emailAddress"
                   label="Email Address"
@@ -1315,12 +1318,12 @@ export default function PatientDetailsPage() {
                   onClear={() => { setContactInfo({ ...contactInfo, emailAddress: "" }); setEmailError("") }}
                   onBlur={() => checkEmailExists(contactInfo.emailAddress)}
                   error={emailError}
-                  className="flex-1"
+                  className="md:flex-1"
                 />
               </div>
 
               {/* Script to another email */}
-              <div className="flex items-center justify-between rounded-xl bg-[#CDE5F2] px-6 py-4">
+              <div className="flex flex-col items-start gap-3 rounded-xl bg-[#CDE5F2] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-gray-700">
                   Would you like to script this to another email address
                 </p>
@@ -1382,7 +1385,7 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 4 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
                 Select a payment type
               </h1>
               <p className="text-base text-gray-500">
@@ -1390,7 +1393,7 @@ export default function PatientDetailsPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {/* Pay on device */}
               <button
                 type="button"
@@ -1443,19 +1446,19 @@ export default function PatientDetailsPage() {
         )}
 
         {/* Bottom navigation */}
-        <div className="flex w-full max-w-4xl justify-between pt-4">
+        <div className="flex w-full max-w-4xl flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between sm:gap-4">
           <Button
             data-testid="bottom-back-button"
             variant="outline"
             onClick={handleBack}
-            className="h-12 w-[38%] rounded-xl border border-black text-base font-semibold"
+            className="h-12 w-full rounded-xl border border-black text-base font-semibold sm:w-[38%]"
           >
             Back
           </Button>
           <Button
             data-testid="next-button"
             onClick={handleNext}
-            className={`h-12 w-[38%] gap-2 rounded-xl text-base font-semibold transition-all ${
+            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-[38%] ${
               isNextEnabled
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-gray-500 cursor-default"
@@ -1470,8 +1473,8 @@ export default function PatientDetailsPage() {
 
       {/* Nurse Verification Dialog */}
       {showVerification && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl bg-white p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl bg-white p-6 sm:p-8">
             <h2 className="text-center text-xl font-bold text-gray-900">
               Enter your nurse verification
               <br />
@@ -1483,12 +1486,12 @@ export default function PatientDetailsPage() {
               value={bookingVerificationCode}
               onChange={setBookingVerificationCode}
             >
-              <InputOTPGroup className="gap-3">
+              <InputOTPGroup className="gap-2 sm:gap-3">
                 {Array.from({ length: 6 }, (_, i) => (
                   <InputOTPSlot
                     key={i}
                     index={i}
-                    className="!size-12 !rounded-lg !border border-input !bg-white text-lg font-semibold"
+                    className="!size-10 !rounded-lg !border border-input !bg-white text-lg font-semibold sm:!size-12"
                   />
                 ))}
               </InputOTPGroup>

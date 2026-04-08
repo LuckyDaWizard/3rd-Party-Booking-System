@@ -91,11 +91,11 @@ export function ListPagination({
   const end = Math.min(currentPage * pageSize, totalItems)
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
       <p className="text-sm text-gray-500">
         Showing {start}–{end} of {totalItems}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}

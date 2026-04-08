@@ -278,7 +278,7 @@ export default function SelectPatientPage() {
       <div className="flex flex-col items-center gap-6 py-4">
         {step === "email" ? (
           <>
-            <h1 className="text-3xl font-extrabold text-gray-900">Select your email address</h1>
+            <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Select your email address</h1>
             <p className="text-gray-500">
               Select the email address associated with your account to verify your identity
             </p>
@@ -303,7 +303,7 @@ export default function SelectPatientPage() {
           </>
         ) : (
           <>
-            <h1 className="text-3xl font-extrabold text-gray-900">Select your contact number</h1>
+            <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Select your contact number</h1>
             <p className="text-gray-500">
               Select your contact number below to continue
             </p>

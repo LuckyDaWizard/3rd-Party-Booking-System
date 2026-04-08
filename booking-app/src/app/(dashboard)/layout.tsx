@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ClientStoreProvider } from "@/lib/client-store"
 import { UnitStoreProvider } from "@/lib/unit-store"
 import { UserStoreProvider } from "@/lib/user-store"
@@ -57,7 +58,7 @@ function useRouteGuard() {
 // ---------------------------------------------------------------------------
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
-  const { collapsed } = useSidebar()
+  const { collapsed, mobileOpen, setMobileOpen } = useSidebar()
   const { user, loading } = useRouteGuard()
 
   if (loading || !user) {
@@ -73,12 +74,27 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      {/* Desktop sidebar — hidden below lg: */}
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
 
-      {/* Main content area offset by sidebar width */}
+      {/* Mobile slide-over drawer — hidden at lg: and up */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="left"
+          className="w-60 p-0 lg:hidden"
+        >
+          <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+          <Sidebar mode="drawer" />
+        </SheetContent>
+      </Sheet>
+
+      {/* Main content area — offset by sidebar width only at lg: and up.
+          Below lg: there is no fixed sidebar so no left padding is needed. */}
       <div
         className={`flex flex-1 flex-col transition-all duration-300 ${
-          collapsed ? "pl-[72px]" : "pl-60"
+          collapsed ? "lg:pl-[72px]" : "lg:pl-60"
         }`}
       >
         <Header
@@ -89,7 +105,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
         <main
           data-testid="main-content"
-          className="flex flex-1 flex-col overflow-y-auto bg-[#f4f4f4] p-6"
+          className="flex flex-1 flex-col overflow-y-auto bg-[#f4f4f4] p-4 sm:p-6"
         >
           {children}
         </main>

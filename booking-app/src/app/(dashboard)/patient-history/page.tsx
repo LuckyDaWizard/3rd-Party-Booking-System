@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { useBookingStore, type BookingStatus } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
+import { DataCard } from "@/components/data-card"
 import * as XLSX from "xlsx"
 
 // ---------------------------------------------------------------------------
@@ -162,11 +163,11 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         data-testid="options-modal"
-        className="sm:max-w-md p-8"
+        className="p-6 sm:max-w-md sm:p-8"
         showCloseButton={false}
       >
         <DialogHeader>
-          <DialogTitle data-testid="options-modal-title" className="text-3xl font-bold text-gray-900 text-center">
+          <DialogTitle data-testid="options-modal-title" className="text-center text-xl font-bold text-gray-900 sm:text-3xl">
             Please select an option to continue
           </DialogTitle>
         </DialogHeader>
@@ -334,18 +335,19 @@ export default function PatientHistoryPage() {
 
       </div>
 
-      {/* Heading */}
+      {/* Heading — on desktop (sm+) the button sits on the right of the title;
+          on mobile the button is rendered separately below the subtitle. */}
       <div className="flex items-center justify-between">
         <h1
           data-testid="page-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-2xl font-bold text-gray-900 sm:text-3xl"
         >
           Patient History
         </h1>
-        <Link href="/create-booking">
+        <Link href="/create-booking" className="hidden sm:inline-flex">
           <Button
             data-testid="new-patient-button"
-            className="w-auto justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+            className="justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
             size="lg"
           >
             New Patient
@@ -360,11 +362,23 @@ export default function PatientHistoryPage() {
         Please provide the patient&apos;s identification details
       </p>
 
+      {/* Mobile-only primary action */}
+      <Link href="/create-booking" className="sm:hidden">
+        <Button
+          data-testid="new-patient-button-mobile"
+          className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+          size="lg"
+        >
+          New Patient
+          <Plus className="ml-3 size-4" />
+        </Button>
+      </Link>
+
       {/* Filters + Search */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div
           data-testid="filter-tabs"
-          className="flex items-center gap-2"
+          className="flex flex-wrap items-center gap-2"
         >
           <button
             type="button"
@@ -455,7 +469,7 @@ export default function PatientHistoryPage() {
           </button>
         </div>
 
-        <div className="relative w-full max-w-xs">
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
           <Input
             data-testid="search-input"
@@ -483,108 +497,130 @@ export default function PatientHistoryPage() {
             No patients found
           </div>
         ) : (
-          visiblePatients.map((patient) => (
-            <div
-              key={patient.id}
-              data-testid={`patient-row-${patient.id}`}
-              className="grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
-            >
-              {/* Status badge */}
-              <div className="flex items-center">
-                <Badge
-                  data-testid={`status-badge-${patient.id}`}
-                  className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
+          visiblePatients.map((patient) => {
+            const statusBadge = (
+              <Badge
+                data-testid={`status-badge-${patient.id}`}
+                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
+              >
+                {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
+              </Badge>
+            )
+
+            const actionButton =
+              patient.status === "Payment Complete" ? (
+                <Button
+                  data-testid={`start-consult-${patient.id}`}
+                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                  size="lg"
                 >
-                  {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
-                </Badge>
-              </div>
-
-              {/* Patient Name */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Patient Name</span>
-                <span className="truncate text-sm text-gray-600">{patient.patientName}</span>
-              </div>
-
-              {/* Patient ID Number */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Patient ID Number</span>
-                <span className="truncate text-sm text-gray-600">{patient.patientIdNumber}</span>
-              </div>
-
-              {/* Patient Type */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Patient Type</span>
-                <span className="truncate text-sm text-gray-600">{patient.patientType}</span>
-              </div>
-
-              {/* Date */}
-              <div className="flex flex-col gap-0.5 text-left">
-                <span className="text-xs font-bold text-gray-900">Date</span>
-                <span className="truncate text-sm text-gray-600">{patient.date}</span>
-              </div>
-
-              {/* Action */}
-              <div className="flex">
-                {patient.status === "Payment Complete" ? (
-                  <Button
-                    data-testid={`start-consult-${patient.id}`}
-                    className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                    size="lg"
-                  >
-                    Start Consult
-                  </Button>
-                ) : patient.status === "Abandoned" ? (
-                  <Button
-                    data-testid={`continue-button-${patient.id}`}
-                    className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                    size="lg"
-                    onClick={() => {
-                      // Resume booking from the start with pre-filled data
-                      const params = new URLSearchParams()
-                      params.set("bookingId", patient.id)
-                      params.set("searchType", "id")
-                      if (patient.patientIdNumber && patient.patientIdNumber !== "N/A") {
-                        // Use the raw (unmasked) ID from the booking
-                        const booking = bookings.find((b) => b.id === patient.id)
-                        if (booking?.idNumber) {
-                          params.set("idNumber", booking.idNumber)
-                        }
+                  Start Consult
+                </Button>
+              ) : patient.status === "Abandoned" ? (
+                <Button
+                  data-testid={`continue-button-${patient.id}`}
+                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                  size="lg"
+                  onClick={() => {
+                    // Resume booking from the start with pre-filled data
+                    const params = new URLSearchParams()
+                    params.set("bookingId", patient.id)
+                    params.set("searchType", "id")
+                    if (patient.patientIdNumber && patient.patientIdNumber !== "N/A") {
+                      // Use the raw (unmasked) ID from the booking
+                      const booking = bookings.find((b) => b.id === patient.id)
+                      if (booking?.idNumber) {
+                        params.set("idNumber", booking.idNumber)
                       }
-                      // Update booking status back to In Progress
-                      updateBooking(patient.id, { status: "In Progress" })
-                      router.push(`/create-booking/patient-details?${params.toString()}`)
-                    }}
-                  >
-                    Continue
-                    <ArrowRight className="ml-1 size-4" />
-                  </Button>
-                ) : patient.status === "In Progress" ? (
-                  <Button
-                    data-testid={`options-button-${patient.id}`}
-                    className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                    size="lg"
-                    onClick={() => {
-                      setSelectedBookingId(patient.id)
-                      setOptionsModalOpen(true)
-                    }}
-                  >
-                    Options
-                    <MoreVertical className="ml-3 size-4" />
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ))
+                    }
+                    // Update booking status back to In Progress
+                    updateBooking(patient.id, { status: "In Progress" })
+                    router.push(`/create-booking/patient-details?${params.toString()}`)
+                  }}
+                >
+                  Continue
+                  <ArrowRight className="ml-1 size-4" />
+                </Button>
+              ) : patient.status === "In Progress" ? (
+                <Button
+                  data-testid={`options-button-${patient.id}`}
+                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                  size="lg"
+                  onClick={() => {
+                    setSelectedBookingId(patient.id)
+                    setOptionsModalOpen(true)
+                  }}
+                >
+                  Options
+                  <MoreVertical className="ml-3 size-4" />
+                </Button>
+              ) : null
+
+            return (
+              <React.Fragment key={patient.id}>
+                {/* Mobile / tablet card — below md: */}
+                <div className="md:hidden">
+                  <DataCard
+                    data-testid={`patient-card-${patient.id}`}
+                    status={statusBadge}
+                    action={actionButton ?? <span className="text-xs text-gray-400">—</span>}
+                    fields={[
+                      { label: "Patient Name", value: patient.patientName },
+                      { label: "Patient ID Number", value: patient.patientIdNumber },
+                      { label: "Patient Type", value: patient.patientType },
+                      { label: "Date", value: patient.date },
+                    ]}
+                  />
+                </div>
+
+                {/* Desktop row — md: and up. Existing layout, unchanged. */}
+                <div
+                  data-testid={`patient-row-${patient.id}`}
+                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
+                >
+                  {/* Status badge */}
+                  <div className="flex items-center">{statusBadge}</div>
+
+                  {/* Patient Name */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Patient Name</span>
+                    <span className="truncate text-sm text-gray-600">{patient.patientName}</span>
+                  </div>
+
+                  {/* Patient ID Number */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Patient ID Number</span>
+                    <span className="truncate text-sm text-gray-600">{patient.patientIdNumber}</span>
+                  </div>
+
+                  {/* Patient Type */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Patient Type</span>
+                    <span className="truncate text-sm text-gray-600">{patient.patientType}</span>
+                  </div>
+
+                  {/* Date */}
+                  <div className="flex flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-gray-900">Date</span>
+                    <span className="truncate text-sm text-gray-600">{patient.date}</span>
+                  </div>
+
+                  {/* Action */}
+                  <div className="flex">{actionButton}</div>
+                </div>
+              </React.Fragment>
+            )
+          })
         )}
       </div>
 
       {/* Pagination */}
       {filteredPatients.length > ITEMS_PER_PAGE && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
           <p className="text-sm text-gray-500">
             Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredPatients.length)} of {filteredPatients.length}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}

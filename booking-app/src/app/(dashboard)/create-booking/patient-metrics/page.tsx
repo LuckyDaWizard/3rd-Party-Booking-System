@@ -112,12 +112,12 @@ export default function PatientMetricsPage() {
       {/* Content */}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold text-gray-900">Enter patient metrics</h1>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Enter patient metrics</h1>
           <p className="text-base text-gray-500">Please</p>
         </div>
 
         {/* Row 1 - 4 metrics */}
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
           <MetricCard
             label="Blood Pressure"
             placeholder="000/00"
@@ -149,7 +149,7 @@ export default function PatientMetricsPage() {
         </div>
 
         {/* Row 2 - 2 metrics + comments */}
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
           <MetricCard
             label="Urine Dipstick reading"
             placeholder="00"
@@ -177,14 +177,14 @@ export default function PatientMetricsPage() {
         </div>
 
         {/* Bottom buttons */}
-        <div className="flex w-full max-w-4xl justify-between pt-4">
+        <div className="flex w-full max-w-4xl flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between sm:gap-4">
           <Button
             variant="outline"
             onClick={() => {
               // Skip without saving metrics
               router.push(`/create-booking/creating?bookingId=${bookingId}`)
             }}
-            className="h-12 w-[38%] rounded-xl border border-black text-base font-semibold"
+            className="h-12 w-full rounded-xl border border-black text-base font-semibold sm:w-[38%]"
           >
             Skip
           </Button>
@@ -206,7 +206,7 @@ export default function PatientMetricsPage() {
               router.push(`/create-booking/creating?bookingId=${bookingId}`)
             }}
             disabled={!isFormValid}
-            className={`h-12 w-[38%] gap-2 rounded-xl text-base font-semibold transition-all ${
+            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-[38%] ${
               isFormValid
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-gray-500 cursor-default"

@@ -26,7 +26,7 @@ export default function HomeDashboardPage() {
         {/* Heading */}
         <h1
           data-testid="dashboard-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-center text-2xl font-bold text-gray-900 sm:text-3xl"
         >
           VHC Third Party Booking
         </h1>
