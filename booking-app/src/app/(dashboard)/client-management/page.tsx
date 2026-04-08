@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useClientStore, type ClientStatus, type ClientRecord } from "@/lib/client-store"
+import { ListPagination, usePagination } from "@/components/list-pagination"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,6 +116,15 @@ export default function ClientManagementPage() {
   const visibleClients = selectedClient
     ? filteredByStatus.filter((c) => c.clientName === selectedClient)
     : filteredByStatus
+
+  const {
+    visible: pagedClients,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+  } = usePagination(visibleClients)
 
   return (
     <div data-testid="client-management-page" className="flex flex-col gap-8">
@@ -379,7 +389,7 @@ export default function ClientManagementPage() {
             No clients found
           </div>
         ) : (
-          visibleClients.map((client) => (
+          pagedClients.map((client) => (
             <div
               key={client.id}
               data-testid={`client-row-${client.id}`}
@@ -434,6 +444,15 @@ export default function ClientManagementPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      <ListPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   )
 }

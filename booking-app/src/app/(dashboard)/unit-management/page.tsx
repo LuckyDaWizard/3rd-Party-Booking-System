@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useUnitStore, type UnitStatus, type UnitRecord } from "@/lib/unit-store"
+import { ListPagination, usePagination } from "@/components/list-pagination"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -133,6 +134,15 @@ export default function UnitManagementPage() {
   const disabledCount = countByFilter(units, "disabled")
 
   const visibleUnits = filterUnits(units, activeFilter, searchQuery, selectedProvince)
+
+  const {
+    visible: pagedUnits,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+  } = usePagination(visibleUnits)
 
   return (
     <div data-testid="unit-management-page" className="flex flex-col gap-8">
@@ -400,7 +410,7 @@ export default function UnitManagementPage() {
             No units found
           </div>
         ) : (
-          visibleUnits.map((unit) => (
+          pagedUnits.map((unit) => (
             <div
               key={unit.id}
               data-testid={`unit-row-${unit.id}`}
@@ -455,6 +465,15 @@ export default function UnitManagementPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      <ListPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   )
 }

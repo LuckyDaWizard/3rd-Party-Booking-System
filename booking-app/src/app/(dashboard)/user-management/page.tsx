@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { useUserStore, type UserStatus, type UserRecord } from "@/lib/user-store"
 import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
+import { ListPagination, usePagination } from "@/components/list-pagination"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -130,6 +131,15 @@ export default function UserManagementPage() {
   const disabledCount = countByFilter(listUsers, "disabled")
 
   const visibleUsers = filterUsers(listUsers, activeFilter, searchQuery, selectedClient)
+
+  const {
+    visible: pagedUsers,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    totalItems,
+    pageSize,
+  } = usePagination(visibleUsers)
 
   return (
     <div data-testid="user-management-page" className="flex flex-col gap-8">
@@ -396,7 +406,7 @@ export default function UserManagementPage() {
             No users found
           </div>
         ) : (
-          visibleUsers.map((user) => (
+          pagedUsers.map((user) => (
             <div
               key={user.id}
               data-testid={`user-row-${user.id}`}
@@ -457,6 +467,15 @@ export default function UserManagementPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      <ListPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   )
 }
