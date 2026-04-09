@@ -140,7 +140,8 @@ export async function requireAdminOrManager(): Promise<
 export async function callerCanAccessUser(
   caller: CallerInfo,
   targetUserId: string,
-  admin: ReturnType<typeof import("@supabase/supabase-js").createClient>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: { from: (table: string) => any }
 ): Promise<boolean> {
   if (caller.role === "system_admin") return true
 
