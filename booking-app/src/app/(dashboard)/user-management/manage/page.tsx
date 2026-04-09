@@ -317,6 +317,12 @@ export default function ManageUserPage() {
   const [verificationCode, setVerificationCode] = useState<string[]>(Array.from({ length: PIN_LENGTH }, () => ""))
   const [verificationError, setVerificationError] = useState("")
   const [verifying, setVerifying] = useState(false)
+  const [resetPinResult, setResetPinResult] = useState<{
+    success: boolean
+    emailSent: boolean
+    pin?: string
+    emailError?: string
+  } | null>(null)
   const verificationRefs = useRef<(HTMLInputElement | null)[]>([])
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
   const [firstNames, setFirstNames] = useState("")
@@ -381,8 +387,45 @@ export default function ManageUserPage() {
   }
 
   async function handleResetPin() {
-    await updateUser(userId, { pin: "1234" })
-    router.push("/user-management")
+    // Call the dedicated reset-pin route which generates a random PIN,
+    // updates both public.users and auth.users, and attempts to email
+    // the new PIN to the user. If email fails, the PIN is returned in
+    // the response so the admin can share it manually.
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/reset-pin`, {
+        method: "POST",
+      })
+      const data = (await res.json()) as {
+        ok?: boolean
+        emailSent?: boolean
+        pin?: string
+        emailError?: string
+        error?: string
+      }
+
+      if (!res.ok || !data.ok) {
+        setResetPinResult({
+          success: false,
+          emailSent: false,
+          pin: undefined,
+          emailError: data.error ?? "Failed to reset PIN",
+        })
+        return
+      }
+
+      setResetPinResult({
+        success: true,
+        emailSent: data.emailSent ?? false,
+        pin: data.pin,
+        emailError: data.emailError,
+      })
+    } catch (err) {
+      setResetPinResult({
+        success: false,
+        emailSent: false,
+        emailError: err instanceof Error ? err.message : "Unknown error",
+      })
+    }
   }
 
   async function handleToggleStatus() {
@@ -430,6 +473,71 @@ export default function ManageUserPage() {
           Delete User
         </Button>
       </div>
+
+      {/* PIN Reset Result Banner */}
+      {resetPinResult && (
+        <div
+          className={`mx-4 mt-4 flex items-start justify-between rounded-xl border px-6 py-5 ${
+            resetPinResult.success
+              ? resetPinResult.emailSent
+                ? "border-green-200 bg-green-50"
+                : "border-amber-200 bg-amber-50"
+              : "border-red-200 bg-red-50"
+          }`}
+        >
+          <div className="flex flex-col gap-1">
+            {resetPinResult.success ? (
+              resetPinResult.emailSent ? (
+                <>
+                  <span className="text-base font-bold text-gray-900">
+                    PIN Reset Successfully
+                  </span>
+                  <p className="text-sm text-gray-500">
+                    A new access PIN has been sent to the user&apos;s email address.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="text-base font-bold text-gray-900">
+                    PIN Reset — Email Failed
+                  </span>
+                  <p className="text-sm text-gray-500">
+                    The PIN was reset but the email could not be delivered.
+                    Please share the new PIN with the user securely.
+                  </p>
+                  {resetPinResult.pin && (
+                    <p className="mt-1 text-sm font-medium text-gray-700">
+                      New PIN: <span className="font-bold tracking-wider">{resetPinResult.pin}</span>
+                    </p>
+                  )}
+                  {resetPinResult.emailError && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Error: {resetPinResult.emailError}
+                    </p>
+                  )}
+                </>
+              )
+            ) : (
+              <>
+                <span className="text-base font-bold text-gray-900">
+                  PIN Reset Failed
+                </span>
+                <p className="text-sm text-gray-500">
+                  {resetPinResult.emailError || "An unknown error occurred."}
+                </p>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setResetPinResult(null)}
+            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
 
       {/* Content area */}
       <div className="flex flex-1 flex-col items-center justify-center gap-8 py-8">
@@ -665,7 +773,7 @@ export default function ManageUserPage() {
                     const newCode = [...verificationCode]
                     newCode[index] = val
                     setVerificationCode(newCode)
-                    if (val && index < 4) {
+                    if (val && index < PIN_LENGTH - 1) {
                       verificationRefs.current[index + 1]?.focus()
                     }
                   }}
