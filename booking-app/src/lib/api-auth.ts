@@ -13,17 +13,25 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServer } from "./supabase-server"
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface CallerInfo {
+  id: string           // public.users.id
+  authUserId: string   // auth.users.id
+  role: "system_admin" | "unit_manager" | "user"
+  unitIds: string[]    // units the caller is assigned to (via user_units)
+}
+
+// ---------------------------------------------------------------------------
+// requireSystemAdmin
+// ---------------------------------------------------------------------------
+
 /**
  * Asserts that the caller is signed in AND has role = "system_admin" AND
  * status = "Active". Returns null on success (proceed with the request) or a
  * NextResponse to return immediately on failure.
- *
- * Usage:
- *   export async function POST(req: Request) {
- *     const denied = await requireSystemAdmin()
- *     if (denied) return denied
- *     // ...rest of handler
- *   }
  */
 export async function requireSystemAdmin(): Promise<NextResponse | null> {
   const sb = await getSupabaseServer()
@@ -52,4 +60,97 @@ export async function requireSystemAdmin(): Promise<NextResponse | null> {
   }
 
   return null
+}
+
+// ---------------------------------------------------------------------------
+// requireAdminOrManager
+// ---------------------------------------------------------------------------
+
+/**
+ * Asserts that the caller is signed in AND has role = "system_admin" or
+ * "unit_manager" AND status = "Active". Returns the caller's info (including
+ * their assigned unit IDs) so the route can do unit-scoping checks.
+ *
+ * Returns either:
+ *   { caller: CallerInfo }              — success, proceed
+ *   { caller: null, denied: NextResponse } — failure, return the response
+ *
+ * Usage:
+ *   const { caller, denied } = await requireAdminOrManager()
+ *   if (denied) return denied
+ *   // caller.role, caller.unitIds are now available for scoping
+ */
+export async function requireAdminOrManager(): Promise<
+  { caller: CallerInfo; denied?: never } | { caller?: never; denied: NextResponse }
+> {
+  const sb = await getSupabaseServer()
+  const {
+    data: { user: authUser },
+  } = await sb.auth.getUser()
+
+  if (!authUser) {
+    return { denied: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) }
+  }
+
+  const { data: callerRow, error } = await sb
+    .from("users")
+    .select("id, role, status")
+    .eq("auth_user_id", authUser.id)
+    .single()
+
+  if (error || !callerRow) {
+    return { denied: NextResponse.json({ error: "Caller not provisioned" }, { status: 403 }) }
+  }
+  if (callerRow.status !== "Active") {
+    return { denied: NextResponse.json({ error: "Caller account disabled" }, { status: 403 }) }
+  }
+  if (callerRow.role !== "system_admin" && callerRow.role !== "unit_manager") {
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
+  }
+
+  // Fetch the caller's unit assignments for scoping checks.
+  const { data: unitRows } = await sb
+    .from("user_units")
+    .select("unit_id")
+    .eq("user_id", callerRow.id)
+
+  const unitIds = (unitRows ?? []).map((r) => r.unit_id as string)
+
+  return {
+    caller: {
+      id: callerRow.id,
+      authUserId: authUser.id,
+      role: callerRow.role as "system_admin" | "unit_manager",
+      unitIds,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Unit-scoping helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether a target user shares at least one unit with the caller.
+ * system_admin always passes. unit_manager must share at least one unit.
+ *
+ * Uses the service-role admin client to bypass RLS (the caller may not be
+ * able to read user_units for the target user under the current policies).
+ */
+export async function callerCanAccessUser(
+  caller: CallerInfo,
+  targetUserId: string,
+  admin: ReturnType<typeof import("@supabase/supabase-js").createClient>
+): Promise<boolean> {
+  if (caller.role === "system_admin") return true
+
+  const { data: targetUnits } = await admin
+    .from("user_units")
+    .select("unit_id")
+    .eq("user_id", targetUserId)
+
+  if (!targetUnits || targetUnits.length === 0) return false
+
+  const targetUnitIds = new Set(targetUnits.map((r) => r.unit_id as string))
+  return caller.unitIds.some((uid) => targetUnitIds.has(uid))
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
 import { PIN_LENGTH } from "@/lib/constants"
 import { sendPinResetEmail } from "@/lib/email"
 
@@ -38,7 +38,7 @@ function generatePin(): string {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireAdminOrManager()
   if (denied) return denied
 
   const { id } = await context.params
@@ -65,6 +65,12 @@ export async function POST(request: Request, context: RouteContext) {
 
   if (loadErr || !user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 })
+  }
+
+  // Unit-scoping: unit_managers can only reset PINs for users in their own units.
+  const hasAccess = await callerCanAccessUser(caller, id, admin)
+  if (!hasAccess) {
+    return NextResponse.json({ error: "Forbidden — user is not in your units" }, { status: 403 })
   }
 
   if (!user.auth_user_id) {

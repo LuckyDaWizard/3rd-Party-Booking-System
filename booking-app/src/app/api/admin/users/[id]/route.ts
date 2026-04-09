@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
 import { PIN_REGEX } from "@/lib/constants"
 
 // =============================================================================
@@ -37,7 +37,7 @@ interface RouteContext {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireAdminOrManager()
   if (denied) return denied
 
   const { id } = await context.params
@@ -78,6 +78,20 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   if (loadErr || !current) {
     return NextResponse.json({ error: "User not found" }, { status: 404 })
+  }
+
+  // Unit-scoping: unit_managers can only edit users in their own units.
+  const hasAccess = await callerCanAccessUser(caller, id, admin)
+  if (!hasAccess) {
+    return NextResponse.json({ error: "Forbidden — user is not in your units" }, { status: 403 })
+  }
+
+  // unit_manager cannot change roles (only system_admin can promote/demote)
+  if (caller.role === "unit_manager" && body.role !== undefined) {
+    return NextResponse.json(
+      { error: "Unit managers cannot change user roles" },
+      { status: 403 }
+    )
   }
 
   // If PIN is changing, sync auth.users first.
@@ -193,7 +207,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireAdminOrManager()
   if (denied) return denied
 
   const { id } = await context.params
@@ -209,6 +223,12 @@ export async function DELETE(request: Request, context: RouteContext) {
       { error: err instanceof Error ? err.message : "Server misconfigured" },
       { status: 500 }
     )
+  }
+
+  // Unit-scoping: unit_managers can only delete users in their own units.
+  const hasAccess = await callerCanAccessUser(caller, id, admin)
+  if (!hasAccess) {
+    return NextResponse.json({ error: "Forbidden — user is not in your units" }, { status: 403 })
   }
 
   // Load auth_user_id before we delete the row.

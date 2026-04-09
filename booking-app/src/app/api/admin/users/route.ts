@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireAdminOrManager } from "@/lib/api-auth"
 import { PIN_REGEX } from "@/lib/constants"
+import { sendPinResetEmail } from "@/lib/email"
 
 // =============================================================================
 // POST /api/admin/users
@@ -42,7 +43,7 @@ interface CreateUserBody {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireAdminOrManager()
   if (denied) return denied
 
   let body: CreateUserBody
@@ -59,6 +60,26 @@ export async function POST(request: Request) {
   if (!body.pin || !PIN_REGEX.test(body.pin)) errors.push("pin must be exactly 6 digits")
   if (!body.role || !["system_admin", "unit_manager", "user"].includes(body.role))
     errors.push("role must be system_admin, unit_manager, or user")
+
+  // unit_manager can only create 'user' role accounts
+  if (caller.role === "unit_manager" && body.role !== "user") {
+    return NextResponse.json(
+      { error: "Unit managers can only create users with the 'user' role" },
+      { status: 403 }
+    )
+  }
+
+  // unit_manager can only assign to their own units
+  if (caller.role === "unit_manager" && body.unitIds.length > 0) {
+    const callerUnitSet = new Set(caller.unitIds)
+    const unauthorized = body.unitIds.filter((uid) => !callerUnitSet.has(uid))
+    if (unauthorized.length > 0) {
+      return NextResponse.json(
+        { error: "You can only assign users to your own units" },
+        { status: 403 }
+      )
+    }
+  }
   if (errors.length > 0) {
     return NextResponse.json({ error: errors.join("; ") }, { status: 400 })
   }
@@ -159,5 +180,17 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ id: userId }, { status: 201 })
+  // 4. Send the new user their PIN via email.
+  let emailSent = false
+  if (body.email) {
+    const result = await sendPinResetEmail({
+      to: body.email,
+      firstName: body.firstNames,
+      newPin: body.pin,
+      appUrl: "http://187.127.135.11:3000",
+    })
+    emailSent = result.sent
+  }
+
+  return NextResponse.json({ id: userId, emailSent }, { status: 201 })
 }
