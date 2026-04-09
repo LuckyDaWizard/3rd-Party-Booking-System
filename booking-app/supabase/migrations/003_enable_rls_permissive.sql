@@ -41,7 +41,6 @@ CREATE POLICY "anon_all_bookings"
 DROP POLICY IF EXISTS "anon_all_clients" ON clients;
 CREATE POLICY "anon_all_clients"
   ON clients
-  FOR ALL
   TO anon
   USING (true)
   WITH CHECK (true);

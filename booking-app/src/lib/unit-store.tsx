@@ -124,46 +124,39 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
     fetchUnits()
   }, [fetchUnits])
 
-  // Normalize province to proper casing
-  const VALID_PROVINCES = [
-    "Eastern Cape", "Free State", "Gauteng", "KwaZulu-Natal",
-    "Limpopo", "Mpumalanga", "North West", "Northern Cape", "Western Cape",
-  ]
-
-  function normalizeProvince(input: string): string {
-    const match = VALID_PROVINCES.find((p) => p.toLowerCase() === input.toLowerCase())
-    return match ?? input
-  }
+  // Province normalization moved to src/app/api/admin/units/route.ts where
+  // all write paths now live. Client-side no longer needs the helper.
 
   async function addUnit(unit: Omit<UnitRecord, "id" | "status">) {
-    const { data, error } = await supabase
-      .from("units")
-      .insert({
-        client_id: unit.clientId,
-        unit_name: unit.unitName,
-        contact_person_name: unit.contactPersonName,
-        contact_person_surname: unit.contactPersonSurname,
+    // Routed through /api/admin/units — under Phase 5 RLS, the authenticated
+    // role has no INSERT policy on public.units, so direct writes fail
+    // silently. The API route also handles the auto-assign-to-creator
+    // side-effect via `assignToUserId`.
+    const res = await fetch("/api/admin/units", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        unitName: unit.unitName,
+        clientId: unit.clientId,
+        contactPersonName: unit.contactPersonName,
+        contactPersonSurname: unit.contactPersonSurname,
         email: unit.email,
-        province: normalizeProvince(unit.province),
-        status: "Active",
-      })
-      .select("id")
-      .single()
+        province: unit.province,
+        assignToUserId: authUser?.id ?? null,
+      }),
+    })
 
-    if (error) {
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error adding unit:", error)
-      throw error
+      throw new Error(error || "Failed to create unit")
     }
 
-    const newUnitId = data.id
+    const { id: newUnitId } = (await res.json()) as { id: string }
 
-    // Auto-assign the creating user to the new unit
+    // Refresh auth user so unitIds includes the new unit (the route auto-
+    // assigned us in user_units).
     if (authUser) {
-      await supabase.from("user_units").insert({
-        user_id: authUser.id,
-        unit_id: newUnitId,
-      })
-      // Refresh auth user so unitIds includes the new unit
       await refreshUser()
     }
 
@@ -172,26 +165,34 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function updateUnit(id: string, updates: Partial<Omit<UnitRecord, "id">>) {
-    const dbUpdates: Record<string, unknown> = {}
-    if (updates.unitName !== undefined) dbUpdates.unit_name = updates.unitName
-    if (updates.contactPersonName !== undefined) dbUpdates.contact_person_name = updates.contactPersonName
-    if (updates.contactPersonSurname !== undefined) dbUpdates.contact_person_surname = updates.contactPersonSurname
-    if (updates.email !== undefined) dbUpdates.email = updates.email
-    if (updates.province !== undefined) dbUpdates.province = normalizeProvince(updates.province)
-    if (updates.status !== undefined) dbUpdates.status = updates.status
-    if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId
+    const body: Record<string, unknown> = {}
+    if (updates.unitName !== undefined) body.unitName = updates.unitName
+    if (updates.contactPersonName !== undefined) body.contactPersonName = updates.contactPersonName
+    if (updates.contactPersonSurname !== undefined) body.contactPersonSurname = updates.contactPersonSurname
+    if (updates.email !== undefined) body.email = updates.email
+    if (updates.province !== undefined) body.province = updates.province
+    if (updates.status !== undefined) body.status = updates.status
+    if (updates.clientId !== undefined) body.clientId = updates.clientId
 
-    if (Object.keys(dbUpdates).length > 0) {
-      const { error } = await supabase.from("units").update(dbUpdates).eq("id", id)
-      if (error) console.error("Error updating unit:", error)
+    if (Object.keys(body).length > 0) {
+      const res = await fetch(`/api/admin/units/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: res.statusText }))
+        console.error("Error updating unit:", error)
+      }
     }
 
     await fetchUnits()
   }
 
   async function deleteUnit(id: string) {
-    const { error } = await supabase.from("units").delete().eq("id", id)
-    if (error) {
+    const res = await fetch(`/api/admin/units/${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error deleting unit:", error)
       return
     }
@@ -202,8 +203,16 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
     const unit = units.find((u) => u.id === id)
     if (!unit) return
 
-    const newStatus = unit.status === "Active" ? "Disabled" : "Active"
-    await supabase.from("units").update({ status: newStatus }).eq("id", id)
+    const newStatus: UnitStatus = unit.status === "Active" ? "Disabled" : "Active"
+    const res = await fetch(`/api/admin/units/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
+      console.error("Error toggling unit status:", error)
+    }
     await fetchUnits()
   }
 

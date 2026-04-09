@@ -146,57 +146,62 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchClients])
 
   async function addClient(client: Omit<ClientRecord, "id" | "status">) {
-    const { data, error } = await supabase
-      .from("clients")
-      .insert({
-        client_name: client.clientName,
-        contact_person_name: client.contactPersonName,
-        contact_person_surname: client.contactPersonSurname,
+    // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
+    // role has no INSERT policy on public.clients, so direct writes fail
+    // silently. All admin writes go through service-role API routes.
+    const res = await fetch("/api/admin/clients", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientName: client.clientName,
+        contactPersonName: client.contactPersonName,
+        contactPersonSurname: client.contactPersonSurname,
         email: client.email,
-        contact_number: client.number,
-        status: "Active",
-      })
-      .select("id")
-      .single()
+        contactNumber: client.number,
+        initialUnitName: client.units && client.units !== "-" ? client.units : null,
+      }),
+    })
 
-    if (error) {
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error adding client:", error)
-      throw error
+      throw new Error(error || "Failed to create client")
     }
 
-    const id = data.id
-
-    // If unit name provided, insert unit
-    if (client.units && client.units !== "-") {
-      await supabase.from("units").insert({
-        client_id: id,
-        unit_name: client.units,
-      })
-    }
-
+    const { id } = (await res.json()) as { id: string }
     await fetchClients()
     return id
   }
 
   async function updateClient(id: string, updates: Partial<Omit<ClientRecord, "id">>) {
-    const dbUpdates: Record<string, unknown> = {}
-    if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName
-    if (updates.contactPersonName !== undefined) dbUpdates.contact_person_name = updates.contactPersonName
-    if (updates.contactPersonSurname !== undefined) dbUpdates.contact_person_surname = updates.contactPersonSurname
-    if (updates.email !== undefined) dbUpdates.email = updates.email
-    if (updates.number !== undefined) dbUpdates.contact_number = updates.number
-    if (updates.status !== undefined) dbUpdates.status = updates.status
+    // Routed through /api/admin/clients/[id] (see addClient note).
+    const body: Record<string, unknown> = {}
+    if (updates.clientName !== undefined) body.clientName = updates.clientName
+    if (updates.contactPersonName !== undefined) body.contactPersonName = updates.contactPersonName
+    if (updates.contactPersonSurname !== undefined) body.contactPersonSurname = updates.contactPersonSurname
+    if (updates.email !== undefined) body.email = updates.email
+    if (updates.number !== undefined) body.contactNumber = updates.number
+    if (updates.status !== undefined) body.status = updates.status
 
-    if (Object.keys(dbUpdates).length > 0) {
-      const { error } = await supabase.from("clients").update(dbUpdates).eq("id", id)
-      if (error) console.error("Error updating client:", error)
+    if (Object.keys(body).length > 0) {
+      const res = await fetch(`/api/admin/clients/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: res.statusText }))
+        console.error("Error updating client:", error)
+      }
     }
 
     await fetchClients()
   }
 
   async function updateClientUnit(id: string, unitName: string) {
-    // Update the first unit or insert one
+    // This mutates a related unit rather than the client itself. Look up the
+    // first existing unit for this client and either PATCH it or POST a new
+    // one via the admin units routes.
     const { data: existingUnits } = await supabase
       .from("units")
       .select("id")
@@ -204,17 +209,34 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
       .limit(1)
 
     if (existingUnits && existingUnits.length > 0) {
-      await supabase.from("units").update({ unit_name: unitName }).eq("id", existingUnits[0].id)
+      const res = await fetch(`/api/admin/units/${existingUnits[0].id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ unitName }),
+      })
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: res.statusText }))
+        console.error("Error updating client unit:", error)
+      }
     } else {
-      await supabase.from("units").insert({ client_id: id, unit_name: unitName })
+      const res = await fetch("/api/admin/units", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ clientId: id, unitName }),
+      })
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: res.statusText }))
+        console.error("Error creating client unit:", error)
+      }
     }
 
     await fetchClients()
   }
 
   async function deleteClient(id: string) {
-    const { error } = await supabase.from("clients").delete().eq("id", id)
-    if (error) {
+    const res = await fetch(`/api/admin/clients/${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error deleting client:", error)
       return
     }
@@ -225,8 +247,16 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     const client = clients.find((c) => c.id === id)
     if (!client) return
 
-    const newStatus = client.status === "Active" ? "Disabled" : "Active"
-    await supabase.from("clients").update({ status: newStatus }).eq("id", id)
+    const newStatus: ClientStatus = client.status === "Active" ? "Disabled" : "Active"
+    const res = await fetch(`/api/admin/clients/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: res.statusText }))
+      console.error("Error toggling client status:", error)
+    }
     await fetchClients()
   }
 
