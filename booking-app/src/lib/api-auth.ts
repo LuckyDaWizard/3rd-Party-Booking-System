@@ -152,6 +152,6 @@ export async function callerCanAccessUser(
 
   if (!targetUnits || targetUnits.length === 0) return false
 
-  const targetUnitIds = new Set(targetUnits.map((r) => r.unit_id as string))
+  const targetUnitIds = new Set(targetUnits.map((r: { unit_id: string }) => r.unit_id))
   return caller.unitIds.some((uid) => targetUnitIds.has(uid))
 }
