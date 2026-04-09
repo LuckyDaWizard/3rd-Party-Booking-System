@@ -78,7 +78,7 @@ export default function UserManagementPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [selectedClient, setSelectedClient] = React.useState("")
   const [isClientDropdownOpen, setIsClientDropdownOpen] = React.useState(false)
-  const [addedBanner, setAddedBanner] = React.useState<string | null>(null)
+  const [addedBanner, setAddedBanner] = React.useState<{ name: string; pin: string | null } | null>(null)
   const [deleteBanner, setDeleteBanner] = React.useState<string | null>(null)
   const [statusBanner, setStatusBanner] = React.useState<{ type: "activated" | "disabled"; name: string } | null>(null)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
@@ -99,7 +99,16 @@ export default function UserManagementPage() {
     const userName = searchParams.get("userName")
 
     if (addedName) {
-      setAddedBanner(addedName)
+      // Read the new user's PIN from sessionStorage (stored by the add page
+      // to avoid leaking it in the URL). Read once and delete immediately.
+      let newPin: string | null = null
+      try {
+        newPin = sessionStorage.getItem("carefirst_new_user_pin")
+        sessionStorage.removeItem("carefirst_new_user_pin")
+      } catch {
+        // ignore
+      }
+      setAddedBanner({ name: addedName, pin: newPin })
     }
     if (deletedName) {
       setDeleteBanner(deletedName)
@@ -167,8 +176,16 @@ export default function UserManagementPage() {
               User Successfully Added
             </span>
             <p className="text-sm text-gray-500">
-              {addedBanner} has been added to the system successfully.
+              {addedBanner.name} has been added to the system successfully.
             </p>
+            {addedBanner.pin && (
+              <p className="mt-1 text-sm font-medium text-gray-700">
+                Access PIN: <span className="font-bold tracking-wider">{addedBanner.pin}</span>
+                <span className="ml-2 text-xs text-gray-400">
+                  (share this with the user securely — it won&apos;t be shown again)
+                </span>
+              </p>
+            )}
           </div>
           <button
             type="button"

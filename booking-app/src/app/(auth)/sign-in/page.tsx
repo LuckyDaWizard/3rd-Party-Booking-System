@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/input-otp"
 import { useAuth } from "@/lib/auth-store"
 
+import { PIN_LENGTH } from "@/lib/constants"
+
 const MAX_ATTEMPTS = 5
-const PIN_LENGTH = 6
 
 type SignInState = "idle" | "loading" | "error" | "lockout"
 

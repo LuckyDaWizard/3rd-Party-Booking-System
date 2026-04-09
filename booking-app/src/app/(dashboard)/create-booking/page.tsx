@@ -10,6 +10,7 @@ import { useBookingStore } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
 import { DatePickerField } from "@/components/ui/date-picker-dialog"
+import { PIN_LENGTH } from "@/lib/constants"
 
 function FloatingInput({
   id,
@@ -119,7 +120,7 @@ export default function CreateBookingPage() {
   const [verificationError, setVerificationError] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  const isCodeComplete = verificationCode.length === 6
+  const isCodeComplete = verificationCode.length === PIN_LENGTH
 
   const isFormValid = (() => {
     if (!isCodeComplete) return false
@@ -243,12 +244,12 @@ export default function CreateBookingPage() {
         <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-4">
           <p className="text-base text-gray-700">Enter nurse verification code to start journey</p>
           <InputOTP
-            maxLength={6}
+            maxLength={PIN_LENGTH}
             value={verificationCode}
             onChange={setVerificationCode}
           >
             <InputOTPGroup className="gap-2 sm:gap-6">
-              {Array.from({ length: 6 }, (_, i) => (
+              {Array.from({ length: PIN_LENGTH }, (_, i) => (
                 <InputOTPSlot
                   key={i}
                   index={i}

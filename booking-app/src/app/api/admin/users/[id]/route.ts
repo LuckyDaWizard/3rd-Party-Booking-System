@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
+import { PIN_REGEX } from "@/lib/constants"
 
 // =============================================================================
 // PATCH /api/admin/users/[id]   — update an existing user
@@ -51,7 +52,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  if (body.pin !== undefined && !/^\d{6}$/.test(body.pin)) {
+  if (body.pin !== undefined && !PIN_REGEX.test(body.pin)) {
     return NextResponse.json(
       { error: "pin must be exactly 6 digits" },
       { status: 400 }

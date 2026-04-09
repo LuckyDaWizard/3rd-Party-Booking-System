@@ -21,7 +21,7 @@ export interface AuthUser {
   firstNames: string
   surname: string
   email: string
-  pin: string
+  pin: string | null  // null for non-system_admin (masked by users_visible view)
   role: UserRole
   status: "Active" | "Disabled"
   clientId: string | null
@@ -61,7 +61,7 @@ interface DbUser {
   first_names: string
   surname: string
   email: string
-  pin: string
+  pin: string | null
   role: UserRole
   status: "Active" | "Disabled"
   client_id: string | null
@@ -106,8 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Fetch the public.users row by its auth_user_id link.
     // (Backfilled in scripts/backfill-auth-users.mjs; populated for new users
     // in /api/admin/users POST.)
+    // Read from users_visible VIEW so the `pin` column is masked for
+    // non-system_admin callers (see migration 006_mask_pin_column.sql).
     const { data: dbUser, error } = await supabase
-      .from("users")
+      .from("users_visible")
       .select("*")
       .eq("auth_user_id", authUserId)
       .single()

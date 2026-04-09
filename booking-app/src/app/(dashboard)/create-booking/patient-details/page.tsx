@@ -9,6 +9,7 @@ import { useBookingStore } from "@/lib/booking-store"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-store"
 import { DatePickerField } from "@/components/ui/date-picker-dialog"
+import { PIN_LENGTH } from "@/lib/constants"
 
 // ---------------------------------------------------------------------------
 // Floating Input Component
@@ -1482,12 +1483,12 @@ export default function PatientDetailsPage() {
             </h2>
 
             <InputOTP
-              maxLength={6}
+              maxLength={PIN_LENGTH}
               value={bookingVerificationCode}
               onChange={setBookingVerificationCode}
             >
               <InputOTPGroup className="gap-2 sm:gap-3">
-                {Array.from({ length: 6 }, (_, i) => (
+                {Array.from({ length: PIN_LENGTH }, (_, i) => (
                   <InputOTPSlot
                     key={i}
                     index={i}
@@ -1534,9 +1535,9 @@ export default function PatientDetailsPage() {
                 setShowSuccessBanner(true)
                 setCurrentStep(5)
               }}
-              disabled={bookingVerificationCode.length < 6 || verifying}
+              disabled={bookingVerificationCode.length < PIN_LENGTH || verifying}
               className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
-                bookingVerificationCode.length === 6 && !verifying
+                bookingVerificationCode.length === PIN_LENGTH && !verifying
                   ? "bg-gray-900 text-white hover:bg-gray-800"
                   : "bg-gray-300 text-gray-500 cursor-default"
               }`}

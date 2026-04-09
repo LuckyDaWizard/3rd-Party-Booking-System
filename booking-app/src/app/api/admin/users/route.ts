@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
+import { PIN_REGEX } from "@/lib/constants"
 
 // =============================================================================
 // POST /api/admin/users
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
   const errors: string[] = []
   if (!body.firstNames?.trim()) errors.push("firstNames is required")
   if (!body.surname?.trim()) errors.push("surname is required")
-  if (!body.pin || !/^\d{6}$/.test(body.pin)) errors.push("pin must be exactly 6 digits")
+  if (!body.pin || !PIN_REGEX.test(body.pin)) errors.push("pin must be exactly 6 digits")
   if (!body.role || !["system_admin", "unit_manager", "user"].includes(body.role))
     errors.push("role must be system_admin, unit_manager, or user")
   if (errors.length > 0) {

@@ -415,9 +415,16 @@ export default function AddUserPage() {
         unitIds: selectedUnitIds,
         clientId: firstUnit?.clientId ?? "",
       })
+      // Store the new PIN in sessionStorage so the list page can show it
+      // in the success banner. NEVER pass it in the URL — that leaks the
+      // PIN to browser history, server access logs, and referrer headers.
+      try {
+        sessionStorage.setItem("carefirst_new_user_pin", newPin)
+      } catch {
+        // ignore — SSR / private mode
+      }
       const params = new URLSearchParams({
         added: `${firstNames} ${surname}`,
-        pin: newPin,
       })
       router.push(`/user-management?${params.toString()}`)
     } catch (err) {

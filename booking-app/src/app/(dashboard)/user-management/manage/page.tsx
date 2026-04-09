@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { useUserStore } from "@/lib/user-store"
 import { useUnitStore } from "@/lib/unit-store"
+import { PIN_LENGTH } from "@/lib/constants"
 import { useAuth } from "@/lib/auth-store"
 
 // ---------------------------------------------------------------------------
@@ -313,7 +314,7 @@ export default function ManageUserPage() {
   const [isStatusOpen, setIsStatusOpen] = useState(false)
   const [isResetPinOpen, setIsResetPinOpen] = useState(false)
   const [isVerificationOpen, setIsVerificationOpen] = useState(false)
-  const [verificationCode, setVerificationCode] = useState<string[]>(["", "", "", "", "", ""])
+  const [verificationCode, setVerificationCode] = useState<string[]>(Array.from({ length: PIN_LENGTH }, () => ""))
   const [verificationError, setVerificationError] = useState("")
   const [verifying, setVerifying] = useState(false)
   const verificationRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -616,7 +617,7 @@ export default function ManageUserPage() {
               data-testid="confirm-reset-pin-button"
               onClick={() => {
                 setIsResetPinOpen(false)
-                setVerificationCode(["", "", "", "", "", ""])
+                setVerificationCode(Array.from({ length: PIN_LENGTH }, () => ""))
                 setIsVerificationOpen(true)
                 setTimeout(() => verificationRefs.current[0]?.focus(), 100)
               }}
