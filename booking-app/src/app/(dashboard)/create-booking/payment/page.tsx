@@ -1,94 +1,60 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useBookingStore } from "@/lib/booking-store"
-
-function FloatingInput({
-  id,
-  label,
-  value,
-  onChange,
-  onClear,
-  className = "",
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  onClear: () => void
-  className?: string
-}) {
-  const hasValue = value.length > 0
-
-  return (
-    <div className={`relative ${className}`}>
-      <input
-        id={id}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder=" "
-        className="peer h-14 w-full rounded-lg border border-gray-300 bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white"
-      />
-      <label
-        htmlFor={id}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-400 transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-500"
-      >
-        {label}
-      </label>
-      {hasValue && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-        >
-          <X className="size-4" />
-        </button>
-      )}
-    </div>
-  )
-}
 
 export default function PaymentPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId") ?? ""
   const { discardBooking, setActiveBookingId } = useBookingStore()
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState("")
+  const formRef = useRef<HTMLFormElement>(null)
+  const [formData, setFormData] = useState<{
+    paymentUrl: string
+    formFields: Record<string, string>
+  } | null>(null)
 
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
 
-  const [nameOnCard, setNameOnCard] = useState("")
-  const [cardNumber, setCardNumber] = useState("")
-  const [expiryDate, setExpiryDate] = useState("")
-  const [cvv, setCvv] = useState("")
+  // Auto-submit the hidden form once we have PayFast data
+  useEffect(() => {
+    if (formData && formRef.current) {
+      formRef.current.submit()
+    }
+  }, [formData])
 
-  const isFormValid =
-    nameOnCard.trim() !== "" &&
-    cardNumber.trim() !== "" &&
-    expiryDate.trim() !== "" &&
-    cvv.trim() !== ""
+  async function handlePayWithPayfast() {
+    if (processing) return
+    setProcessing(true)
+    setError("")
 
-  // TODO: PAYMENT GATEWAY INTEGRATION REQUIRED
-  // Currently using mock responses that alternate between success/failure.
-  // Replace with actual payment gateway (e.g., PayGate, Peach Payments, Stripe)
-  // when ready. The success/failed pages are already built at:
-  // - /create-booking/payment/success
-  // - /create-booking/payment/failed
-  const payAttemptRef = useRef(0)
+    try {
+      const res = await fetch("/api/payfast/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      })
 
-  function handlePay() {
-    if (!isFormValid) return
-    payAttemptRef.current += 1
-    // Alternate between success and failure for demo purposes
-    if (payAttemptRef.current % 2 === 1) {
-      router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
-    } else {
-      router.push(`/create-booking/payment/failed?bookingId=${bookingId}`)
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error ?? "Failed to initiate payment")
+        setProcessing(false)
+        return
+      }
+
+      // Set form data — the useEffect above will auto-submit
+      setFormData(data)
+    } catch {
+      setError("Failed to connect to payment server")
+      setProcessing(false)
     }
   }
 
@@ -124,102 +90,107 @@ export default function PaymentPage() {
         </Button>
       </div>
 
-      {/* Developer Note */}
-      <div className="rounded-xl border border-amber-300 bg-amber-50 px-6 py-4">
-        <p className="text-sm text-amber-800">
-          <strong>Developer Note:</strong> No payment gateway is integrated yet. Payments alternate between success and failure for demo purposes. Integrate a payment gateway (e.g., PayGate, Peach Payments, Stripe) before going live.
-        </p>
-      </div>
-
       {/* Content */}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Enter payment details</h1>
-          <p className="text-base text-gray-500">Please enter the payment details</p>
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Payment</h1>
+          <p className="text-base text-gray-500">Complete your booking payment securely via PayFast</p>
         </div>
 
         <div className="flex flex-col items-stretch gap-6 md:flex-row md:items-start md:gap-8">
-          {/* Left - Card form */}
-          <div className="flex flex-col gap-6 md:flex-1">
-            <FloatingInput
-              id="nameOnCard"
-              label="Name on Card"
-              value={nameOnCard}
-              onChange={setNameOnCard}
-              onClear={() => setNameOnCard("")}
-            />
-            <FloatingInput
-              id="cardNumber"
-              label="Card Number"
-              value={cardNumber}
-              onChange={(v) => {
-                // Format card number with spaces
-                const cleaned = v.replace(/\D/g, "").slice(0, 16)
-                const formatted = cleaned.replace(/(\d{4})(?=\d)/g, "$1 ")
-                setCardNumber(formatted)
-              }}
-              onClear={() => setCardNumber("")}
-            />
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <FloatingInput
-                id="expiryDate"
-                label="Expiry Date"
-                value={expiryDate}
-                onChange={(v) => {
-                  const cleaned = v.replace(/\D/g, "").slice(0, 4)
-                  if (cleaned.length >= 3) {
-                    setExpiryDate(cleaned.slice(0, 2) + " / " + cleaned.slice(2))
-                  } else {
-                    setExpiryDate(cleaned)
-                  }
-                }}
-                onClear={() => setExpiryDate("")}
-              />
-              <FloatingInput
-                id="cvv"
-                label="CVV"
-                value={cvv}
-                onChange={(v) => setCvv(v.replace(/\D/g, "").slice(0, 3))}
-                onClear={() => setCvv("")}
-              />
-            </div>
-            <p className="text-xs text-gray-400">
-              Under no circumstances do we store your card information for security reasons.
-            </p>
-          </div>
-
-          {/* Right - Payment Summary. Full width on mobile, fixed 320px on md+ */}
-        <div className="w-full md:w-80 md:shrink-0">
-          <div className="flex flex-col gap-6 rounded-xl bg-white p-6">
-            <h2 className="text-xl font-bold text-gray-900">Payment Summary</h2>
-
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">{"{bundle_name/service_type}"}</span>
-                <span className="text-gray-500">{"{amount}"}</span>
+          {/* Left — Payment info */}
+          <div className="flex flex-1 flex-col gap-6">
+            <div className="flex flex-col gap-4 rounded-xl bg-white p-6">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="size-6 text-green-500" />
+                <h2 className="text-lg font-bold text-gray-900">Secure Payment</h2>
               </div>
-              <div className="flex items-center justify-between text-sm font-semibold">
-                <span className="text-gray-900">Total</span>
-                <span className="text-gray-900">{"{amount}"}</span>
-              </div>
+              <p className="text-sm text-gray-500">
+                You will be redirected to PayFast&apos;s secure payment page to complete your transaction.
+                PayFast supports credit/debit cards, EFT, and other payment methods.
+              </p>
+              <ul className="flex flex-col gap-2 text-sm text-gray-600">
+                <li className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-green-500" />
+                  256-bit SSL encrypted
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-green-500" />
+                  PCI DSS compliant
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-green-500" />
+                  No card details stored on our servers
+                </li>
+              </ul>
             </div>
 
-            <Button
-              onClick={handlePay}
-              disabled={!isFormValid}
-              className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
-                isFormValid
-                  ? "bg-gray-900 text-white hover:bg-gray-800"
-                  : "bg-gray-300 text-gray-500 cursor-default"
-              }`}
-            >
-              Pay
-              <ArrowRight className="size-4" />
-            </Button>
+            {error && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
           </div>
-        </div>
+
+          {/* Right — Payment summary */}
+          <div className="w-full md:w-80 md:shrink-0">
+            <div className="flex flex-col gap-6 rounded-xl bg-white p-6">
+              <h2 className="text-xl font-bold text-gray-900">Payment Summary</h2>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Consultation Booking</span>
+                  <span className="text-gray-500">R325.00</span>
+                </div>
+                <div className="border-t border-gray-100" />
+                <div className="flex items-center justify-between text-sm font-semibold">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-gray-900">R325.00</span>
+                </div>
+              </div>
+
+              <Button
+                onClick={handlePayWithPayfast}
+                disabled={processing}
+                className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+                  !processing
+                    ? "bg-gray-900 text-white hover:bg-gray-800"
+                    : "bg-gray-300 text-gray-500"
+                }`}
+              >
+                {processing ? (
+                  <>
+                    Redirecting to PayFast...
+                    <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                      <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                      <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    Pay with PayFast
+                    <ArrowRight className="size-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Hidden form for PayFast redirect */}
+      {formData && (
+        <form
+          ref={formRef}
+          action={formData.paymentUrl}
+          method="POST"
+          className="hidden"
+        >
+          {Object.entries(formData.formFields).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
+        </form>
+      )}
     </div>
   )
 }

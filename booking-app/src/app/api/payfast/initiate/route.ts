@@ -1,0 +1,102 @@
+import { NextResponse } from "next/server"
+import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import {
+  getPayfastConfig,
+  getProcessUrl,
+  generateSignature,
+  buildPaymentData,
+  PAYMENT_AMOUNT,
+  PAYMENT_ITEM_NAME,
+} from "@/lib/payfast"
+
+// =============================================================================
+// POST /api/payfast/initiate
+//
+// Builds the PayFast form data + signature for a booking. The frontend uses
+// the returned fields to auto-submit a hidden form to PayFast.
+//
+// Body: { bookingId: string }
+//
+// Returns:
+//   {
+//     paymentUrl: string,           // PayFast process URL
+//     formFields: Record<string, string>,  // Hidden form fields including signature
+//   }
+// =============================================================================
+
+export async function POST(request: Request) {
+  let body: { bookingId?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
+
+  const bookingId = body.bookingId
+  if (!bookingId) {
+    return NextResponse.json({ error: "bookingId is required" }, { status: 400 })
+  }
+
+  let config
+  try {
+    config = getPayfastConfig()
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Server misconfigured" },
+      { status: 500 }
+    )
+  }
+
+  // Load the booking to get patient info for PayFast
+  let admin
+  try {
+    admin = getSupabaseAdmin()
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Server misconfigured" },
+      { status: 500 }
+    )
+  }
+
+  const { data: booking, error: loadErr } = await admin
+    .from("bookings")
+    .select("id, status, first_names, surname, email_address")
+    .eq("id", bookingId)
+    .single()
+
+  if (loadErr || !booking) {
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+  }
+
+  if (booking.status !== "In Progress") {
+    return NextResponse.json(
+      { error: `Booking status is "${booking.status}", expected "In Progress"` },
+      { status: 400 }
+    )
+  }
+
+  // Store the payment amount on the booking for ITN validation later
+  await admin
+    .from("bookings")
+    .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
+    .eq("id", bookingId)
+
+  // Build the form data in PayFast's required field order
+  const formData = buildPaymentData(config, {
+    bookingId,
+    amount: PAYMENT_AMOUNT,
+    itemName: PAYMENT_ITEM_NAME,
+    buyerFirstName: booking.first_names ?? undefined,
+    buyerLastName: booking.surname ?? undefined,
+    buyerEmail: booking.email_address ?? undefined,
+  })
+
+  // Generate the signature and append it
+  const signature = generateSignature(formData, config.passphrase)
+  formData.signature = signature
+
+  return NextResponse.json({
+    paymentUrl: getProcessUrl(config.testMode),
+    formFields: formData,
+  })
+}
