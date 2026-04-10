@@ -826,7 +826,7 @@ export default function ManageUserPage() {
                 <input
                   key={index}
                   ref={(el) => { verificationRefs.current[index] = el }}
-                  type="text"
+                  type="password"
                   inputMode="numeric"
                   maxLength={1}
                   value={digit}
