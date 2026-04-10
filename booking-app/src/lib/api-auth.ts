@@ -22,6 +22,7 @@ export interface CallerInfo {
   authUserId: string   // auth.users.id
   role: "system_admin" | "unit_manager" | "user"
   unitIds: string[]    // units the caller is assigned to (via user_units)
+  name: string         // "First Last" for audit logging
 }
 
 // ---------------------------------------------------------------------------
@@ -63,6 +64,53 @@ export async function requireSystemAdmin(): Promise<NextResponse | null> {
 }
 
 // ---------------------------------------------------------------------------
+// requireSystemAdminWithCaller
+// ---------------------------------------------------------------------------
+
+/**
+ * Same as requireSystemAdmin() but returns CallerInfo on success so the
+ * route has access to the caller's id/name/role for audit logging.
+ */
+export async function requireSystemAdminWithCaller(): Promise<
+  { caller: CallerInfo; denied?: never } | { caller?: never; denied: NextResponse }
+> {
+  const sb = await getSupabaseServer()
+  const {
+    data: { user: authUser },
+  } = await sb.auth.getUser()
+
+  if (!authUser) {
+    return { denied: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) }
+  }
+
+  const { data: callerRow, error } = await sb
+    .from("users")
+    .select("id, first_names, surname, role, status")
+    .eq("auth_user_id", authUser.id)
+    .single()
+
+  if (error || !callerRow) {
+    return { denied: NextResponse.json({ error: "Caller not provisioned" }, { status: 403 }) }
+  }
+  if (callerRow.status !== "Active") {
+    return { denied: NextResponse.json({ error: "Caller account disabled" }, { status: 403 }) }
+  }
+  if (callerRow.role !== "system_admin") {
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
+  }
+
+  return {
+    caller: {
+      id: callerRow.id,
+      authUserId: authUser.id,
+      role: "system_admin",
+      unitIds: [],
+      name: `${callerRow.first_names} ${callerRow.surname}`.trim(),
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
 // requireAdminOrManager
 // ---------------------------------------------------------------------------
 
@@ -94,7 +142,7 @@ export async function requireAdminOrManager(): Promise<
 
   const { data: callerRow, error } = await sb
     .from("users")
-    .select("id, role, status")
+    .select("id, first_names, surname, role, status")
     .eq("auth_user_id", authUser.id)
     .single()
 
@@ -122,6 +170,7 @@ export async function requireAdminOrManager(): Promise<
       authUserId: authUser.id,
       role: callerRow.role as "system_admin" | "unit_manager",
       unitIds,
+      name: `${callerRow.first_names} ${callerRow.surname}`.trim(),
     },
   }
 }

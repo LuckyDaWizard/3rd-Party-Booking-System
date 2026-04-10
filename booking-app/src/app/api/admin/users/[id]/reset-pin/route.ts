@@ -3,6 +3,7 @@ import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
 import { PIN_LENGTH } from "@/lib/constants"
 import { sendPinResetEmail } from "@/lib/email"
+import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
 // POST /api/admin/users/[id]/reset-pin
@@ -147,6 +148,19 @@ export async function POST(request: Request, context: RouteContext) {
     firstName: user.first_names,
     newPin,
     appUrl: "http://187.127.135.11:3000",
+  })
+
+  // Audit log (PIN values masked).
+  writeAuditLog({
+    actorId: caller.id,
+    actorName: caller.name,
+    actorRole: caller.role,
+    action: "reset_pin",
+    entityType: "user",
+    entityId: id,
+    entityName: `${user.first_names} ${user.surname}`.trim(),
+    changes: { "PIN": { old: "***", new: "***" } },
+    ipAddress: getCallerIp(request),
   })
 
   if (emailResult.sent) {

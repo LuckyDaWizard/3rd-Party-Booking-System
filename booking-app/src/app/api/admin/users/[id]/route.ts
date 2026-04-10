@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
 import { PIN_REGEX } from "@/lib/constants"
+import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
 // PATCH /api/admin/users/[id]   — update an existing user
@@ -72,7 +73,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row so we can compare and roll back if needed.
   const { data: current, error: loadErr } = await admin
     .from("users")
-    .select("id, pin, auth_user_id")
+    .select("id, first_names, surname, email, contact_number, pin, role, status, client_id, auth_user_id")
     .eq("id", id)
     .single()
 
@@ -203,6 +204,50 @@ export async function PATCH(request: Request, context: RouteContext) {
       .eq("id", id)
   }
 
+  // Audit log — compute changes (exclude PIN from diff).
+  const changes: Record<string, { old?: unknown; new?: unknown }> = {}
+  if (body.firstNames !== undefined && body.firstNames !== current.first_names)
+    changes["First Names"] = { old: current.first_names, new: body.firstNames }
+  if (body.surname !== undefined && body.surname !== current.surname)
+    changes["Surname"] = { old: current.surname, new: body.surname }
+  if (body.email !== undefined && body.email !== current.email)
+    changes["Email"] = { old: current.email, new: body.email }
+  if (body.contactNumber !== undefined && body.contactNumber !== current.contact_number)
+    changes["Contact Number"] = { old: current.contact_number, new: body.contactNumber }
+  if (body.role !== undefined && body.role !== current.role)
+    changes["Role"] = { old: current.role, new: body.role }
+  if (body.status !== undefined && body.status !== current.status)
+    changes["Status"] = { old: current.status, new: body.status }
+  if (body.pin !== undefined && body.pin !== current.pin)
+    changes["PIN"] = { old: "***", new: "***" }
+  if (body.unitIds !== undefined) {
+    // Resolve unit IDs to names for readability.
+    let unitNames: string[] = []
+    if (body.unitIds.length > 0) {
+      const { data: unitRows } = await admin
+        .from("units")
+        .select("unit_name")
+        .in("id", body.unitIds)
+      unitNames = (unitRows ?? []).map((u: { unit_name: string }) => u.unit_name)
+    }
+    changes["Units"] = { new: unitNames.length > 0 ? unitNames : body.unitIds }
+  }
+
+  if (Object.keys(changes).length > 0) {
+    const action = changes["Status"] && Object.keys(changes).length === 1 ? "toggle_status" as const : "update" as const
+    writeAuditLog({
+      actorId: caller.id,
+      actorName: caller.name,
+      actorRole: caller.role,
+      action,
+      entityType: "user",
+      entityId: id,
+      entityName: `${current.first_names} ${current.surname}`.trim(),
+      changes,
+      ipAddress: getCallerIp(request),
+    })
+  }
+
   return NextResponse.json({ ok: true })
 }
 
@@ -231,14 +276,14 @@ export async function DELETE(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Forbidden — user is not in your units" }, { status: 403 })
   }
 
-  // Load auth_user_id before we delete the row.
-  const { data: current, error: loadErr } = await admin
+  // Load user data before we delete the row.
+  const { data: delTarget, error: loadErr } = await admin
     .from("users")
-    .select("auth_user_id")
+    .select("first_names, surname, auth_user_id")
     .eq("id", id)
     .single()
 
-  if (loadErr || !current) {
+  if (loadErr || !delTarget) {
     return NextResponse.json({ error: "User not found" }, { status: 404 })
   }
 
@@ -259,19 +304,29 @@ export async function DELETE(request: Request, context: RouteContext) {
   }
 
   // Then delete the auth user.
-  if (current.auth_user_id) {
+  if (delTarget.auth_user_id) {
     const { error: authDelErr } = await admin.auth.admin.deleteUser(
-      current.auth_user_id
+      delTarget.auth_user_id
     )
     if (authDelErr) {
-      // The public row is already gone — log but don't fail. The orphan auth
-      // user can be cleaned up manually from the dashboard if needed.
       console.warn(
-        `Deleted public.users ${id} but failed to delete auth user ${current.auth_user_id}:`,
+        `Deleted public.users ${id} but failed to delete auth user ${delTarget.auth_user_id}:`,
         authDelErr.message
       )
     }
   }
+
+  // Audit log.
+  writeAuditLog({
+    actorId: caller.id,
+    actorName: caller.name,
+    actorRole: caller.role,
+    action: "delete",
+    entityType: "user",
+    entityId: id,
+    entityName: `${delTarget.first_names} ${delTarget.surname}`.trim(),
+    ipAddress: getCallerIp(request),
+  })
 
   return NextResponse.json({ ok: true })
 }

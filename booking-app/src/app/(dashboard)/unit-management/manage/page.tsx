@@ -194,6 +194,9 @@ export default function ManageUnitPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isStatusOpen, setIsStatusOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [toggling, setToggling] = useState(false)
   const [clientId, setClientId] = useState("")
   const [unitName, setUnitName] = useState("")
   const [contactPersonName, setContactPersonName] = useState("")
@@ -221,34 +224,49 @@ export default function ManageUnitPage() {
   }
 
   async function handleUpdateInformation() {
-    await updateUnit(unitId, {
-      unitName,
-      clientId,
-      contactPersonName,
-      contactPersonSurname,
-      email: emailAddress,
-      province,
-    })
-    router.push("/unit-management")
+    setSaving(true)
+    try {
+      await updateUnit(unitId, {
+        unitName,
+        clientId,
+        contactPersonName,
+        contactPersonSurname,
+        email: emailAddress,
+        province,
+      })
+      router.push("/unit-management")
+    } catch {
+      setSaving(false)
+    }
   }
 
   async function handleToggleStatus() {
-    const wasActive = unit!.status === "Active"
-    const name = unit!.unitName
-    await toggleUnitStatus(unitId)
-    const params = new URLSearchParams({
-      statusChanged: wasActive ? "disabled" : "activated",
-      unitName: name,
-    })
-    router.push(`/unit-management?${params.toString()}`)
+    setToggling(true)
+    try {
+      const wasActive = unit!.status === "Active"
+      const name = unit!.unitName
+      await toggleUnitStatus(unitId)
+      const params = new URLSearchParams({
+        statusChanged: wasActive ? "disabled" : "activated",
+        unitName: name,
+      })
+      router.push(`/unit-management?${params.toString()}`)
+    } catch {
+      setToggling(false)
+    }
   }
 
   async function handleDeleteUnit() {
-    await deleteUnit(unitId)
-    const params = new URLSearchParams({
-      deleted: unit!.unitName,
-    })
-    router.push(`/unit-management?${params.toString()}`)
+    setDeleting(true)
+    try {
+      await deleteUnit(unitId)
+      const params = new URLSearchParams({
+        deleted: unit!.unitName,
+      })
+      router.push(`/unit-management?${params.toString()}`)
+    } catch {
+      setDeleting(false)
+    }
   }
 
   // Check if any field has changed from the original
@@ -381,24 +399,40 @@ export default function ManageUnitPage() {
           <Button
             data-testid="update-button"
             onClick={handleUpdateInformation}
-            disabled={!hasChanges}
+            disabled={!hasChanges || saving}
             className={`h-11 w-full rounded-xl ${
-              hasChanges
+              hasChanges && !saving
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-gray-600 cursor-not-allowed"
             }`}
           >
-            Update Information
-            <ArrowRight className="ml-1 size-4" />
+            {saving ? "Saving..." : "Update Information"}
+            {saving ? (
+              <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              </svg>
+            ) : (
+              <ArrowRight className="ml-1 size-4" />
+            )}
           </Button>
 
           <Button
             data-testid="disable-unit-button"
             variant="outline"
             onClick={() => setIsStatusOpen(true)}
+            disabled={toggling}
             className="h-11 w-full rounded-xl border border-black"
           >
-            {unit.status === "Active" ? "Disable Unit" : "Activate Unit"}
+            {toggling
+              ? (unit.status === "Active" ? "Disabling..." : "Activating...")
+              : (unit.status === "Active" ? "Disable Unit" : "Activate Unit")}
+            {toggling && (
+              <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="20" cy="20" r="15" stroke="#111827" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              </svg>
+            )}
           </Button>
         </div>
       </div>
@@ -419,35 +453,56 @@ export default function ManageUnitPage() {
             <Button
               data-testid="confirm-delete-button"
               onClick={handleDeleteUnit}
+              disabled={deleting || toggling}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
             >
-              Yes, delete unit
-              <ArrowRight className="ml-1 size-4" />
+              {deleting ? "Deleting..." : "Yes, delete unit"}
+              {deleting ? (
+                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              ) : (
+                <ArrowRight className="ml-1 size-4" />
+              )}
             </Button>
 
             <Button
               data-testid="disable-instead-button"
               variant="outline"
+              disabled={deleting || toggling}
               onClick={async () => {
-                setIsDeleteOpen(false)
-                const name = unit!.unitName
-                await toggleUnitStatus(unitId)
-                const params = new URLSearchParams({
-                  statusChanged: "disabled",
-                  unitName: name,
-                })
-                router.push(`/unit-management?${params.toString()}`)
+                setToggling(true)
+                try {
+                  setIsDeleteOpen(false)
+                  const name = unit!.unitName
+                  await toggleUnitStatus(unitId)
+                  const params = new URLSearchParams({
+                    statusChanged: "disabled",
+                    unitName: name,
+                  })
+                  router.push(`/unit-management?${params.toString()}`)
+                } catch {
+                  setToggling(false)
+                }
               }}
               className="h-11 w-full rounded-xl border border-black"
             >
-              Disable unit instead
+              {toggling ? "Disabling..." : "Disable unit instead"}
+              {toggling && (
+                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="#111827" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              )}
             </Button>
 
             <button
               type="button"
               data-testid="cancel-delete-button"
               onClick={() => setIsDeleteOpen(false)}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+              disabled={deleting || toggling}
+              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -472,21 +527,32 @@ export default function ManageUnitPage() {
           <div className="flex flex-col items-center gap-3 pt-4">
             <Button
               data-testid="confirm-status-button"
+              disabled={toggling}
               onClick={async () => {
                 setIsStatusOpen(false)
                 await handleToggleStatus()
               }}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
             >
-              Yes, {unit.status === "Active" ? "disable" : "activate"} unit
-              <ArrowRight className="ml-1 size-4" />
+              {toggling
+                ? (unit.status === "Active" ? "Disabling..." : "Activating...")
+                : `Yes, ${unit.status === "Active" ? "disable" : "activate"} unit`}
+              {toggling ? (
+                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              ) : (
+                <ArrowRight className="ml-1 size-4" />
+              )}
             </Button>
 
             <button
               type="button"
               data-testid="cancel-status-button"
               onClick={() => setIsStatusOpen(false)}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+              disabled={toggling}
+              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
             >
               Cancel
             </button>

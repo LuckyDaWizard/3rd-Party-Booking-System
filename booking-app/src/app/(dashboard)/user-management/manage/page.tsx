@@ -324,6 +324,10 @@ export default function ManageUserPage() {
     emailError?: string
   } | null>(null)
   const verificationRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [toggling, setToggling] = useState(false)
+  const [resettingPin, setResettingPin] = useState(false)
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
   const [firstNames, setFirstNames] = useState("")
   const [surname, setSurname] = useState("")
@@ -375,22 +379,25 @@ export default function ManageUserPage() {
     selectedUnitIds.some((id) => !originalUnitIds.includes(id))
 
   async function handleUpdateInformation() {
-    await updateUser(userId, {
-      firstNames,
-      surname,
-      email: emailAddress,
-      contactNumber,
-      role: userRole,
-    })
-    await updateUserUnits(userId, selectedUnitIds)
-    router.push("/user-management")
+    setSaving(true)
+    try {
+      await updateUser(userId, {
+        firstNames,
+        surname,
+        email: emailAddress,
+        contactNumber,
+        role: userRole,
+      })
+      await updateUserUnits(userId, selectedUnitIds)
+      router.push("/user-management")
+    } catch (err) {
+      console.error("Failed to update user:", err)
+      setSaving(false)
+    }
   }
 
   async function handleResetPin() {
-    // Call the dedicated reset-pin route which generates a random PIN,
-    // updates both public.users and auth.users, and attempts to email
-    // the new PIN to the user. If email fails, the PIN is returned in
-    // the response so the admin can share it manually.
+    setResettingPin(true)
     try {
       const res = await fetch(`/api/admin/users/${userId}/reset-pin`, {
         method: "POST",
@@ -425,25 +432,39 @@ export default function ManageUserPage() {
         emailSent: false,
         emailError: err instanceof Error ? err.message : "Unknown error",
       })
+    } finally {
+      setResettingPin(false)
     }
   }
 
   async function handleToggleStatus() {
-    const wasActive = user!.status === "Active"
-    const name = `${user!.firstNames} ${user!.surname}`
-    await toggleUserStatus(userId)
-    const params = new URLSearchParams({
-      statusChanged: wasActive ? "disabled" : "activated",
-      userName: name,
-    })
-    router.push(`/user-management?${params.toString()}`)
+    setToggling(true)
+    try {
+      const wasActive = user!.status === "Active"
+      const name = `${user!.firstNames} ${user!.surname}`
+      await toggleUserStatus(userId)
+      const params = new URLSearchParams({
+        statusChanged: wasActive ? "disabled" : "activated",
+        userName: name,
+      })
+      router.push(`/user-management?${params.toString()}`)
+    } catch (err) {
+      console.error("Failed to toggle status:", err)
+      setToggling(false)
+    }
   }
 
   async function handleDeleteUser() {
-    const name = `${user!.firstNames} ${user!.surname}`
-    await deleteUser(userId)
-    const params = new URLSearchParams({ deleted: name })
-    router.push(`/user-management?${params.toString()}`)
+    setDeleting(true)
+    try {
+      const name = `${user!.firstNames} ${user!.surname}`
+      await deleteUser(userId)
+      const params = new URLSearchParams({ deleted: name })
+      router.push(`/user-management?${params.toString()}`)
+    } catch (err) {
+      console.error("Failed to delete user:", err)
+      setDeleting(false)
+    }
   }
 
   return (
@@ -625,15 +646,27 @@ export default function ManageUserPage() {
           <Button
             data-testid="update-button"
             onClick={handleUpdateInformation}
-            disabled={!hasChanges}
+            disabled={!hasChanges || saving}
             className={`h-11 w-full rounded-xl ${
-              hasChanges
+              hasChanges && !saving
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-gray-600 cursor-not-allowed"
             }`}
           >
-            Update Information
-            <ArrowRight className="ml-1 size-4" />
+            {saving ? (
+              <>
+                Saving...
+                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              </>
+            ) : (
+              <>
+                Update Information
+                <ArrowRight className="ml-1 size-4" />
+              </>
+            )}
           </Button>
 
           <Button
@@ -672,35 +705,65 @@ export default function ManageUserPage() {
             <Button
               data-testid="confirm-delete-button"
               onClick={handleDeleteUser}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+              disabled={deleting || toggling}
+              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
             >
-              Yes, delete user
-              <ArrowRight className="ml-1 size-4" />
+              {deleting ? (
+                <>
+                  Deleting...
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Yes, delete user
+                  <ArrowRight className="ml-1 size-4" />
+                </>
+              )}
             </Button>
 
             <Button
               data-testid="disable-instead-button"
               variant="outline"
+              disabled={deleting || toggling}
               onClick={async () => {
-                setIsDeleteOpen(false)
-                const name = `${user!.firstNames} ${user!.surname}`
-                await toggleUserStatus(userId)
-                const params = new URLSearchParams({
-                  statusChanged: "disabled",
-                  userName: name,
-                })
-                router.push(`/user-management?${params.toString()}`)
+                setToggling(true)
+                try {
+                  setIsDeleteOpen(false)
+                  const name = `${user!.firstNames} ${user!.surname}`
+                  await toggleUserStatus(userId)
+                  const params = new URLSearchParams({
+                    statusChanged: "disabled",
+                    userName: name,
+                  })
+                  router.push(`/user-management?${params.toString()}`)
+                } catch {
+                  setToggling(false)
+                }
               }}
-              className="h-11 w-full rounded-xl border border-black"
+              className="h-11 w-full rounded-xl border border-black disabled:opacity-50"
             >
-              Disable user instead
+              {toggling ? (
+                <>
+                  Disabling...
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="#111827" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                "Disable user instead"
+              )}
             </Button>
 
             <button
               type="button"
               data-testid="cancel-delete-button"
               onClick={() => setIsDeleteOpen(false)}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+              disabled={deleting || toggling}
+              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
             >
               Cancel
             </button>
@@ -829,8 +892,20 @@ export default function ManageUserPage() {
                   : "bg-gray-300 text-gray-600"
               }`}
             >
-              {verifying ? "Verifying..." : "Continue"}
-              {!verifying && <ArrowRight className="ml-1 size-4" />}
+              {verifying ? (
+                <>
+                  Verifying...
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ArrowRight className="ml-1 size-4" />
+                </>
+              )}
             </Button>
 
             <button
@@ -865,21 +940,35 @@ export default function ManageUserPage() {
           <div className="flex flex-col items-center gap-3 pt-4">
             <Button
               data-testid="confirm-status-button"
+              disabled={toggling}
               onClick={async () => {
                 setIsStatusOpen(false)
                 await handleToggleStatus()
               }}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
             >
-              Yes, {user.status === "Active" ? "disable" : "activate"} user
-              <ArrowRight className="ml-1 size-4" />
+              {toggling ? (
+                <>
+                  {user.status === "Active" ? "Disabling..." : "Activating..."}
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Yes, {user.status === "Active" ? "disable" : "activate"} user
+                  <ArrowRight className="ml-1 size-4" />
+                </>
+              )}
             </Button>
 
             <button
               type="button"
               data-testid="cancel-status-button"
               onClick={() => setIsStatusOpen(false)}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+              disabled={toggling}
+              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
             >
               Cancel
             </button>

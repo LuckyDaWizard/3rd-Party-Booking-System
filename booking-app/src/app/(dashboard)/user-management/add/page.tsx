@@ -332,6 +332,7 @@ export default function AddUserPage() {
   const [role, setRole] = useState("")
   const [emailError, setEmailError] = useState("")
   const [contactError, setContactError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   // System admin can assign any role; unit managers can only create regular users
   const roleOptions = isSystemAdmin
@@ -388,23 +389,24 @@ export default function AddUserPage() {
   }
 
   async function handleSubmit() {
-    if (!isFormComplete) return
+    if (!isFormComplete || submitting) return
 
-    // Final check before submit
-    await checkEmailExists(emailAddress)
-    await checkContactExists(contactNumber)
-    if (emailError || contactError) return
-
-    // Get client from first selected unit
-    const firstUnit = units.find((u) => u.id === selectedUnitIds[0])
-
-    // Generate a random 6-digit PIN for the new user. The admin will see it
-    // on the success screen so they can pass it to the user securely.
-    // Retry on collision (extremely unlikely with 1M possibilities and a small
-    // user base, but the API enforces uniqueness regardless).
-    const newPin = String(Math.floor(100000 + Math.random() * 900000))
-
+    setSubmitting(true)
     try {
+      // Final check before submit
+      await checkEmailExists(emailAddress)
+      await checkContactExists(contactNumber)
+      if (emailError || contactError) {
+        setSubmitting(false)
+        return
+      }
+
+      // Get client from first selected unit
+      const firstUnit = units.find((u) => u.id === selectedUnitIds[0])
+
+      // Generate a random 6-digit PIN for the new user.
+      const newPin = String(Math.floor(100000 + Math.random() * 900000))
+
       await addUser({
         firstNames,
         surname,
@@ -415,9 +417,6 @@ export default function AddUserPage() {
         unitIds: selectedUnitIds,
         clientId: firstUnit?.clientId ?? "",
       })
-      // Store the new PIN in sessionStorage so the list page can show it
-      // in the success banner. NEVER pass it in the URL — that leaks the
-      // PIN to browser history, server access logs, and referrer headers.
       try {
         sessionStorage.setItem("carefirst_new_user_pin", newPin)
       } catch {
@@ -429,6 +428,7 @@ export default function AddUserPage() {
       router.push(`/user-management?${params.toString()}`)
     } catch (err) {
       console.error("Failed to add user:", err)
+      setSubmitting(false)
     }
   }
 
@@ -545,10 +545,22 @@ export default function AddUserPage() {
           data-testid="add-user-button"
           className="mt-2 w-full rounded-xl bg-gray-900 py-7 text-base font-medium text-white hover:bg-gray-800 disabled:opacity-50"
           onClick={handleSubmit}
-          disabled={!isFormComplete}
+          disabled={!isFormComplete || submitting}
         >
-          Add User
-          <ArrowRight className="ml-2 size-4" />
+          {submitting ? (
+            <>
+              Adding User...
+              <svg className="ml-2 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              </svg>
+            </>
+          ) : (
+            <>
+              Add User
+              <ArrowRight className="ml-2 size-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>

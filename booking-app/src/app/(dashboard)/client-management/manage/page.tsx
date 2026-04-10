@@ -83,6 +83,9 @@ export default function ManageClientPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isStatusOpen, setIsStatusOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [toggling, setToggling] = useState(false)
   const [clientName, setClientName] = useState("")
   const [contactPersonName, setContactPersonName] = useState("")
   const [contactPersonSurname, setContactPersonSurname] = useState("")
@@ -108,42 +111,57 @@ export default function ManageClientPage() {
   }
 
   async function handleUpdateInformation() {
-    await updateClient(clientId, {
-      clientName,
-      contactPersonName,
-      contactPersonSurname,
-      email: emailAddress,
-      number: contactNumber,
-    })
-    router.push("/client-management")
+    setSaving(true)
+    try {
+      await updateClient(clientId, {
+        clientName,
+        contactPersonName,
+        contactPersonSurname,
+        email: emailAddress,
+        number: contactNumber,
+      })
+      router.push("/client-management")
+    } catch {
+      setSaving(false)
+    }
   }
 
   async function handleDisableClient() {
-    const wasActive = client!.status === "Active"
-    const name = client!.clientName
-    await toggleClientStatus(clientId)
-    const params = new URLSearchParams({
-      statusChanged: wasActive ? "disabled" : "activated",
-      clientName: name,
-    })
-    router.push(`/client-management?${params.toString()}`)
+    setToggling(true)
+    try {
+      const wasActive = client!.status === "Active"
+      const name = client!.clientName
+      await toggleClientStatus(clientId)
+      const params = new URLSearchParams({
+        statusChanged: wasActive ? "disabled" : "activated",
+        clientName: name,
+      })
+      router.push(`/client-management?${params.toString()}`)
+    } catch {
+      setToggling(false)
+    }
   }
 
   async function handleDeleteClient() {
-    const deletedData = {
-      clientName: client!.clientName,
-      contactPersonName: client!.contactPersonName,
-      contactPersonSurname: client!.contactPersonSurname,
-      units: client!.units,
-      email: client!.email,
-      number: client!.number,
+    setDeleting(true)
+    try {
+      const deletedData = {
+        clientName: client!.clientName,
+        contactPersonName: client!.contactPersonName,
+        contactPersonSurname: client!.contactPersonSurname,
+        units: client!.units,
+        email: client!.email,
+        number: client!.number,
+      }
+      await deleteClient(clientId)
+      const params = new URLSearchParams({
+        deleted: client!.clientName,
+        data: JSON.stringify(deletedData),
+      })
+      router.push(`/client-management?${params.toString()}`)
+    } catch {
+      setDeleting(false)
     }
-    await deleteClient(clientId)
-    const params = new URLSearchParams({
-      deleted: client!.clientName,
-      data: JSON.stringify(deletedData),
-    })
-    router.push(`/client-management?${params.toString()}`)
   }
 
   return (
@@ -246,18 +264,32 @@ export default function ManageClientPage() {
         <div className="flex w-full max-w-md flex-col items-center gap-3">
           <Button
             data-testid="update-button"
+            disabled={saving}
             onClick={handleUpdateInformation}
             className="h-11 w-full rounded-xl bg-gray-300 text-gray-600 hover:bg-gray-900 hover:text-white"
           >
-            Update Information
-            <ArrowRight className="ml-1 size-4" />
+            {saving ? (
+              <>
+                Saving...
+                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              </>
+            ) : (
+              <>
+                Update Information
+                <ArrowRight className="ml-1 size-4" />
+              </>
+            )}
           </Button>
 
           <Button
             data-testid="disable-client-button"
             variant="outline"
+            disabled={saving}
             onClick={() => setIsStatusOpen(true)}
-            className="h-11 w-full rounded-xl border border-black"
+            className={`h-11 w-full rounded-xl border border-black ${saving ? "disabled:opacity-50" : ""}`}
           >
             {client.status === "Active" ? "Disable Client" : "Activate Client"}
           </Button>
@@ -265,7 +297,7 @@ export default function ManageClientPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+      <Dialog open={isDeleteOpen} onOpenChange={(v) => { if (!deleting && !toggling) setIsDeleteOpen(v) }}>
         <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
@@ -279,36 +311,66 @@ export default function ManageClientPage() {
           <div className="flex flex-col items-center gap-3 pt-4">
             <Button
               data-testid="confirm-delete-button"
+              disabled={deleting || toggling}
               onClick={handleDeleteClient}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
             >
-              Yes, delete client
-              <ArrowRight className="ml-1 size-4" />
+              {deleting ? (
+                <>
+                  Deleting...
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Yes, delete client
+                  <ArrowRight className="ml-1 size-4" />
+                </>
+              )}
             </Button>
 
             <Button
               data-testid="disable-instead-button"
               variant="outline"
+              disabled={deleting || toggling}
               onClick={async () => {
-                setIsDeleteOpen(false)
-                const name = client!.clientName
-                await toggleClientStatus(clientId)
-                const params = new URLSearchParams({
-                  statusChanged: "disabled",
-                  clientName: name,
-                })
-                router.push(`/client-management?${params.toString()}`)
+                setToggling(true)
+                try {
+                  setIsDeleteOpen(false)
+                  const name = client!.clientName
+                  await toggleClientStatus(clientId)
+                  const params = new URLSearchParams({
+                    statusChanged: "disabled",
+                    clientName: name,
+                  })
+                  router.push(`/client-management?${params.toString()}`)
+                } catch {
+                  setToggling(false)
+                }
               }}
               className="h-11 w-full rounded-xl border border-black"
             >
-              Disable client instead
+              {toggling ? (
+                <>
+                  Disabling...
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="#111827" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                "Disable client instead"
+              )}
             </Button>
 
             <button
               type="button"
               data-testid="cancel-delete-button"
+              disabled={deleting || toggling}
               onClick={() => setIsDeleteOpen(false)}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+              className={`text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 ${deleting || toggling ? "disabled:opacity-50" : ""}`}
             >
               Cancel
             </button>
@@ -317,7 +379,7 @@ export default function ManageClientPage() {
       </Dialog>
 
       {/* Disable / Activate Confirmation Dialog */}
-      <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
+      <Dialog open={isStatusOpen} onOpenChange={(v) => { if (!toggling) setIsStatusOpen(v) }}>
         <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
@@ -333,21 +395,35 @@ export default function ManageClientPage() {
           <div className="flex flex-col items-center gap-3 pt-4">
             <Button
               data-testid="confirm-status-button"
+              disabled={toggling}
               onClick={async () => {
                 setIsStatusOpen(false)
                 await handleDisableClient()
               }}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
             >
-              Yes, {client.status === "Active" ? "disable" : "activate"} client
-              <ArrowRight className="ml-1 size-4" />
+              {toggling ? (
+                <>
+                  {client.status === "Active" ? "Disabling..." : "Activating..."}
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Yes, {client.status === "Active" ? "disable" : "activate"} client
+                  <ArrowRight className="ml-1 size-4" />
+                </>
+              )}
             </Button>
 
             <button
               type="button"
               data-testid="cancel-status-button"
+              disabled={toggling}
               onClick={() => setIsStatusOpen(false)}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+              className={`text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 ${toggling ? "disabled:opacity-50" : ""}`}
             >
               Cancel
             </button>

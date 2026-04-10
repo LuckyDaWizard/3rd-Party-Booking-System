@@ -434,6 +434,7 @@ export default function AddNewClientPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [showBanner, setShowBanner] = useState(false)
   const [newClientId, setNewClientId] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const [clientDetails, setClientDetails] = useState<ClientDetails>({
     clientName: "",
@@ -459,6 +460,7 @@ export default function AddNewClientPage() {
     clientDetails.contactNumber.trim() !== ""
 
   async function handleNext() {
+    setSubmitting(true)
     try {
       if (currentStep === 1 && isStep1Complete) {
         const id = await addClient({
@@ -472,6 +474,7 @@ export default function AddNewClientPage() {
         setNewClientId(id)
         setCurrentStep(2)
         setShowBanner(true)
+        setSubmitting(false)
       } else if (currentStep === 2) {
         if (unitDetails.unitName.trim() && newClientId) {
           await addUnit({
@@ -489,6 +492,7 @@ export default function AddNewClientPage() {
       }
     } catch (err) {
       console.error("Failed to save client:", err)
+      setSubmitting(false)
     }
   }
 
@@ -587,15 +591,27 @@ export default function AddNewClientPage() {
           <Button
             data-testid="next-button"
             onClick={handleNext}
-            disabled={!isNextEnabled}
+            disabled={!isNextEnabled || submitting}
             className={`h-11 w-full rounded-xl ${
-              isNextEnabled
+              isNextEnabled && !submitting
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-gray-600"
             }`}
           >
-            {currentStep === TOTAL_STEPS ? "Submit" : "Next"}
-            <ArrowRight className="ml-1 size-4" />
+            {submitting ? (
+              <>
+                {currentStep === TOTAL_STEPS ? "Adding Client..." : "Saving..."}
+                <svg className="ml-2 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              </>
+            ) : (
+              <>
+                {currentStep === TOTAL_STEPS ? "Submit" : "Next"}
+                <ArrowRight className="ml-1 size-4" />
+              </>
+            )}
           </Button>
 
           {/* Skip link — only on step 2 */}

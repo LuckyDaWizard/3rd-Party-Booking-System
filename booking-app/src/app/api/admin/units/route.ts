@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireSystemAdminWithCaller } from "@/lib/api-auth"
+import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
 // POST /api/admin/units
@@ -47,7 +48,7 @@ function normalizeProvince(input: string | undefined): string | null {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireSystemAdminWithCaller()
   if (denied) return denied
 
   let body: CreateUnitBody
@@ -113,6 +114,23 @@ export async function POST(request: Request) {
       )
     }
   }
+
+  // Audit log.
+  writeAuditLog({
+    actorId: caller.id,
+    actorName: caller.name,
+    actorRole: caller.role,
+    action: "create",
+    entityType: "unit",
+    entityId: unitId,
+    entityName: body.unitName,
+    changes: {
+      "Unit Name": { new: body.unitName },
+      "Client": { new: body.clientId },
+      ...(body.province ? { "Province": { new: normalizeProvince(body.province) } } : {}),
+    },
+    ipAddress: getCallerIp(request),
+  })
 
   return NextResponse.json({ id: unitId }, { status: 201 })
 }

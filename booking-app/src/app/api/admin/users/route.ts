@@ -3,6 +3,7 @@ import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
 import { PIN_REGEX } from "@/lib/constants"
 import { sendPinResetEmail } from "@/lib/email"
+import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
 // POST /api/admin/users
@@ -191,6 +192,32 @@ export async function POST(request: Request) {
     })
     emailSent = result.sent
   }
+
+  // 5. Audit log — resolve unit IDs to names for readability.
+  let unitNames: string[] = []
+  if (body.unitIds.length > 0) {
+    const { data: unitRows } = await admin
+      .from("units")
+      .select("unit_name")
+      .in("id", body.unitIds)
+    unitNames = (unitRows ?? []).map((u: { unit_name: string }) => u.unit_name)
+  }
+
+  writeAuditLog({
+    actorId: caller.id,
+    actorName: caller.name,
+    actorRole: caller.role,
+    action: "create",
+    entityType: "user",
+    entityId: userId,
+    entityName: `${body.firstNames} ${body.surname}`.trim(),
+    changes: {
+      Role: { new: body.role },
+      Email: { new: body.email },
+      Units: { new: unitNames.length > 0 ? unitNames : body.unitIds },
+    },
+    ipAddress: getCallerIp(request),
+  })
 
   return NextResponse.json({ id: userId, emailSent }, { status: 201 })
 }

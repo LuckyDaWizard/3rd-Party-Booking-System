@@ -288,16 +288,18 @@ export default function AddUnitPage() {
   const [contactPersonSurname, setContactPersonSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
   const [province, setProvince] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const isFormComplete =
     clientId.trim() !== "" &&
     unitName.trim() !== ""
 
   async function handleSubmit() {
-    if (!isFormComplete) return
+    if (!isFormComplete || submitting) return
 
     const selectedClient = clients.find((c) => c.id === clientId)
 
+    setSubmitting(true)
     try {
       await addUnit({
         unitName,
@@ -312,6 +314,7 @@ export default function AddUnitPage() {
       router.push(`/unit-management?${params.toString()}`)
     } catch (err) {
       console.error("Failed to add unit:", err)
+      setSubmitting(false)
     }
   }
 
@@ -413,10 +416,22 @@ export default function AddUnitPage() {
           data-testid="add-unit-button"
           className="mt-2 w-full rounded-xl bg-gray-900 py-7 text-base font-medium text-white hover:bg-gray-800 disabled:opacity-50"
           onClick={handleSubmit}
-          disabled={!isFormComplete}
+          disabled={!isFormComplete || submitting}
         >
-          Add Unit
-          <ArrowRight className="ml-2 size-4" />
+          {submitting ? (
+            <>
+              Adding Unit...
+              <svg className="ml-2 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              </svg>
+            </>
+          ) : (
+            <>
+              Add Unit
+              <ArrowRight className="ml-2 size-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>

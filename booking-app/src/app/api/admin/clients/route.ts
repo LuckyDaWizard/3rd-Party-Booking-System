@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireSystemAdminWithCaller } from "@/lib/api-auth"
+import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
 // POST /api/admin/clients
@@ -36,7 +37,7 @@ interface CreateClientBody {
 }
 
 export async function POST(request: Request) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireSystemAdminWithCaller()
   if (denied) return denied
 
   let body: CreateClientBody
@@ -99,6 +100,24 @@ export async function POST(request: Request) {
       )
     }
   }
+
+  // Audit log.
+  writeAuditLog({
+    actorId: caller.id,
+    actorName: caller.name,
+    actorRole: caller.role,
+    action: "create",
+    entityType: "client",
+    entityId: clientId,
+    entityName: body.clientName,
+    changes: {
+      "Client Name": { new: body.clientName },
+      ...(body.initialUnitName && body.initialUnitName !== "-"
+        ? { "Initial Unit": { new: body.initialUnitName } }
+        : {}),
+    },
+    ipAddress: getCallerIp(request),
+  })
 
   return NextResponse.json({ id: clientId }, { status: 201 })
 }

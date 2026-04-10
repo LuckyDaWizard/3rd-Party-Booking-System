@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireSystemAdminWithCaller } from "@/lib/api-auth"
+import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
 // PATCH /api/admin/clients/[id]  — update a client
@@ -29,7 +30,7 @@ interface RouteContext {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireSystemAdminWithCaller()
   if (denied) return denied
 
   const { id } = await context.params
@@ -54,6 +55,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     )
   }
 
+  // Load current row for audit diff.
+  const { data: current } = await admin
+    .from("clients")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status")
+    .eq("id", id)
+    .single()
+
   const dbUpdates: Record<string, unknown> = {}
   if (body.clientName !== undefined) dbUpdates.client_name = body.clientName
   if (body.contactPersonName !== undefined) dbUpdates.contact_person_name = body.contactPersonName
@@ -75,11 +83,41 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: updErr.message }, { status: 500 })
   }
 
+  // Audit log.
+  const changes: Record<string, { old?: unknown; new?: unknown }> = {}
+  if (body.clientName !== undefined && body.clientName !== current?.client_name)
+    changes["Client Name"] = { old: current?.client_name, new: body.clientName }
+  if (body.contactPersonName !== undefined && body.contactPersonName !== current?.contact_person_name)
+    changes["Contact Person Name"] = { old: current?.contact_person_name, new: body.contactPersonName }
+  if (body.contactPersonSurname !== undefined && body.contactPersonSurname !== current?.contact_person_surname)
+    changes["Contact Person Surname"] = { old: current?.contact_person_surname, new: body.contactPersonSurname }
+  if (body.email !== undefined && body.email !== current?.email)
+    changes["Email"] = { old: current?.email, new: body.email }
+  if (body.contactNumber !== undefined && body.contactNumber !== current?.contact_number)
+    changes["Contact Number"] = { old: current?.contact_number, new: body.contactNumber }
+  if (body.status !== undefined && body.status !== current?.status)
+    changes["Status"] = { old: current?.status, new: body.status }
+
+  if (Object.keys(changes).length > 0) {
+    const action = changes["Status"] && Object.keys(changes).length === 1 ? "toggle_status" as const : "update" as const
+    writeAuditLog({
+      actorId: caller.id,
+      actorName: caller.name,
+      actorRole: caller.role,
+      action,
+      entityType: "client",
+      entityId: id,
+      entityName: current?.client_name ?? body.clientName,
+      changes,
+      ipAddress: getCallerIp(request),
+    })
+  }
+
   return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
-  const denied = await requireSystemAdmin()
+  const { caller, denied } = await requireSystemAdminWithCaller()
   if (denied) return denied
 
   const { id } = await context.params
@@ -97,15 +135,29 @@ export async function DELETE(request: Request, context: RouteContext) {
     )
   }
 
-  // Deleting a client is a destructive action. The legacy client-store.deleteClient
-  // did not clean up related units / user_units / bookings. Preserving that
-  // behavior for now — Postgres FKs may cascade or block depending on schema.
-  // If this errors in practice, we will add explicit child cleanup here.
+  // Load name before deletion for audit log.
+  const { data: delTarget } = await admin
+    .from("clients")
+    .select("client_name")
+    .eq("id", id)
+    .single()
+
   const { error: delErr } = await admin.from("clients").delete().eq("id", id)
 
   if (delErr) {
     return NextResponse.json({ error: delErr.message }, { status: 500 })
   }
+
+  writeAuditLog({
+    actorId: caller.id,
+    actorName: caller.name,
+    actorRole: caller.role,
+    action: "delete",
+    entityType: "client",
+    entityId: id,
+    entityName: delTarget?.client_name,
+    ipAddress: getCallerIp(request),
+  })
 
   return NextResponse.json({ ok: true })
 }

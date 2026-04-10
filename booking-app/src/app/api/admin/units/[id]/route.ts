@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireSystemAdminWithCaller } from "@/lib/api-auth"
+import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
 // PATCH /api/admin/units/[id]  — update a unit
@@ -41,8 +42,8 @@ function normalizeProvince(input: string | undefined): string | undefined {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const denied = await requireSystemAdmin()
-  if (denied) return denied
+  const { caller, denied: patchDenied } = await requireSystemAdminWithCaller()
+  if (patchDenied) return patchDenied
 
   const { id } = await context.params
   if (!id) {
@@ -66,6 +67,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     )
   }
 
+  // Load current row for audit diff.
+  const { data: current } = await admin
+    .from("units")
+    .select("unit_name, client_id, contact_person_name, contact_person_surname, email, province, status")
+    .eq("id", id)
+    .single()
+
   const dbUpdates: Record<string, unknown> = {}
   if (body.unitName !== undefined) dbUpdates.unit_name = body.unitName
   if (body.clientId !== undefined) dbUpdates.client_id = body.clientId
@@ -88,12 +96,44 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: updErr.message }, { status: 500 })
   }
 
+  // Audit log.
+  const changes: Record<string, { old?: unknown; new?: unknown }> = {}
+  if (body.unitName !== undefined && body.unitName !== current?.unit_name)
+    changes["Unit Name"] = { old: current?.unit_name, new: body.unitName }
+  if (body.clientId !== undefined && body.clientId !== current?.client_id)
+    changes["Client"] = { old: current?.client_id, new: body.clientId }
+  if (body.contactPersonName !== undefined && body.contactPersonName !== current?.contact_person_name)
+    changes["Contact Person Name"] = { old: current?.contact_person_name, new: body.contactPersonName }
+  if (body.contactPersonSurname !== undefined && body.contactPersonSurname !== current?.contact_person_surname)
+    changes["Contact Person Surname"] = { old: current?.contact_person_surname, new: body.contactPersonSurname }
+  if (body.email !== undefined && body.email !== current?.email)
+    changes["Email"] = { old: current?.email, new: body.email }
+  if (body.province !== undefined && normalizeProvince(body.province) !== current?.province)
+    changes["Province"] = { old: current?.province, new: normalizeProvince(body.province) }
+  if (body.status !== undefined && body.status !== current?.status)
+    changes["Status"] = { old: current?.status, new: body.status }
+
+  if (Object.keys(changes).length > 0) {
+    const action = changes["Status"] && Object.keys(changes).length === 1 ? "toggle_status" as const : "update" as const
+    writeAuditLog({
+      actorId: caller.id,
+      actorName: caller.name,
+      actorRole: caller.role,
+      action,
+      entityType: "unit",
+      entityId: id,
+      entityName: current?.unit_name ?? body.unitName,
+      changes,
+      ipAddress: getCallerIp(request),
+    })
+  }
+
   return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
-  const denied = await requireSystemAdmin()
-  if (denied) return denied
+  const { caller, denied: delDenied } = await requireSystemAdminWithCaller()
+  if (delDenied) return delDenied
 
   const { id } = await context.params
   if (!id) {
@@ -110,6 +150,13 @@ export async function DELETE(request: Request, context: RouteContext) {
     )
   }
 
+  // Load name before deletion for audit log.
+  const { data: delTarget } = await admin
+    .from("units")
+    .select("unit_name")
+    .eq("id", id)
+    .single()
+
   // Clear user_units assignments first to avoid FK constraint errors.
   const { error: juncErr } = await admin
     .from("user_units")
@@ -123,6 +170,17 @@ export async function DELETE(request: Request, context: RouteContext) {
   if (delErr) {
     return NextResponse.json({ error: delErr.message }, { status: 500 })
   }
+
+  writeAuditLog({
+    actorId: caller.id,
+    actorName: caller.name,
+    actorRole: caller.role,
+    action: "delete",
+    entityType: "unit",
+    entityId: id,
+    entityName: delTarget?.unit_name,
+    ipAddress: getCallerIp(request),
+  })
 
   return NextResponse.json({ ok: true })
 }
