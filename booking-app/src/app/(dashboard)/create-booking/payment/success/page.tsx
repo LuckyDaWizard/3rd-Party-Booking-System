@@ -10,48 +10,54 @@ export default function PaymentSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId") ?? ""
-  const { getBooking, setActiveBookingId, refreshBookings } = useBookingStore()
+  const { getBooking, setActiveBookingId, refreshBookings, completePayment } = useBookingStore()
   const [confirmed, setConfirmed] = useState(false)
   const [countdown, setCountdown] = useState(10)
   const pollCount = useRef(0)
+  const hasMarkedFallback = useRef(false)
 
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
 
   // Poll for payment confirmation from the ITN callback.
-  // The ITN handler updates the booking status to "Payment Complete" server-side.
   const checkStatus = useCallback(async () => {
     await refreshBookings()
   }, [refreshBookings])
 
-  // Check if booking is confirmed
+  // Check if booking is confirmed via ITN
   const booking = getBooking(bookingId)
-  const isConfirmed = confirmed || booking?.status === "Payment Complete"
+  const itnConfirmed = booking?.status === "Payment Complete"
 
   useEffect(() => {
-    if (isConfirmed && !confirmed) {
+    if (itnConfirmed && !confirmed) {
       setConfirmed(true)
     }
-  }, [isConfirmed, confirmed])
+  }, [itnConfirmed, confirmed])
 
-  // Poll every 2 seconds for up to 30 seconds
+  // Poll every 2 seconds for up to 15 seconds, then fallback
   useEffect(() => {
     if (confirmed) return
 
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       pollCount.current += 1
-      if (pollCount.current > 15) {
-        // After 30 seconds, assume payment is confirmed (ITN may be delayed)
-        setConfirmed(true)
+      if (pollCount.current > 7) {
+        // After ~15 seconds, ITN hasn't arrived — fallback to direct update.
+        // This handles cases where PayFast can't reach our notify_url
+        // (no public domain, firewall, etc).
         clearInterval(interval)
+        if (!hasMarkedFallback.current && bookingId) {
+          hasMarkedFallback.current = true
+          await completePayment(bookingId)
+        }
+        setConfirmed(true)
         return
       }
       checkStatus()
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [confirmed, checkStatus])
+  }, [confirmed, checkStatus, bookingId, completePayment])
 
   // Countdown to redirect once confirmed
   useEffect(() => {
