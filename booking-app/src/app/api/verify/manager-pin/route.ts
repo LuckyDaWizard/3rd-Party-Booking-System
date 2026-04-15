@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { getSupabaseServer } from "@/lib/supabase-server"
 import { PIN_REGEX } from "@/lib/constants"
@@ -45,37 +44,38 @@ interface Body {
 }
 
 /**
- * Verify a PIN against Supabase Auth using a fresh, disposable client.
+ * Verify a PIN by calling the Supabase Auth REST API directly.
  * Returns the matching auth user id on success, or null on failure.
  *
- * IMPORTANT: uses a NEW createClient instance (not getSupabaseServer or
- * getSupabaseAdmin) so this sign-in doesn't write any cookies or interfere
- * with the caller's existing session.
+ * Uses fetch() instead of the Supabase SDK so there is ZERO risk of
+ * touching cookies or the caller's session. The returned tokens are
+ * discarded — we only need to know whether the credentials are valid.
  */
 async function verifyPinAgainstAuth(pin: string): Promise<string | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) return null
 
-  const disposable = createClient(url, anonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  })
+  try {
+    const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({
+        email: pinToEmail(pin),
+        password: pin,
+      }),
+    })
 
-  const { data, error } = await disposable.auth.signInWithPassword({
-    email: pinToEmail(pin),
-    password: pin,
-  })
-
-  // Always sign out the disposable session to avoid any lingering state.
-  if (data.session) {
-    await disposable.auth.signOut()
+    if (!res.ok) return null
+    const data = (await res.json()) as { user?: { id?: string } }
+    return data.user?.id ?? null
+  } catch {
+    return null
   }
-
-  if (error || !data.user) return null
-  return data.user.id
 }
 
 export async function POST(request: Request) {
