@@ -12,7 +12,11 @@ import {
   LogOut,
   Monitor,
   UserCircle,
+  Activity,
+  Plus,
+  Trash2,
 } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -80,6 +84,45 @@ interface SessionsApiResponse {
   }
 }
 
+type Severity = "critical" | "warning"
+type FlagType =
+  | "password_spraying"
+  | "unknown_pin_probed"
+  | "cracked_password"
+  | "rapid_probing"
+  | "new_ip_signin"
+
+interface SuspiciousFlag {
+  id: string
+  type: FlagType
+  severity: Severity
+  title: string
+  description: string
+  firstSeenAt: string
+  lastSeenAt: string
+  ipAddress: string | null
+  affectedPins: string[]
+  userName: string | null
+  attemptCount: number
+}
+
+interface SuspiciousApiResponse {
+  data: SuspiciousFlag[]
+  summary: {
+    critical: number
+    warning: number
+    total: number
+  }
+}
+
+interface TrustedIp {
+  id: string
+  ipAddress: string
+  label: string | null
+  createdAt: string
+  createdByName: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -140,7 +183,7 @@ function summariseBrowser(ua: string | null): string {
 // Page
 // ---------------------------------------------------------------------------
 
-type Tab = "attempts" | "sessions"
+type Tab = "attempts" | "sessions" | "suspicious"
 
 export default function SecurityPage() {
   const [tab, setTab] = React.useState<Tab>("attempts")
@@ -166,7 +209,7 @@ export default function SecurityPage() {
         <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Security</h1>
       </div>
       <p className="-mt-6 text-base text-gray-500">
-        Monitor failed sign-in attempts, active sessions, and account lockouts
+        Monitor failed sign-in attempts, active sessions, and suspicious activity
       </p>
 
       {/* Tabs */}
@@ -195,9 +238,23 @@ export default function SecurityPage() {
           <Monitor className="size-4" />
           Active Sessions
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("suspicious")}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+            tab === "suspicious"
+              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              : "text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          <Activity className="size-4" />
+          Suspicious Activity
+        </button>
       </div>
 
-      {tab === "attempts" ? <FailedAttemptsTab /> : <ActiveSessionsTab />}
+      {tab === "attempts" && <FailedAttemptsTab />}
+      {tab === "sessions" && <ActiveSessionsTab />}
+      {tab === "suspicious" && <SuspiciousActivityTab />}
     </div>
   )
 }
@@ -792,6 +849,321 @@ function ActiveSessionsTab() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Suspicious Activity Tab
+// ---------------------------------------------------------------------------
+
+function getFlagStyle(severity: Severity): string {
+  return severity === "critical"
+    ? "border-l-4 border-red-500"
+    : "border-l-4 border-amber-400"
+}
+
+function getSeverityBadge(severity: Severity): string {
+  return severity === "critical"
+    ? "bg-red-100 text-red-800"
+    : "bg-amber-100 text-amber-800"
+}
+
+function SuspiciousActivityTab() {
+  const [flags, setFlags] = React.useState<SuspiciousFlag[]>([])
+  const [summary, setSummary] = React.useState<SuspiciousApiResponse["summary"] | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [refreshing, setRefreshing] = React.useState(false)
+
+  // Trusted IPs management
+  const [trustedIps, setTrustedIps] = React.useState<TrustedIp[]>([])
+  const [trustedLoading, setTrustedLoading] = React.useState(false)
+  const [newIp, setNewIp] = React.useState("")
+  const [newLabel, setNewLabel] = React.useState("")
+  const [addingIp, setAddingIp] = React.useState(false)
+  const [addIpError, setAddIpError] = React.useState("")
+  const [removingId, setRemovingId] = React.useState<string | null>(null)
+
+  const loadFlags = React.useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+    try {
+      const res = await fetch("/api/admin/suspicious-activity")
+      if (!res.ok) throw new Error("Failed to load")
+      const json: SuspiciousApiResponse = await res.json()
+      setFlags(json.data)
+      setSummary(json.summary)
+    } catch (err) {
+      console.error("Failed to load suspicious activity:", err)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  const loadTrustedIps = React.useCallback(async () => {
+    setTrustedLoading(true)
+    try {
+      const res = await fetch("/api/admin/trusted-ips")
+      if (!res.ok) throw new Error("Failed to load")
+      const json: { data: TrustedIp[] } = await res.json()
+      setTrustedIps(json.data)
+    } catch (err) {
+      console.error("Failed to load trusted IPs:", err)
+    } finally {
+      setTrustedLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    loadFlags()
+    loadTrustedIps()
+  }, [loadFlags, loadTrustedIps])
+
+  async function handleAddIp() {
+    setAddingIp(true)
+    setAddIpError("")
+    try {
+      const res = await fetch("/api/admin/trusted-ips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ipAddress: newIp.trim(),
+          label: newLabel.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setAddIpError(data.error ?? "Failed to add IP")
+        setAddingIp(false)
+        return
+      }
+      setNewIp("")
+      setNewLabel("")
+      setAddingIp(false)
+      await Promise.all([loadTrustedIps(), loadFlags(true)])
+    } catch {
+      setAddIpError("Network error. Please try again.")
+      setAddingIp(false)
+    }
+  }
+
+  async function handleRemoveIp(id: string) {
+    setRemovingId(id)
+    try {
+      const res = await fetch(`/api/admin/trusted-ips?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        console.error("Failed to remove IP")
+        setRemovingId(null)
+        return
+      }
+      setRemovingId(null)
+      await Promise.all([loadTrustedIps(), loadFlags(true)])
+    } catch {
+      setRemovingId(null)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Refresh button */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <Button
+          onClick={() => loadFlags(true)}
+          disabled={refreshing}
+          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
+          size="lg"
+        >
+          {refreshing ? "Refreshing..." : "Refresh"}
+          <RefreshCw className="size-4" />
+        </Button>
+      </div>
+
+      {/* Summary */}
+      {summary && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-red-50">
+              <ShieldAlert className="size-6 text-red-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.critical}</div>
+              <div className="text-xs text-gray-500">Critical alerts</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-amber-50">
+              <AlertTriangle className="size-6 text-amber-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.warning}</div>
+              <div className="text-xs text-gray-500">Warnings</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Flags */}
+      <div className="flex min-w-0 flex-col gap-3">
+        {loading && flags.length === 0 ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
+            <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+            </svg>
+            <span className="text-sm text-gray-400">Analysing activity...</span>
+          </div>
+        ) : flags.length === 0 ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
+            <Shield className="size-10 text-green-500" />
+            <span className="text-base font-medium text-gray-900">No suspicious activity</span>
+            <span className="text-sm text-gray-400">
+              Nothing unusual detected in recent sign-in attempts.
+            </span>
+          </div>
+        ) : (
+          flags.map((flag) => (
+            <div
+              key={flag.id}
+              className={`flex flex-col gap-2 rounded-xl bg-white p-4 sm:p-5 ${getFlagStyle(flag.severity)}`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      className={`rounded-full border-transparent px-3 py-1 text-xs font-medium ${getSeverityBadge(flag.severity)}`}
+                    >
+                      {flag.severity === "critical" ? "🚨 Critical" : "⚠️ Warning"}
+                    </Badge>
+                  </div>
+                  <div className="text-base font-bold text-gray-900">{flag.title}</div>
+                  <p className="text-sm text-gray-600">{flag.description}</p>
+                  <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-400">
+                    {flag.ipAddress && (
+                      <span>
+                        IP: <span className="font-mono">{flag.ipAddress}</span>
+                      </span>
+                    )}
+                    {flag.userName && (
+                      <span>User: {flag.userName}</span>
+                    )}
+                    {flag.affectedPins.length > 0 && (
+                      <span>
+                        PINs: <span className="font-mono">{flag.affectedPins.join(", ")}</span>
+                      </span>
+                    )}
+                    <span>
+                      Last seen: {formatRelative(flag.lastSeenAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Trusted IPs section */}
+      <div className="mt-4 flex flex-col gap-3 rounded-xl bg-white p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 className="text-lg font-bold text-gray-900">Trusted IPs</h2>
+            <p className="text-sm text-gray-500">
+              IPs listed here are exempt from rapid-probing and password-spraying
+              alerts. Add your dev machine or office network to silence false
+              positives while testing. Cracked-password and unknown-PIN alerts
+              still fire for all IPs.
+            </p>
+          </div>
+        </div>
+
+        {/* Add form */}
+        <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-start">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              IP Address
+            </label>
+            <Input
+              type="text"
+              value={newIp}
+              onChange={(e) => setNewIp(e.target.value)}
+              placeholder="e.g. 187.127.135.11"
+              disabled={addingIp}
+              className="bg-white"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Label (optional)
+            </label>
+            <Input
+              type="text"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="e.g. Office network"
+              disabled={addingIp}
+              className="bg-white"
+              maxLength={60}
+            />
+          </div>
+          <div className="sm:pt-5">
+            <Button
+              onClick={handleAddIp}
+              disabled={addingIp || !newIp.trim()}
+              className="h-10 w-full gap-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 sm:w-auto"
+            >
+              {addingIp ? "Adding..." : (<><Plus className="size-4" />Add</>)}
+            </Button>
+          </div>
+        </div>
+
+        {addIpError && (
+          <p className="text-sm font-medium text-red-500">{addIpError}</p>
+        )}
+
+        {/* List */}
+        {trustedLoading && trustedIps.length === 0 ? (
+          <p className="text-sm text-gray-400">Loading trusted IPs...</p>
+        ) : trustedIps.length === 0 ? (
+          <p className="text-sm text-gray-400">No trusted IPs yet.</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-gray-100">
+            {trustedIps.map((ip) => (
+              <div
+                key={ip.id}
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+              >
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm font-medium text-gray-900">
+                      {ip.ipAddress}
+                    </span>
+                    {ip.label && (
+                      <span className="text-sm text-gray-500">— {ip.label}</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Added {formatRelative(ip.createdAt)}
+                    {ip.createdByName && <> by {ip.createdByName}</>}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleRemoveIp(ip.id)}
+                  disabled={removingId === ip.id}
+                  className="gap-1 rounded-lg border-red-200 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 className="size-3" />
+                  {removingId === ip.id ? "Removing..." : "Remove"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
