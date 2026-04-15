@@ -86,6 +86,33 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const sidebarRef = useRef<HTMLElement>(null)
 
+  // Open the user's default mail client pre-filled with context for support.
+  // Uses mailto: for zero-backend simplicity — works as long as the user has
+  // a mail client or browser-level mailto handler (Gmail, Outlook Web, etc).
+  function handleContactSupport() {
+    const name = user ? `${user.firstNames} ${user.surname}`.trim() : "Unknown user"
+    const role = user?.role ?? "unknown role"
+    const email = user?.email ?? "no email on file"
+    const currentUrl = typeof window !== "undefined" ? window.location.href : ""
+
+    const subject = `CareFirst Support - ${name} (${role})`
+    const body = [
+      "Hi Support,",
+      "",
+      `Name: ${name}`,
+      `Role: ${role}`,
+      `Email: ${email}`,
+      `Page: ${currentUrl}`,
+      "",
+      "Please describe your issue:",
+      "",
+      "",
+    ].join("\n")
+
+    const href = `mailto:lehlohonolom@firstcare.solutions?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.location.href = href
+  }
+
   // Close dropdown when pathname changes to a non-matching page
   const prevPathnameRef = useRef(pathname)
   useEffect(() => {
@@ -347,6 +374,8 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
       <div className={cn("pb-6", collapsed ? "px-2" : "px-4")}>
         <Button
           data-testid="contact-support-btn"
+          onClick={handleContactSupport}
+          title={collapsed ? "Contact Support" : undefined}
           className={cn(
             "w-full justify-center rounded-xl bg-gray-900 text-sm font-medium text-white hover:bg-gray-800",
             collapsed ? "px-2 py-4" : "gap-2 py-6"
