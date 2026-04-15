@@ -483,33 +483,33 @@ export default function UserManagementPage() {
                   <div className="flex items-center">{statusBadge}</div>
 
                   {/* First Names */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">First Names</span>
-                    <span className="truncate text-sm text-gray-600">{user.firstNames}</span>
+                    <span className="truncate text-sm text-gray-600" title={user.firstNames}>{user.firstNames}</span>
                   </div>
 
                   {/* Surname */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Surname</span>
-                    <span className="truncate text-sm text-gray-600">{user.surname}</span>
+                    <span className="truncate text-sm text-gray-600" title={user.surname}>{user.surname}</span>
                   </div>
 
                   {/* Unit */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Unit</span>
-                    <span className="truncate text-sm text-gray-600">{user.unitName}</span>
+                    <span className="truncate text-sm text-gray-600" title={user.unitName}>{user.unitName}</span>
                   </div>
 
                   {/* Email */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Email</span>
-                    <span className="truncate text-sm text-gray-600">{user.email}</span>
+                    <span className="truncate text-sm text-gray-600" title={user.email}>{user.email}</span>
                   </div>
 
                   {/* Number */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Number</span>
-                    <span className="truncate text-sm text-gray-600">{user.contactNumber}</span>
+                    <span className="truncate text-sm text-gray-600" title={user.contactNumber}>{user.contactNumber}</span>
                   </div>
 
                   {/* Action */}

@@ -469,27 +469,27 @@ export default function UnitManagementPage() {
                   <div className="flex items-center">{statusBadge}</div>
 
                   {/* Unit Name */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Unit Name</span>
-                    <span className="truncate text-sm text-gray-600">{unit.unitName}</span>
+                    <span className="truncate text-sm text-gray-600" title={unit.unitName}>{unit.unitName}</span>
                   </div>
 
                   {/* Client */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Client</span>
-                    <span className="truncate text-sm text-gray-600">{unit.clientName}</span>
+                    <span className="truncate text-sm text-gray-600" title={unit.clientName}>{unit.clientName}</span>
                   </div>
 
                   {/* Email */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Email</span>
-                    <span className="truncate text-sm text-gray-600">{unit.email || "-"}</span>
+                    <span className="truncate text-sm text-gray-600" title={unit.email || undefined}>{unit.email || "-"}</span>
                   </div>
 
                   {/* Province */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Province</span>
-                    <span className="truncate text-sm text-gray-600">{unit.province || "-"}</span>
+                    <span className="truncate text-sm text-gray-600" title={unit.province || undefined}>{unit.province || "-"}</span>
                   </div>
 
                   {/* Action */}

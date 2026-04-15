@@ -582,27 +582,27 @@ export default function PatientHistoryPage() {
                   <div className="flex items-center">{statusBadge}</div>
 
                   {/* Patient Name */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Patient Name</span>
-                    <span className="truncate text-sm text-gray-600">{patient.patientName}</span>
+                    <span className="truncate text-sm text-gray-600" title={patient.patientName}>{patient.patientName}</span>
                   </div>
 
                   {/* Patient ID Number */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Patient ID Number</span>
-                    <span className="truncate text-sm text-gray-600">{patient.patientIdNumber}</span>
+                    <span className="truncate text-sm text-gray-600" title={patient.patientIdNumber}>{patient.patientIdNumber}</span>
                   </div>
 
                   {/* Patient Type */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Patient Type</span>
-                    <span className="truncate text-sm text-gray-600">{patient.patientType}</span>
+                    <span className="truncate text-sm text-gray-600" title={patient.patientType}>{patient.patientType}</span>
                   </div>
 
                   {/* Date */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Date</span>
-                    <span className="truncate text-sm text-gray-600">{patient.date}</span>
+                    <span className="truncate text-sm text-gray-600" title={patient.date}>{patient.date}</span>
                   </div>
 
                   {/* Action */}

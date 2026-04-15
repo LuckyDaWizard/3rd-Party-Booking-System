@@ -449,27 +449,27 @@ export default function ClientManagementPage() {
                   <div className="flex items-center">{statusBadge}</div>
 
                   {/* Client Name */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Client Name</span>
-                    <span className="truncate text-sm text-gray-600">{client.clientName}</span>
+                    <span className="truncate text-sm text-gray-600" title={client.clientName}>{client.clientName}</span>
                   </div>
 
                   {/* Units */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Units</span>
-                    <span className="truncate text-sm text-gray-600">{client.units}</span>
+                    <span className="truncate text-sm text-gray-600" title={client.units}>{client.units}</span>
                   </div>
 
                   {/* Email */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Email</span>
-                    <span className="truncate text-sm text-gray-600">{client.email}</span>
+                    <span className="truncate text-sm text-gray-600" title={client.email}>{client.email}</span>
                   </div>
 
                   {/* Number */}
-                  <div className="flex flex-col gap-0.5 text-left">
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Number</span>
-                    <span className="truncate text-sm text-gray-600">{client.number}</span>
+                    <span className="truncate text-sm text-gray-600" title={client.number}>{client.number}</span>
                   </div>
 
                   {/* Action */}
