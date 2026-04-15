@@ -173,43 +173,91 @@ export function validateItnSignature(
 
 /**
  * Step 2: Validate the source IP against known PayFast IPs.
- * Resolves PayFast hostnames and checks if the request IP matches.
+ *
+ * Fails CLOSED in production: if the IP can't be verified (DNS failure,
+ * missing module, empty resolution), the ITN is rejected. An attacker
+ * spoofing a request will never bypass validation.
+ *
+ * In non-production (NODE_ENV !== "production"), private/localhost IPs are
+ * accepted so that local dev loops and sandbox tests (where there's no
+ * real PayFast routing) can work.
  */
 export async function validateItnSourceIp(ip: string): Promise<boolean> {
-  // In sandbox/dev, skip IP validation if the IP is localhost or private
-  if (
-    ip === "127.0.0.1" ||
-    ip === "::1" ||
-    ip.startsWith("10.") ||
-    ip.startsWith("172.") ||
-    ip.startsWith("192.168.")
-  ) {
-    return true
+  // Unknown or missing IP — reject.
+  if (!ip || ip === "unknown") {
+    console.error("[PayFast ITN] Source IP missing — rejecting")
+    return false
   }
 
+  const isProduction = process.env.NODE_ENV === "production"
+
+  // In non-production only, allow private/localhost IPs so devs can
+  // hit the endpoint from localhost or a Docker internal network.
+  // In production, these addresses should never appear as the ITN source.
+  if (!isProduction) {
+    const isPrivate =
+      ip === "127.0.0.1" ||
+      ip === "::1" ||
+      ip.startsWith("10.") ||
+      ip.startsWith("172.") ||
+      ip.startsWith("192.168.")
+    if (isPrivate) {
+      console.warn(
+        `[PayFast ITN] Accepting private/localhost source IP ${ip} — non-production mode`
+      )
+      return true
+    }
+  }
+
+  // Resolve PayFast's hostnames to their current IPs and check ours is one.
+  let validIps: Set<string>
   try {
     const dns = await import("dns")
     const { promisify } = await import("util")
     const resolve4 = promisify(dns.resolve4)
 
-    const validIps = new Set<string>()
+    validIps = new Set<string>()
     for (const host of PAYFAST_HOSTS) {
       try {
         const ips = await resolve4(host)
         for (const resolvedIp of ips) {
           validIps.add(resolvedIp)
         }
-      } catch {
-        // DNS resolution can fail — continue with other hosts
+      } catch (err) {
+        // DNS resolution for one host failed — try the others.
+        console.warn(
+          `[PayFast ITN] DNS lookup failed for ${host}:`,
+          err instanceof Error ? err.message : String(err)
+        )
       }
     }
-
-    return validIps.has(ip)
-  } catch {
-    // If DNS module is unavailable, allow (log warning)
-    console.warn("Could not validate ITN source IP — DNS unavailable")
-    return true
+  } catch (err) {
+    // Node's `dns` module itself couldn't be loaded. This should never happen
+    // at runtime, but if it does we fail closed — better to reject a genuine
+    // ITN (PayFast will retry) than accept a spoofed one.
+    console.error(
+      "[PayFast ITN] Could not load DNS module — failing closed:",
+      err
+    )
+    return false
   }
+
+  // If DNS returned nothing, fail closed — we can't verify, so we reject.
+  // PayFast will retry on non-2xx, which gives DNS time to recover.
+  if (validIps.size === 0) {
+    console.error(
+      "[PayFast ITN] No valid IPs resolved for any PayFast host — failing closed"
+    )
+    return false
+  }
+
+  const allowed = validIps.has(ip)
+  if (!allowed) {
+    console.error(
+      `[PayFast ITN] Source IP ${ip} not in PayFast allowlist (${validIps.size} known IPs)`
+    )
+  }
+  return allowed
 }
 
 /**
