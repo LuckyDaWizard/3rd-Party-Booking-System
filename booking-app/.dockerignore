@@ -1,5 +1,67 @@
+# =============================================================================
+# .dockerignore — what NOT to copy into the Docker build context
+# =============================================================================
+# Keeps the image small and prevents secrets (like .env files) from baking
+# into layers. Anything ignored here won't be available during `docker build`.
+# =============================================================================
+
+# Node.js — these get reinstalled inside the container
 node_modules
+.pnp
+.pnp.*
+
+# Next.js build output — reproduced by `next build` inside the container
 .next
+out
+build
+dist
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing
+coverage
+.nyc_output
+test-results
+playwright-report
+
+# Version control
 .git
-.env.local
+.gitignore
+.gitattributes
+
+# Env files — passed at runtime via docker-compose, never copied in
+.env
+.env.*
+!.env.example
+
+# Docs — not needed at runtime
 *.md
+!README.md
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Docker itself
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Supabase CLI local artefacts (migrations/ IS needed in repo, but the
+# generated .supabase/ state dir is not needed at runtime)
+.supabase
+supabase/.branches
+supabase/.temp
+
+# Misc
+*.log
+*.bak
+*.tmp
+*.pem
