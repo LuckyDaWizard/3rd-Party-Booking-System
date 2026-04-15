@@ -14,16 +14,19 @@ import { useAuth } from "@/lib/auth-store"
 
 import { PIN_LENGTH } from "@/lib/constants"
 
-const MAX_ATTEMPTS = 5
-
 type SignInState = "idle" | "loading" | "error" | "lockout"
+
+function formatRetryAfter(seconds: number): string {
+  if (seconds <= 60) return `${seconds} seconds`
+  const minutes = Math.ceil(seconds / 60)
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`
+}
 
 export default function SignInPage() {
   const router = useRouter()
   const { signIn, user } = useAuth()
   const [pin, setPin] = useState("")
   const [state, setState] = useState<SignInState>("idle")
-  const [attemptCount, setAttemptCount] = useState(0)
   const [customError, setCustomError] = useState<string | null>(null)
 
   // If already signed in, redirect to home
@@ -35,9 +38,7 @@ export default function SignInPage() {
     customError ??
     (state === "error"
       ? "Invalid Code - Please Retry"
-      : state === "lockout"
-        ? "Invalid Code - Max attempts exceeded please contact your admin to reset your access pin"
-        : null)
+      : null)
 
   const isInputDisabled = state === "loading" || state === "lockout"
   const isButtonDisabled = state === "loading" || state === "lockout"
@@ -50,35 +51,70 @@ export default function SignInPage() {
     setCustomError(null)
 
     try {
+      // Step 1: Server-side throttle check. If this PIN has exceeded the
+      // failure threshold, reject before even hitting Supabase Auth.
+      const checkRes = await fetch("/api/auth/throttle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check", pin }),
+      })
+      const checkData = await checkRes.json()
+
+      if (checkData.locked) {
+        const retryAfter = formatRetryAfter(checkData.retryAfterSeconds ?? 900)
+        setState("lockout")
+        setCustomError(
+          `Too many failed attempts. Please try again in ${retryAfter}, or contact your administrator.`
+        )
+        setPin("")
+        return
+      }
+
+      // Step 2: Attempt sign-in.
       const result = await signIn(pin)
+
+      // Step 3: Record the result server-side.
+      await fetch("/api/auth/throttle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "record",
+          pin,
+          succeeded: result.success,
+        }),
+      })
 
       if (result.success) {
         router.push("/home")
         return
       }
 
-      const newAttemptCount = attemptCount + 1
-      setAttemptCount(newAttemptCount)
+      // Failed sign-in — check if this attempt caused a lockout.
+      const recheckRes = await fetch("/api/auth/throttle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check", pin }),
+      })
+      const recheckData = await recheckRes.json()
+
       setPin("")
 
-      if (newAttemptCount >= MAX_ATTEMPTS) {
+      if (recheckData.locked) {
+        const retryAfter = formatRetryAfter(recheckData.retryAfterSeconds ?? 900)
         setState("lockout")
+        setCustomError(
+          `Too many failed attempts. Please try again in ${retryAfter}, or contact your administrator.`
+        )
       } else {
         setState("error")
         if (result.error) setCustomError(result.error)
       }
     } catch {
-      const newAttemptCount = attemptCount + 1
-      setAttemptCount(newAttemptCount)
       setPin("")
-
-      if (newAttemptCount >= MAX_ATTEMPTS) {
-        setState("lockout")
-      } else {
-        setState("error")
-      }
+      setState("error")
+      setCustomError("Sign-in failed. Please check your connection and try again.")
     }
-  }, [pin, isButtonDisabled, attemptCount, signIn, router])
+  }, [pin, isButtonDisabled, signIn, router])
 
   const handlePinChange = useCallback(
     (value: string) => {
