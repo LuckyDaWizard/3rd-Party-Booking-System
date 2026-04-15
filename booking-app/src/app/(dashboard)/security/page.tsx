@@ -15,6 +15,9 @@ import {
   Activity,
   Plus,
   Trash2,
+  History,
+  Download,
+  Search,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -123,6 +126,29 @@ interface TrustedIp {
   createdByName: string | null
 }
 
+interface SignInRow {
+  id: string
+  attemptedAt: string
+  userName: string | null
+  userEmail: string | null
+  userRole: string | null
+  ipAddress: string | null
+}
+
+interface SignInApiResponse {
+  data: SignInRow[]
+  total: number
+  page: number
+  pageSize: number
+  summary: {
+    last24h: number
+    last7d: number
+    uniqueUsers24h: number
+  }
+}
+
+type SignInWindow = "24h" | "7d" | "30d" | "all"
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -183,7 +209,7 @@ function summariseBrowser(ua: string | null): string {
 // Page
 // ---------------------------------------------------------------------------
 
-type Tab = "attempts" | "sessions" | "suspicious"
+type Tab = "attempts" | "sessions" | "suspicious" | "history"
 
 export default function SecurityPage() {
   const [tab, setTab] = React.useState<Tab>("attempts")
@@ -250,11 +276,24 @@ export default function SecurityPage() {
           <Activity className="size-4" />
           Suspicious Activity
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("history")}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+            tab === "history"
+              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              : "text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          <History className="size-4" />
+          Sign-in History
+        </button>
       </div>
 
       {tab === "attempts" && <FailedAttemptsTab />}
       {tab === "sessions" && <ActiveSessionsTab />}
       {tab === "suspicious" && <SuspiciousActivityTab />}
+      {tab === "history" && <SignInHistoryTab />}
     </div>
   )
 }
@@ -1164,6 +1203,293 @@ function SuspiciousActivityTab() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sign-in History Tab
+// ---------------------------------------------------------------------------
+
+function SignInHistoryTab() {
+  const [rows, setRows] = React.useState<SignInRow[]>([])
+  const [summary, setSummary] = React.useState<SignInApiResponse["summary"] | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [total, setTotal] = React.useState(0)
+  const [page, setPage] = React.useState(1)
+  const pageSize = 25
+
+  const [windowFilter, setWindowFilter] = React.useState<SignInWindow>("7d")
+  const [search, setSearch] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  const [exporting, setExporting] = React.useState(false)
+
+  // Debounce search
+  React.useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const load = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set("page", String(page))
+      params.set("pageSize", String(pageSize))
+      params.set("window", windowFilter)
+      if (debouncedSearch) params.set("search", debouncedSearch)
+
+      const res = await fetch(`/api/admin/signin-history?${params}`)
+      if (!res.ok) throw new Error("Failed to load")
+      const json: SignInApiResponse = await res.json()
+      setRows(json.data)
+      setSummary(json.summary)
+      setTotal(json.total)
+    } catch (err) {
+      console.error("Failed to load sign-in history:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [page, windowFilter, debouncedSearch])
+
+  React.useEffect(() => {
+    load()
+  }, [load])
+
+  async function handleExportCsv() {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      params.set("page", "1")
+      params.set("pageSize", "10000")
+      params.set("window", windowFilter)
+      if (debouncedSearch) params.set("search", debouncedSearch)
+
+      const res = await fetch(`/api/admin/signin-history?${params}`)
+      if (!res.ok) throw new Error("Failed to fetch")
+      const json: SignInApiResponse = await res.json()
+
+      const csvHeaders = ["Date", "User", "Role", "Email", "IP Address"]
+      const csvRows = json.data.map((r) => [
+        formatDate(r.attemptedAt),
+        r.userName ?? "",
+        r.userRole ? r.userRole.replace(/_/g, " ") : "",
+        r.userEmail ?? "",
+        r.ipAddress ?? "",
+      ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`))
+
+      const csv = [csvHeaders.join(","), ...csvRows.map((r) => r.join(","))].join("\n")
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `signin-history-${windowFilter}-${new Date().toISOString().slice(0, 10)}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // silent — button stops spinning
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const windowLabels: Record<SignInWindow, string> = {
+    "24h": "Last 24h",
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    all: "All time",
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Summary + Export */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <Button
+          onClick={handleExportCsv}
+          disabled={exporting || rows.length === 0}
+          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
+          size="lg"
+        >
+          {exporting ? (
+            <>
+              Exporting...
+              <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              </svg>
+            </>
+          ) : (
+            <>
+              Export CSV
+              <Download className="ml-1 size-4" />
+            </>
+          )}
+        </Button>
+      </div>
+
+      {summary && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-blue-50">
+              <History className="size-6 text-blue-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.last24h}</div>
+              <div className="text-xs text-gray-500">Sign-ins (24h)</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-green-50">
+              <UserCircle className="size-6 text-green-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.uniqueUsers24h}</div>
+              <div className="text-xs text-gray-500">Unique users (24h)</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gray-100">
+              <History className="size-6 text-gray-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.last7d}</div>
+              <div className="text-xs text-gray-500">Sign-ins (7 days)</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {(["24h", "7d", "30d", "all"] as SignInWindow[]).map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => {
+                setWindowFilter(w)
+                setPage(1)
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                windowFilter === w
+                  ? "bg-[#3ea3db] text-white"
+                  : "text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {windowLabels[w]}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Search by user name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="bg-white py-2 pl-8"
+            aria-label="Search sign-in history"
+          />
+        </div>
+      </div>
+
+      {/* List */}
+      <div className="flex min-w-0 flex-col gap-3">
+        {loading && rows.length === 0 ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
+            <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+            </svg>
+            <span className="text-sm text-gray-400">Loading sign-in history...</span>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
+            <History className="size-10 text-gray-400" />
+            <span className="text-base font-medium text-gray-900">No sign-ins in this period</span>
+            <span className="text-sm text-gray-400">
+              Try expanding the time window or clearing the search.
+            </span>
+          </div>
+        ) : (
+          rows.map((row) => (
+            <div
+              key={row.id}
+              className="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-white p-4 sm:p-5"
+            >
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-base font-bold text-gray-900">
+                    {row.userName ?? "Unknown user"}
+                  </span>
+                  {row.userRole && (
+                    <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                      {row.userRole.replace(/_/g, " ")}
+                    </Badge>
+                  )}
+                </div>
+                {row.userEmail && (
+                  <div className="truncate text-sm text-gray-500">{row.userEmail}</div>
+                )}
+                <div className="text-xs text-gray-400">
+                  {formatDate(row.attemptedAt)}
+                  {row.ipAddress && (
+                    <>
+                      <span className="mx-2">·</span>
+                      IP: <span className="font-mono">{row.ipAddress}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Pagination */}
+      {total > pageSize && (
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <p className="text-sm text-gray-500">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                page === 1
+                  ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
+              className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                page === totalPages
+                  ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
