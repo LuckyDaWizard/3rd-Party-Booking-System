@@ -10,9 +10,12 @@ import { requireSystemAdmin } from "@/lib/api-auth"
 // Query params (all optional):
 //   page       — page number (default 1)
 //   pageSize   — items per page (default 25, max 100)
-//   entityType — filter: "user" | "client" | "unit"
+//   entityType — filter: "user" | "client" | "unit" (whitelisted — invalid values ignored)
 //   action     — filter: "create" | "update" | "delete" | "reset_pin" | "toggle_status"
-//   search     — text search on actor_name or entity_name (case-insensitive)
+//                (whitelisted — invalid values ignored)
+//   search     — text search on actor_name or entity_name (case-insensitive).
+//                Sanitised to strip PostgREST metacharacters (, () . % _) and
+//                capped at 60 chars to prevent filter injection.
 //
 // Auth: system_admin only.
 // =============================================================================
@@ -24,9 +27,36 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10))
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") ?? "25", 10)))
-  const entityType = url.searchParams.get("entityType")
-  const action = url.searchParams.get("action")
-  const search = url.searchParams.get("search")
+
+  // Whitelist entity types and actions — reject anything outside the known set.
+  const ALLOWED_ENTITY_TYPES = new Set(["user", "client", "unit"])
+  const ALLOWED_ACTIONS = new Set([
+    "create",
+    "update",
+    "delete",
+    "reset_pin",
+    "toggle_status",
+  ])
+
+  const entityTypeRaw = url.searchParams.get("entityType")
+  const actionRaw = url.searchParams.get("action")
+  const entityType =
+    entityTypeRaw && ALLOWED_ENTITY_TYPES.has(entityTypeRaw) ? entityTypeRaw : null
+  const action = actionRaw && ALLOWED_ACTIONS.has(actionRaw) ? actionRaw : null
+
+  // Sanitise search input: strip PostgREST filter metacharacters (`,`, `(`, `)`,
+  // `.`) and ILIKE wildcards (`%`, `_`) to prevent injection into the `.or()`
+  // filter string. Then cap the length. See docs/audit.md for why this matters.
+  const searchRaw = url.searchParams.get("search")
+  let search: string | null = null
+  if (searchRaw) {
+    const cleaned = searchRaw
+      .replace(/[,()%_*.]/g, " ") // strip metachars, collapse to space
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 60) // reasonable upper bound for a name search
+    if (cleaned.length > 0) search = cleaned
+  }
 
   let admin
   try {
