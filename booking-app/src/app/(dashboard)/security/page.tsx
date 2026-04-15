@@ -2,7 +2,17 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowLeft, Shield, ShieldAlert, AlertTriangle, RefreshCw, Unlock } from "lucide-react"
+import {
+  ArrowLeft,
+  Shield,
+  ShieldAlert,
+  AlertTriangle,
+  RefreshCw,
+  Unlock,
+  LogOut,
+  Monitor,
+  UserCircle,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -12,6 +22,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { useAuth } from "@/lib/auth-store"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,13 +50,33 @@ interface AttemptSummary {
   recentAttempts: Attempt[]
 }
 
-interface ApiResponse {
+interface AttemptsApiResponse {
   data: AttemptSummary[]
   summary: {
     totalLocked: number
     totalFailures24h: number
     windowMinutes: number
     maxAttempts: number
+  }
+}
+
+interface SessionEntry {
+  id: string
+  userId: string | null
+  userName: string | null
+  userEmail: string | null
+  userRole: string | null
+  createdAt: string
+  updatedAt: string
+  userAgent: string | null
+  ipAddress: string | null
+}
+
+interface SessionsApiResponse {
+  data: SessionEntry[]
+  summary: {
+    totalSessions: number
+    uniqueUsers: number
   }
 }
 
@@ -64,6 +95,17 @@ function formatDate(iso: string): string {
   })
 }
 
+function formatRelative(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const minutes = Math.floor(ms / 60000)
+  if (minutes < 1) return "just now"
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
 function maskPin(pin: string): string {
   if (pin.length <= 2) return "●".repeat(pin.length)
   return pin.slice(0, 1) + "●".repeat(pin.length - 2) + pin.slice(-1)
@@ -75,13 +117,98 @@ function getRowStyle(entry: AttemptSummary): string {
   return "border-l-4 border-transparent"
 }
 
+function summariseUserAgent(ua: string | null): string {
+  if (!ua) return "Unknown device"
+  if (/iphone|ipad/i.test(ua)) return "iOS"
+  if (/android/i.test(ua)) return "Android"
+  if (/windows/i.test(ua)) return "Windows"
+  if (/mac os/i.test(ua)) return "macOS"
+  if (/linux/i.test(ua)) return "Linux"
+  return "Other"
+}
+
+function summariseBrowser(ua: string | null): string {
+  if (!ua) return ""
+  if (/edg\//i.test(ua)) return "Edge"
+  if (/chrome\//i.test(ua) && !/edg\//i.test(ua)) return "Chrome"
+  if (/firefox\//i.test(ua)) return "Firefox"
+  if (/safari\//i.test(ua) && !/chrome\//i.test(ua)) return "Safari"
+  return ""
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
+type Tab = "attempts" | "sessions"
+
 export default function SecurityPage() {
+  const [tab, setTab] = React.useState<Tab>("attempts")
+
+  return (
+    <div className="flex flex-col gap-8">
+      {/* Top bar */}
+      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
+        <Link href="/home">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-lg border-black px-6 py-2 gap-3"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Button>
+        </Link>
+      </div>
+
+      {/* Heading */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Security</h1>
+      </div>
+      <p className="-mt-6 text-base text-gray-500">
+        Monitor failed sign-in attempts, active sessions, and account lockouts
+      </p>
+
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => setTab("attempts")}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+            tab === "attempts"
+              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              : "text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          <ShieldAlert className="size-4" />
+          Failed Attempts
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("sessions")}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+            tab === "sessions"
+              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              : "text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          <Monitor className="size-4" />
+          Active Sessions
+        </button>
+      </div>
+
+      {tab === "attempts" ? <FailedAttemptsTab /> : <ActiveSessionsTab />}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Failed Attempts Tab
+// ---------------------------------------------------------------------------
+
+function FailedAttemptsTab() {
   const [entries, setEntries] = React.useState<AttemptSummary[]>([])
-  const [summary, setSummary] = React.useState<ApiResponse["summary"] | null>(null)
+  const [summary, setSummary] = React.useState<AttemptsApiResponse["summary"] | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
   const [expandedPin, setExpandedPin] = React.useState<string | null>(null)
@@ -89,14 +216,13 @@ export default function SecurityPage() {
   const [unlocking, setUnlocking] = React.useState(false)
   const [unlockError, setUnlockError] = React.useState("")
 
-  // Load data
   const load = React.useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
     try {
       const res = await fetch("/api/admin/auth-attempts")
       if (!res.ok) throw new Error("Failed to load")
-      const json: ApiResponse = await res.json()
+      const json: AttemptsApiResponse = await res.json()
       setEntries(json.data)
       setSummary(json.summary)
     } catch (err) {
@@ -137,64 +263,23 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/home">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-        </Link>
-      </div>
-
-      {/* Heading */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-          Security
-        </h1>
+    <div className="flex flex-col gap-6">
+      {/* Summary cards + refresh */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex-1">
+          {/* placeholder for alignment */}
+        </div>
         <Button
           onClick={() => load(true)}
           disabled={refreshing}
-          className="hidden justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50 sm:inline-flex"
+          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
           size="lg"
         >
-          {refreshing ? (
-            <>
-              Refreshing...
-              <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-              </svg>
-            </>
-          ) : (
-            <>
-              Refresh
-              <RefreshCw className="size-4" />
-            </>
-          )}
+          {refreshing ? "Refreshing..." : "Refresh"}
+          <RefreshCw className="size-4" />
         </Button>
       </div>
-      <p className="-mt-6 text-base text-gray-500">
-        Monitor failed sign-in attempts and unlock blocked accounts
-      </p>
 
-      {/* Mobile-only refresh button */}
-      <Button
-        onClick={() => load(true)}
-        disabled={refreshing}
-        className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50 sm:hidden"
-        size="lg"
-      >
-        {refreshing ? "Refreshing..." : "Refresh"}
-        <RefreshCw className="size-4" />
-      </Button>
-
-      {/* Summary cards */}
       {summary && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
@@ -229,7 +314,6 @@ export default function SecurityPage() {
         </div>
       )}
 
-      {/* Attempts list */}
       <div className="flex min-w-0 flex-col gap-3">
         {loading && entries.length === 0 ? (
           <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
@@ -257,7 +341,6 @@ export default function SecurityPage() {
                 key={entry.pin}
                 className={`flex flex-col gap-3 rounded-xl bg-white p-4 sm:p-5 ${getRowStyle(entry)}`}
               >
-                {/* Top row: status + name + actions */}
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -280,9 +363,7 @@ export default function SecurityPage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="text-base font-bold text-gray-900">
-                      {displayName}
-                    </div>
+                    <div className="text-base font-bold text-gray-900">{displayName}</div>
                     {entry.email && (
                       <div className="truncate text-sm text-gray-500">{entry.email}</div>
                     )}
@@ -321,7 +402,6 @@ export default function SecurityPage() {
                   </div>
                 </div>
 
-                {/* Stats row */}
                 <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                   <div>
                     <span className="font-medium text-gray-900">{entry.failuresInWindow}</span>{" "}
@@ -333,7 +413,6 @@ export default function SecurityPage() {
                   </div>
                 </div>
 
-                {/* Expanded history */}
                 {isExpanded && (
                   <div className="mt-2 rounded-lg bg-gray-50 p-4">
                     <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -433,6 +512,280 @@ export default function SecurityPage() {
               onClick={() => setUnlockTarget(null)}
               disabled={unlocking}
               className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Active Sessions Tab
+// ---------------------------------------------------------------------------
+
+function ActiveSessionsTab() {
+  const { user: currentUser } = useAuth()
+  const [sessions, setSessions] = React.useState<SessionEntry[]>([])
+  const [summary, setSummary] = React.useState<SessionsApiResponse["summary"] | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [refreshing, setRefreshing] = React.useState(false)
+  const [revokeTarget, setRevokeTarget] = React.useState<SessionEntry | null>(null)
+  const [revoking, setRevoking] = React.useState(false)
+  const [revokeError, setRevokeError] = React.useState("")
+
+  const load = React.useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+    try {
+      const res = await fetch("/api/admin/sessions")
+      if (!res.ok) throw new Error("Failed to load")
+      const json: SessionsApiResponse = await res.json()
+      setSessions(json.data)
+      setSummary(json.summary)
+    } catch (err) {
+      console.error("Failed to load sessions:", err)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    load()
+  }, [load])
+
+  async function handleRevoke() {
+    if (!revokeTarget) return
+    setRevoking(true)
+    setRevokeError("")
+    try {
+      const res = await fetch("/api/admin/sessions/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: revokeTarget.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setRevokeError(data.error ?? "Failed to revoke session")
+        setRevoking(false)
+        return
+      }
+      setRevokeTarget(null)
+      setRevoking(false)
+      await load(true)
+    } catch {
+      setRevokeError("Network error. Please try again.")
+      setRevoking(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Refresh button */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <Button
+          onClick={() => load(true)}
+          disabled={refreshing}
+          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
+          size="lg"
+        >
+          {refreshing ? "Refreshing..." : "Refresh"}
+          <RefreshCw className="size-4" />
+        </Button>
+      </div>
+
+      {/* Summary */}
+      {summary && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-blue-50">
+              <Monitor className="size-6 text-blue-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.totalSessions}</div>
+              <div className="text-xs text-gray-500">Active Sessions</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-green-50">
+              <UserCircle className="size-6 text-green-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.uniqueUsers}</div>
+              <div className="text-xs text-gray-500">Unique Users Signed In</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Session list */}
+      <div className="flex min-w-0 flex-col gap-3">
+        {loading && sessions.length === 0 ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
+            <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+            </svg>
+            <span className="text-sm text-gray-400">Loading sessions...</span>
+          </div>
+        ) : sessions.length === 0 ? (
+          <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
+            <Monitor className="size-10 text-gray-400" />
+            <span className="text-base font-medium text-gray-900">No active sessions</span>
+            <span className="text-sm text-gray-400">
+              No one is currently signed in to the system.
+            </span>
+          </div>
+        ) : (
+          sessions.map((session) => {
+            const isCurrentUser = currentUser?.id && session.userId === currentUser.id
+            // Note: session.userId is the Supabase auth user id. currentUser.id is
+            // our public.users id. These won't match directly — we'd need
+            // currentUser.authUserId to compare. Until we have that, we'll match
+            // on email as a best-effort self-check.
+            const isSelfByEmail =
+              !!currentUser?.email &&
+              !!session.userEmail &&
+              currentUser.email === session.userEmail
+            const isSelf = isCurrentUser || isSelfByEmail
+
+            const displayName = session.userName || "Unknown user"
+            const deviceLabel = summariseUserAgent(session.userAgent)
+            const browserLabel = summariseBrowser(session.userAgent)
+
+            return (
+              <div
+                key={session.id}
+                className="flex flex-col gap-3 rounded-xl bg-white p-4 sm:p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isSelf && (
+                        <Badge className="rounded-full border-transparent bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                          This is you
+                        </Badge>
+                      )}
+                      {session.userRole && (
+                        <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                          {session.userRole.replace(/_/g, " ")}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-base font-bold text-gray-900">{displayName}</div>
+                    {session.userEmail && (
+                      <div className="truncate text-sm text-gray-500">{session.userEmail}</div>
+                    )}
+                    <div className="text-xs text-gray-400">
+                      {deviceLabel}
+                      {browserLabel && (
+                        <>
+                          <span className="mx-2">·</span>
+                          {browserLabel}
+                        </>
+                      )}
+                      <span className="mx-2">·</span>
+                      IP: <span className="font-mono">{session.ipAddress ?? "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => setRevokeTarget(session)}
+                      className="gap-1 rounded-lg bg-[#FF3A69] text-xs text-white hover:bg-[#FF3A69]/90"
+                    >
+                      <LogOut className="size-3" />
+                      Sign Out
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                  <div>
+                    <span className="font-medium text-gray-900">Signed in:</span>{" "}
+                    {formatDate(session.createdAt)}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-900">Last active:</span>{" "}
+                    {formatRelative(session.updatedAt)}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Revoke confirmation dialog */}
+      <Dialog
+        open={!!revokeTarget}
+        onOpenChange={(open) => !open && !revoking && setRevokeTarget(null)}
+      >
+        <DialogContent className="rounded-2xl p-6 sm:p-8">
+          <DialogHeader className="flex flex-col items-center gap-2 text-center">
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Force sign-out?
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              {revokeTarget && (
+                <>
+                  This will revoke the session for{" "}
+                  <strong>{revokeTarget.userName ?? "Unknown user"}</strong>
+                  {revokeTarget.userEmail && (
+                    <>
+                      {" "}
+                      ({revokeTarget.userEmail})
+                    </>
+                  )}
+                  . They&apos;ll be signed out within ~60 minutes (when their access
+                  token expires).
+                  {currentUser?.email &&
+                    revokeTarget.userEmail === currentUser.email && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                        ⚠️ This is your own session. You may be signed out shortly
+                        after confirming.
+                      </div>
+                    )}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {revokeError && (
+            <p className="text-center text-sm font-medium text-red-500">{revokeError}</p>
+          )}
+
+          <div className="flex flex-col items-center gap-3 pt-4">
+            <Button
+              onClick={handleRevoke}
+              disabled={revoking}
+              className="h-11 w-full gap-2 rounded-xl bg-[#FF3A69] text-white hover:bg-[#FF3A69]/90 disabled:opacity-50"
+            >
+              {revoking ? (
+                <>
+                  Revoking...
+                  <svg className="size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  <LogOut className="size-4" />
+                  Yes, revoke session
+                </>
+              )}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => setRevokeTarget(null)}
+              disabled={revoking}
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50"
             >
               Cancel
             </button>
