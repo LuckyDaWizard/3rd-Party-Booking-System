@@ -39,7 +39,7 @@ function getActionStyle(action: string): string {
     case "delete":
       return "bg-pink-100 text-pink-600 border-transparent"
     case "reset_pin":
-      return "bg-yellow-100 text-yellow-700 border-transparent"
+      return "bg-yellow-100 text-yellow-800 border-transparent"
     case "toggle_status":
       return "bg-purple-100 text-purple-600 border-transparent"
     default:

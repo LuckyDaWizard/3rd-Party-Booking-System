@@ -20,7 +20,7 @@ function getStatusStyle(status: ClientStatus): string {
     case "Active":
       return "bg-green-100 text-green-600 border-transparent"
     case "Disabled":
-      return "bg-yellow-100 text-yellow-700 border-transparent"
+      return "bg-yellow-100 text-yellow-800 border-transparent"
   }
 }
 
