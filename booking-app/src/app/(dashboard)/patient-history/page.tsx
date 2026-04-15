@@ -129,16 +129,43 @@ interface OptionsModalProps {
   onOpenChange: (open: boolean) => void
   bookingId: string | null
   onDiscard: (id: string) => void
+  isSystemAdmin: boolean
+  onConfirmPayment: (id: string) => Promise<void>
 }
 
-type OptionChoice = "reshare" | "process-on-device" | null
+type OptionChoice = "reshare" | "process-on-device" | "confirm-payment" | null
 
-function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModalProps) {
+function OptionsModal({
+  open,
+  onOpenChange,
+  bookingId,
+  onDiscard,
+  isSystemAdmin,
+  onConfirmPayment,
+}: OptionsModalProps) {
   const router = useRouter()
   const [selected, setSelected] = React.useState<OptionChoice>(null)
+  const [confirming, setConfirming] = React.useState(false)
+  const [confirmError, setConfirmError] = React.useState("")
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!selected || !bookingId) return
+
+    if (selected === "confirm-payment") {
+      setConfirming(true)
+      setConfirmError("")
+      try {
+        await onConfirmPayment(bookingId)
+        onOpenChange(false)
+        setSelected(null)
+      } catch (err) {
+        setConfirmError(err instanceof Error ? err.message : "Failed to confirm payment")
+      } finally {
+        setConfirming(false)
+      }
+      return
+    }
+
     onOpenChange(false)
     setSelected(null)
 
@@ -151,6 +178,7 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
   function handleCancel() {
     onOpenChange(false)
     setSelected(null)
+    setConfirmError("")
   }
 
   function handleDiscard() {
@@ -210,7 +238,32 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
               Proceed with the payment on this device
             </span>
           </button>
+
+          {/* Confirm Payment (system_admin only) */}
+          {isSystemAdmin && (
+            <button
+              type="button"
+              data-testid="option-confirm-payment"
+              onClick={() => setSelected("confirm-payment")}
+              className={`w-full rounded-lg border p-4 text-left transition-colors ${
+                selected === "confirm-payment"
+                  ? "border-gray-900 bg-gray-50"
+                  : "border-amber-200 bg-amber-50 hover:bg-amber-100"
+              }`}
+            >
+              <span className="block text-sm font-semibold text-gray-900">
+                Mark Payment as Confirmed
+              </span>
+              <span className="mt-1 block text-xs text-gray-600">
+                Admin override. Use only if you&apos;ve verified the payment on PayFast&apos;s dashboard. Logged to audit trail.
+              </span>
+            </button>
+          )}
         </div>
+
+        {confirmError && (
+          <p className="text-center text-sm font-medium text-red-600">{confirmError}</p>
+        )}
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
@@ -218,11 +271,23 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
             data-testid="options-continue-button"
             className="w-full bg-gray-900 text-white hover:bg-gray-800"
             size="lg"
-            disabled={!selected}
+            disabled={!selected || confirming}
             onClick={handleContinue}
           >
-            Continue
-            <ArrowRight className="ml-1 size-4" />
+            {confirming ? (
+              <>
+                Confirming...
+                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRight className="ml-1 size-4" />
+              </>
+            )}
           </Button>
 
           <Button
@@ -231,6 +296,7 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
             className="w-full border border-black"
             size="lg"
             onClick={handleCancel}
+            disabled={confirming}
           >
             Cancel
           </Button>
@@ -238,8 +304,9 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
           <button
             type="button"
             data-testid="options-discard-button"
-            className="mt-1 text-center text-sm text-red-600 hover:underline"
+            className="mt-1 text-center text-sm text-red-600 hover:underline disabled:opacity-50"
             onClick={handleDiscard}
+            disabled={confirming}
           >
             Discard Flow
           </button>
@@ -256,7 +323,7 @@ function OptionsModal({ open, onOpenChange, bookingId, onDiscard }: OptionsModal
 export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { bookings, loading, discardBooking, updateBooking } = useBookingStore()
+  const { bookings, loading, discardBooking, updateBooking, refreshBookings } = useBookingStore()
   const { isSystemAdmin } = useAuth()
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
@@ -683,8 +750,20 @@ export default function PatientHistoryPage() {
         open={optionsModalOpen}
         onOpenChange={setOptionsModalOpen}
         bookingId={selectedBookingId}
+        isSystemAdmin={isSystemAdmin}
         onDiscard={async (id) => {
           await discardBooking(id)
+        }}
+        onConfirmPayment={async (id) => {
+          const res = await fetch(`/api/bookings/${id}/complete-payment`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            throw new Error(data.error ?? "Failed to confirm payment")
+          }
+          await refreshBookings()
         }}
       />
 

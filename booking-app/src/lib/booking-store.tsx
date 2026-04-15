@@ -212,7 +212,6 @@ interface BookingStoreContextValue {
   ) => Promise<void>
   discardBooking: (id: string) => Promise<void>
   abandonBooking: (id: string) => Promise<void>
-  completePayment: (id: string) => Promise<void>
   setActiveBookingId: (id: string | null) => void
   getBooking: (id: string) => BookingRecord | undefined
   refreshBookings: () => Promise<void>
@@ -357,34 +356,6 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
     [fetchBookings]
   )
 
-  // ------- Complete payment -------
-  //
-  // Writes the "Payment Complete" status server-side via an API route. Direct
-  // Supabase writes from the browser are blocked by a DB trigger (migration
-  // 011) to prevent users from faking paid bookings in the browser.
-  //
-  // The PayFast ITN callback remains the authoritative source of truth; this
-  // route is the fallback when ITN doesn't reach the VPS (no domain / sandbox).
-  const completePayment = useCallback(
-    async (id: string) => {
-      try {
-        const res = await fetch(`/api/bookings/${id}/complete-payment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        })
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          console.error("Error completing payment:", data.error ?? res.statusText)
-        }
-      } catch (err) {
-        console.error("Error completing payment:", err)
-      }
-
-      await fetchBookings()
-    },
-    [fetchBookings]
-  )
-
   // ------- Get a single booking -------
   const getBooking = useCallback(
     (id: string) => bookings.find((b) => b.id === id),
@@ -452,7 +423,6 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         updateBooking,
         discardBooking,
         abandonBooking,
-        completePayment,
         setActiveBookingId,
         getBooking,
         refreshBookings: fetchBookings,
