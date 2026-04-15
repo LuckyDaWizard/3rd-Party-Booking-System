@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { useUnitStore } from "@/lib/unit-store"
 import { useClientStore } from "@/lib/client-store"
+import { useAuth } from "@/lib/auth-store"
 
 // ---------------------------------------------------------------------------
 // Provinces
@@ -42,12 +44,15 @@ export default function ManageUnitPage() {
   const unitId = searchParams.get("id") ?? ""
   const { getUnit, updateUnit, deleteUnit, toggleUnitStatus } = useUnitStore()
   const { clients } = useClientStore()
+  const { activeUnitId } = useAuth()
 
   const unit = getUnit(unitId)
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isStatusOpen, setIsStatusOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  // PIN re-verification required for unit deletion (destructive).
+  const [pinOpen, setPinOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [clientId, setClientId] = useState("")
@@ -305,7 +310,10 @@ export default function ManageUnitPage() {
           <div className="flex flex-col items-center gap-3 pt-4">
             <Button
               data-testid="confirm-delete-button"
-              onClick={handleDeleteUnit}
+              onClick={() => {
+                setIsDeleteOpen(false)
+                setPinOpen(true)
+              }}
               disabled={deleting || toggling}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
             >
@@ -412,6 +420,18 @@ export default function ManageUnitPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PIN verification — required before unit deletion */}
+      <PinVerificationModal
+        open={pinOpen}
+        onOpenChange={setPinOpen}
+        activeUnitId={activeUnitId}
+        heading="Confirm unit deletion"
+        subtitle="Enter your access PIN to permanently delete this unit."
+        onVerified={async () => {
+          await handleDeleteUnit()
+        }}
+      />
     </div>
   )
 }

@@ -12,7 +12,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
+import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { useClientStore } from "@/lib/client-store"
+import { useAuth } from "@/lib/auth-store"
 
 // ---------------------------------------------------------------------------
 // Page
@@ -23,6 +25,7 @@ export default function ManageClientPage() {
   const searchParams = useSearchParams()
   const clientId = searchParams.get("id") ?? ""
   const { getClient, updateClient, deleteClient, toggleClientStatus } = useClientStore()
+  const { activeUnitId } = useAuth()
 
   const client = getClient(clientId)
 
@@ -31,6 +34,8 @@ export default function ManageClientPage() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toggling, setToggling] = useState(false)
+  // PIN re-verification required for client deletion (destructive).
+  const [pinOpen, setPinOpen] = useState(false)
   const [clientName, setClientName] = useState("")
   const [contactPersonName, setContactPersonName] = useState("")
   const [contactPersonSurname, setContactPersonSurname] = useState("")
@@ -257,7 +262,10 @@ export default function ManageClientPage() {
             <Button
               data-testid="confirm-delete-button"
               disabled={deleting || toggling}
-              onClick={handleDeleteClient}
+              onClick={() => {
+                setIsDeleteOpen(false)
+                setPinOpen(true)
+              }}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
             >
               {deleting ? (
@@ -375,6 +383,18 @@ export default function ManageClientPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PIN verification — required before client deletion */}
+      <PinVerificationModal
+        open={pinOpen}
+        onOpenChange={setPinOpen}
+        activeUnitId={activeUnitId}
+        heading="Confirm client deletion"
+        subtitle="Enter your access PIN to permanently delete this client."
+        onVerified={async () => {
+          await handleDeleteClient()
+        }}
+      />
     </div>
   )
 }

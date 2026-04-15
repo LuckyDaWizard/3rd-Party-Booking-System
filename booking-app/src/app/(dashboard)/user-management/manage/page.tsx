@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { useUserStore } from "@/lib/user-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { PIN_LENGTH } from "@/lib/constants"
@@ -182,6 +183,8 @@ export default function ManageUserPage() {
   const [deleting, setDeleting] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [resettingPin, setResettingPin] = useState(false)
+  // PIN verification modal state — used for destructive + privilege-change actions
+  const [pinAction, setPinAction] = useState<"delete" | "toggle" | "role-change" | null>(null)
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
   const [firstNames, setFirstNames] = useState("")
   const [surname, setSurname] = useState("")
@@ -232,7 +235,9 @@ export default function ManageUserPage() {
     selectedUnitIds.length !== originalUnitIds.length ||
     selectedUnitIds.some((id) => !originalUnitIds.includes(id))
 
-  async function handleUpdateInformation() {
+  // The actual update work — called by the PIN modal if role changed,
+  // or directly by handleUpdateInformation if nothing privileged changed.
+  async function doUpdateUser() {
     setSaving(true)
     try {
       await updateUser(userId, {
@@ -248,6 +253,16 @@ export default function ManageUserPage() {
       console.error("Failed to update user:", err)
       setSaving(false)
     }
+  }
+
+  function handleUpdateInformation() {
+    // Role change is a privilege change — require PIN re-verification.
+    const roleChanged = user && userRole !== user.role
+    if (roleChanged) {
+      setPinAction("role-change")
+      return
+    }
+    doUpdateUser()
   }
 
   async function handleResetPin() {
@@ -291,7 +306,8 @@ export default function ManageUserPage() {
     }
   }
 
-  async function handleToggleStatus() {
+  // The actual toggle/delete work — called by the PIN modal once verified.
+  async function doToggleStatus() {
     setToggling(true)
     try {
       const wasActive = user!.status === "Active"
@@ -308,7 +324,7 @@ export default function ManageUserPage() {
     }
   }
 
-  async function handleDeleteUser() {
+  async function doDeleteUser() {
     setDeleting(true)
     try {
       const name = `${user!.firstNames} ${user!.surname}`
@@ -558,7 +574,10 @@ export default function ManageUserPage() {
           <div className="flex flex-col items-center gap-3 pt-4">
             <Button
               data-testid="confirm-delete-button"
-              onClick={handleDeleteUser}
+              onClick={() => {
+                setIsDeleteOpen(false)
+                setPinAction("delete")
+              }}
               disabled={deleting || toggling}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
             >
@@ -582,20 +601,9 @@ export default function ManageUserPage() {
               data-testid="disable-instead-button"
               variant="outline"
               disabled={deleting || toggling}
-              onClick={async () => {
-                setToggling(true)
-                try {
-                  setIsDeleteOpen(false)
-                  const name = `${user!.firstNames} ${user!.surname}`
-                  await toggleUserStatus(userId)
-                  const params = new URLSearchParams({
-                    statusChanged: "disabled",
-                    userName: name,
-                  })
-                  router.push(`/user-management?${params.toString()}`)
-                } catch {
-                  setToggling(false)
-                }
+              onClick={() => {
+                setIsDeleteOpen(false)
+                setPinAction("toggle")
               }}
               className="h-11 w-full rounded-xl border border-black disabled:opacity-50"
             >
@@ -795,9 +803,9 @@ export default function ManageUserPage() {
             <Button
               data-testid="confirm-status-button"
               disabled={toggling}
-              onClick={async () => {
+              onClick={() => {
                 setIsStatusOpen(false)
-                await handleToggleStatus()
+                setPinAction("toggle")
               }}
               className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
             >
@@ -829,6 +837,46 @@ export default function ManageUserPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PIN verification modal — gates destructive + privilege-change actions */}
+      <PinVerificationModal
+        open={pinAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPinAction(null)
+        }}
+        activeUnitId={activeUnitId}
+        heading={
+          pinAction === "delete"
+            ? "Confirm user deletion"
+            : pinAction === "role-change"
+              ? "Confirm role change"
+              : pinAction === "toggle"
+                ? user.status === "Active"
+                  ? "Confirm user disable"
+                  : "Confirm user activation"
+                : "Enter your PIN"
+        }
+        subtitle={
+          pinAction === "delete"
+            ? "Enter your access PIN to permanently delete this user."
+            : pinAction === "role-change"
+              ? "Enter your access PIN to change this user's role."
+              : pinAction === "toggle"
+                ? "Enter your access PIN to change this user's status."
+                : undefined
+        }
+        onVerified={async () => {
+          const action = pinAction
+          setPinAction(null)
+          if (action === "delete") {
+            await doDeleteUser()
+          } else if (action === "role-change") {
+            await doUpdateUser()
+          } else if (action === "toggle") {
+            await doToggleStatus()
+          }
+        }}
+      />
     </div>
   )
 }
