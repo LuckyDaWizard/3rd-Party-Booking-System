@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, pinToEmail, isDuplicateAuthError } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
 import { sendPinResetEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { generateSecurePin } from "@/lib/pin"
+import type { User } from "@supabase/supabase-js"
 
 // =============================================================================
 // POST /api/admin/users
@@ -93,55 +94,55 @@ export async function POST(request: Request) {
     )
   }
 
-  // Generate a cryptographically secure PIN, retrying if it collides with
-  // an existing one. With 10^6 possible PINs and a small user base the
-  // first candidate almost always works, but we defend against collisions.
+  // 1. Generate a cryptographically secure PIN and create the auth user in
+  // one retry loop. Supabase Auth enforces email uniqueness on our synthetic
+  // emails, so a duplicate error == PIN collision. With a 1M-PIN keyspace
+  // and a small user base, collisions are near-zero; 10 retries is plenty.
   let newPin = ""
+  let authUser: User | null = null
+  let lastAuthError: { message?: string; status?: number } | null = null
+
   for (let attempt = 0; attempt < 10; attempt++) {
     const candidate = generateSecurePin()
-    const { data: clash, error: pinCheckErr } = await admin
-      .from("users")
-      .select("id")
-      .eq("pin", candidate)
-      .limit(1)
+    const { data: authData, error: authErr } = await admin.auth.admin.createUser({
+      email: pinToEmail(candidate),
+      password: candidate,
+      email_confirm: true,
+      user_metadata: {
+        first_names: body.firstNames,
+        surname: body.surname,
+        role: body.role,
+      },
+    })
 
-    if (pinCheckErr) {
-      return NextResponse.json({ error: pinCheckErr.message }, { status: 500 })
-    }
-    if (!clash || clash.length === 0) {
+    if (!authErr && authData?.user) {
       newPin = candidate
+      authUser = authData.user
       break
     }
+
+    lastAuthError = authErr
+    if (!isDuplicateAuthError(authErr)) {
+      return NextResponse.json(
+        { error: `Failed to create auth user: ${authErr?.message ?? "unknown"}` },
+        { status: 500 }
+      )
+    }
+    // Collision — retry with a fresh PIN.
   }
 
-  if (!newPin) {
+  if (!newPin || !authUser) {
     return NextResponse.json(
-      { error: "Failed to generate a unique PIN after 10 attempts" },
+      {
+        error:
+          "Failed to generate a unique PIN after 10 attempts" +
+          (lastAuthError?.message ? `: ${lastAuthError.message}` : ""),
+      },
       { status: 500 }
     )
   }
 
-  // 1. Create the auth user.
-  const email = pinToEmail(newPin)
-  const { data: authData, error: authErr } = await admin.auth.admin.createUser({
-    email,
-    password: newPin,
-    email_confirm: true,
-    user_metadata: {
-      first_names: body.firstNames,
-      surname: body.surname,
-      role: body.role,
-    },
-  })
-
-  if (authErr || !authData?.user) {
-    return NextResponse.json(
-      { error: `Failed to create auth user: ${authErr?.message ?? "unknown"}` },
-      { status: 500 }
-    )
-  }
-
-  const authUserId = authData.user.id
+  const authUserId = authUser.id
 
   // 2. Create the public.users row.
   const { data: insertData, error: insertErr } = await admin
@@ -151,7 +152,6 @@ export async function POST(request: Request) {
       surname: body.surname,
       email: body.email,
       contact_number: body.contactNumber,
-      pin: newPin,
       role: body.role,
       unit_id: body.unitIds[0] ?? null,
       client_id: body.clientId ?? null,

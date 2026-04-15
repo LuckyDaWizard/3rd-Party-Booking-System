@@ -61,3 +61,22 @@ export function getSupabaseAdmin(): SupabaseClient {
 export function pinToEmail(pin: string): string {
   return `pin-${pin}@carefirst.local`
 }
+
+/**
+ * Heuristic: detect whether a Supabase Auth error is a duplicate-email /
+ * duplicate-user error (i.e. PIN collision for our synthetic email scheme).
+ * Supabase returns "User already registered" or an HTTP 422 on create with
+ * a duplicate email; "email_exists" or similar on update.
+ */
+export function isDuplicateAuthError(err: { message?: string; status?: number } | null): boolean {
+  if (!err) return false
+  const msg = (err.message ?? "").toLowerCase()
+  return (
+    msg.includes("already registered") ||
+    msg.includes("already been registered") ||
+    msg.includes("already exists") ||
+    msg.includes("email_exists") ||
+    msg.includes("duplicate") ||
+    err.status === 422
+  )
+}

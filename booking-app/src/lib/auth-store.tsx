@@ -21,7 +21,6 @@ export interface AuthUser {
   firstNames: string
   surname: string
   email: string
-  pin: string | null  // null for non-system_admin (masked by users_visible view)
   role: UserRole
   status: "Active" | "Disabled"
   clientId: string | null
@@ -61,7 +60,6 @@ interface DbUser {
   first_names: string
   surname: string
   email: string
-  pin: string | null
   role: UserRole
   status: "Active" | "Disabled"
   client_id: string | null
@@ -104,13 +102,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUser = useCallback(async (authUserId: string): Promise<AuthUser | null> => {
     // Fetch the public.users row by its auth_user_id link.
-    // (Backfilled in scripts/backfill-auth-users.mjs; populated for new users
-    // in /api/admin/users POST.)
-    // Read from users_visible VIEW so the `pin` column is masked for
-    // non-system_admin callers (see migration 006_mask_pin_column.sql).
+    // The plaintext `pin` column has been dropped — credentials live in
+    // auth.users only. RLS handles row-level access.
     const { data: dbUser, error } = await supabase
-      .from("users_visible")
-      .select("*")
+      .from("users")
+      .select("id, first_names, surname, email, role, status, client_id, avatar_url")
       .eq("auth_user_id", authUserId)
       .single()
 
@@ -156,7 +152,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firstNames: u.first_names,
       surname: u.surname,
       email: u.email,
-      pin: u.pin,
       role: u.role,
       status: u.status,
       clientId: u.client_id,

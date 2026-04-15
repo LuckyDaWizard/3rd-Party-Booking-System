@@ -23,7 +23,6 @@ export interface UserRecord {
   surname: string
   email: string
   contactNumber: string
-  pin: string | null  // null for non-system_admin (masked by users_visible view)
   units: UserUnitInfo[]
   unitName: string // comma-separated display string
   clientId: string
@@ -73,7 +72,6 @@ interface DbUser {
   surname: string
   email: string
   contact_number: string
-  pin: string | null  // null for non-system_admin via users_visible view
   role: string
   unit_id: string | null
   client_id: string | null
@@ -135,13 +133,11 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
       userUnitsMap.set(uu.user_id, existing)
     })
 
-    // Read from the users_visible VIEW instead of the raw table so the
-    // `pin` column is masked for non-system_admin callers (see migration
-    // 006_mask_pin_column.sql). Service-role routes still read the raw
-    // table when they need the real PIN.
+    // The plaintext `pin` column has been dropped — credentials live in
+    // auth.users. Read the raw users table.
     const { data: userRows, error } = await supabase
-      .from("users_visible")
-      .select("*")
+      .from("users")
+      .select("id, first_names, surname, email, contact_number, role, unit_id, client_id, status")
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -169,7 +165,6 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
         surname: row.surname,
         email: row.email,
         contactNumber: row.contact_number,
-        pin: row.pin,
         units: unitInfos,
         unitName: unitDisplayName,
         clientId: row.client_id ?? "",

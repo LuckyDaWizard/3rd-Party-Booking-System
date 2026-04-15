@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { createClient } from "@supabase/supabase-js"
+import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
+import { getSupabaseServer } from "@/lib/supabase-server"
+import { PIN_REGEX } from "@/lib/constants"
 
 // =============================================================================
 // POST /api/verify/manager-pin
@@ -8,11 +11,14 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin"
 // `unit_manager` (assigned to the same unit) or a `system_admin` to enter
 // their PIN to authorize an action (booking creation, PIN reset, etc.).
 //
-// Why this is a server route, not a direct supabase query:
-//   Under the Phase 5 RLS policies, an authenticated `user` can only read
-//   their own row in public.users. Looking up another user's PIN to verify
-//   them is forbidden — by design. The service role bypasses RLS, so the
-//   lookup happens server-side and only the boolean result is returned.
+// How it works:
+//   - No longer uses `public.users.pin` (plaintext column has been dropped).
+//   - Instead, verifies the PIN by attempting a Supabase Auth sign-in against
+//     a disposable client (autoRefreshToken + persistSession off, never
+//     touches the caller's cookies or session).
+//   - If sign-in succeeds, we have a valid PIN for an existing user.
+//   - We then look up the user's role, unit scoping, and status via the
+//     service-role admin client and return the result.
 //
 // Body:
 //   {
@@ -30,17 +36,46 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin"
 //                       the PIN exists, the user is wrong role, the user
 //                       isn't in the unit, etc.)
 //
-// Auth: caller must be signed in (any role). The route is callable from any
-// authenticated session because the verification flow is part of the normal
-// app for `user` role. We use the service-role client only AFTER confirming
-// the caller has a session.
+// Auth: caller must be signed in (any role).
 // =============================================================================
-
-import { getSupabaseServer } from "@/lib/supabase-server"
 
 interface Body {
   pin?: string
   unitId?: string | null
+}
+
+/**
+ * Verify a PIN against Supabase Auth using a fresh, disposable client.
+ * Returns the matching auth user id on success, or null on failure.
+ *
+ * IMPORTANT: uses a NEW createClient instance (not getSupabaseServer or
+ * getSupabaseAdmin) so this sign-in doesn't write any cookies or interfere
+ * with the caller's existing session.
+ */
+async function verifyPinAgainstAuth(pin: string): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !anonKey) return null
+
+  const disposable = createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+
+  const { data, error } = await disposable.auth.signInWithPassword({
+    email: pinToEmail(pin),
+    password: pin,
+  })
+
+  // Always sign out the disposable session to avoid any lingering state.
+  if (data.session) {
+    await disposable.auth.signOut()
+  }
+
+  if (error || !data.user) return null
+  return data.user.id
 }
 
 export async function POST(request: Request) {
@@ -65,10 +100,17 @@ export async function POST(request: Request) {
   const pin = body.pin?.trim()
   const unitId = body.unitId ?? null
 
-  if (!pin || !/^\d{4,6}$/.test(pin)) {
+  if (!pin || !PIN_REGEX.test(pin)) {
     return NextResponse.json({ valid: false })
   }
 
+  // Step 1: Verify the PIN by attempting a Supabase Auth sign-in.
+  const matchedAuthId = await verifyPinAgainstAuth(pin)
+  if (!matchedAuthId) {
+    return NextResponse.json({ valid: false })
+  }
+
+  // Step 2: Look up the matched user's role and unit assignments via admin.
   let admin
   try {
     admin = getSupabaseAdmin()
@@ -76,22 +118,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ valid: false }, { status: 500 })
   }
 
-  // Look up the user with that PIN. Service role bypasses RLS.
-  const { data: matches, error } = await admin
+  const { data: matched, error: lookupErr } = await admin
     .from("users")
     .select("id, first_names, surname, role, status")
-    .eq("pin", pin)
-    .eq("status", "Active")
-    .in("role", ["unit_manager", "system_admin"])
-    .limit(1)
+    .eq("auth_user_id", matchedAuthId)
+    .single()
 
-  if (error || !matches || matches.length === 0) {
+  if (lookupErr || !matched) {
     return NextResponse.json({ valid: false })
   }
 
-  const matched = matches[0]
+  // Only unit_manager or system_admin can authorise.
+  if (matched.role !== "unit_manager" && matched.role !== "system_admin") {
+    return NextResponse.json({ valid: false })
+  }
 
-  // system_admin authorizes anything anywhere.
+  // Must be Active.
+  if (matched.status !== "Active") {
+    return NextResponse.json({ valid: false })
+  }
+
+  // system_admin authorises anything anywhere.
   if (matched.role === "system_admin") {
     return NextResponse.json({
       valid: true,

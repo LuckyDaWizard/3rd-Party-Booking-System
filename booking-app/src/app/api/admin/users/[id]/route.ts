@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
+import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
-import { PIN_REGEX } from "@/lib/constants"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
@@ -10,15 +9,13 @@ import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 //
 // PATCH body: any subset of
 //   {
-//     firstNames, surname, email, contactNumber, pin, role, clientId, status, unitIds
+//     firstNames, surname, email, contactNumber, role, clientId, status, unitIds
 //   }
 //
-// If `pin` is included, the route also updates the linked auth.users
-// (email + password) so the two stay in sync.
+// PIN changes are NOT accepted here — use POST /api/admin/users/[id]/reset-pin
+// which generates a secure PIN, updates auth.users, and emails the user.
 //
 // If `unitIds` is included, the user_units rows are replaced wholesale.
-//
-// Auth: NONE for now. Locked down in Phase 4.
 // =============================================================================
 
 interface UpdateUserBody {
@@ -26,7 +23,6 @@ interface UpdateUserBody {
   surname?: string
   email?: string
   contactNumber?: string
-  pin?: string
   role?: "system_admin" | "unit_manager" | "user"
   clientId?: string | null
   status?: "Active" | "Disabled"
@@ -53,13 +49,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  if (body.pin !== undefined && !PIN_REGEX.test(body.pin)) {
-    return NextResponse.json(
-      { error: "pin must be exactly 6 digits" },
-      { status: 400 }
-    )
-  }
-
   let admin
   try {
     admin = getSupabaseAdmin()
@@ -70,10 +59,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     )
   }
 
-  // Load current row so we can compare and roll back if needed.
+  // Load current row so we can compare for audit logging.
   const { data: current, error: loadErr } = await admin
     .from("users")
-    .select("id, first_names, surname, email, contact_number, pin, role, status, client_id, auth_user_id")
+    .select("id, first_names, surname, email, contact_number, role, status, client_id, auth_user_id")
     .eq("id", id)
     .single()
 
@@ -95,58 +84,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     )
   }
 
-  // If PIN is changing, sync auth.users first.
-  let pinRollback: { oldPin: string; oldEmail: string } | null = null
-  if (body.pin !== undefined && body.pin !== current.pin) {
-    if (!current.auth_user_id) {
-      return NextResponse.json(
-        { error: "User has no auth_user_id; cannot update PIN. Run backfill first." },
-        { status: 500 }
-      )
-    }
-
-    // Reject collisions.
-    const { data: clash } = await admin
-      .from("users")
-      .select("id")
-      .eq("pin", body.pin)
-      .neq("id", id)
-      .limit(1)
-    if (clash && clash.length > 0) {
-      return NextResponse.json(
-        { error: `PIN ${body.pin} is already in use` },
-        { status: 409 }
-      )
-    }
-
-    const oldPin = current.pin
-    const oldEmail = pinToEmail(oldPin)
-    const newEmail = pinToEmail(body.pin)
-
-    const { error: authErr } = await admin.auth.admin.updateUserById(
-      current.auth_user_id,
-      {
-        email: newEmail,
-        password: body.pin,
-        email_confirm: true,
-      }
-    )
-    if (authErr) {
-      return NextResponse.json(
-        { error: `Failed to update auth user: ${authErr.message}` },
-        { status: 500 }
-      )
-    }
-    pinRollback = { oldPin, oldEmail }
-  }
-
-  // Build the public.users update.
+  // Build the public.users update. (PIN is intentionally not supported here —
+  // use /api/admin/users/[id]/reset-pin instead.)
   const dbUpdates: Record<string, unknown> = {}
   if (body.firstNames !== undefined) dbUpdates.first_names = body.firstNames
   if (body.surname !== undefined) dbUpdates.surname = body.surname
   if (body.email !== undefined) dbUpdates.email = body.email
   if (body.contactNumber !== undefined) dbUpdates.contact_number = body.contactNumber
-  if (body.pin !== undefined) dbUpdates.pin = body.pin
   if (body.role !== undefined) dbUpdates.role = body.role
   if (body.clientId !== undefined) dbUpdates.client_id = body.clientId
   if (body.status !== undefined) dbUpdates.status = body.status
@@ -158,14 +102,6 @@ export async function PATCH(request: Request, context: RouteContext) {
       .eq("id", id)
 
     if (updErr) {
-      // Roll back the auth change so the two stay in sync.
-      if (pinRollback && current.auth_user_id) {
-        await admin.auth.admin.updateUserById(current.auth_user_id, {
-          email: pinRollback.oldEmail,
-          password: pinRollback.oldPin,
-          email_confirm: true,
-        })
-      }
       return NextResponse.json({ error: updErr.message }, { status: 500 })
     }
   }
@@ -218,8 +154,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Role"] = { old: current.role, new: body.role }
   if (body.status !== undefined && body.status !== current.status)
     changes["Status"] = { old: current.status, new: body.status }
-  if (body.pin !== undefined && body.pin !== current.pin)
-    changes["PIN"] = { old: "***", new: "***" }
   if (body.unitIds !== undefined) {
     // Resolve unit IDs to names for readability.
     let unitNames: string[] = []

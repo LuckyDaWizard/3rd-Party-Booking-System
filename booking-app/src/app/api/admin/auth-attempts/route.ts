@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
 
 // =============================================================================
@@ -29,7 +29,7 @@ interface AttemptRow {
 }
 
 interface UserLookupRow {
-  pin: string
+  auth_user_id: string | null
   first_names: string
   surname: string
   email: string
@@ -62,19 +62,51 @@ export async function GET() {
 
   const attempts = (attemptsData ?? []) as AttemptRow[]
 
-  // Look up user info for every unique PIN we've seen.
+  // Look up user info for every unique PIN we've seen. Since public.users.pin
+  // has been dropped, we resolve PIN -> auth.users.email via our synthetic
+  // email scheme, then join with public.users on auth_user_id.
   const uniquePins = Array.from(new Set(attempts.map((a) => a.pin)))
-  let usersByPin = new Map<string, UserLookupRow>()
+  const usersByPin = new Map<string, UserLookupRow>()
 
   if (uniquePins.length > 0) {
-    const { data: userRows } = await admin
-      .from("users")
-      .select("pin, first_names, surname, email")
-      .in("pin", uniquePins)
+    // Scan auth.users for the synthetic emails. For small user bases this
+    // one-page scan is fine. If the user base grows, switch to getUserByEmail
+    // per PIN (parallelized).
+    const { data: authList } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    })
+    const authByEmail = new Map<string, string>()
+    for (const u of authList?.users ?? []) {
+      if (u.email) authByEmail.set(u.email, u.id)
+    }
 
-    usersByPin = new Map(
-      ((userRows ?? []) as UserLookupRow[]).map((u) => [u.pin, u])
-    )
+    // Build a mapping: PIN -> auth_user_id via synthetic email.
+    const pinToAuthId = new Map<string, string>()
+    for (const pin of uniquePins) {
+      const authId = authByEmail.get(pinToEmail(pin))
+      if (authId) pinToAuthId.set(pin, authId)
+    }
+
+    // Now fetch public.users rows for those auth_user_ids.
+    const authIds = Array.from(pinToAuthId.values())
+    if (authIds.length > 0) {
+      const { data: userRows } = await admin
+        .from("users")
+        .select("auth_user_id, first_names, surname, email")
+        .in("auth_user_id", authIds)
+
+      const userByAuthId = new Map<string, UserLookupRow>()
+      for (const u of (userRows ?? []) as UserLookupRow[]) {
+        if (u.auth_user_id) userByAuthId.set(u.auth_user_id, u)
+      }
+
+      // Assemble the final map keyed by PIN.
+      for (const [pin, authId] of pinToAuthId.entries()) {
+        const row = userByAuthId.get(authId)
+        if (row) usersByPin.set(pin, row)
+      }
+    }
   }
 
   // Group by PIN, compute lockout status.

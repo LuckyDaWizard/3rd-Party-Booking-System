@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, pinToEmail, isDuplicateAuthError } from "@/lib/supabase-admin"
 import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
 import { sendPinResetEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
@@ -8,25 +8,16 @@ import { generateSecurePin } from "@/lib/pin"
 // =============================================================================
 // POST /api/admin/users/[id]/reset-pin
 //
-// Generate a new random PIN for a user, update both public.users.pin and
-// auth.users (email + password), then send the new PIN via email to the user.
+// Generate a new random PIN for a user, update auth.users (email + password),
+// then send the new PIN via email.
 //
-// If the email fails to send, the PIN is still reset (so the user can't sign
-// in with the old one) but the new PIN is returned in the response so the
-// admin can share it manually.
+// PIN uniqueness is enforced by auth.users email uniqueness — we retry PIN
+// generation if Supabase Auth returns a duplicate error on update.
+//
+// If the email fails, the PIN is still reset but returned in the response
+// so the admin can share it manually.
 //
 // Body: (none required — PIN is auto-generated)
-//
-// Returns:
-//   {
-//     ok: true,
-//     emailSent: boolean,        // whether the email was delivered
-//     pin?: string,              // included ONLY if emailSent is false (fallback)
-//     emailError?: string,       // included ONLY if emailSent is false
-//   }
-//
-// Auth: system_admin only (via requireSystemAdmin + two-person sign-off on
-// the client side before this route is called).
 // =============================================================================
 
 interface RouteContext {
@@ -52,10 +43,10 @@ export async function POST(request: Request, context: RouteContext) {
     )
   }
 
-  // Load the user to get their current PIN and auth_user_id.
+  // Load the user (no longer selecting pin — it has been dropped).
   const { data: user, error: loadErr } = await admin
     .from("users")
-    .select("id, first_names, surname, email, pin, auth_user_id")
+    .select("id, first_names, surname, email, auth_user_id")
     .eq("id", id)
     .single()
 
@@ -76,63 +67,49 @@ export async function POST(request: Request, context: RouteContext) {
     )
   }
 
-  // Generate a new PIN, retrying if it collides with an existing one.
+  // Generate a PIN and try to apply it. Supabase Auth enforces email
+  // uniqueness — if the synthetic email is taken by another user, we get a
+  // duplicate error and try again with a fresh PIN. 10 retries is plenty
+  // with a 1M-PIN keyspace and a small user base.
   let newPin = ""
+  let lastAuthError: { message?: string; status?: number } | null = null
+
   for (let attempt = 0; attempt < 10; attempt++) {
     const candidate = generateSecurePin()
-    const { data: clash } = await admin
-      .from("users")
-      .select("id")
-      .eq("pin", candidate)
-      .limit(1)
-    if (!clash || clash.length === 0) {
+    const candidateEmail = pinToEmail(candidate)
+
+    const { error: authErr } = await admin.auth.admin.updateUserById(
+      user.auth_user_id,
+      {
+        email: candidateEmail,
+        password: candidate,
+        email_confirm: true,
+      }
+    )
+
+    if (!authErr) {
       newPin = candidate
       break
     }
+
+    lastAuthError = authErr
+    if (!isDuplicateAuthError(authErr)) {
+      // Non-collision error — bail immediately.
+      return NextResponse.json(
+        { error: `Failed to update auth user: ${authErr.message}` },
+        { status: 500 }
+      )
+    }
+    // Else: collision. Retry with a fresh PIN.
   }
 
   if (!newPin) {
     return NextResponse.json(
-      { error: "Failed to generate a unique PIN after 10 attempts" },
-      { status: 500 }
-    )
-  }
-
-  // Update auth.users first (email + password).
-  const oldEmail = pinToEmail(user.pin)
-  const newEmail = pinToEmail(newPin)
-
-  const { error: authErr } = await admin.auth.admin.updateUserById(
-    user.auth_user_id,
-    {
-      email: newEmail,
-      password: newPin,
-      email_confirm: true,
-    }
-  )
-
-  if (authErr) {
-    return NextResponse.json(
-      { error: `Failed to update auth user: ${authErr.message}` },
-      { status: 500 }
-    )
-  }
-
-  // Update public.users.pin.
-  const { error: updErr } = await admin
-    .from("users")
-    .update({ pin: newPin })
-    .eq("id", id)
-
-  if (updErr) {
-    // Roll back the auth change so the two stay in sync.
-    await admin.auth.admin.updateUserById(user.auth_user_id, {
-      email: oldEmail,
-      password: user.pin,
-      email_confirm: true,
-    })
-    return NextResponse.json(
-      { error: `Failed to update user PIN: ${updErr.message}` },
+      {
+        error:
+          "Failed to generate a unique PIN after 10 attempts" +
+          (lastAuthError?.message ? `: ${lastAuthError.message}` : ""),
+      },
       { status: 500 }
     )
   }
