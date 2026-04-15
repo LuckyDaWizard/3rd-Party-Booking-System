@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth-store"
 // Route access by role
 // ---------------------------------------------------------------------------
 
-const ADMIN_ONLY_ROUTES = ["/client-management", "/audit-log"]
+const ADMIN_ONLY_ROUTES = ["/client-management", "/audit-log", "/security"]
 const MANAGER_AND_ADMIN_ROUTES = ["/unit-management", "/user-management"]
 
 function useRouteGuard() {
