@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
-import { PIN_REGEX } from "@/lib/constants"
 import { sendPinResetEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { generateSecurePin } from "@/lib/pin"
 
 // =============================================================================
 // POST /api/admin/users
@@ -37,7 +37,6 @@ interface CreateUserBody {
   surname: string
   email: string
   contactNumber: string
-  pin: string
   role: "system_admin" | "unit_manager" | "user"
   unitIds: string[]
   clientId: string | null
@@ -58,7 +57,6 @@ export async function POST(request: Request) {
   const errors: string[] = []
   if (!body.firstNames?.trim()) errors.push("firstNames is required")
   if (!body.surname?.trim()) errors.push("surname is required")
-  if (!body.pin || !PIN_REGEX.test(body.pin)) errors.push("pin must be exactly 6 digits")
   if (!body.role || !["system_admin", "unit_manager", "user"].includes(body.role))
     errors.push("role must be system_admin, unit_manager, or user")
 
@@ -95,28 +93,39 @@ export async function POST(request: Request) {
     )
   }
 
-  // Reject PIN collisions up front so we don't half-create.
-  const { data: existing, error: pinCheckErr } = await admin
-    .from("users")
-    .select("id")
-    .eq("pin", body.pin)
-    .limit(1)
+  // Generate a cryptographically secure PIN, retrying if it collides with
+  // an existing one. With 10^6 possible PINs and a small user base the
+  // first candidate almost always works, but we defend against collisions.
+  let newPin = ""
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = generateSecurePin()
+    const { data: clash, error: pinCheckErr } = await admin
+      .from("users")
+      .select("id")
+      .eq("pin", candidate)
+      .limit(1)
 
-  if (pinCheckErr) {
-    return NextResponse.json({ error: pinCheckErr.message }, { status: 500 })
+    if (pinCheckErr) {
+      return NextResponse.json({ error: pinCheckErr.message }, { status: 500 })
+    }
+    if (!clash || clash.length === 0) {
+      newPin = candidate
+      break
+    }
   }
-  if (existing && existing.length > 0) {
+
+  if (!newPin) {
     return NextResponse.json(
-      { error: `PIN ${body.pin} is already in use` },
-      { status: 409 }
+      { error: "Failed to generate a unique PIN after 10 attempts" },
+      { status: 500 }
     )
   }
 
   // 1. Create the auth user.
-  const email = pinToEmail(body.pin)
+  const email = pinToEmail(newPin)
   const { data: authData, error: authErr } = await admin.auth.admin.createUser({
     email,
-    password: body.pin,
+    password: newPin,
     email_confirm: true,
     user_metadata: {
       first_names: body.firstNames,
@@ -142,7 +151,7 @@ export async function POST(request: Request) {
       surname: body.surname,
       email: body.email,
       contact_number: body.contactNumber,
-      pin: body.pin,
+      pin: newPin,
       role: body.role,
       unit_id: body.unitIds[0] ?? null,
       client_id: body.clientId ?? null,
@@ -187,7 +196,7 @@ export async function POST(request: Request) {
     const result = await sendPinResetEmail({
       to: body.email,
       firstName: body.firstNames,
-      newPin: body.pin,
+      newPin: newPin,
       appUrl: "http://187.127.135.11:3000",
     })
     emailSent = result.sent
@@ -219,5 +228,5 @@ export async function POST(request: Request) {
     ipAddress: getCallerIp(request),
   })
 
-  return NextResponse.json({ id: userId, emailSent }, { status: 201 })
+  return NextResponse.json({ id: userId, pin: newPin, emailSent }, { status: 201 })
 }

@@ -404,15 +404,13 @@ export default function AddUserPage() {
       // Get client from first selected unit
       const firstUnit = units.find((u) => u.id === selectedUnitIds[0])
 
-      // Generate a random 6-digit PIN for the new user.
-      const newPin = String(Math.floor(100000 + Math.random() * 900000))
-
-      await addUser({
+      // The server generates a cryptographically secure PIN with crypto.randomInt()
+      // and returns it so we can show it once to the admin in the success banner.
+      const { pin: newPin } = await addUser({
         firstNames,
         surname,
         email: emailAddress,
         contactNumber,
-        pin: newPin,
         role,
         unitIds: selectedUnitIds,
         clientId: firstUnit?.clientId ?? "",

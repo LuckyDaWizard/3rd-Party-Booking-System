@@ -39,16 +39,20 @@ interface AddUserInput {
   surname: string
   email: string
   contactNumber: string
-  pin: string
   role: string
   unitIds: string[]
   clientId: string
 }
 
+export interface AddUserResult {
+  id: string
+  pin: string
+}
+
 interface UserStoreContextValue {
   users: UserRecord[]
   loading: boolean
-  addUser: (user: AddUserInput) => Promise<string>
+  addUser: (user: AddUserInput) => Promise<AddUserResult>
   updateUser: (id: string, updates: Partial<Omit<UserRecord, "id" | "unitName" | "clientName" | "units">>) => Promise<void>
   updateUserUnits: (userId: string, unitIds: string[]) => Promise<void>
   deleteUser: (id: string) => Promise<void>
@@ -190,9 +194,10 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     fetchUsers()
   }, [fetchUsers])
 
-  async function addUser(user: AddUserInput) {
+  async function addUser(user: AddUserInput): Promise<AddUserResult> {
     // Routed through /api/admin/users so the server-side service-role client
     // can create both the auth.users entry and the public.users row atomically.
+    // The server generates the PIN with crypto.randomInt() for security.
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -201,7 +206,6 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
         surname: user.surname,
         email: user.email,
         contactNumber: user.contactNumber,
-        pin: user.pin,
         role: user.role,
         unitIds: user.unitIds,
         clientId: user.clientId || null,
@@ -214,9 +218,9 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
       throw new Error(error || "Failed to create user")
     }
 
-    const { id: userId } = (await res.json()) as { id: string }
+    const data = (await res.json()) as { id: string; pin: string }
     await fetchUsers()
-    return userId
+    return { id: data.id, pin: data.pin }
   }
 
   async function updateUser(id: string, updates: Partial<Omit<UserRecord, "id" | "unitName" | "clientName" | "units">>) {

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
-import { PIN_LENGTH } from "@/lib/constants"
 import { sendPinResetEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { generateSecurePin } from "@/lib/pin"
 
 // =============================================================================
 // POST /api/admin/users/[id]/reset-pin
@@ -31,11 +31,6 @@ import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 interface RouteContext {
   params: Promise<{ id: string }>
-}
-
-function generatePin(): string {
-  // Random 6-digit PIN, zero-padded (e.g. "042917")
-  return String(Math.floor(Math.random() * 10 ** PIN_LENGTH)).padStart(PIN_LENGTH, "0")
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -84,7 +79,7 @@ export async function POST(request: Request, context: RouteContext) {
   // Generate a new PIN, retrying if it collides with an existing one.
   let newPin = ""
   for (let attempt = 0; attempt < 10; attempt++) {
-    const candidate = generatePin()
+    const candidate = generateSecurePin()
     const { data: clash } = await admin
       .from("users")
       .select("id")
