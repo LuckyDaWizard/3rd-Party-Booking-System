@@ -5,79 +5,12 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
-import { X } from "lucide-react"
 import { useBookingStore } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
 import { DatePickerField } from "@/components/ui/date-picker-dialog"
+import { FloatingInput } from "@/components/ui/floating-input"
 import { PIN_LENGTH } from "@/lib/constants"
-
-function FloatingInput({
-  id,
-  label,
-  value,
-  onChange,
-  onClear,
-  onBlur,
-  type = "text",
-  error,
-  className = "",
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  onClear: () => void
-  onBlur?: () => void
-  type?: string
-  error?: string
-  className?: string
-}) {
-  const hasValue = value.length > 0
-  const hasError = !!error
-
-  return (
-    <div className={`flex flex-col gap-1 ${className}`}>
-      <div className="relative">
-        <input
-          id={id}
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          placeholder=" "
-          className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:bg-white ${
-            hasError
-              ? "border-[#FF3A69] focus:border-[#FF3A69]"
-              : "border-gray-300 focus:border-gray-900"
-          }`}
-        />
-        <label
-          htmlFor={id}
-          className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs ${
-            hasError
-              ? "text-[#FF3A69] peer-focus:text-[#FF3A69] peer-[:not(:placeholder-shown)]:text-[#FF3A69]"
-              : "text-gray-400 peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:text-gray-500"
-          }`}
-        >
-          {label}
-        </label>
-        {hasValue && (
-          <button
-            type="button"
-            onClick={onClear}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            <X className="size-4" />
-          </button>
-        )}
-      </div>
-      {hasError && (
-        <p className="text-xs text-[#FF3A69]">{error}</p>
-      )}
-    </div>
-  )
-}
 
 type SearchTab = "id" | "passport" | "dob"
 

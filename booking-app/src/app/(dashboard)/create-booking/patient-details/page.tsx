@@ -9,180 +9,9 @@ import { useBookingStore } from "@/lib/booking-store"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-store"
 import { DatePickerField } from "@/components/ui/date-picker-dialog"
+import { FloatingInput } from "@/components/ui/floating-input"
+import { FloatingSelect } from "@/components/ui/floating-select"
 import { PIN_LENGTH } from "@/lib/constants"
-
-// ---------------------------------------------------------------------------
-// Floating Input Component
-// ---------------------------------------------------------------------------
-
-function FloatingInput({
-  id,
-  label,
-  value,
-  onChange,
-  onClear,
-  onBlur,
-  type = "text",
-  readOnly = false,
-  error,
-  "data-testid": dataTestId,
-  className = "",
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  onClear: () => void
-  onBlur?: () => void
-  type?: string
-  readOnly?: boolean
-  error?: string
-  "data-testid"?: string
-  className?: string
-}) {
-  const hasValue = value.length > 0
-  const hasError = !!error
-
-  return (
-    <div className={`flex flex-col gap-1 ${className}`}>
-      <div className="relative">
-        <input
-          id={id}
-          data-testid={dataTestId}
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          readOnly={readOnly}
-          placeholder=" "
-          className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:bg-white active:bg-white autofill:bg-white ${
-            hasError
-              ? "border-[#FF3A69] focus:border-[#FF3A69]"
-              : readOnly
-                ? "border-gray-300 cursor-default bg-gray-50"
-                : "border-gray-300 focus:border-gray-900"
-          }`}
-        />
-        <label
-          htmlFor={id}
-          className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs ${
-            hasError
-              ? "text-[#FF3A69] peer-focus:text-[#FF3A69] peer-[:not(:placeholder-shown)]:text-[#FF3A69]"
-              : "text-gray-400 peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:text-gray-500"
-          }`}
-        >
-          {label}
-        </label>
-      {hasValue && !readOnly && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
-          aria-label={`Clear ${label}`}
-        >
-          <X className="size-4" />
-        </button>
-      )}
-      </div>
-      {hasError && (
-        <p className="text-xs text-[#FF3A69]">{error}</p>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Floating Select Component
-// ---------------------------------------------------------------------------
-
-function FloatingSelect({
-  id,
-  label,
-  value,
-  onChange,
-  options,
-  "data-testid": dataTestId,
-  className = "",
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  options: { value: string; label: string }[]
-  "data-testid"?: string
-  className?: string
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-  const selectedLabel = options.find((o) => o.value === value)?.label ?? ""
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside)
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [isOpen])
-
-  return (
-    <div ref={ref} className={`relative ${className}`}>
-      <button
-        id={id}
-        type="button"
-        data-testid={dataTestId}
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors ${
-          isOpen ? "border-gray-900" : "border-gray-300"
-        }`}
-      >
-        <span className={`${value ? "text-gray-900" : "text-transparent"}`}>
-          {selectedLabel || label}
-        </span>
-      </button>
-      <label
-        className={`pointer-events-none absolute left-3 bg-white px-1 text-sm transition-all ${
-          value || isOpen
-            ? "top-0 -translate-y-1/2 text-xs text-gray-500"
-            : "top-1/2 -translate-y-1/2 text-gray-400"
-        }`}
-      >
-        {label}
-      </label>
-      <ChevronDown
-        className={`pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-transform ${
-          isOpen ? "rotate-180" : ""
-        }`}
-      />
-
-      {isOpen && (
-        <div className="absolute left-0 bottom-full z-10 mb-1 max-h-96 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-          <div className="mx-2 my-2 flex max-h-80 flex-col gap-1 overflow-y-auto">
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                data-testid={`option-${opt.value}`}
-                onClick={() => {
-                  onChange(opt.value)
-                  setIsOpen(false)
-                }}
-                className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                  opt.value === value ? "bg-[#3ea3db]/15 font-medium" : ""
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -529,6 +358,7 @@ function StepBasicInfo({
           <FloatingSelect
             id="idType"
             data-testid="select-id-type"
+            testIdPrefix="option"
             label="ID Type"
             value={data.idType}
             onChange={(v) => handleChange("idType", v)}
@@ -551,6 +381,7 @@ function StepBasicInfo({
           <FloatingSelect
             id="title"
             data-testid="select-title"
+            testIdPrefix="option"
             label="Title"
             value={data.title}
             onChange={(v) => handleChange("title", v)}
@@ -559,6 +390,7 @@ function StepBasicInfo({
           <FloatingSelect
             id="nationality"
             data-testid="select-nationality"
+            testIdPrefix="option"
             label="Nationality"
             value={data.nationality}
             onChange={(v) => handleChange("nationality", v)}
@@ -571,6 +403,7 @@ function StepBasicInfo({
           <FloatingSelect
             id="gender"
             data-testid="select-gender"
+            testIdPrefix="option"
             label="Gender"
             value={data.gender}
             onChange={(v) => handleChange("gender", v)}
@@ -970,6 +803,7 @@ export default function PatientDetailsPage() {
               <FloatingSelect
                 id="province"
                 label="Province"
+                testIdPrefix="option"
                 value={addressInfo.province}
                 onChange={(v) => setAddressInfo({ ...addressInfo, province: v })}
                 options={PROVINCES.map((p) => ({ value: p, label: p }))}
@@ -1182,6 +1016,7 @@ export default function PatientDetailsPage() {
                 <FloatingSelect
                   id="verify-title"
                   label="Title"
+                  testIdPrefix="option"
                   value={basicInfo.title}
                   onChange={(v) => setBasicInfo({ ...basicInfo, title: v })}
                   options={TITLE_OPTIONS}
@@ -1196,6 +1031,7 @@ export default function PatientDetailsPage() {
                 <FloatingSelect
                   id="verify-gender"
                   label="Gender"
+                  testIdPrefix="option"
                   value={basicInfo.gender}
                   onChange={(v) => setBasicInfo({ ...basicInfo, gender: v })}
                   options={GENDER_OPTIONS}

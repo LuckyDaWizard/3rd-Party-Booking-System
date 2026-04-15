@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, X } from "lucide-react"
+import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,63 +11,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { FloatingInput } from "@/components/ui/floating-input"
 import { useClientStore } from "@/lib/client-store"
-
-// ---------------------------------------------------------------------------
-// Floating Input Component
-// ---------------------------------------------------------------------------
-
-function FloatingInput({
-  id,
-  label,
-  value,
-  onChange,
-  onClear,
-  type = "text",
-  "data-testid": dataTestId,
-  className = "",
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (value: string) => void
-  onClear: () => void
-  type?: string
-  "data-testid"?: string
-  className?: string
-}) {
-  const hasValue = value.length > 0
-
-  return (
-    <div className={`relative ${className}`}>
-      <input
-        id={id}
-        data-testid={dataTestId}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder=" "
-        className="peer h-14 w-full rounded-lg border border-gray-300 bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white active:bg-white autofill:bg-white"
-      />
-      <label
-        htmlFor={id}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm text-gray-400 transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:text-gray-500"
-      >
-        {label}
-      </label>
-      {hasValue && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
-          aria-label={`Clear ${label}`}
-        >
-          <X className="size-4" />
-        </button>
-      )}
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Page
