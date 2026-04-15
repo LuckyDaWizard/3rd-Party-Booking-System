@@ -16,6 +16,7 @@ import {
 import { useBookingStore, type BookingStatus } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
 import { DataCard } from "@/components/data-card"
+import { PIN_LENGTH } from "@/lib/constants"
 import * as XLSX from "xlsx"
 
 // ---------------------------------------------------------------------------
@@ -130,7 +131,7 @@ interface OptionsModalProps {
   bookingId: string | null
   onDiscard: (id: string) => void
   canConfirmPayment: boolean
-  onConfirmPayment: (id: string) => Promise<void>
+  onRequestConfirmPayment: (id: string) => void
 }
 
 type OptionChoice = "reshare" | "process-on-device" | "confirm-payment" | null
@@ -141,28 +142,20 @@ function OptionsModal({
   bookingId,
   onDiscard,
   canConfirmPayment,
-  onConfirmPayment,
+  onRequestConfirmPayment,
 }: OptionsModalProps) {
   const router = useRouter()
   const [selected, setSelected] = React.useState<OptionChoice>(null)
-  const [confirming, setConfirming] = React.useState(false)
-  const [confirmError, setConfirmError] = React.useState("")
 
-  async function handleContinue() {
+  function handleContinue() {
     if (!selected || !bookingId) return
 
     if (selected === "confirm-payment") {
-      setConfirming(true)
-      setConfirmError("")
-      try {
-        await onConfirmPayment(bookingId)
-        onOpenChange(false)
-        setSelected(null)
-      } catch (err) {
-        setConfirmError(err instanceof Error ? err.message : "Failed to confirm payment")
-      } finally {
-        setConfirming(false)
-      }
+      // Hand off to the page-level PIN verification modal. This modal closes
+      // and the verification modal opens.
+      onOpenChange(false)
+      setSelected(null)
+      onRequestConfirmPayment(bookingId)
       return
     }
 
@@ -178,7 +171,6 @@ function OptionsModal({
   function handleCancel() {
     onOpenChange(false)
     setSelected(null)
-    setConfirmError("")
   }
 
   function handleDiscard() {
@@ -261,22 +253,177 @@ function OptionsModal({
           )}
         </div>
 
-        {confirmError && (
-          <p className="text-center text-sm font-medium text-red-600">{confirmError}</p>
-        )}
-
         {/* Actions */}
         <div className="flex flex-col gap-2">
           <Button
             data-testid="options-continue-button"
             className="w-full bg-gray-900 text-white hover:bg-gray-800"
             size="lg"
-            disabled={!selected || confirming}
+            disabled={!selected}
             onClick={handleContinue}
           >
-            {confirming ? (
+            Continue
+            <ArrowRight className="ml-1 size-4" />
+          </Button>
+
+          <Button
+            data-testid="options-cancel-button"
+            variant="outline"
+            className="w-full border border-black"
+            size="lg"
+            onClick={handleCancel}
+          >
+            Cancel
+          </Button>
+
+          <button
+            type="button"
+            data-testid="options-discard-button"
+            className="mt-1 text-center text-sm text-red-600 hover:underline"
+            onClick={handleDiscard}
+          >
+            Discard Flow
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// PIN Verification Modal — used to authorise manual payment confirmation
+// ---------------------------------------------------------------------------
+
+interface PinVerificationModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onVerified: () => void | Promise<void>
+  activeUnitId: string | null
+  heading: string
+  subtitle?: string
+}
+
+function PinVerificationModal({
+  open,
+  onOpenChange,
+  onVerified,
+  activeUnitId,
+  heading,
+  subtitle,
+}: PinVerificationModalProps) {
+  const [code, setCode] = React.useState<string[]>(
+    Array.from({ length: PIN_LENGTH }, () => "")
+  )
+  const [verifying, setVerifying] = React.useState(false)
+  const [error, setError] = React.useState("")
+  const refs = React.useRef<(HTMLInputElement | null)[]>([])
+
+  // Reset state when modal opens
+  React.useEffect(() => {
+    if (open) {
+      setCode(Array.from({ length: PIN_LENGTH }, () => ""))
+      setError("")
+      setVerifying(false)
+      // Focus first digit after the dialog mounts
+      setTimeout(() => refs.current[0]?.focus(), 100)
+    }
+  }, [open])
+
+  async function handleVerify() {
+    if (verifying) return
+    const pin = code.join("")
+    if (pin.length !== PIN_LENGTH) return
+
+    setVerifying(true)
+    setError("")
+    try {
+      const res = await fetch("/api/verify/manager-pin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pin, unitId: activeUnitId }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { valid?: boolean }
+      if (!res.ok || !data.valid) {
+        setError("Invalid verification code")
+        setCode(Array.from({ length: PIN_LENGTH }, () => ""))
+        setTimeout(() => refs.current[0]?.focus(), 50)
+        return
+      }
+
+      // Verified — call through.
+      await onVerified()
+      onOpenChange(false)
+    } catch {
+      setError("Network error. Please try again.")
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!verifying) onOpenChange(o)
+      }}
+    >
+      <DialogContent className="max-w-sm rounded-2xl p-6">
+        <DialogHeader className="flex flex-col items-center gap-1 text-center">
+          <DialogTitle className="mx-4 text-xl font-bold text-gray-900">
+            {heading}
+          </DialogTitle>
+          {subtitle && (
+            <p className="text-sm text-gray-500">{subtitle}</p>
+          )}
+        </DialogHeader>
+
+        <div className="flex flex-col items-center gap-4 pt-3">
+          {/* 6-digit code inputs */}
+          <div className="flex w-full items-center justify-between">
+            {code.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => {
+                  refs.current[index] = el
+                }}
+                type="password"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                disabled={verifying}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "")
+                  const newCode = [...code]
+                  newCode[index] = val
+                  setCode(newCode)
+                  if (val && index < PIN_LENGTH - 1) {
+                    refs.current[index + 1]?.focus()
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Backspace" && !digit && index > 0) {
+                    refs.current[index - 1]?.focus()
+                  }
+                }}
+                className="size-10 rounded-lg border border-gray-300 bg-gray-100 text-center text-base font-medium text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white disabled:opacity-50 sm:size-11"
+              />
+            ))}
+          </div>
+
+          {error && (
+            <p className="text-center text-sm font-medium text-[#FF3A69]">
+              {error}
+            </p>
+          )}
+
+          <Button
+            disabled={code.some((d) => !d) || verifying}
+            onClick={handleVerify}
+            className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {verifying ? (
               <>
-                Confirming...
+                Verifying...
                 <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
                   <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
                   <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
@@ -290,25 +437,15 @@ function OptionsModal({
             )}
           </Button>
 
-          <Button
-            data-testid="options-cancel-button"
-            variant="outline"
-            className="w-full border border-black"
-            size="lg"
-            onClick={handleCancel}
-            disabled={confirming}
-          >
-            Cancel
-          </Button>
-
           <button
             type="button"
-            data-testid="options-discard-button"
-            className="mt-1 text-center text-sm text-red-600 hover:underline disabled:opacity-50"
-            onClick={handleDiscard}
-            disabled={confirming}
+            onClick={() => {
+              if (!verifying) onOpenChange(false)
+            }}
+            disabled={verifying}
+            className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
           >
-            Discard Flow
+            Cancel
           </button>
         </div>
       </DialogContent>
@@ -324,7 +461,7 @@ export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { bookings, loading, discardBooking, updateBooking, refreshBookings } = useBookingStore()
-  const { isSystemAdmin, isUnitManager } = useAuth()
+  const { isSystemAdmin, isUnitManager, activeUnitId } = useAuth()
   const canConfirmPayment = isSystemAdmin || isUnitManager
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
@@ -342,6 +479,11 @@ export default function PatientHistoryPage() {
   }, [tabParam])
   const [optionsModalOpen, setOptionsModalOpen] = React.useState(false)
   const [selectedBookingId, setSelectedBookingId] = React.useState<string | null>(null)
+
+  // PIN verification modal state — used when a supervisor is manually
+  // confirming a payment (requires re-entering their PIN as a second factor).
+  const [pinModalOpen, setPinModalOpen] = React.useState(false)
+  const [pendingConfirmBookingId, setPendingConfirmBookingId] = React.useState<string | null>(null)
 
   // Map booking records to patient records for display
   const allPatients: PatientRecord[] = bookings.map((b) => ({
@@ -755,16 +897,38 @@ export default function PatientHistoryPage() {
         onDiscard={async (id) => {
           await discardBooking(id)
         }}
-        onConfirmPayment={async (id) => {
-          const res = await fetch(`/api/bookings/${id}/complete-payment`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          })
+        onRequestConfirmPayment={(id) => {
+          // User picked "Mark Payment as Confirmed" — open PIN verification.
+          setPendingConfirmBookingId(id)
+          setPinModalOpen(true)
+        }}
+      />
+
+      {/* PIN Verification Modal — gates manual payment confirmation */}
+      <PinVerificationModal
+        open={pinModalOpen}
+        onOpenChange={(o) => {
+          setPinModalOpen(o)
+          if (!o) setPendingConfirmBookingId(null)
+        }}
+        activeUnitId={activeUnitId}
+        heading="Enter your verification code to confirm payment"
+        subtitle="This will mark the booking as paid and be recorded in the audit log."
+        onVerified={async () => {
+          if (!pendingConfirmBookingId) return
+          const res = await fetch(
+            `/api/bookings/${pendingConfirmBookingId}/complete-payment`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            }
+          )
           const data = await res.json().catch(() => ({}))
           if (!res.ok) {
             throw new Error(data.error ?? "Failed to confirm payment")
           }
           await refreshBookings()
+          setPendingConfirmBookingId(null)
         }}
       />
 
