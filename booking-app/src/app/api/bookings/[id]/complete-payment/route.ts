@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdminWithCaller } from "@/lib/api-auth"
+import { requireAdminOrManager } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
@@ -8,25 +8,26 @@ import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 //
 // Manually confirm a booking as "Payment Complete".
 //
-// Auth: system_admin only.
+// Auth: system_admin (any booking) OR unit_manager (bookings in their units).
 //
-// Why system_admin only:
+// Why this is restricted:
 //   The PayFast ITN callback is the authoritative source of payment
 //   confirmation. This route is NOT called during the normal booking flow.
 //   It exists ONLY for the rare case where an ITN genuinely fails to arrive
 //   (e.g. sandbox mode with no public domain, PayFast outage) — in which
-//   case an administrator must verify the payment on PayFast's dashboard
-//   and then mark the booking as paid here.
+//   case an accountable supervisor must verify the payment on PayFast's
+//   dashboard and then mark the booking as paid here.
 //
-//   The route is NOT callable by regular users or unit managers — marking
-//   a booking as paid is a financial-integrity action that should require
-//   admin-level oversight.
+//   Regular `user` role is NOT permitted — marking a booking as paid is a
+//   financial-integrity action that requires supervisor-level oversight.
 //
 // Checks:
-//   1. Caller must be system_admin (verified via session + role lookup).
+//   1. Caller must be system_admin or unit_manager (session + role lookup).
 //   2. Booking must exist.
 //   3. Booking must be "In Progress" (idempotent for already-paid; rejects
 //      for Discarded/Abandoned).
+//   4. Unit scoping: unit_manager may only confirm bookings in their own
+//      assigned units. system_admin can confirm anywhere.
 //
 // Audit: every confirmation is logged with actor, booking id, and IP.
 // =============================================================================
@@ -36,7 +37,7 @@ interface RouteContext {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const { caller, denied } = await requireSystemAdminWithCaller()
+  const { caller, denied } = await requireAdminOrManager()
   if (denied) return denied
 
   const { id } = await context.params
@@ -63,6 +64,23 @@ export async function POST(request: Request, context: RouteContext) {
 
   if (loadErr || !booking) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+  }
+
+  // Unit scoping: unit_manager can only confirm bookings in their units.
+  // system_admin can confirm any booking.
+  if (caller.role === "unit_manager") {
+    if (!booking.unit_id) {
+      return NextResponse.json(
+        { error: "Forbidden — booking is not assigned to a unit" },
+        { status: 403 }
+      )
+    }
+    if (!caller.unitIds.includes(booking.unit_id)) {
+      return NextResponse.json(
+        { error: "Forbidden — booking is not in your assigned units" },
+        { status: 403 }
+      )
+    }
   }
 
   // Idempotency.

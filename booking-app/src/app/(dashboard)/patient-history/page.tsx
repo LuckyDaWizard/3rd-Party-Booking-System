@@ -129,7 +129,7 @@ interface OptionsModalProps {
   onOpenChange: (open: boolean) => void
   bookingId: string | null
   onDiscard: (id: string) => void
-  isSystemAdmin: boolean
+  canConfirmPayment: boolean
   onConfirmPayment: (id: string) => Promise<void>
 }
 
@@ -140,7 +140,7 @@ function OptionsModal({
   onOpenChange,
   bookingId,
   onDiscard,
-  isSystemAdmin,
+  canConfirmPayment,
   onConfirmPayment,
 }: OptionsModalProps) {
   const router = useRouter()
@@ -239,8 +239,8 @@ function OptionsModal({
             </span>
           </button>
 
-          {/* Confirm Payment (system_admin only) */}
-          {isSystemAdmin && (
+          {/* Confirm Payment (system_admin + unit_manager) */}
+          {canConfirmPayment && (
             <button
               type="button"
               data-testid="option-confirm-payment"
@@ -255,7 +255,7 @@ function OptionsModal({
                 Mark Payment as Confirmed
               </span>
               <span className="mt-1 block text-xs text-gray-600">
-                Admin override. Use only if you&apos;ve verified the payment on PayFast&apos;s dashboard. Logged to audit trail.
+                Supervisor override. Use only if you&apos;ve verified the payment on PayFast&apos;s dashboard. Logged to audit trail.
               </span>
             </button>
           )}
@@ -324,7 +324,8 @@ export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { bookings, loading, discardBooking, updateBooking, refreshBookings } = useBookingStore()
-  const { isSystemAdmin } = useAuth()
+  const { isSystemAdmin, isUnitManager } = useAuth()
+  const canConfirmPayment = isSystemAdmin || isUnitManager
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
     FilterType
@@ -750,7 +751,7 @@ export default function PatientHistoryPage() {
         open={optionsModalOpen}
         onOpenChange={setOptionsModalOpen}
         bookingId={selectedBookingId}
-        isSystemAdmin={isSystemAdmin}
+        canConfirmPayment={canConfirmPayment}
         onDiscard={async (id) => {
           await discardBooking(id)
         }}
