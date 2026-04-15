@@ -5,24 +5,22 @@ import { requireSystemAdmin } from "@/lib/api-auth"
 // =============================================================================
 // GET /api/admin/sessions
 //
-// List all active sessions for the security dashboard. Joins the
-// public.active_sessions view (migration 012) with public.users so the
-// frontend can show who the session belongs to.
+// Lists all tracked sessions with a classified status: active / idle / ended.
+// Reads from public.active_sessions view (migration 014) which now includes
+// not_after (refresh token expiry).
+//
+// Status classification:
+//   - active:  updated_at within last 30 minutes
+//   - idle:    updated_at 30 min to 24 hours ago AND not_after still in future
+//   - ended:   updated_at > 24 hours ago OR not_after is in the past
 //
 // Response:
 //   {
 //     data: Array<{
-//       id: string
-//       userId: string | null
-//       userName: string | null
-//       userEmail: string | null
-//       userRole: string | null
-//       createdAt: string
-//       updatedAt: string
-//       userAgent: string | null
-//       ipAddress: string | null
+//       id, userId, userName, userEmail, userRole, createdAt, updatedAt,
+//       userAgent, ipAddress, notAfter, status: "active" | "idle" | "ended"
 //     }>
-//     summary: { totalSessions: number, uniqueUsers: number }
+//     summary: { active, idle, ended, uniqueUsers }
 //   }
 //
 // Auth: system_admin only.
@@ -35,6 +33,7 @@ interface SessionRow {
   updated_at: string
   user_agent: string | null
   ip: string | null
+  not_after: string | null
 }
 
 interface UserLookup {
@@ -43,6 +42,26 @@ interface UserLookup {
   surname: string
   email: string
   role: string
+}
+
+type SessionStatus = "active" | "idle" | "ended"
+
+const ACTIVE_WINDOW_MS = 30 * 60 * 1000         // 30 minutes
+const IDLE_WINDOW_MS = 24 * 60 * 60 * 1000      // 24 hours
+
+function classifySession(updatedAt: string, notAfter: string | null): SessionStatus {
+  const now = Date.now()
+  const updated = new Date(updatedAt).getTime()
+
+  // Refresh token expired — definitively ended.
+  if (notAfter && new Date(notAfter).getTime() < now) {
+    return "ended"
+  }
+
+  const idleMs = now - updated
+  if (idleMs < ACTIVE_WINDOW_MS) return "active"
+  if (idleMs < IDLE_WINDOW_MS) return "idle"
+  return "ended"
 }
 
 export async function GET() {
@@ -59,10 +78,9 @@ export async function GET() {
     )
   }
 
-  // Pull active sessions.
   const { data: sessionsData, error: sessionsErr } = await admin
     .from("active_sessions")
-    .select("id, user_id, created_at, updated_at, user_agent, ip")
+    .select("id, user_id, created_at, updated_at, user_agent, ip, not_after")
     .order("updated_at", { ascending: false })
     .limit(500)
 
@@ -91,6 +109,7 @@ export async function GET() {
 
   const entries = sessions.map((s) => {
     const user = s.user_id ? userByAuthId.get(s.user_id) : undefined
+    const status = classifySession(s.updated_at, s.not_after)
     return {
       id: s.id,
       userId: s.user_id,
@@ -101,16 +120,35 @@ export async function GET() {
       updatedAt: s.updated_at,
       userAgent: s.user_agent,
       ipAddress: s.ip,
+      notAfter: s.not_after,
+      status,
     }
   })
 
-  const uniqueUsers = new Set(sessions.map((s) => s.user_id).filter(Boolean)).size
+  // Count by status for summary cards.
+  let active = 0
+  let idle = 0
+  let ended = 0
+  const activeUsers = new Set<string>()
+
+  for (const e of entries) {
+    if (e.status === "active") {
+      active += 1
+      if (e.userId) activeUsers.add(e.userId)
+    } else if (e.status === "idle") {
+      idle += 1
+    } else {
+      ended += 1
+    }
+  }
 
   return NextResponse.json({
     data: entries,
     summary: {
-      totalSessions: entries.length,
-      uniqueUsers,
+      active,
+      idle,
+      ended,
+      uniqueActiveUsers: activeUsers.size,
     },
   })
 }

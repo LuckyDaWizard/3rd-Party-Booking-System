@@ -67,6 +67,8 @@ interface AttemptsApiResponse {
   }
 }
 
+type SessionStatus = "active" | "idle" | "ended"
+
 interface SessionEntry {
   id: string
   userId: string | null
@@ -77,13 +79,17 @@ interface SessionEntry {
   updatedAt: string
   userAgent: string | null
   ipAddress: string | null
+  notAfter: string | null
+  status: SessionStatus
 }
 
 interface SessionsApiResponse {
   data: SessionEntry[]
   summary: {
-    totalSessions: number
-    uniqueUsers: number
+    active: number
+    idle: number
+    ended: number
+    uniqueActiveUsers: number
   }
 }
 
@@ -622,6 +628,28 @@ function FailedAttemptsTab() {
 // Active Sessions Tab
 // ---------------------------------------------------------------------------
 
+function getStatusBadgeStyle(status: SessionStatus): string {
+  switch (status) {
+    case "active":
+      return "bg-green-100 text-green-700"
+    case "idle":
+      return "bg-amber-100 text-amber-800"
+    case "ended":
+      return "bg-gray-200 text-gray-600"
+  }
+}
+
+function getStatusLabel(status: SessionStatus): string {
+  switch (status) {
+    case "active":
+      return "Active"
+    case "idle":
+      return "Idle"
+    case "ended":
+      return "Ended"
+  }
+}
+
 function ActiveSessionsTab() {
   const { user: currentUser } = useAuth()
   const [sessions, setSessions] = React.useState<SessionEntry[]>([])
@@ -631,6 +659,7 @@ function ActiveSessionsTab() {
   const [revokeTarget, setRevokeTarget] = React.useState<SessionEntry | null>(null)
   const [revoking, setRevoking] = React.useState(false)
   const [revokeError, setRevokeError] = React.useState("")
+  const [showEnded, setShowEnded] = React.useState(false)
 
   const load = React.useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
@@ -693,55 +722,93 @@ function ActiveSessionsTab() {
         </Button>
       </div>
 
-      {/* Summary */}
+      {/* Summary cards: Active / Idle / Ended */}
       {summary && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-blue-50">
-              <Monitor className="size-6 text-blue-500" />
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-green-50">
+              <Monitor className="size-6 text-green-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.totalSessions}</div>
-              <div className="text-xs text-gray-500">Active Sessions</div>
+              <div className="text-2xl font-bold text-gray-900">{summary.active}</div>
+              <div className="text-xs text-gray-500">Active (last 30 min)</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-green-50">
-              <UserCircle className="size-6 text-green-500" />
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-amber-50">
+              <UserCircle className="size-6 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.uniqueUsers}</div>
-              <div className="text-xs text-gray-500">Unique Users Signed In</div>
+              <div className="text-2xl font-bold text-gray-900">{summary.idle}</div>
+              <div className="text-xs text-gray-500">Idle (under 24h)</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 rounded-xl bg-white p-5">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gray-100">
+              <LogOut className="size-6 text-gray-500" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-2xl font-bold text-gray-900">{summary.ended}</div>
+              <div className="text-xs text-gray-500">Ended</div>
             </div>
           </div>
         </div>
       )}
 
+      {/* Show-ended toggle */}
+      {summary && summary.ended > 0 && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowEnded((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              showEnded
+                ? "bg-[#3ea3db] text-white"
+                : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            {showEnded ? "Hide ended sessions" : `Show ended sessions (${summary.ended})`}
+          </button>
+        </div>
+      )}
+
       {/* Session list */}
       <div className="flex min-w-0 flex-col gap-3">
-        {loading && sessions.length === 0 ? (
-          <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
-            <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
-              <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-            </svg>
-            <span className="text-sm text-gray-400">Loading sessions...</span>
-          </div>
-        ) : sessions.length === 0 ? (
-          <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
-            <Monitor className="size-10 text-gray-400" />
-            <span className="text-base font-medium text-gray-900">No active sessions</span>
-            <span className="text-sm text-gray-400">
-              No one is currently signed in to the system.
-            </span>
-          </div>
-        ) : (
-          sessions.map((session) => {
+        {(() => {
+          const visibleSessions = showEnded
+            ? sessions
+            : sessions.filter((s) => s.status !== "ended")
+
+          if (loading && sessions.length === 0) {
+            return (
+              <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
+                <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+                <span className="text-sm text-gray-400">Loading sessions...</span>
+              </div>
+            )
+          }
+
+          if (visibleSessions.length === 0) {
+            return (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
+                <Monitor className="size-10 text-gray-400" />
+                <span className="text-base font-medium text-gray-900">
+                  {showEnded ? "No sessions" : "No active or idle sessions"}
+                </span>
+                <span className="text-sm text-gray-400">
+                  {showEnded
+                    ? "Nothing to show."
+                    : "No one is currently signed in."}
+                </span>
+              </div>
+            )
+          }
+
+          return visibleSessions.map((session) => {
             const isCurrentUser = currentUser?.id && session.userId === currentUser.id
-            // Note: session.userId is the Supabase auth user id. currentUser.id is
-            // our public.users id. These won't match directly — we'd need
-            // currentUser.authUserId to compare. Until we have that, we'll match
-            // on email as a best-effort self-check.
             const isSelfByEmail =
               !!currentUser?.email &&
               !!session.userEmail &&
@@ -751,15 +818,23 @@ function ActiveSessionsTab() {
             const displayName = session.userName || "Unknown user"
             const deviceLabel = summariseUserAgent(session.userAgent)
             const browserLabel = summariseBrowser(session.userAgent)
+            const isEnded = session.status === "ended"
 
             return (
               <div
                 key={session.id}
-                className="flex flex-col gap-3 rounded-xl bg-white p-4 sm:p-5"
+                className={`flex flex-col gap-3 rounded-xl bg-white p-4 sm:p-5 ${
+                  isEnded ? "opacity-70" : ""
+                }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        className={`rounded-full border-transparent px-3 py-1 text-xs font-medium ${getStatusBadgeStyle(session.status)}`}
+                      >
+                        {getStatusLabel(session.status)}
+                      </Badge>
                       {isSelf && (
                         <Badge className="rounded-full border-transparent bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                           This is you
@@ -792,10 +867,14 @@ function ActiveSessionsTab() {
                     <Button
                       size="sm"
                       onClick={() => setRevokeTarget(session)}
-                      className="gap-1 rounded-lg bg-[#FF3A69] text-xs text-white hover:bg-[#FF3A69]/90"
+                      className={
+                        isEnded
+                          ? "gap-1 rounded-lg bg-gray-600 text-xs text-white hover:bg-gray-700"
+                          : "gap-1 rounded-lg bg-[#FF3A69] text-xs text-white hover:bg-[#FF3A69]/90"
+                      }
                     >
                       <LogOut className="size-3" />
-                      Sign Out
+                      {isEnded ? "Remove" : "Sign Out"}
                     </Button>
                   </div>
                 </div>
@@ -813,7 +892,7 @@ function ActiveSessionsTab() {
               </div>
             )
           })
-        )}
+        })()}
       </div>
 
       {/* Revoke confirmation dialog */}
@@ -824,23 +903,34 @@ function ActiveSessionsTab() {
         <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
             <DialogTitle className="text-2xl font-bold text-gray-900">
-              Force sign-out?
+              {revokeTarget?.status === "ended" ? "Remove ended session?" : "Force sign-out?"}
             </DialogTitle>
             <DialogDescription className="text-sm text-gray-500">
               {revokeTarget && (
                 <>
-                  This will revoke the session for{" "}
-                  <strong>{revokeTarget.userName ?? "Unknown user"}</strong>
-                  {revokeTarget.userEmail && (
+                  {revokeTarget.status === "ended" ? (
                     <>
-                      {" "}
-                      ({revokeTarget.userEmail})
+                      This will remove the record for{" "}
+                      <strong>{revokeTarget.userName ?? "Unknown user"}</strong>
+                      &apos;s ended session. The user is no longer signed in.
+                    </>
+                  ) : (
+                    <>
+                      This will revoke the session for{" "}
+                      <strong>{revokeTarget.userName ?? "Unknown user"}</strong>
+                      {revokeTarget.userEmail && (
+                        <>
+                          {" "}
+                          ({revokeTarget.userEmail})
+                        </>
+                      )}
+                      . They&apos;ll be signed out within ~60 minutes (when their access
+                      token expires).
                     </>
                   )}
-                  . They&apos;ll be signed out within ~60 minutes (when their access
-                  token expires).
                   {currentUser?.email &&
-                    revokeTarget.userEmail === currentUser.email && (
+                    revokeTarget.userEmail === currentUser.email &&
+                    revokeTarget.status !== "ended" && (
                       <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
                         ⚠️ This is your own session. You may be signed out shortly
                         after confirming.
@@ -859,11 +949,15 @@ function ActiveSessionsTab() {
             <Button
               onClick={handleRevoke}
               disabled={revoking}
-              className="h-11 w-full gap-2 rounded-xl bg-[#FF3A69] text-white hover:bg-[#FF3A69]/90 disabled:opacity-50"
+              className={
+                revokeTarget?.status === "ended"
+                  ? "h-11 w-full gap-2 rounded-xl bg-gray-700 text-white hover:bg-gray-800 disabled:opacity-50"
+                  : "h-11 w-full gap-2 rounded-xl bg-[#FF3A69] text-white hover:bg-[#FF3A69]/90 disabled:opacity-50"
+              }
             >
               {revoking ? (
                 <>
-                  Revoking...
+                  {revokeTarget?.status === "ended" ? "Removing..." : "Revoking..."}
                   <svg className="size-4 animate-spin" viewBox="0 0 40 40" fill="none">
                     <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
                     <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
@@ -872,7 +966,7 @@ function ActiveSessionsTab() {
               ) : (
                 <>
                   <LogOut className="size-4" />
-                  Yes, revoke session
+                  {revokeTarget?.status === "ended" ? "Yes, remove record" : "Yes, revoke session"}
                 </>
               )}
             </Button>
