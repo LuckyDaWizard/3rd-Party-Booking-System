@@ -358,14 +358,27 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   )
 
   // ------- Complete payment -------
+  //
+  // Writes the "Payment Complete" status server-side via an API route. Direct
+  // Supabase writes from the browser are blocked by a DB trigger (migration
+  // 011) to prevent users from faking paid bookings in the browser.
+  //
+  // The PayFast ITN callback remains the authoritative source of truth; this
+  // route is the fallback when ITN doesn't reach the VPS (no domain / sandbox).
   const completePayment = useCallback(
     async (id: string) => {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "Payment Complete" })
-        .eq("id", id)
-
-      if (error) console.error("Error completing payment:", error)
+      try {
+        const res = await fetch(`/api/bookings/${id}/complete-payment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          console.error("Error completing payment:", data.error ?? res.statusText)
+        }
+      } catch (err) {
+        console.error("Error completing payment:", err)
+      }
 
       await fetchBookings()
     },
