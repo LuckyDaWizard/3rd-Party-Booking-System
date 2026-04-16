@@ -99,3 +99,78 @@ export async function sendPinResetEmail({
     return { sent: false, error: message }
   }
 }
+
+/**
+ * Send a payment link email to a patient. Used when the booking flow's
+ * payment-type step selects "Send a payment link" — the patient receives
+ * the PayFast checkout URL by email and pays later from any device.
+ *
+ * Returns `{ sent: true }` on success, `{ sent: false, error: string }` on
+ * failure. Caller decides whether to surface errors or retry.
+ */
+export async function sendPaymentLinkEmail({
+  to,
+  firstName,
+  paymentUrl,
+  amount,
+  itemName,
+}: {
+  to: string
+  firstName: string
+  paymentUrl: string
+  amount: string
+  itemName: string
+}): Promise<{ sent: boolean; error?: string }> {
+  try {
+    const transport = getTransporter()
+
+    await transport.sendMail({
+      from: `"CareFirst Booking" <${SMTP_USER}>`,
+      to,
+      subject: "Your CareFirst booking — payment required",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #1a1a1a; margin-bottom: 16px;">Complete your booking payment</h2>
+          <p style="color: #4a4a4a; font-size: 15px;">
+            Hi ${firstName},
+          </p>
+          <p style="color: #4a4a4a; font-size: 15px;">
+            Your consultation booking has been created. To confirm it, please complete payment using the secure link below.
+          </p>
+          <div style="background: #f4f4f4; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 8px;">
+              <span>${itemName}</span>
+              <span>R${amount}</span>
+            </div>
+            <div style="border-top: 1px solid #ddd; padding-top: 8px; display: flex; justify-content: space-between; font-size: 15px; color: #1a1a1a; font-weight: 600;">
+              <span>Total</span>
+              <span>R${amount}</span>
+            </div>
+          </div>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${paymentUrl}"
+               style="display: inline-block; background: #3ea3db; color: white; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 15px;">
+              Pay now via PayFast
+            </a>
+          </div>
+          <p style="color: #666; font-size: 13px;">
+            Or copy this link into your browser:<br>
+            <a href="${paymentUrl}" style="color: #3ea3db; word-break: break-all;">${paymentUrl}</a>
+          </p>
+          <p style="color: #4a4a4a; font-size: 14px; margin-top: 24px;">
+            Your payment is processed securely by PayFast. CareFirst never sees or stores your card details.
+          </p>
+          <p style="color: #999; font-size: 12px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px;">
+            If you didn&apos;t request this booking, please ignore this email — no payment will be taken.
+          </p>
+        </div>
+      `,
+    })
+
+    return { sent: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("Failed to send payment link email:", message)
+    return { sent: false, error: message }
+  }
+}
