@@ -143,33 +143,6 @@ export function buildPaymentData(
   return data
 }
 
-/**
- * Build a shareable PayFast payment URL (GET-style with query-string fields
- * + signature). Used when emailing a "pay this link" to the patient — the
- * patient clicks the URL, PayFast opens in their browser, they pay.
- *
- * Works identically to the form-POST flow because PayFast accepts both.
- * The ITN still fires server-to-server on payment completion.
- */
-export function generatePaymentUrl(
-  config: PayfastConfig,
-  payment: PaymentInitData
-): string {
-  const formData = buildPaymentData(config, payment)
-  const signature = generateSignature(formData, config.passphrase)
-  formData.signature = signature
-
-  const qs = Object.entries(formData)
-    .filter(([, v]) => v !== "")
-    .map(
-      ([k, v]) =>
-        `${k}=${encodeURIComponent(v.trim()).replace(/%20/g, "+")}`
-    )
-    .join("&")
-
-  return `${getProcessUrl(config.testMode)}?${qs}`
-}
-
 // ---------------------------------------------------------------------------
 // ITN (Instant Transaction Notification) validation
 // ---------------------------------------------------------------------------

@@ -3,7 +3,6 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
 import {
   getPayfastConfig,
-  generatePaymentUrl,
   PAYMENT_AMOUNT,
   PAYMENT_ITEM_NAME,
 } from "@/lib/payfast"
@@ -117,15 +116,12 @@ export async function POST(request: Request) {
     .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
     .eq("id", bookingId)
 
-  // Build the signed PayFast URL.
-  const paymentUrl = generatePaymentUrl(config, {
-    bookingId,
-    amount: PAYMENT_AMOUNT,
-    itemName: PAYMENT_ITEM_NAME,
-    buyerFirstName: booking.first_names ?? undefined,
-    buyerLastName: booking.surname ?? undefined,
-    buyerEmail: booking.email_address,
-  })
+  // Build the payment link. The link points to our /pay/[bookingId] page,
+  // which renders a form that auto-posts to PayFast. We don't link directly
+  // to PayFast's /eng/process because that endpoint only accepts POST (not
+  // GET), and passing the signature+passphrase data via query string
+  // alone doesn't work.
+  const paymentUrl = `${config.appUrl}/pay/${bookingId}`
 
   // Send the email.
   const emailResult = await sendPaymentLinkEmail({
