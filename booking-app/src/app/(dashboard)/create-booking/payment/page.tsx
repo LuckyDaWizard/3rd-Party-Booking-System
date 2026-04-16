@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, ShieldCheck, Mail, CheckCircle } from "lucide-react"
+import { ArrowLeft, ArrowRight, ShieldCheck, Mail, CheckCircle, Pencil, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { useBookingStore } from "@/lib/booking-store"
 
 // =============================================================================
@@ -22,7 +23,7 @@ export default function PaymentPage() {
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId") ?? ""
   const paymentType = (searchParams.get("type") ?? "device") as "device" | "link"
-  const { discardBooking, setActiveBookingId, getBooking } = useBookingStore()
+  const { discardBooking, setActiveBookingId, getBooking, updateBooking } = useBookingStore()
 
   const booking = getBooking(bookingId)
   const patientEmail = booking?.emailAddress ?? null
@@ -42,6 +43,12 @@ export default function PaymentPage() {
   // Link-mode state
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+
+  // Email-editing state (link mode only)
+  const [editingEmail, setEditingEmail] = useState(false)
+  const [emailDraft, setEmailDraft] = useState("")
+  const [savingEmail, setSavingEmail] = useState(false)
+  const [emailError, setEmailError] = useState("")
 
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
@@ -75,6 +82,40 @@ export default function PaymentPage() {
     } catch {
       setError("Failed to connect to payment server")
       setProcessing(false)
+    }
+  }
+
+  function startEditingEmail() {
+    setEmailDraft(patientEmail ?? "")
+    setEditingEmail(true)
+    setEmailError("")
+    setSent(false) // if they're changing email, they'll need to send again
+  }
+
+  function cancelEditingEmail() {
+    setEditingEmail(false)
+    setEmailDraft("")
+    setEmailError("")
+  }
+
+  async function saveEmail() {
+    if (savingEmail) return
+    const trimmed = emailDraft.trim()
+    // Minimal email shape check — don't over-validate (user might need to
+    // enter a perfectly valid address the regex rejects).
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailError("Please enter a valid email address")
+      return
+    }
+    setSavingEmail(true)
+    setEmailError("")
+    try {
+      await updateBooking(bookingId, { emailAddress: trimmed })
+      setEditingEmail(false)
+    } catch {
+      setEmailError("Failed to update email. Please try again.")
+    } finally {
+      setSavingEmail(false)
     }
   }
 
@@ -173,11 +214,75 @@ export default function PaymentPage() {
                     We&apos;ll email the patient a secure PayFast payment link. They can pay from any device at their convenience. Once payment is received, the booking status updates automatically.
                   </p>
 
-                  <div className="flex flex-col gap-1 rounded-lg bg-gray-50 p-4">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                      Sending to
-                    </span>
-                    {patientEmail ? (
+                  <div className="flex flex-col gap-2 rounded-lg bg-gray-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        Sending to
+                      </span>
+                      {!editingEmail && (
+                        <button
+                          type="button"
+                          onClick={startEditingEmail}
+                          disabled={sending}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-[#3ea3db] hover:text-[#3ea3db]/80 disabled:opacity-50"
+                        >
+                          <Pencil className="size-3" />
+                          {patientEmail ? "Change" : "Add email"}
+                        </button>
+                      )}
+                    </div>
+
+                    {editingEmail ? (
+                      <div className="flex flex-col gap-2">
+                        {patientName && (
+                          <span className="text-base font-medium text-gray-900">
+                            {patientName}
+                          </span>
+                        )}
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Input
+                            type="email"
+                            value={emailDraft}
+                            onChange={(e) => setEmailDraft(e.target.value)}
+                            placeholder="recipient@example.com"
+                            disabled={savingEmail}
+                            autoFocus
+                            className="bg-white"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={saveEmail}
+                              disabled={savingEmail || !emailDraft.trim()}
+                              className="gap-1 rounded-lg bg-gray-900 text-xs text-white hover:bg-gray-800 disabled:opacity-50"
+                            >
+                              {savingEmail ? (
+                                <svg className="size-3 animate-spin" viewBox="0 0 40 40" fill="none">
+                                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                                </svg>
+                              ) : (
+                                <Check className="size-3" />
+                              )}
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={cancelEditingEmail}
+                              disabled={savingEmail}
+                              className="gap-1 rounded-lg border-gray-300 text-xs"
+                            >
+                              <X className="size-3" />
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                        {emailError && (
+                          <p className="text-xs font-medium text-red-600">{emailError}</p>
+                        )}
+                      </div>
+                    ) : patientEmail ? (
                       <>
                         <span className="text-base font-medium text-gray-900">
                           {patientName || "Patient"}
@@ -186,7 +291,7 @@ export default function PaymentPage() {
                       </>
                     ) : (
                       <span className="text-sm text-red-600">
-                        No patient email on file. Please go back and add an email before sending a link.
+                        No patient email on file. Click &ldquo;Add email&rdquo; above to add one.
                       </span>
                     )}
                   </div>
