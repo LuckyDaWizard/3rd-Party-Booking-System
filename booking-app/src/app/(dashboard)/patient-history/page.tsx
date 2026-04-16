@@ -164,8 +164,9 @@ function OptionsModal({
 
     if (selected === "process-on-device") {
       router.push(`/create-booking/payment?bookingId=${bookingId}&type=device`)
+    } else if (selected === "reshare") {
+      router.push(`/create-booking/payment?bookingId=${bookingId}&type=link`)
     }
-    // TODO: handle "reshare" option
   }
 
   function handleCancel() {
