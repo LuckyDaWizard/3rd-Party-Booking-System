@@ -6,6 +6,33 @@ import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useBookingStore } from "@/lib/booking-store"
 
+type MetricFormat = "integer" | "decimal" | "blood-pressure"
+
+/**
+ * Filter raw input down to only the characters allowed for this metric.
+ * Mobile keyboards still show numeric (via inputMode), and we re-clean here
+ * to defend against paste / desktop typing.
+ */
+function sanitiseMetricInput(raw: string, format: MetricFormat): string {
+  switch (format) {
+    case "integer":
+      // digits only
+      return raw.replace(/[^\d]/g, "")
+    case "decimal":
+      // digits + at most one decimal point (.)
+      const cleaned = raw.replace(/[^\d.]/g, "")
+      const parts = cleaned.split(".")
+      if (parts.length <= 1) return cleaned
+      return parts[0] + "." + parts.slice(1).join("")
+    case "blood-pressure":
+      // digits + at most one forward-slash (/)
+      const bp = raw.replace(/[^\d/]/g, "")
+      const slashParts = bp.split("/")
+      if (slashParts.length <= 1) return bp
+      return slashParts[0] + "/" + slashParts.slice(1).join("")
+  }
+}
+
 function MetricCard({
   label,
   placeholder,
@@ -14,6 +41,7 @@ function MetricCard({
   onChange,
   optional = false,
   unitInline = false,
+  format,
 }: {
   label: string
   placeholder: string
@@ -22,7 +50,17 @@ function MetricCard({
   onChange: (v: string) => void
   optional?: boolean
   unitInline?: boolean
+  format: MetricFormat
 }) {
+  // Use inputMode="decimal" for any field that allows non-digit chars (./)
+  // so mobile keyboards include those keys. Pure integers get "numeric".
+  const inputMode: "numeric" | "decimal" =
+    format === "integer" ? "numeric" : "decimal"
+
+  function handleChange(raw: string) {
+    onChange(sanitiseMetricInput(raw, format))
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-semibold text-gray-900">
@@ -34,8 +72,9 @@ function MetricCard({
           <div className="flex items-baseline justify-center gap-1">
             <input
               type="text"
+              inputMode={inputMode}
               value={value}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
               className="w-16 bg-transparent text-center text-3xl font-bold text-gray-900 placeholder:text-gray-300 outline-none"
             />
@@ -45,8 +84,9 @@ function MetricCard({
           <>
             <input
               type="text"
+              inputMode={inputMode}
               value={value}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
               className="w-full bg-transparent text-center text-3xl font-bold text-gray-900 placeholder:text-gray-300 outline-none"
             />
@@ -124,6 +164,7 @@ export default function PatientMetricsPage() {
             unit="hhMG"
             value={bloodPressure}
             onChange={setBloodPressure}
+            format="blood-pressure"
           />
           <MetricCard
             label="Glucose"
@@ -131,6 +172,7 @@ export default function PatientMetricsPage() {
             unit="mg/dL"
             value={glucose}
             onChange={setGlucose}
+            format="decimal"
           />
           <MetricCard
             label="Temperature"
@@ -138,6 +180,7 @@ export default function PatientMetricsPage() {
             unit="celcius"
             value={temperature}
             onChange={setTemperature}
+            format="decimal"
           />
           <MetricCard
             label="Oxygen Saturation"
@@ -145,6 +188,7 @@ export default function PatientMetricsPage() {
             unit="%"
             value={oxygenSaturation}
             onChange={setOxygenSaturation}
+            format="integer"
           />
         </div>
 
@@ -157,6 +201,7 @@ export default function PatientMetricsPage() {
             value={urineDipstick}
             onChange={setUrineDipstick}
             optional
+            format="decimal"
           />
           <MetricCard
             label="Heart Rate"
@@ -164,6 +209,7 @@ export default function PatientMetricsPage() {
             unit="bpm"
             value={heartRate}
             onChange={setHeartRate}
+            format="integer"
           />
           <div className="col-span-2 flex flex-col gap-2">
             <span className="text-sm font-semibold text-gray-900">Additional Comments</span>
