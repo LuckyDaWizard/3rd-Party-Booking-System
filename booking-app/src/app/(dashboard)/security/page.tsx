@@ -313,6 +313,7 @@ function FailedAttemptsTab() {
   const [summary, setSummary] = React.useState<AttemptsApiResponse["summary"] | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
   const [expandedPin, setExpandedPin] = React.useState<string | null>(null)
   const [unlockTarget, setUnlockTarget] = React.useState<AttemptSummary | null>(null)
   const [unlocking, setUnlocking] = React.useState(false)
@@ -321,14 +322,20 @@ function FailedAttemptsTab() {
   const load = React.useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
+    setLoadError(null)
     try {
       const res = await fetch("/api/admin/auth-attempts")
-      if (!res.ok) throw new Error("Failed to load")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Request failed (${res.status})`)
+      }
       const json: AttemptsApiResponse = await res.json()
       setEntries(json.data)
       setSummary(json.summary)
     } catch (err) {
-      console.error("Failed to load auth attempts:", err)
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      console.error("Failed to load auth attempts:", msg)
+      setLoadError(msg)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -381,6 +388,13 @@ function FailedAttemptsTab() {
           <RefreshCw className="size-4" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="font-semibold">Failed to load failed attempts</div>
+          <div className="mt-1 text-xs">{loadError}</div>
+        </div>
+      )}
 
       {summary && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -656,6 +670,7 @@ function ActiveSessionsTab() {
   const [summary, setSummary] = React.useState<SessionsApiResponse["summary"] | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
   const [revokeTarget, setRevokeTarget] = React.useState<SessionEntry | null>(null)
   const [revoking, setRevoking] = React.useState(false)
   const [revokeError, setRevokeError] = React.useState("")
@@ -664,14 +679,20 @@ function ActiveSessionsTab() {
   const load = React.useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
+    setLoadError(null)
     try {
       const res = await fetch("/api/admin/sessions")
-      if (!res.ok) throw new Error("Failed to load")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Request failed (${res.status})`)
+      }
       const json: SessionsApiResponse = await res.json()
       setSessions(json.data)
       setSummary(json.summary)
     } catch (err) {
-      console.error("Failed to load sessions:", err)
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      console.error("Failed to load sessions:", msg)
+      setLoadError(msg)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -721,6 +742,13 @@ function ActiveSessionsTab() {
           <RefreshCw className="size-4" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="font-semibold">Failed to load sessions</div>
+          <div className="mt-1 text-xs">{loadError}</div>
+        </div>
+      )}
 
       {/* Summary cards: Active / Idle / Ended */}
       {summary && (
@@ -1007,10 +1035,12 @@ function SuspiciousActivityTab() {
   const [summary, setSummary] = React.useState<SuspiciousApiResponse["summary"] | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
 
   // Trusted IPs management
   const [trustedIps, setTrustedIps] = React.useState<TrustedIp[]>([])
   const [trustedLoading, setTrustedLoading] = React.useState(false)
+  const [trustedLoadError, setTrustedLoadError] = React.useState<string | null>(null)
   const [newIp, setNewIp] = React.useState("")
   const [newLabel, setNewLabel] = React.useState("")
   const [addingIp, setAddingIp] = React.useState(false)
@@ -1020,14 +1050,20 @@ function SuspiciousActivityTab() {
   const loadFlags = React.useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
+    setLoadError(null)
     try {
       const res = await fetch("/api/admin/suspicious-activity")
-      if (!res.ok) throw new Error("Failed to load")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Request failed (${res.status})`)
+      }
       const json: SuspiciousApiResponse = await res.json()
       setFlags(json.data)
       setSummary(json.summary)
     } catch (err) {
-      console.error("Failed to load suspicious activity:", err)
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      console.error("Failed to load suspicious activity:", msg)
+      setLoadError(msg)
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -1036,13 +1072,19 @@ function SuspiciousActivityTab() {
 
   const loadTrustedIps = React.useCallback(async () => {
     setTrustedLoading(true)
+    setTrustedLoadError(null)
     try {
       const res = await fetch("/api/admin/trusted-ips")
-      if (!res.ok) throw new Error("Failed to load")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Request failed (${res.status})`)
+      }
       const json: { data: TrustedIp[] } = await res.json()
       setTrustedIps(json.data)
     } catch (err) {
-      console.error("Failed to load trusted IPs:", err)
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      console.error("Failed to load trusted IPs:", msg)
+      setTrustedLoadError(msg)
     } finally {
       setTrustedLoading(false)
     }
@@ -1113,6 +1155,20 @@ function SuspiciousActivityTab() {
           <RefreshCw className="size-4" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="font-semibold">Failed to load suspicious activity</div>
+          <div className="mt-1 text-xs">{loadError}</div>
+        </div>
+      )}
+
+      {trustedLoadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="font-semibold">Failed to load trusted IPs</div>
+          <div className="mt-1 text-xs">{trustedLoadError}</div>
+        </div>
+      )}
 
       {/* Summary */}
       {summary && (
@@ -1309,6 +1365,7 @@ function SignInHistoryTab() {
   const [rows, setRows] = React.useState<SignInRow[]>([])
   const [summary, setSummary] = React.useState<SignInApiResponse["summary"] | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
   const [total, setTotal] = React.useState(0)
   const [page, setPage] = React.useState(1)
   const pageSize = 25
@@ -1329,6 +1386,7 @@ function SignInHistoryTab() {
 
   const load = React.useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const params = new URLSearchParams()
       params.set("page", String(page))
@@ -1337,13 +1395,18 @@ function SignInHistoryTab() {
       if (debouncedSearch) params.set("search", debouncedSearch)
 
       const res = await fetch(`/api/admin/signin-history?${params}`)
-      if (!res.ok) throw new Error("Failed to load")
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Request failed (${res.status})`)
+      }
       const json: SignInApiResponse = await res.json()
       setRows(json.data)
       setSummary(json.summary)
       setTotal(json.total)
     } catch (err) {
-      console.error("Failed to load sign-in history:", err)
+      const msg = err instanceof Error ? err.message : "Unknown error"
+      console.error("Failed to load sign-in history:", msg)
+      setLoadError(msg)
     } finally {
       setLoading(false)
     }
@@ -1426,6 +1489,13 @@ function SignInHistoryTab() {
           )}
         </Button>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="font-semibold">Failed to load sign-in history</div>
+          <div className="mt-1 text-xs">{loadError}</div>
+        </div>
+      )}
 
       {summary && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
