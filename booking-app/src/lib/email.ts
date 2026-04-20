@@ -139,6 +139,70 @@ export async function sendPinResetEmail({
 }
 
 /**
+ * Send a 6-digit PIN reset code to a user who requested self-service
+ * PIN reset via /forgot-pin. The code expires in 15 minutes and is
+ * single-use — see the /api/auth/reset-pin route for the consumer.
+ *
+ * The code itself is shown prominently; the email deliberately does NOT
+ * contain a clickable link back to the app because the user has to type
+ * the code into the same sign-in device for it to work.
+ */
+export async function sendPinResetCodeEmail({
+  to,
+  firstName,
+  code,
+  expiresMinutes,
+}: {
+  to: string
+  firstName: string
+  code: string
+  expiresMinutes: number
+}): Promise<{ sent: boolean; error?: string }> {
+  const safeFirstName = escapeHtml(firstName)
+  const safeCode = escapeHtml(code)
+  const safeMinutes = escapeHtml(String(expiresMinutes))
+
+  try {
+    const transport = getTransporter()
+
+    await transport.sendMail({
+      from: `"CareFirst Booking" <${SMTP_USER}>`,
+      to,
+      subject: "Your CareFirst PIN reset code",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #1a1a1a; margin-bottom: 16px;">PIN Reset Code</h2>
+          <p style="color: #4a4a4a; font-size: 15px;">
+            Hi ${safeFirstName},
+          </p>
+          <p style="color: #4a4a4a; font-size: 15px;">
+            You asked to reset your CareFirst access PIN. Enter the code below on the reset page to choose a new PIN.
+          </p>
+          <div style="background: #f4f4f4; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+            <p style="color: #666; font-size: 13px; margin: 0 0 8px 0;">Your reset code</p>
+            <p style="color: #1a1a1a; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 0;">
+              ${safeCode}
+            </p>
+          </div>
+          <p style="color: #4a4a4a; font-size: 14px;">
+            This code expires in <strong>${safeMinutes} minutes</strong> and can only be used once.
+          </p>
+          <p style="color: #999; font-size: 13px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px;">
+            If you didn't request this reset, ignore this email — your existing PIN is unchanged. Contact an administrator if you're concerned someone else is trying to access your account.
+          </p>
+        </div>
+      `,
+    })
+
+    return { sent: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("Failed to send PIN reset code email:", message)
+    return { sent: false, error: message }
+  }
+}
+
+/**
  * Send a payment link email to a patient. Used when the booking flow's
  * payment-type step selects "Send a payment link" — the patient receives
  * the PayFast checkout URL by email and pays later from any device.

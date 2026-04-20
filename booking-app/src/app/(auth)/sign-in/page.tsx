@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
@@ -230,6 +231,17 @@ export default function SignInPage() {
             </>
           )}
         </Button>
+
+        {/* Forgot PIN? link — takes the user to the self-service reset
+            flow. Visible only when the input isn't in a loading / lockout
+            state so it doesn't distract mid-attempt. */}
+        <Link
+          href="/forgot-pin"
+          className="text-sm font-medium text-[#3ea3db] hover:underline"
+          data-testid="forgot-pin-link"
+        >
+          Forgot PIN?
+        </Link>
       </form>
 
       {/* Support contact — always visible on the unauthenticated sign-in
