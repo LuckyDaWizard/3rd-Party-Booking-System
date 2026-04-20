@@ -86,6 +86,25 @@ async function processItn(request: Request): Promise<ItnOutcome> {
   // mismatch — neither recovers on retry.
   const sigValid = validateItnSignature(postData, config.passphrase)
   if (!sigValid) {
+    // Log enough to diagnose a signature mismatch WITHOUT leaking the
+    // passphrase. We log the received signature, the computed signature,
+    // and the fields (names + values) that went into the computation.
+    const { generateSignature } = await import("@/lib/payfast")
+    const dataWithoutSig: Record<string, string> = {}
+    for (const [k, v] of Object.entries(postData)) {
+      if (k !== "signature") dataWithoutSig[k] = v
+    }
+    const computed = generateSignature(dataWithoutSig, config.passphrase)
+    console.error(
+      "[PayFast ITN] Signature mismatch details:",
+      JSON.stringify({
+        received: postData.signature,
+        computed,
+        fieldsInOrder: Object.keys(dataWithoutSig),
+        fieldValues: dataWithoutSig,
+        passphraseLength: config.passphrase.length,
+      })
+    )
     return reject("Invalid signature", 400)
   }
 
