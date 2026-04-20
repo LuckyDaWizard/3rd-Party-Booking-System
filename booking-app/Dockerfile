@@ -26,6 +26,12 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# Bind to all interfaces so the container's 127.0.0.1 also answers (needed
+# for the Dockerfile HEALTHCHECK below). Without this, Next.js's standalone
+# server.js can bind to only the Docker network interface, making IPv4
+# loopback probes fail with "Connection refused" even though external
+# traffic via Traefik works fine.
+ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
