@@ -144,7 +144,12 @@ export default function ClientManagementPage() {
         </Link>
       </div>
 
-      {/* Delete success banner */}
+      {/* Delete success banner. The delete is a hard delete — the button
+          below does NOT restore the original row (its ID, associated units,
+          audit history, etc. are gone). It's a convenience shortcut that
+          recreates a fresh client record pre-filled with the deleted one's
+          details, which saves typing if the delete was a mistake. Wording
+          is explicit about that so staff aren't misled. */}
       {deleteBanner && (
         <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 px-6 py-5">
           <div className="flex flex-col gap-2">
@@ -152,10 +157,13 @@ export default function ClientManagementPage() {
               {deleteBanner.name} Deleted
             </span>
             <p className="text-sm text-gray-500">
-              The client has been successfully removed from the system. You can undo this action by clicking the button below
+              The client has been permanently removed. If this was a mistake,
+              you can quickly recreate a new client record with the same
+              details. Note: units, bookings, and audit history from the
+              original record are not recoverable.
             </p>
             <Button
-              data-testid="undo-delete-button"
+              data-testid="recreate-client-button"
               size="sm"
               className="w-fit rounded-lg bg-gray-900 px-4 py-2 text-xs text-white hover:bg-gray-800"
               onClick={async () => {
@@ -175,7 +183,7 @@ export default function ClientManagementPage() {
                 }
               }}
             >
-              Undo Client Delete
+              Recreate with same details
             </Button>
           </div>
           <button

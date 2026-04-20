@@ -7,6 +7,16 @@ import {
   validateItnAmount,
   validateItnServerConfirmation,
 } from "@/lib/payfast"
+import { createRateLimiter, getClientIp } from "@/lib/rate-limit"
+
+// Per-IP rate limiter for the ITN endpoint. PayFast's legitimate retry
+// pattern is exponential backoff over minutes — nothing close to this
+// budget. An attacker trying to force DB lookups / DNS resolutions at
+// scale will hit 30 requests / minute and start getting 429s.
+const itnRateLimiter = createRateLimiter({
+  max: 30,
+  windowMs: 60 * 1000,
+})
 
 // =============================================================================
 // POST /api/payfast/notify
@@ -53,6 +63,19 @@ function transientFailure(reason: string, status = 500): ItnOutcome {
 }
 
 async function processItn(request: Request): Promise<ItnOutcome> {
+  // Per-IP rate limit check runs BEFORE any parsing so a flood of
+  // requests doesn't force URL decoding + allocation work per hit. A
+  // 429 here is transient from PayFast's perspective — they'll retry,
+  // which is fine.
+  const clientIpForLimit = getClientIp(request) ?? "unknown"
+  const limit = itnRateLimiter(clientIpForLimit)
+  if (!limit.allowed) {
+    console.warn(
+      `[PayFast ITN] Rate limit exceeded for ${clientIpForLimit} — retry in ${limit.retryAfterSeconds}s`
+    )
+    return transientFailure("Too many requests", 429)
+  }
+
   // Parse the URL-encoded POST body
   const text = await request.text()
   const params = new URLSearchParams(text)

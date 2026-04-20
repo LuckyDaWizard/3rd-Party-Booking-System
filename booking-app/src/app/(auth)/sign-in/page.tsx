@@ -231,6 +231,23 @@ export default function SignInPage() {
           )}
         </Button>
       </form>
+
+      {/* Support contact — always visible on the unauthenticated sign-in
+          screen so a locked-out user, a user who's forgotten their PIN,
+          or a user seeing an unexpected error has a path to help without
+          needing to find the admin. */}
+      <p
+        className="text-center text-xs text-gray-500"
+        data-testid="sign-in-support"
+      >
+        Having trouble?{" "}
+        <a
+          href="mailto:lehlohonolom@firstcare.solutions?subject=CareFirst%20Booking%20-%20Sign-in%20help"
+          className="font-medium text-[#3ea3db] hover:underline"
+        >
+          Contact support
+        </a>
+      </p>
     </div>
   )
 }
