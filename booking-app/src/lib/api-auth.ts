@@ -50,13 +50,20 @@ export async function requireSystemAdmin(): Promise<NextResponse | null> {
     .eq("auth_user_id", caller.id)
     .single()
 
+  // Collapse "Caller not provisioned" / "Account disabled" / "Wrong role"
+  // into one generic Forbidden response. Distinct messages let an attacker
+  // enumerate which state an account is in by sending crafted requests.
+  // Log the actual reason server-side for operator debugging.
   if (error || !callerRow) {
-    return NextResponse.json({ error: "Caller not provisioned" }, { status: 403 })
+    console.warn(`[requireSystemAdmin] Forbidden — auth=${caller.id} reason=caller-not-provisioned`)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   if (callerRow.status !== "Active") {
-    return NextResponse.json({ error: "Caller account disabled" }, { status: 403 })
+    console.warn(`[requireSystemAdmin] Forbidden — auth=${caller.id} reason=account-disabled`)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   if (callerRow.role !== "system_admin") {
+    console.warn(`[requireSystemAdmin] Forbidden — auth=${caller.id} reason=wrong-role role=${callerRow.role}`)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -89,13 +96,19 @@ export async function requireSystemAdminWithCaller(): Promise<
     .eq("auth_user_id", authUser.id)
     .single()
 
+  // Collapse provisioning / disabled / wrong-role into a single Forbidden
+  // response to avoid leaking account state. Log the specific reason for
+  // operator debugging.
   if (error || !callerRow) {
-    return { denied: NextResponse.json({ error: "Caller not provisioned" }, { status: 403 }) }
+    console.warn(`[requireSystemAdminWithCaller] Forbidden — auth=${authUser.id} reason=caller-not-provisioned`)
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
   if (callerRow.status !== "Active") {
-    return { denied: NextResponse.json({ error: "Caller account disabled" }, { status: 403 }) }
+    console.warn(`[requireSystemAdminWithCaller] Forbidden — auth=${authUser.id} reason=account-disabled`)
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
   if (callerRow.role !== "system_admin") {
+    console.warn(`[requireSystemAdminWithCaller] Forbidden — auth=${authUser.id} reason=wrong-role role=${callerRow.role}`)
     return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
 
@@ -146,13 +159,19 @@ export async function requireAdminOrManager(): Promise<
     .eq("auth_user_id", authUser.id)
     .single()
 
+  // Collapse provisioning / disabled / wrong-role into a single Forbidden
+  // response to avoid leaking account state. Log the real reason for
+  // operator debugging.
   if (error || !callerRow) {
-    return { denied: NextResponse.json({ error: "Caller not provisioned" }, { status: 403 }) }
+    console.warn(`[requireAdminOrManager] Forbidden — auth=${authUser.id} reason=caller-not-provisioned`)
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
   if (callerRow.status !== "Active") {
-    return { denied: NextResponse.json({ error: "Caller account disabled" }, { status: 403 }) }
+    console.warn(`[requireAdminOrManager] Forbidden — auth=${authUser.id} reason=account-disabled`)
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
   if (callerRow.role !== "system_admin" && callerRow.role !== "unit_manager") {
+    console.warn(`[requireAdminOrManager] Forbidden — auth=${authUser.id} reason=wrong-role role=${callerRow.role}`)
     return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
 
@@ -210,11 +229,14 @@ export async function requireAuthenticated(): Promise<
     .eq("auth_user_id", authUser.id)
     .single()
 
+  // Collapse provisioning / disabled into a single Forbidden response.
   if (error || !callerRow) {
-    return { denied: NextResponse.json({ error: "Caller not provisioned" }, { status: 403 }) }
+    console.warn(`[requireAuthenticated] Forbidden — auth=${authUser.id} reason=caller-not-provisioned`)
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
   if (callerRow.status !== "Active") {
-    return { denied: NextResponse.json({ error: "Caller account disabled" }, { status: 403 }) }
+    console.warn(`[requireAuthenticated] Forbidden — auth=${authUser.id} reason=account-disabled`)
+    return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
 
   const { data: unitRows } = await sb

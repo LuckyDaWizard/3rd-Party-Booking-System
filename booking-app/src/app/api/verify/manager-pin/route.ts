@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { getSupabaseServer } from "@/lib/supabase-server"
 import { PIN_REGEX } from "@/lib/constants"
+import {
+  checkPinThrottle,
+  recordPinAttempt,
+  getThrottleIp,
+} from "@/lib/pin-throttle"
 
 // =============================================================================
 // POST /api/verify/manager-pin
@@ -104,19 +109,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ valid: false })
   }
 
-  // Step 1: Verify the PIN by attempting a Supabase Auth sign-in.
-  const matchedAuthId = await verifyPinAgainstAuth(pin)
-  if (!matchedAuthId) {
-    return NextResponse.json({ valid: false })
-  }
-
-  // Step 2: Look up the matched user's role and unit assignments via admin.
+  // Step 0: Throttle. Share the auth_attempts counter with /api/auth/throttle
+  // so an attacker can't pivot between endpoints to bypass the lockout.
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch {
     return NextResponse.json({ valid: false }, { status: 500 })
   }
+
+  const ipAddress = getThrottleIp(request)
+  const throttle = await checkPinThrottle(admin, pin, ipAddress)
+  if (throttle.locked) {
+    return NextResponse.json(
+      {
+        valid: false,
+        locked: true,
+        retryAfterSeconds: throttle.retryAfterSeconds,
+      },
+      { status: 429 }
+    )
+  }
+
+  // Step 1: Verify the PIN by attempting a Supabase Auth sign-in.
+  const matchedAuthId = await verifyPinAgainstAuth(pin)
+  if (!matchedAuthId) {
+    await recordPinAttempt(admin, pin, false, ipAddress)
+    return NextResponse.json({ valid: false })
+  }
+
+  // Step 2: Look up the matched user's role and unit assignments via admin.
 
   const { data: matched, error: lookupErr } = await admin
     .from("users")
@@ -125,21 +147,27 @@ export async function POST(request: Request) {
     .single()
 
   if (lookupErr || !matched) {
+    await recordPinAttempt(admin, pin, false, ipAddress)
     return NextResponse.json({ valid: false })
   }
 
-  // Only unit_manager or system_admin can authorise.
+  // Only unit_manager or system_admin can authorise — treat anything else
+  // as a failure from a throttle perspective, since a user-role PIN
+  // shouldn't ever be entered here (still records against both counters).
   if (matched.role !== "unit_manager" && matched.role !== "system_admin") {
+    await recordPinAttempt(admin, pin, false, ipAddress)
     return NextResponse.json({ valid: false })
   }
 
   // Must be Active.
   if (matched.status !== "Active") {
+    await recordPinAttempt(admin, pin, false, ipAddress)
     return NextResponse.json({ valid: false })
   }
 
   // system_admin authorises anything anywhere.
   if (matched.role === "system_admin") {
+    await recordPinAttempt(admin, pin, true, ipAddress)
     return NextResponse.json({
       valid: true,
       role: matched.role,
@@ -157,10 +185,12 @@ export async function POST(request: Request) {
       .limit(1)
 
     if (linkErr || !link || link.length === 0) {
+      await recordPinAttempt(admin, pin, false, ipAddress)
       return NextResponse.json({ valid: false })
     }
   }
 
+  await recordPinAttempt(admin, pin, true, ipAddress)
   return NextResponse.json({
     valid: true,
     role: matched.role,

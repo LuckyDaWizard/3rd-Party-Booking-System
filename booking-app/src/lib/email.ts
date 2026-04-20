@@ -15,6 +15,39 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? "465", 10)
 const SMTP_USER = process.env.SMTP_USER
 const SMTP_PASS = process.env.SMTP_PASS
 
+/**
+ * Escape a user-controlled value for safe inclusion in HTML content.
+ * Prevents cross-site scripting in rendered emails — an attacker who
+ * controls their own first_names (via patient intake) or email_address
+ * could otherwise inject `<script>`, event handlers, or iframes into
+ * a nurse's inbox.
+ *
+ * Always use this for ANY value interpolated into email HTML. Static
+ * copy doesn't need it.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+/**
+ * Escape a value for use inside an HTML attribute (like `href="..."`).
+ * Same as escapeHtml but also blocks `javascript:` / `data:` URI schemes
+ * that could run script when the recipient clicks the link. Unknown
+ * schemes fall back to "#" so nothing executes.
+ */
+function escapeUrlAttribute(value: string): string {
+  const trimmed = value.trim()
+  if (!/^https?:\/\//i.test(trimmed) && !/^mailto:/i.test(trimmed)) {
+    return "#"
+  }
+  return escapeHtml(trimmed)
+}
+
 let transporter: nodemailer.Transporter | null = null
 
 function getTransporter(): nodemailer.Transporter {
@@ -60,6 +93,11 @@ export async function sendPinResetEmail({
 }): Promise<{ sent: boolean; error?: string }> {
   const url = appUrl || process.env.NEXT_PUBLIC_SUPABASE_URL?.replace("supabase.co", "") || "http://187.127.135.11:3000"
 
+  const safeFirstName = escapeHtml(firstName)
+  const safePin = escapeHtml(newPin)
+  const safeUrlHref = escapeUrlAttribute(url)
+  const safeUrlText = escapeHtml(url)
+
   try {
     const transport = getTransporter()
 
@@ -71,7 +109,7 @@ export async function sendPinResetEmail({
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
           <h2 style="color: #1a1a1a; margin-bottom: 16px;">Access PIN Reset</h2>
           <p style="color: #4a4a4a; font-size: 15px;">
-            Hi ${firstName},
+            Hi ${safeFirstName},
           </p>
           <p style="color: #4a4a4a; font-size: 15px;">
             Your access PIN for the CareFirst Third Party Booking System has been reset by an administrator.
@@ -79,11 +117,11 @@ export async function sendPinResetEmail({
           <div style="background: #f4f4f4; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;">
             <p style="color: #666; font-size: 13px; margin: 0 0 8px 0;">Your new PIN</p>
             <p style="color: #1a1a1a; font-size: 28px; font-weight: bold; letter-spacing: 6px; margin: 0;">
-              ${newPin}
+              ${safePin}
             </p>
           </div>
           <p style="color: #4a4a4a; font-size: 15px;">
-            Please sign in at <a href="${url}" style="color: #3ea3db;">${url}</a> using this PIN.
+            Please sign in at <a href="${safeUrlHref}" style="color: #3ea3db;">${safeUrlText}</a> using this PIN.
           </p>
           <p style="color: #999; font-size: 13px; margin-top: 24px;">
             If you did not request this change, please contact your administrator immediately.
@@ -121,6 +159,12 @@ export async function sendPaymentLinkEmail({
   amount: string
   itemName: string
 }): Promise<{ sent: boolean; error?: string }> {
+  const safeFirstName = escapeHtml(firstName)
+  const safeItemName = escapeHtml(itemName)
+  const safeAmount = escapeHtml(amount)
+  const safePaymentUrlHref = escapeUrlAttribute(paymentUrl)
+  const safePaymentUrlText = escapeHtml(paymentUrl)
+
   try {
     const transport = getTransporter()
 
@@ -132,30 +176,30 @@ export async function sendPaymentLinkEmail({
         <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
           <h2 style="color: #1a1a1a; margin-bottom: 16px;">Complete your booking payment</h2>
           <p style="color: #4a4a4a; font-size: 15px;">
-            Hi ${firstName},
+            Hi ${safeFirstName},
           </p>
           <p style="color: #4a4a4a; font-size: 15px;">
             Your consultation booking has been created. To confirm it, please complete payment using the secure link below.
           </p>
           <div style="background: #f4f4f4; border-radius: 12px; padding: 20px; margin: 24px 0;">
             <div style="display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 8px;">
-              <span>${itemName}</span>
-              <span>R${amount}</span>
+              <span>${safeItemName}</span>
+              <span>R${safeAmount}</span>
             </div>
             <div style="border-top: 1px solid #ddd; padding-top: 8px; display: flex; justify-content: space-between; font-size: 15px; color: #1a1a1a; font-weight: 600;">
               <span>Total</span>
-              <span>R${amount}</span>
+              <span>R${safeAmount}</span>
             </div>
           </div>
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${paymentUrl}"
+            <a href="${safePaymentUrlHref}"
                style="display: inline-block; background: #3ea3db; color: white; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 15px;">
               Pay now via PayFast
             </a>
           </div>
           <p style="color: #666; font-size: 13px;">
             Or copy this link into your browser:<br>
-            <a href="${paymentUrl}" style="color: #3ea3db; word-break: break-all;">${paymentUrl}</a>
+            <a href="${safePaymentUrlHref}" style="color: #3ea3db; word-break: break-all;">${safePaymentUrlText}</a>
           </p>
           <p style="color: #4a4a4a; font-size: 14px; margin-top: 24px;">
             Your payment is processed securely by PayFast. CareFirst never sees or stores your card details.
