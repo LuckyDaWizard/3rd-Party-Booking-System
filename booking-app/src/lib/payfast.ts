@@ -304,3 +304,204 @@ export async function validateItnServerConfirmation(
     return false
   }
 }
+
+// ---------------------------------------------------------------------------
+// Transaction History Query API
+//
+// When PayFast's ITN fails to reach us (common on HTTP-only / no-domain
+// deployments), we can poll PayFast's Transaction History API instead to
+// reconcile payment status. This is the "pull" model — the opposite of ITN's
+// "push" model.
+//
+// API docs: https://developers.payfast.co.za/docs#transaction_history
+//
+// Endpoint: GET https://api.payfast.co.za/transactions/history
+// Auth: merchant-id + signature headers
+// Sandbox vs prod: same URL — sandbox behaviour depends on merchant-id.
+// ---------------------------------------------------------------------------
+
+const PAYFAST_API_BASE = "https://api.payfast.co.za"
+
+export type PayfastPaymentStatus =
+  | "COMPLETE"
+  | "FAILED"
+  | "PENDING"
+  | "CANCELLED"
+  | string
+
+export interface PayfastTransaction {
+  m_payment_id?: string
+  pf_payment_id?: string
+  amount_gross?: number | string
+  amount_fee?: number | string
+  amount_net?: number | string
+  payment_status?: PayfastPaymentStatus
+  // Sandbox/prod may return different shapes — we keep this permissive.
+  [key: string]: unknown
+}
+
+interface QueryHeaders {
+  "merchant-id": string
+  version: "v1"
+  timestamp: string
+}
+
+/** PayFast expects timestamp like `2026-04-20T12:00:00+02:00`. */
+function buildPayfastTimestamp(): string {
+  const d = new Date()
+  const pad = (n: number) => n.toString().padStart(2, "0")
+  // Build the +02:00 timezone portion (SAST). PayFast is happy with any
+  // valid ISO 8601 offset — we use SAST since the merchant is in SA.
+  const year = d.getUTCFullYear()
+  const month = pad(d.getUTCMonth() + 1)
+  const day = pad(d.getUTCDate())
+  const sastDate = new Date(d.getTime() + 2 * 60 * 60 * 1000)
+  const hours = pad(sastDate.getUTCHours())
+  const minutes = pad(sastDate.getUTCMinutes())
+  const seconds = pad(sastDate.getUTCSeconds())
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+02:00`
+}
+
+/**
+ * Build the signature required for PayFast's Transaction History API.
+ *
+ * Rule: take all headers (merchant-id, version, timestamp) AND all query
+ * params, merge into one object, sort alphabetically by key, URL-encode
+ * values (spaces as +), join as k=v&k=v, append &passphrase=..., MD5.
+ */
+function buildQueryApiSignature(
+  headers: QueryHeaders,
+  queryParams: Record<string, string>,
+  passphrase: string
+): string {
+  const combined: Record<string, string> = {
+    ...headers,
+    ...queryParams,
+  }
+
+  const sortedKeys = Object.keys(combined).sort()
+  const encoded = sortedKeys
+    .map(
+      (k) =>
+        `${k}=${encodeURIComponent(combined[k].trim()).replace(/%20/g, "+")}`
+    )
+    .join("&")
+
+  const withPassphrase = `${encoded}&passphrase=${encodeURIComponent(
+    passphrase.trim()
+  ).replace(/%20/g, "+")}`
+
+  return crypto.createHash("md5").update(withPassphrase).digest("hex")
+}
+
+/**
+ * Fetch the merchant's transaction history for a given date range.
+ * Returns an array of transactions (may be empty). Throws on non-2xx or
+ * parse failure — caller should handle.
+ */
+export async function fetchPayfastTransactions(
+  config: PayfastConfig,
+  opts: { startDate: string; endDate?: string }
+): Promise<PayfastTransaction[]> {
+  const headers: QueryHeaders = {
+    "merchant-id": config.merchantId,
+    version: "v1",
+    timestamp: buildPayfastTimestamp(),
+  }
+
+  const queryParams: Record<string, string> = {
+    start_date: opts.startDate,
+  }
+  if (opts.endDate) queryParams.end_date = opts.endDate
+
+  const signature = buildQueryApiSignature(
+    headers,
+    queryParams,
+    config.passphrase
+  )
+
+  const qs = Object.entries(queryParams)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join("&")
+
+  const url = `${PAYFAST_API_BASE}/transactions/history?${qs}`
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      ...headers,
+      signature,
+      accept: "application/json",
+    },
+  })
+
+  const text = await res.text()
+
+  if (!res.ok) {
+    throw new Error(
+      `PayFast Query API returned ${res.status}: ${text.slice(0, 500)}`
+    )
+  }
+
+  // PayFast returns either a top-level array or {data: {response: [...]}} —
+  // handle both.
+  let body: unknown
+  try {
+    body = JSON.parse(text)
+  } catch {
+    throw new Error(`PayFast Query API returned non-JSON: ${text.slice(0, 200)}`)
+  }
+
+  const transactions = extractTransactionsFromResponse(body)
+  return transactions
+}
+
+function extractTransactionsFromResponse(body: unknown): PayfastTransaction[] {
+  if (!body) return []
+  if (Array.isArray(body)) return body as PayfastTransaction[]
+  if (typeof body !== "object") return []
+  const obj = body as Record<string, unknown>
+
+  // Known shapes: {data: {response: [...]}}, {data: [...]}, {response: [...]}
+  for (const key of ["response", "data", "result", "transactions"]) {
+    const v = obj[key]
+    if (Array.isArray(v)) return v as PayfastTransaction[]
+    if (v && typeof v === "object") {
+      const nested = extractTransactionsFromResponse(v)
+      if (nested.length > 0) return nested
+    }
+  }
+  return []
+}
+
+/**
+ * Check if a specific booking has been paid according to PayFast's records.
+ * Returns the matching transaction (if found and COMPLETE) or null.
+ *
+ * Looks up transactions from `lookbackDays` ago through today, then filters
+ * by m_payment_id (our booking id) and status == "COMPLETE".
+ */
+export async function findCompletedPayfastTransaction(
+  config: PayfastConfig,
+  bookingId: string,
+  lookbackDays: number = 2
+): Promise<PayfastTransaction | null> {
+  const now = new Date()
+  const past = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
+  const pad = (n: number) => n.toString().padStart(2, "0")
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+  const transactions = await fetchPayfastTransactions(config, {
+    startDate: fmt(past),
+    endDate: fmt(now),
+  })
+
+  const match = transactions.find((t) => {
+    const mPaymentId = String(t.m_payment_id ?? "").trim()
+    const status = String(t.payment_status ?? "").trim().toUpperCase()
+    return mPaymentId === bookingId && status === "COMPLETE"
+  })
+
+  return match ?? null
+}

@@ -9,25 +9,27 @@ import { useBookingStore } from "@/lib/booking-store"
 // =============================================================================
 // Payment Success Page
 //
-// IMPORTANT: The PayFast ITN callback is the ONLY authoritative source of
-// payment confirmation. This page polls the booking status — it does NOT
-// mark the booking as paid itself.
+// IMPORTANT: PayFast's ITN callback is the AUTHORITATIVE source of payment
+// confirmation, but it's unreliable on HTTP-only deployments. To close that
+// gap, while we poll the DB we ALSO call /api/payfast/reconcile — which
+// queries PayFast's Transaction History API and updates the booking if a
+// completed payment is found there. Neither this page nor the reconcile
+// route ever fabricates a payment — PayFast's API is still the gatekeeper.
 //
 // States:
-//   confirmed  → ITN arrived, booking is "Payment Complete". Auto-redirect
-//                to the next step (patient metrics).
-//   pending    → Polling; ITN hasn't arrived yet.
-//   stalled    → 30s elapsed and ITN still hasn't arrived. Show a clear
-//                message instructing the user what to do. We do NOT mark
-//                the booking as paid from the browser.
+//   confirmed  → ITN arrived OR reconcile found a COMPLETE transaction.
+//                Auto-redirect to patient-metrics.
+//   pending    → Polling; no confirmation yet.
+//   stalled    → POLL_TIMEOUT_MS elapsed with no confirmation. Tell the
+//                user what to do. We do NOT mark the booking paid from the
+//                browser.
 //
-// A system admin can manually confirm the payment from Patient History if
-// the ITN genuinely fails to arrive (e.g. during sandbox mode without a
-// public domain).
+// A system admin can still manually confirm from Patient History as a
+// last-resort supervisor override.
 // =============================================================================
 
-const POLL_INTERVAL_MS = 2000
-const POLL_TIMEOUT_MS = 30000 // 30s before showing the "stalled" state
+const POLL_INTERVAL_MS = 3000
+const POLL_TIMEOUT_MS = 60000 // 60s before showing the "stalled" state
 
 type State = "pending" | "confirmed" | "stalled"
 
@@ -38,30 +40,47 @@ export default function PaymentSuccessPage() {
   const { getBooking, setActiveBookingId, refreshBookings } = useBookingStore()
   const [state, setState] = useState<State>("pending")
   const [countdown, setCountdown] = useState(10)
-  const startedAt = useRef(Date.now())
+  const startedAt = useRef(0)
 
   useEffect(() => {
+    if (startedAt.current === 0) startedAt.current = Date.now()
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
 
-  // Poll for ITN-driven status change.
+  // Poll for ITN-driven status change AND actively query PayFast's Query API
+  // via our reconcile route. Reconcile is best-effort — failures are logged
+  // but don't break the polling loop (DB poll will still catch ITN if it
+  // eventually arrives). If we see the booking has become Payment Complete
+  // (either via ITN or via reconcile), flip to the confirmed state here so
+  // we don't need a separate set-state-in-effect.
   const checkStatus = useCallback(async () => {
-    await refreshBookings()
-  }, [refreshBookings])
-
-  const booking = getBooking(bookingId)
-  const itnConfirmed = booking?.status === "Payment Complete"
-
-  // Transition to "confirmed" when the ITN arrives.
-  useEffect(() => {
-    if (itnConfirmed && state === "pending") {
-      setState("confirmed")
+    if (bookingId) {
+      try {
+        await fetch("/api/payfast/reconcile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId }),
+        })
+      } catch (err) {
+        console.warn("[payment/success] reconcile call failed:", err)
+      }
     }
-  }, [itnConfirmed, state])
+    await refreshBookings()
+    const current = getBooking(bookingId)
+    if (current?.status === "Payment Complete") {
+      setState((s) => (s === "pending" ? "confirmed" : s))
+    }
+  }, [bookingId, refreshBookings, getBooking])
 
-  // Poll every 2 seconds until confirmed or timed out.
+  // Poll every POLL_INTERVAL_MS until confirmed or timed out. Kick off the
+  // first check via a short timeout (not a synchronous call) so we don't
+  // trip React's set-state-in-effect rule.
   useEffect(() => {
     if (state !== "pending") return
+
+    const firstCheck = setTimeout(() => {
+      checkStatus()
+    }, 500)
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - startedAt.current
@@ -73,7 +92,10 @@ export default function PaymentSuccessPage() {
       checkStatus()
     }, POLL_INTERVAL_MS)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(firstCheck)
+      clearInterval(interval)
+    }
   }, [state, checkStatus])
 
   // Countdown to redirect, only once confirmed.

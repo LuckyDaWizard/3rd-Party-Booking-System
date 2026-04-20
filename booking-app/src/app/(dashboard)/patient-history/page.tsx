@@ -325,6 +325,56 @@ export default function PatientHistoryPage() {
   const [startConsultBusyId, setStartConsultBusyId] = React.useState<string | null>(null)
   const [startConsultError, setStartConsultError] = React.useState<string | null>(null)
 
+  // PayFast reconcile on page mount — catches payments that PayFast's ITN
+  // failed to deliver. Admin-only batch mode (server enforces role). Runs
+  // once per mount, best-effort; any In-Progress bookings with payment_amount
+  // set from the last 2 hours get cross-checked against PayFast's Query API.
+  const [reconciling, setReconciling] = React.useState(false)
+  const [reconcileMessage, setReconcileMessage] = React.useState<string | null>(null)
+  const runReconcile = React.useCallback(async () => {
+    if (!isSystemAdmin) return
+    setReconciling(true)
+    setReconcileMessage(null)
+    try {
+      const res = await fetch("/api/payfast/reconcile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        reconciled?: number
+        error?: string
+      }
+      if (!res.ok) {
+        setReconcileMessage(data.error ?? "Reconcile failed")
+        return
+      }
+      if ((data.reconciled ?? 0) > 0) {
+        setReconcileMessage(`Reconciled ${data.reconciled} payment(s) from PayFast`)
+        await refreshBookings()
+      } else {
+        setReconcileMessage("No pending payments found on PayFast")
+      }
+    } catch (err) {
+      setReconcileMessage(
+        err instanceof Error ? err.message : "Reconcile request failed"
+      )
+    } finally {
+      setReconciling(false)
+      // Auto-clear success message after 4s.
+      window.setTimeout(() => setReconcileMessage(null), 4000)
+    }
+  }, [isSystemAdmin, refreshBookings])
+
+  const autoReconcileRan = React.useRef(false)
+  React.useEffect(() => {
+    if (autoReconcileRan.current) return
+    if (!isSystemAdmin) return
+    autoReconcileRan.current = true
+    runReconcile()
+  }, [isSystemAdmin, runReconcile])
+
   // Map booking records to patient records for display
   const allPatients: PatientRecord[] = bookings.map((b) => ({
     id: b.id,
@@ -411,6 +461,42 @@ export default function PatientHistoryPage() {
       >
         Please provide the patient&apos;s identification details
       </p>
+
+      {/* Reconcile with PayFast — admin only. Visible button so admins can
+          manually re-check when they see bookings stuck in "In Progress"
+          after a payment. */}
+      {isSystemAdmin && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            data-testid="reconcile-payfast-button"
+            variant="outline"
+            size="sm"
+            disabled={reconciling}
+            onClick={runReconcile}
+            className="rounded-lg border-black gap-2"
+          >
+            {reconciling ? (
+              <>
+                Checking PayFast…
+                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+              </>
+            ) : (
+              "Check PayFast for new payments"
+            )}
+          </Button>
+          {reconcileMessage && (
+            <span
+              data-testid="reconcile-message"
+              className="text-xs text-gray-600"
+            >
+              {reconcileMessage}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Mobile-only primary action */}
       <Link href="/create-booking" className="sm:hidden">
