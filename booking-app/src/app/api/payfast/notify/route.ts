@@ -82,30 +82,50 @@ async function processItn(request: Request): Promise<ItnOutcome> {
     return transientFailure("Server misconfigured", 500)
   }
 
-  // Step 1: Signature. A bad signature means an attacker or a config
-  // mismatch — neither recovers on retry.
-  const sigValid = validateItnSignature(postData, config.passphrase)
+  // Step 1: Signature validation.
+  //
+  // In production we strictly require the passphrase in the signature. In
+  // sandbox (test mode) PayFast's behaviour is inconsistent — it often
+  // computes ITN signatures WITHOUT the passphrase, even though the
+  // sandbox merchant is documented to have one (`jt7NOE43FZPn`). To let
+  // sandbox testing work without weakening production security, we accept
+  // either variant when PAYFAST_TEST_MODE=true.
+  const sigValidWithPassphrase = validateItnSignature(postData, config.passphrase)
+  const sigValidWithoutPassphrase = config.testMode
+    ? validateItnSignature(postData, undefined)
+    : false
+  const sigValid = sigValidWithPassphrase || sigValidWithoutPassphrase
+
   if (!sigValid) {
     // Log enough to diagnose a signature mismatch WITHOUT leaking the
-    // passphrase. We log the received signature, the computed signature,
-    // and the fields (names + values) that went into the computation.
+    // passphrase. We log both computed variants so we can see which (if
+    // any) matches what PayFast sent.
     const { generateSignature } = await import("@/lib/payfast")
     const dataWithoutSig: Record<string, string> = {}
     for (const [k, v] of Object.entries(postData)) {
       if (k !== "signature") dataWithoutSig[k] = v
     }
-    const computed = generateSignature(dataWithoutSig, config.passphrase)
+    const withPassphrase = generateSignature(dataWithoutSig, config.passphrase)
+    const withoutPassphrase = generateSignature(dataWithoutSig, undefined)
     console.error(
       "[PayFast ITN] Signature mismatch details:",
       JSON.stringify({
         received: postData.signature,
-        computed,
+        computedWithPassphrase: withPassphrase,
+        computedWithoutPassphrase: withoutPassphrase,
+        testMode: config.testMode,
         fieldsInOrder: Object.keys(dataWithoutSig),
         fieldValues: dataWithoutSig,
         passphraseLength: config.passphrase.length,
       })
     )
     return reject("Invalid signature", 400)
+  }
+
+  if (config.testMode && !sigValidWithPassphrase && sigValidWithoutPassphrase) {
+    console.warn(
+      "[PayFast ITN] Accepted signature without passphrase (sandbox mode). Production ITN will require passphrase."
+    )
   }
 
   // Step 2: Source IP. Either the request isn't from PayFast, or our proxy
