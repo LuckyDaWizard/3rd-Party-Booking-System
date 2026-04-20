@@ -40,12 +40,12 @@ export const PIN_REGEX = new RegExp(`^\\d{${PIN_LENGTH}}$`)
 // ---------------------------------------------------------------------------
 
 /** Total idle time before auto sign-out, in milliseconds. */
-export const IDLE_TIMEOUT_MS = 15 * 60 * 1000 // 15 minutes
+export const IDLE_TIMEOUT_MS = 7 * 60 * 1000 // 7 minutes
 
 /** How long before timeout to show the warning modal, in milliseconds. */
 export const IDLE_WARNING_BEFORE_TIMEOUT_MS = 2 * 60 * 1000 // 2 minutes
 
-/** Threshold at which we first show the warning modal. */
+/** Threshold at which we first show the warning modal (idle for 5 minutes). */
 export const IDLE_WARNING_MS = IDLE_TIMEOUT_MS - IDLE_WARNING_BEFORE_TIMEOUT_MS
 
 /** How often the monitor re-checks the idle duration. */
