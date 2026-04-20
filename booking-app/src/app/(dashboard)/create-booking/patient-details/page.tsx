@@ -1251,25 +1251,13 @@ export default function PatientDetailsPage() {
                 <span className="text-sm font-medium text-gray-900">Pay on device</span>
               </button>
 
-              {/* Send a payment link */}
-              <button
-                type="button"
-                onClick={() => setSelectedPaymentType("link")}
-                className={`flex items-center gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
-                  selectedPaymentType === "link"
-                    ? "border-[#3ea3db] bg-[#CDE5F2]"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <span className={`flex size-6 items-center justify-center rounded-full border-2 ${
-                  selectedPaymentType === "link" ? "border-[#3ea3db] bg-[#3ea3db]" : "border-gray-300 bg-white"
-                }`}>
-                  {selectedPaymentType === "link" && (
-                    <span className="size-3 rounded-full bg-white" />
-                  )}
+              {/* Send a payment link - Coming Soon */}
+              <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-6 py-5">
+                <span className="text-sm font-medium text-gray-400">Send a payment link</span>
+                <span className="rounded-full bg-[#3ea3db] px-4 py-1.5 text-xs font-semibold text-white">
+                  Coming Soon
                 </span>
-                <span className="text-sm font-medium text-gray-900">Send a payment link</span>
-              </button>
+              </div>
 
               {/* Medical Aid - Coming Soon */}
               <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-6 py-5">

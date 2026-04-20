@@ -134,7 +134,7 @@ interface OptionsModalProps {
   onRequestConfirmPayment: (id: string) => void
 }
 
-type OptionChoice = "reshare" | "process-on-device" | "confirm-payment" | null
+type OptionChoice = "process-on-device" | "confirm-payment" | null
 
 function OptionsModal({
   open,
@@ -164,8 +164,6 @@ function OptionsModal({
 
     if (selected === "process-on-device") {
       router.push(`/create-booking/payment?bookingId=${bookingId}&type=device`)
-    } else if (selected === "reshare") {
-      router.push(`/create-booking/payment?bookingId=${bookingId}&type=link`)
     }
   }
 
@@ -194,24 +192,20 @@ function OptionsModal({
         </DialogHeader>
 
         <div className="flex flex-col gap-3 py-2">
-          {/* Reshare Payment Link */}
-          <button
-            type="button"
-            data-testid="option-reshare"
-            onClick={() => setSelected("reshare")}
-            className={`w-full rounded-lg border p-4 text-left transition-colors ${
-              selected === "reshare"
-                ? "border-gray-900 bg-gray-50"
-                : "border-gray-200 bg-white hover:bg-gray-50"
-            }`}
-          >
-            <span className="block text-sm font-semibold text-gray-900">
-              Reshare Payment Link
+          {/* Reshare Payment Link - Coming Soon */}
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4">
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-gray-400">
+                Reshare Payment Link
+              </span>
+              <span className="mt-1 text-xs text-gray-400">
+                Send the payment link to the same recipient or a different one
+              </span>
+            </div>
+            <span className="rounded-full bg-[#3ea3db] px-4 py-1.5 text-xs font-semibold text-white">
+              Coming Soon
             </span>
-            <span className="block text-xs text-gray-500 mt-1">
-              Send the payment link to the same recipient or a different one
-            </span>
-          </button>
+          </div>
 
           {/* Process Payment on Device */}
           <button

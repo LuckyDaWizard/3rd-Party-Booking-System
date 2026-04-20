@@ -34,14 +34,6 @@ export default function PaymentFailedPage() {
           Try Again
         </Button>
 
-        <Button
-          variant="outline"
-          onClick={() => router.push(`/create-booking/payment?bookingId=${bookingId}&type=link`)}
-          className="h-12 w-full rounded-xl border border-black text-base font-semibold sm:w-64"
-        >
-          Send Payment Link
-        </Button>
-
         <button
           type="button"
           onClick={() => router.push("/home")}
