@@ -97,39 +97,7 @@ async function processItn(request: Request): Promise<ItnOutcome> {
   const sigValid = sigValidWithPassphrase || sigValidWithoutPassphrase
 
   if (!sigValid) {
-    // Log enough to diagnose a signature mismatch WITHOUT leaking the
-    // passphrase. We log both computed variants so we can see which (if
-    // any) matches what PayFast sent.
-    const { computeItnSignature } = await import("@/lib/payfast")
-    const withPassphrase = computeItnSignature(postData, config.passphrase)
-    const withoutPassphrase = computeItnSignature(postData, undefined)
-    const fieldsInOrder: string[] = []
-    const fieldValues: Record<string, string> = {}
-    for (const [k, v] of Object.entries(postData)) {
-      if (k !== "signature") {
-        fieldsInOrder.push(k)
-        fieldValues[k] = v
-      }
-    }
-    console.error(
-      "[PayFast ITN] Signature mismatch details:",
-      JSON.stringify({
-        received: postData.signature,
-        computedWithPassphrase: withPassphrase,
-        computedWithoutPassphrase: withoutPassphrase,
-        testMode: config.testMode,
-        fieldsInOrder,
-        fieldValues,
-        passphraseLength: config.passphrase.length,
-      })
-    )
     return reject("Invalid signature", 400)
-  }
-
-  if (config.testMode && !sigValidWithPassphrase && sigValidWithoutPassphrase) {
-    console.warn(
-      "[PayFast ITN] Accepted signature without passphrase (sandbox mode). Production ITN will require passphrase."
-    )
   }
 
   // Step 2: Source IP. Either the request isn't from PayFast, or our proxy

@@ -187,10 +187,8 @@ export function validateItnSignature(
  *     $pfOutput .= '&passphrase=' . urlencode($passPhrase);
  *   }
  *   return md5($pfOutput);
- *
- * Exposed for logging/diagnostics (see notify route).
  */
-export function computeItnSignature(
+function computeItnSignature(
   postData: Record<string, string>,
   passphrase?: string
 ): string {
