@@ -503,6 +503,61 @@ export default function PatientDetailsPage() {
     additionalEmail: existingBooking?.additionalEmail ?? "",
   })
 
+  // -------------------------------------------------------------------------
+  // Draft auto-save
+  //
+  // The "Next" button calls updateBooking() to persist each step's data to
+  // the DB. But between arriving at a step and clicking Next, a nurse could
+  // spend several minutes typing. If the session ends (idle timeout, browser
+  // crash) before Next is clicked, that work is lost.
+  //
+  // This effect debounces the current form state (basicInfo / addressInfo /
+  // contactInfo) and writes it to the booking store every 2s of no changes.
+  // Short enough that a crash rarely costs more than a sentence; long enough
+  // that we're not hammering Supabase on every keystroke.
+  //
+  // Skips the very first render so we don't immediately save the initial
+  // (pre-filled from search params / existing booking) values.
+  // -------------------------------------------------------------------------
+  const didMountRef = useRef(false)
+  useEffect(() => {
+    if (!bookingId) return
+    if (!didMountRef.current) {
+      didMountRef.current = true
+      return
+    }
+    const handle = window.setTimeout(() => {
+      updateBooking(bookingId, {
+        firstNames: basicInfo.firstNames,
+        surname: basicInfo.surname,
+        idType: basicInfo.idType,
+        idNumber: basicInfo.idNumber,
+        title: basicInfo.title,
+        nationality: basicInfo.nationality,
+        gender: basicInfo.gender,
+        dateOfBirth: basicInfo.dateOfBirth,
+        address: addressInfo.address,
+        suburb: addressInfo.suburb,
+        city: addressInfo.city,
+        province: addressInfo.province,
+        country: addressInfo.country,
+        postalCode: addressInfo.postalCode,
+        countryCode: contactInfo.countryCode,
+        contactNumber: contactInfo.contactNumber,
+        emailAddress: contactInfo.emailAddress,
+        scriptToAnotherEmail: contactInfo.scriptToAnotherEmail,
+        additionalEmail: contactInfo.additionalEmail,
+      }).catch((err) => {
+        // Auto-save failures are non-fatal — the user's "Next" click still
+        // attempts a save, so worst case they lose the last few seconds of
+        // typing. Log loudly for diagnosis but do not surface an error
+        // banner that would distract from their current work.
+        console.warn("[patient-details] draft auto-save failed:", err)
+      })
+    }, 2000)
+    return () => window.clearTimeout(handle)
+  }, [bookingId, basicInfo, addressInfo, contactInfo, updateBooking])
+
   // Verification dialog
   const [showVerification, setShowVerification] = useState(false)
   const [bookingVerificationCode, setBookingVerificationCode] = useState("")

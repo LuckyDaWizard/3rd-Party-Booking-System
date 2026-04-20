@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
+import { SessionIdleMonitor } from "@/components/session-idle-monitor"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ClientStoreProvider } from "@/lib/client-store"
 import { UnitStoreProvider } from "@/lib/unit-store"
@@ -110,6 +111,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Idle-timeout monitor — only mounts for authenticated users (it
+          checks useAuth().user internally) and is scoped to dashboard
+          routes by virtue of living in this layout. Unauthenticated
+          routes (/sign-in, /forgot-pin, /reset-pin) don't need it. */}
+      <SessionIdleMonitor />
     </div>
   )
 }
