@@ -325,6 +325,12 @@ export default function PatientHistoryPage() {
   const [pinModalOpen, setPinModalOpen] = React.useState(false)
   const [pendingConfirmBookingId, setPendingConfirmBookingId] = React.useState<string | null>(null)
 
+  // PIN verification for the "Start Consult" handoff to CareFirst Patient.
+  const [startConsultPinOpen, setStartConsultPinOpen] = React.useState(false)
+  const [pendingStartConsultBookingId, setPendingStartConsultBookingId] = React.useState<string | null>(null)
+  const [startConsultBusyId, setStartConsultBusyId] = React.useState<string | null>(null)
+  const [startConsultError, setStartConsultError] = React.useState<string | null>(null)
+
   // Map booking records to patient records for display
   const allPatients: PatientRecord[] = bookings.map((b) => ({
     id: b.id,
@@ -563,8 +569,24 @@ export default function PatientHistoryPage() {
                   data-testid={`start-consult-${patient.id}`}
                   className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
                   size="lg"
+                  disabled={startConsultBusyId === patient.id}
+                  onClick={() => {
+                    setStartConsultError(null)
+                    setPendingStartConsultBookingId(patient.id)
+                    setStartConsultPinOpen(true)
+                  }}
                 >
-                  Start Consult
+                  {startConsultBusyId === patient.id ? (
+                    <>
+                      Starting…
+                      <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                        <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                        <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                      </svg>
+                    </>
+                  ) : (
+                    "Start Consult"
+                  )}
                 </Button>
               ) : patient.status === "Abandoned" ? (
                 <Button
@@ -771,6 +793,82 @@ export default function PatientHistoryPage() {
           setPendingConfirmBookingId(null)
         }}
       />
+
+      {/* PIN Verification Modal — gates Start Consult handoff to CareFirst Patient */}
+      <PinVerificationModal
+        open={startConsultPinOpen}
+        onOpenChange={(o) => {
+          setStartConsultPinOpen(o)
+          if (!o) setPendingStartConsultBookingId(null)
+        }}
+        activeUnitId={activeUnitId}
+        heading="Enter your verification code to start the consultation"
+        subtitle="This will hand off the patient's data to CareFirst Patient and be recorded in the audit log."
+        onVerified={async () => {
+          const bookingId = pendingStartConsultBookingId
+          if (!bookingId) return
+          setStartConsultBusyId(bookingId)
+          setStartConsultError(null)
+          try {
+            const res = await fetch(
+              `/api/bookings/${bookingId}/start-consultation`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              }
+            )
+            const data = (await res.json().catch(() => ({}))) as {
+              ok?: boolean
+              redirectUrl?: string | null
+              error?: string
+            }
+            if (!res.ok || !data.ok) {
+              throw new Error(
+                data.error ?? "Failed to start consultation. Please try again."
+              )
+            }
+            await refreshBookings()
+            if (data.redirectUrl) {
+              window.open(data.redirectUrl, "_blank", "noopener,noreferrer")
+            } else {
+              setStartConsultError(
+                "Consultation registered but CareFirst did not return a redirect URL. Please contact support."
+              )
+            }
+          } catch (err) {
+            setStartConsultError(
+              err instanceof Error ? err.message : "Failed to start consultation."
+            )
+            throw err
+          } finally {
+            setStartConsultBusyId(null)
+            setPendingStartConsultBookingId(null)
+          }
+        }}
+      />
+
+      {/* Start Consult error banner */}
+      {startConsultError && (
+        <div
+          data-testid="start-consult-error"
+          className="fixed bottom-24 left-1/2 z-50 w-[min(90vw,32rem)] -translate-x-1/2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-lg"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold">Start Consult failed</div>
+              <div className="mt-1 text-xs">{startConsultError}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStartConsultError(null)}
+              className="text-red-500 hover:text-red-700"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Export to Excel - System Admin only */}
       {isSystemAdmin && (
