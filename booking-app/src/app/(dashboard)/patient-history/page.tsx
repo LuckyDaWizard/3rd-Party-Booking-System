@@ -669,30 +669,61 @@ export default function PatientHistoryPage() {
                   )}
                 </Button>
               ) : patient.status === "Abandoned" ? (
-                <Button
-                  data-testid={`continue-button-${patient.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                  size="lg"
-                  onClick={() => {
-                    // Resume booking from the start with pre-filled data
-                    const params = new URLSearchParams()
-                    params.set("bookingId", patient.id)
-                    params.set("searchType", "id")
-                    if (patient.patientIdNumber && patient.patientIdNumber !== "N/A") {
-                      // Use the raw (unmasked) ID from the booking
-                      const booking = bookings.find((b) => b.id === patient.id)
-                      if (booking?.idNumber) {
-                        params.set("idNumber", booking.idNumber)
-                      }
-                    }
-                    // Update booking status back to In Progress
-                    updateBooking(patient.id, { status: "In Progress" })
-                    router.push(`/create-booking/patient-details?${params.toString()}`)
-                  }}
-                >
-                  Continue
-                  <ArrowRight className="ml-1 size-4" />
-                </Button>
+                (() => {
+                  // If the abandoned booking reached the payment step
+                  // (paymentType is set) AND the viewer is an admin/manager,
+                  // expose the Options modal so they can mark payment as
+                  // confirmed (PayFast may have completed the payment even
+                  // though we never saw the ITN). Everyone else sees the
+                  // normal Continue button.
+                  const fullBooking = bookings.find((b) => b.id === patient.id)
+                  const reachedPayment = Boolean(fullBooking?.paymentType)
+                  const showOptions = canConfirmPayment && reachedPayment
+
+                  if (showOptions) {
+                    return (
+                      <Button
+                        data-testid={`options-button-${patient.id}`}
+                        className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                        size="lg"
+                        onClick={() => {
+                          setSelectedBookingId(patient.id)
+                          setOptionsModalOpen(true)
+                        }}
+                      >
+                        Options
+                        <MoreVertical className="ml-3 size-4" />
+                      </Button>
+                    )
+                  }
+
+                  return (
+                    <Button
+                      data-testid={`continue-button-${patient.id}`}
+                      className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                      size="lg"
+                      onClick={() => {
+                        // Resume booking from the start with pre-filled data
+                        const params = new URLSearchParams()
+                        params.set("bookingId", patient.id)
+                        params.set("searchType", "id")
+                        if (patient.patientIdNumber && patient.patientIdNumber !== "N/A") {
+                          // Use the raw (unmasked) ID from the booking
+                          const booking = bookings.find((b) => b.id === patient.id)
+                          if (booking?.idNumber) {
+                            params.set("idNumber", booking.idNumber)
+                          }
+                        }
+                        // Update booking status back to In Progress
+                        updateBooking(patient.id, { status: "In Progress" })
+                        router.push(`/create-booking/patient-details?${params.toString()}`)
+                      }}
+                    >
+                      Continue
+                      <ArrowRight className="ml-1 size-4" />
+                    </Button>
+                  )
+                })()
               ) : patient.status === "In Progress" ? (
                 <Button
                   data-testid={`options-button-${patient.id}`}

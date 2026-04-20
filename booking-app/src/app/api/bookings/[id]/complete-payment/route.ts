@@ -58,7 +58,7 @@ export async function POST(request: Request, context: RouteContext) {
   // Load the booking.
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
-    .select("id, status, first_names, surname, unit_id")
+    .select("id, status, first_names, surname, unit_id, payment_amount")
     .eq("id", id)
     .single()
 
@@ -88,7 +88,22 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: true, alreadyComplete: true })
   }
 
-  if (booking.status !== "In Progress") {
+  // Allow confirming "In Progress" bookings normally, and also "Abandoned"
+  // bookings that had a payment_amount stored (meaning they reached the
+  // payment step before being abandoned — e.g. user closed the success
+  // page before ITN confirmation arrived). Discarded bookings remain
+  // unrecoverable — those were an explicit user choice.
+  if (booking.status === "Abandoned") {
+    if (!booking.payment_amount) {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot confirm payment — booking was abandoned before reaching the payment step.",
+        },
+        { status: 409 }
+      )
+    }
+  } else if (booking.status !== "In Progress") {
     return NextResponse.json(
       { error: `Cannot complete payment for booking with status "${booking.status}"` },
       { status: 409 }
@@ -121,7 +136,10 @@ export async function POST(request: Request, context: RouteContext) {
     entityId: id,
     entityName: `Booking for ${patientName}`,
     changes: {
-      "Payment Status": { old: "In Progress", new: "Payment Complete (manual)" },
+      "Payment Status": {
+        old: booking.status,
+        new: "Payment Complete (manual)",
+      },
     },
     ipAddress: getCallerIp(request),
   })

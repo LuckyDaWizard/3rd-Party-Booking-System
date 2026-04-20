@@ -108,12 +108,16 @@ export async function POST(request: Request) {
     )
   }
 
-  // Find pending bookings from the last LOOKBACK_HOURS.
+  // Find pending bookings from the last LOOKBACK_HOURS. Include both
+  // "In Progress" and "Abandoned" — the latter covers the case where a
+  // user closed the success page before ITN arrived, causing the booking
+  // store's beforeunload handler to flip them to Abandoned. PayFast may
+  // still have a COMPLETE transaction for them.
   const cutoff = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000).toISOString()
   const { data: pending, error: pendingErr } = await admin
     .from("bookings")
     .select("id")
-    .eq("status", "In Progress")
+    .in("status", ["In Progress", "Abandoned"])
     .not("payment_amount", "is", null)
     .gte("created_at", cutoff)
     .limit(100)
@@ -176,11 +180,23 @@ async function reconcileOne(
     }
   }
 
-  if (booking.status !== "In Progress") {
+  // Accept "In Progress" (normal) and "Abandoned" (user closed the tab
+  // before ITN arrived). Reject "Discarded" (explicit user choice).
+  if (booking.status !== "In Progress" && booking.status !== "Abandoned") {
     return {
       bookingId,
       updated: false,
       reason: `Cannot reconcile booking in status "${booking.status}"`,
+    }
+  }
+
+  // Abandoned bookings must have reached the payment step (payment_amount
+  // set) — otherwise there's no PayFast transaction to reconcile against.
+  if (booking.status === "Abandoned" && !booking.payment_amount) {
+    return {
+      bookingId,
+      updated: false,
+      reason: "Abandoned before reaching payment",
     }
   }
 
