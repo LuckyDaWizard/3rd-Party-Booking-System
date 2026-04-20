@@ -6,6 +6,32 @@ it quickly.
 
 ---
 
+## Terminology
+
+Use these terms consistently in code, copy, and support conversations.
+Mixing "clinic", "practice", "facility", etc. confuses staff and leaks
+into patient-facing UI. Keep them pinned to what the data model calls
+them.
+
+| Term | Means | Examples |
+|---|---|---|
+| **Client** | The parent organisation that uses our system. Maps to the `public.clients` table. One Client can have many Units. | "ACME Health Group", "Provincial Hospitals NPC" |
+| **Unit** | A specific location, department, or clinic belonging to a Client. Maps to `public.units`. All bookings, staff, and patient records are scoped to a Unit via `unit_id`. | "ACME Health — Sandton Branch", "Provincial Hospitals — Oncology" |
+| **User** | A staff member who signs in to the system. Three roles: `system_admin`, `unit_manager`, `user`. Non-admins are scoped to specific Units via `user_units`. | The nurse capturing a booking |
+| **Patient** | A person a User creates a booking for. Not a signed-in user of our system. Their data lives on the `bookings` row. | Walk-in from a clinic |
+| **Booking** | One consultation attempt. Has a status lifecycle: In Progress → Payment Complete → Successful (or Discarded / Abandoned). | Each row in `public.bookings` |
+| **Consultation** | The clinical session that happens in the CareFirst Patient app AFTER handoff. We don't own this concept — it lives downstream. | Triggered by "Start Consult" |
+
+### Don't use
+
+- ❌ **Clinic** — use "Unit" instead (unless the unit's display name genuinely contains the word)
+- ❌ **Practice** — same reason
+- ❌ **Facility** — same reason
+- ❌ **Customer** — patients aren't our customers; the Client is
+- ❌ **Account** — too vague; use User, Client, or Unit
+
+---
+
 ## Manual Refund Process
 
 **Why this is manual:** The booking system does not have a refund flow. The
@@ -87,6 +113,72 @@ Send the patient a plain email confirming:
 
 ---
 
+## Verify Supabase Backups
+
+Point-in-Time Recovery (PITR) and daily backups are our only protection
+against accidental data loss (admin mistake, bad migration, rogue SQL).
+Don't assume they're on — verify it, and re-verify whenever the plan
+changes.
+
+### Check what plan we're on
+
+1. Sign in to the Supabase dashboard → Project **Third Party Booking System**
+2. Go to **Settings** → **General** → look at the project's **Compute**
+   / **Plan** section.
+
+### What each plan gives us
+
+| Plan | Backups |
+|---|---|
+| **Free** | No scheduled backups. No PITR. If the DB is wiped, the data is gone. |
+| **Pro** | 7 days of daily backups, downloadable as `.sql`. PITR can be enabled as a paid add-on. |
+| **Team / Enterprise** | 14–35 day daily backups + PITR (granular recovery to any point). |
+
+### Verify backups exist (Pro and above)
+
+1. Supabase dashboard → **Database** → **Backups**
+2. Confirm at least 2 recent daily backups are listed with "Success" status.
+3. Download the most recent one to local disk once a month and keep it
+   alongside the repo backup. Filename convention: `supabase-backup-YYYY-MM-DD.sql`.
+
+### If we're on Free tier
+
+Run a manual `pg_dump` on a schedule. Two realistic options:
+
+**Option A — from the VPS (simplest)**
+
+SSH to the VPS, add a cron entry that dumps to an offsite-mounted folder:
+
+```bash
+# 02:00 SAST daily
+0 2 * * * PGPASSWORD='<db-password>' pg_dump \
+  -h db.<project-ref>.supabase.co \
+  -p 5432 -U postgres -d postgres \
+  -F c -f /backups/supabase-$(date +\%Y-\%m-\%d).dump \
+  && find /backups -name 'supabase-*.dump' -mtime +30 -delete
+```
+
+The `-F c` format is compressed + parallel-restorable.
+
+**Option B — upgrade to Pro**
+
+At current scale, Pro is usually cheaper in labour than maintaining the
+pg_dump pipeline. Recommended once we have a production customer.
+
+### Test a restore (do this once, then yearly)
+
+A backup you've never restored is not a backup. Do this in a scratch
+project:
+
+1. Create a new Supabase project called `restore-test`.
+2. Run the downloaded `.sql` or `pg_restore` the `.dump` into it.
+3. Spot-check: `SELECT count(*) FROM bookings`, `users`, `audit_log`.
+4. Destroy the scratch project.
+
+Document the test date + result in your operational log.
+
+---
+
 ## Incident: PayFast ITN Not Arriving
 
 If bookings are stuck at "In Progress" after payment:
@@ -116,6 +208,84 @@ If "Start Consult" returns a failure banner:
      banner will carry CareFirst's exact complaint
    - API key revoked / expired
 4. Retries are unlimited; `handoff_attempt_count` tracks them.
+
+---
+
+## Deploy and Rollback
+
+### Deploy (VPS)
+
+Always build with `IMAGE_TAG=<short-sha>` so we can roll back to the
+previous image if the new one is broken. `docker compose` tags the built
+image with whatever `image:` resolves to, and keeps older images around
+until you prune.
+
+```bash
+cd /opt/3rd-Party-Booking-System && \
+git pull origin main && \
+export IMAGE_TAG=$(git rev-parse --short HEAD) && \
+cd booking-app && \
+docker compose build && \
+docker compose up -d
+```
+
+What this does:
+1. Pulls the latest code and reads the commit SHA (e.g. `ac5f529`).
+2. Builds a new image tagged `booking-app:ac5f529`.
+3. Starts the container using that tag.
+4. The previous `booking-app:<old-sha>` stays in `docker images` until
+   pruned — that's our rollback target.
+
+### Verify the deploy
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+curl -sf http://127.0.0.1:3000/api/health
+```
+
+You want `(healthy)` next to `booking-app` and a `{"status":"ok",...}`
+payload from the health check. If not, roll back.
+
+### Rollback
+
+If the deploy breaks production, drop back to the previous image
+without touching git:
+
+```bash
+# 1. See what images you have
+docker images booking-app --format "table {{.Tag}}\t{{.CreatedAt}}"
+
+# 2. Pick the previous SHA tag (the one before the bad deploy)
+export IMAGE_TAG=<previous-short-sha>
+
+# 3. Recreate the container using that tag, no rebuild
+cd /opt/3rd-Party-Booking-System/booking-app
+docker compose up -d --no-build
+
+# 4. Verify
+docker ps --format "table {{.Names}}\t{{.Status}}"
+curl -sf http://127.0.0.1:3000/api/health
+```
+
+The rollback takes ~10 seconds because no build runs. Only the
+container restart.
+
+Once the bad commit is reverted or fixed on main, do a normal deploy
+to move forward again.
+
+### Image hygiene
+
+Docker doesn't auto-prune old tags. Keep at least the last 3 images
+around (current + two fallback candidates) and clean the rest monthly:
+
+```bash
+# List images, keep the 3 most recent, delete older ones
+docker images booking-app --format "{{.Tag}}" | tail -n +4 | while read -r tag; do
+  [ "$tag" = "latest" ] && continue
+  [ "$tag" = "<none>" ] && continue
+  docker image rm "booking-app:$tag"
+done
+```
 
 ---
 

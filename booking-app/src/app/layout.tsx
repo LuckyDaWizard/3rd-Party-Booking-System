@@ -17,7 +17,7 @@ const mulish = Mulish({
 
 export const metadata: Metadata = {
   title: "CareFirst Third Party Booking",
-  description: "Third party booking system for CareFirst medical practices",
+  description: "Third party booking system for CareFirst clients and their units",
   icons: {
     icon: "/favicon.png",
   },
