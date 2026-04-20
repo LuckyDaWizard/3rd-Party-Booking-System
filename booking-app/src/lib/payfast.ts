@@ -149,8 +149,18 @@ export function buildPaymentData(
 
 /**
  * Step 1: Validate the ITN signature.
- * Recompute the signature from the POST fields (excluding 'signature')
- * and compare with the received signature.
+ *
+ * Recompute the signature from the POST fields (excluding 'signature') and
+ * compare with the received signature.
+ *
+ * IMPORTANT: PayFast's ITN signature algorithm DIFFERS from the initiate-side
+ * signature in two subtle ways:
+ *   1. Empty-valued fields are INCLUDED in the signature string (as `key=`)
+ *   2. Values are NOT trimmed
+ * (See PayFast's official PHP sample in the ITN integration docs.)
+ *
+ * We therefore compute the signature here directly rather than delegating to
+ * generateSignature() which filters empty values and trims.
  */
 export function validateItnSignature(
   postData: Record<string, string>,
@@ -159,16 +169,45 @@ export function validateItnSignature(
   const receivedSignature = postData.signature
   if (!receivedSignature) return false
 
-  // Build data without the signature field, preserving order
-  const dataWithoutSig: Record<string, string> = {}
-  for (const [key, value] of Object.entries(postData)) {
-    if (key !== "signature") {
-      dataWithoutSig[key] = value
-    }
-  }
-
-  const computed = generateSignature(dataWithoutSig, passphrase)
+  const computed = computeItnSignature(postData, passphrase)
   return computed === receivedSignature
+}
+
+/**
+ * PayFast ITN-specific signature computation. Mirrors the PHP sample in the
+ * official PayFast ITN integration documentation:
+ *
+ *   foreach ($pfData as $key => $val) {
+ *     if ($key !== 'signature') {
+ *       $pfOutput .= $key . '=' . urlencode($val) . '&';
+ *     }
+ *   }
+ *   $pfOutput = substr($pfOutput, 0, -1);
+ *   if (!empty($passPhrase)) {
+ *     $pfOutput .= '&passphrase=' . urlencode($passPhrase);
+ *   }
+ *   return md5($pfOutput);
+ *
+ * Exposed for logging/diagnostics (see notify route).
+ */
+export function computeItnSignature(
+  postData: Record<string, string>,
+  passphrase?: string
+): string {
+  const parts: string[] = []
+  for (const [key, value] of Object.entries(postData)) {
+    if (key === "signature") continue
+    // Do NOT filter empties and do NOT trim — PayFast includes empty fields
+    // and uses the raw value in their signature calculation.
+    parts.push(
+      `${key}=${encodeURIComponent(value).replace(/%20/g, "+")}`
+    )
+  }
+  let signatureString = parts.join("&")
+  if (passphrase) {
+    signatureString += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}`
+  }
+  return crypto.createHash("md5").update(signatureString).digest("hex")
 }
 
 /**
