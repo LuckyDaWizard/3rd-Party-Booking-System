@@ -44,9 +44,10 @@ EXPOSE 3000
 # routed through the app's /api/health endpoint so it also verifies DB
 # connectivity, not just the Node process.
 #
-# `wget --spider` hits the URL without saving the body. Alpine base ships
-# wget pre-installed so no extra layer is needed.
+# Uses BusyBox-compatible wget syntax (alpine's default): -q for quiet,
+# -O - writes the body to stdout which we discard via redirection. The
+# long-form --quiet / --spider flags aren't available on BusyBox wget.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget --quiet --spider http://127.0.0.1:3000/api/health || exit 1
+  CMD wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1
 
 CMD ["node", "server.js"]
