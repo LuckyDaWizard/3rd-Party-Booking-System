@@ -19,6 +19,11 @@ Project Files/
 # Ad-hoc test notes.
 testing extention.txt
 
+# Stray Next.js build artefacts — if someone accidentally runs `next build`
+# or `next dev` from the repo root instead of booking-app/, it creates a
+# .next folder here. Ignore so it doesn't pollute commits.
+/.next/
+
 # Audit reports — generated locally, may contain sensitive findings.
 # Commit only final published versions if needed; drafts stay local.
 AUDIT_REPORT_*.md
