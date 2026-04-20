@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { requireAuthenticated } from "@/lib/api-auth"
 import {
   getPayfastConfig,
   getProcessUrl,
@@ -15,6 +16,12 @@ import {
 // Builds the PayFast form data + signature for a booking. The frontend uses
 // the returned fields to auto-submit a hidden form to PayFast.
 //
+// Auth: requires a signed-in, Active user (any role). Before this guard was
+// added, any caller on the internet could POST `{bookingId}` and receive the
+// booking's first_names / surname / email_address in the response — enabling
+// PII harvesting + booking enumeration. unit_manager and user callers are
+// additionally unit-scoped against the booking's unit_id.
+//
 // Body: { bookingId: string }
 //
 // Returns:
@@ -25,6 +32,9 @@ import {
 // =============================================================================
 
 export async function POST(request: Request) {
+  const { caller, denied } = await requireAuthenticated()
+  if (denied) return denied
+
   let body: { bookingId?: string }
   try {
     body = await request.json()
@@ -60,12 +70,25 @@ export async function POST(request: Request) {
 
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
-    .select("id, status, first_names, surname, email_address")
+    .select("id, status, first_names, surname, email_address, unit_id")
     .eq("id", bookingId)
     .single()
 
   if (loadErr || !booking) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+  }
+
+  // Unit scoping: non-admin callers may only initiate payments for bookings
+  // in their assigned units. system_admin can initiate for any booking.
+  // Bookings without a unit_id (shouldn't happen in normal flow) are treated
+  // as admin-only to avoid accidental cross-unit access.
+  if (caller.role !== "system_admin") {
+    if (!booking.unit_id || !caller.unitIds.includes(booking.unit_id)) {
+      return NextResponse.json(
+        { error: "Forbidden — booking is not in your assigned units" },
+        { status: 403 }
+      )
+    }
   }
 
   if (booking.status !== "In Progress") {

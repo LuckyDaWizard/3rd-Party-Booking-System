@@ -176,6 +176,66 @@ export async function requireAdminOrManager(): Promise<
 }
 
 // ---------------------------------------------------------------------------
+// requireAuthenticated
+// ---------------------------------------------------------------------------
+
+/**
+ * Asserts that the caller is signed in AND has status = "Active". Does NOT
+ * enforce a specific role — use this when any of the three roles (system_admin,
+ * unit_manager, user) is acceptable but the action still needs to be tied
+ * to a real, active user for unit-scoping or audit logging.
+ *
+ * Returns either:
+ *   { caller: CallerInfo }              — success, proceed
+ *   { denied: NextResponse }            — failure, return the response
+ *
+ * Typical usage: routes called during the normal booking flow by nurses
+ * (user role) such as /api/payfast/initiate.
+ */
+export async function requireAuthenticated(): Promise<
+  { caller: CallerInfo; denied?: never } | { caller?: never; denied: NextResponse }
+> {
+  const sb = await getSupabaseServer()
+  const {
+    data: { user: authUser },
+  } = await sb.auth.getUser()
+
+  if (!authUser) {
+    return { denied: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) }
+  }
+
+  const { data: callerRow, error } = await sb
+    .from("users")
+    .select("id, first_names, surname, role, status")
+    .eq("auth_user_id", authUser.id)
+    .single()
+
+  if (error || !callerRow) {
+    return { denied: NextResponse.json({ error: "Caller not provisioned" }, { status: 403 }) }
+  }
+  if (callerRow.status !== "Active") {
+    return { denied: NextResponse.json({ error: "Caller account disabled" }, { status: 403 }) }
+  }
+
+  const { data: unitRows } = await sb
+    .from("user_units")
+    .select("unit_id")
+    .eq("user_id", callerRow.id)
+
+  const unitIds = (unitRows ?? []).map((r) => r.unit_id as string)
+
+  return {
+    caller: {
+      id: callerRow.id,
+      authUserId: authUser.id,
+      role: callerRow.role as "system_admin" | "unit_manager" | "user",
+      unitIds,
+      name: `${callerRow.first_names} ${callerRow.surname}`.trim(),
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Unit-scoping helper
 // ---------------------------------------------------------------------------
 

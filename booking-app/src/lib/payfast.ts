@@ -170,7 +170,31 @@ export function validateItnSignature(
   if (!receivedSignature) return false
 
   const computed = computeItnSignature(postData, passphrase)
-  return computed === receivedSignature
+  return constantTimeEqualsHex(computed, receivedSignature)
+}
+
+/**
+ * Constant-time comparison for hex strings (e.g. MD5 digests). Prevents
+ * timing side-channel attacks that could infer the correct signature
+ * byte-by-byte by measuring response time on failed validations.
+ *
+ * Returns false if lengths differ or hex is malformed (Buffer.from's hex
+ * parser silently truncates invalid input, so we must guard against
+ * mismatched buffer lengths explicitly).
+ */
+function constantTimeEqualsHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  try {
+    const bufA = Buffer.from(a, "hex")
+    const bufB = Buffer.from(b, "hex")
+    // Buffer.from("", "hex") succeeds but yields length 0 — so an empty or
+    // odd-length string slips through. Reject any case where the hex decode
+    // lost data.
+    if (bufA.length === 0 || bufA.length !== bufB.length) return false
+    return crypto.timingSafeEqual(bufA, bufB)
+  } catch {
+    return false
+  }
 }
 
 /**
