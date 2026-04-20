@@ -29,6 +29,11 @@ services:
       - PAYFAST_PASSPHRASE=${PAYFAST_PASSPHRASE}
       - PAYFAST_TEST_MODE=${PAYFAST_TEST_MODE}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      # CareFirst Patient SSO handoff
+      - CAREFIRST_API_DOMAIN=${CAREFIRST_API_DOMAIN}
+      - CAREFIRST_API_KEY=${CAREFIRST_API_KEY}
+      - CAREFIRST_CLIENT_CODE=${CAREFIRST_CLIENT_CODE}
+      - CAREFIRST_CLIENT_PLAN_CODE=${CAREFIRST_CLIENT_PLAN_CODE}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.booking.rule=PathPrefix(`/`)"
