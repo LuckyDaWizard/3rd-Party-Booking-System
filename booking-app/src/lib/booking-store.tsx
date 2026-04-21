@@ -60,6 +60,13 @@ export interface BookingRecord {
   additionalComments: string | null
   termsAccepted: boolean
   termsAcceptedAt: string | null
+  /**
+   * Pre-PII consent captured at Step 1 of the booking flow. Separate from
+   * termsAcceptedAt (end-of-flow consultation consent). POPIA requires
+   * consent before data processing starts, so this one is the legally
+   * load-bearing consent for personal-information collection.
+   */
+  consentAcceptedAt: string | null
   unitId: string | null
 }
 
@@ -103,6 +110,7 @@ interface DbBooking {
   additional_comments: string | null
   terms_accepted: boolean
   terms_accepted_at: string | null
+  consent_accepted_at: string | null
   unit_id: string | null
 }
 
@@ -143,6 +151,7 @@ function mapDbToBooking(row: DbBooking): BookingRecord {
     additionalComments: row.additional_comments,
     termsAccepted: row.terms_accepted,
     termsAcceptedAt: row.terms_accepted_at,
+    consentAcceptedAt: row.consent_accepted_at,
     unitId: row.unit_id,
   }
 }
@@ -193,6 +202,8 @@ function mapBookingToDb(
     db.terms_accepted = updates.termsAccepted
   if (updates.termsAcceptedAt !== undefined)
     db.terms_accepted_at = updates.termsAcceptedAt
+  if (updates.consentAcceptedAt !== undefined)
+    db.consent_accepted_at = updates.consentAcceptedAt
   if (updates.unitId !== undefined) db.unit_id = updates.unitId
   return db
 }

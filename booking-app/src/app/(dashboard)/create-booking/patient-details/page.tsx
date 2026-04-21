@@ -256,9 +256,13 @@ interface BasicInfoData {
 function StepBasicInfo({
   data,
   onChange,
+  consentAccepted,
+  onConsentChange,
 }: {
   data: BasicInfoData
   onChange: (updated: BasicInfoData) => void
+  consentAccepted: boolean
+  onConsentChange: (accepted: boolean) => void
 }) {
   const [idError, setIdError] = useState("")
 
@@ -419,6 +423,34 @@ function StepBasicInfo({
           />
         </div>
       </div>
+
+      {/* POPIA consent — must be ticked BEFORE the rest of the flow so the
+          user gives informed consent for personal-information processing
+          before any data is captured downstream. Required by POPIA §18(1). */}
+      <label
+        data-testid="step1-consent-checkbox"
+        className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50"
+      >
+        <input
+          type="checkbox"
+          checked={consentAccepted}
+          onChange={(e) => onConsentChange(e.target.checked)}
+          className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-gray-300 text-[#3ea3db] focus:ring-2 focus:ring-[#3ea3db]"
+        />
+        <span className="text-sm text-gray-700">
+          I have read and agree to the{" "}
+          <a
+            href="https://carefirst.co.za/terms-and-conditions/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-[#3ea3db] underline hover:text-[#3ea3db]/80"
+          >
+            CareFirst Privacy Policy and Terms &amp; Conditions
+          </a>
+          , and consent to the collection and processing of the patient&apos;s
+          personal information for the purposes of this consultation booking.
+        </span>
+      </label>
     </div>
   )
 }
@@ -476,6 +508,13 @@ export default function PatientDetailsPage() {
     postalCode: existingBooking?.postalCode ?? "",
   })
 
+  // POPIA pre-PII consent. True once the user ticks the Step 1 checkbox.
+  // Pre-fills from the booking if we're resuming a draft that already
+  // captured consent on a previous visit.
+  const [consentAccepted, setConsentAccepted] = useState(
+    Boolean(existingBooking?.consentAcceptedAt)
+  )
+
   const isStep1Complete =
     basicInfo.firstNames.trim() !== "" &&
     basicInfo.surname.trim() !== "" &&
@@ -484,7 +523,8 @@ export default function PatientDetailsPage() {
     basicInfo.title.trim() !== "" &&
     basicInfo.nationality.trim() !== "" &&
     basicInfo.gender.trim() !== "" &&
-    basicInfo.dateOfBirth.trim() !== ""
+    basicInfo.dateOfBirth.trim() !== "" &&
+    consentAccepted
 
   const isStep2Complete =
     addressInfo.address.trim() !== "" &&
@@ -619,8 +659,15 @@ export default function PatientDetailsPage() {
 
   async function handleNext() {
     if (currentStep === 1 && isStep1Complete) {
-      // Save basic info to DB
+      // Save basic info to DB. Also persist the POPIA pre-PII consent
+      // timestamp — only set it once (if not already captured on a
+      // prior visit) so the timestamp reflects the first time consent
+      // was given, not every time Next is clicked.
       if (bookingId) {
+        const existing = getBooking(bookingId)
+        const consentUpdate = existing?.consentAcceptedAt
+          ? {}
+          : { consentAcceptedAt: new Date().toISOString() }
         await updateBooking(bookingId, {
           firstNames: basicInfo.firstNames,
           surname: basicInfo.surname,
@@ -631,6 +678,7 @@ export default function PatientDetailsPage() {
           gender: basicInfo.gender,
           dateOfBirth: basicInfo.dateOfBirth,
           currentStep: "patient-details",
+          ...consentUpdate,
         })
       }
       setCurrentStep(2)
@@ -812,7 +860,12 @@ export default function PatientDetailsPage() {
 
         {/* Step content */}
         {currentStep === 1 && (
-          <StepBasicInfo data={basicInfo} onChange={setBasicInfo} />
+          <StepBasicInfo
+            data={basicInfo}
+            onChange={setBasicInfo}
+            consentAccepted={consentAccepted}
+            onConsentChange={setConsentAccepted}
+          />
         )}
 
         {/* Step 2 - Address Details */}

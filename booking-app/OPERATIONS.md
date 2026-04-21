@@ -211,6 +211,173 @@ If "Start Consult" returns a failure banner:
 
 ---
 
+## POPIA Procedures
+
+South African POPIA (Protection of Personal Information Act) compliance
+procedures. These are the operational pieces that sit alongside the code
+routes — the code handles the mechanical part, this runbook handles the
+human verification and regulator-facing steps.
+
+### Privacy policy / Terms
+
+The booking system links to the canonical CareFirst T&Cs at
+<https://carefirst.co.za/terms-and-conditions/>. Consent is captured at
+Step 1 of the booking flow (checkbox that stores `consent_accepted_at`
+on the booking row) BEFORE any personal information is collected. Do not
+bypass this — POPIA §18(1) requires informed consent before processing.
+
+### Handling a data subject access request (POPIA §23)
+
+1. Patient emails <support@care-first.co.za> requesting their data.
+2. Verify the requester's identity out of band (email match + any other
+   identifier on file — never accept the request on the strength of the
+   email alone, a compromised inbox would bypass everything).
+3. As a system admin, call the access endpoint with the patient's ID
+   number:
+   ```bash
+   curl -X POST https://<app-host>/api/admin/privacy/access \
+     -H "Content-Type: application/json" \
+     -H "Cookie: sb-access-token=<your-session>" \
+     -H "x-csrf-token: <your-csrf-token>" \
+     -d '{"idNumber":"8710115715084","reason":"Access request via support email 2026-04-20"}'
+   ```
+4. The response contains every booking row (including any erased
+   tombstones). Package as JSON or PDF and email to the verified
+   address on file.
+5. SLA: 15 business days per the CareFirst T&Cs.
+6. The endpoint writes to `audit_log` automatically — check that entry
+   exists before closing the ticket.
+
+### Handling a data subject erasure request (POPIA §24)
+
+1. Same identity verification as above.
+2. Call the erase endpoint:
+   ```bash
+   curl -X POST https://<app-host>/api/admin/privacy/erase \
+     -H "Content-Type: application/json" \
+     -H "Cookie: sb-access-token=<your-session>" \
+     -H "x-csrf-token: <your-csrf-token>" \
+     -d '{"idNumber":"8710115715084","reason":"POPIA §24 erasure request 2026-04-20"}'
+   ```
+3. The endpoint anonymises all PII columns on every matching booking,
+   keeps the row (so financial + medical records retention obligations
+   aren't violated), and writes `erased_at` + `erased_reason` tombstones.
+4. Email the patient confirming the erasure and advising that some
+   information (payment records, audit log entries) is retained for
+   legally-required periods but is no longer linked to them.
+5. Idempotent: re-running the command does nothing on the second call.
+
+### Retention sweep
+
+Abandoned bookings older than 30 days are automatically anonymised to
+limit our PII retention footprint. Trigger manually when needed:
+
+```bash
+curl -X POST https://<app-host>/api/admin/privacy/retention-sweep \
+  -H "Content-Type: application/json" \
+  -H "Cookie: sb-access-token=<your-session>" \
+  -H "x-csrf-token: <your-csrf-token>" \
+  -d '{}'
+```
+
+Processes up to 500 rows per call. Run multiple times if the first
+response indicates it hit the limit. Recommended schedule: daily,
+either via pg_cron (Supabase extension), an external cron hitting the
+endpoint, or manually by an admin.
+
+Completed bookings ("Payment Complete" / "Successful") are NOT touched
+by this sweep — their retention is governed by HPCSA medical-records
+rules, not the short abandoned-booking policy.
+
+---
+
+## Incident: Data Breach (POPIA §22)
+
+If we discover unauthorised access, disclosure, or loss of personal
+information, POPIA §22 requires notification to the Information
+Regulator AND to affected data subjects "as soon as reasonably
+possible." Don't wait for legal sign-off on the notification wording —
+the clock starts when we know.
+
+### Severity triage (first 1 hour)
+
+1. **Scope:** How many data subjects are affected? What categories of
+   information (special personal information = higher severity)?
+2. **Vector:** Was this external (attacker, vendor breach) or internal
+   (misconfiguration, rogue user)? Is the vector still active?
+3. **Data state:** Was data exfiltrated, or just exposed? Is there
+   evidence of actual access?
+
+### Containment (first 4 hours)
+
+1. If the vector is still active, kill it first:
+   - Rogue user → force sign-out via Security dashboard; disable
+     account.
+   - External attacker → rotate `SUPABASE_SERVICE_ROLE_KEY`, rotate
+     `PAYFAST_PASSPHRASE`, rotate `CAREFIRST_API_KEY`, invalidate all
+     Supabase sessions, force a redeploy.
+   - Third-party breach → pull our access to the affected vendor,
+     prepare to migrate.
+2. Preserve evidence: snapshot the Supabase DB + download `audit_log`
+   before making any other changes.
+3. Document timeline: who discovered it, when, what's been done.
+
+### Notification to the Information Regulator
+
+- **Who:** The Information Regulator (South Africa)
+- **Where:** <https://inforegulator.org.za/security-compromises/>
+- **How:** There's a web form + email route. Submit the security
+  compromise notification form.
+- **What to include:** Nature of the compromise, data categories
+  affected, number of subjects, containment actions taken, planned
+  remediation, Information Officer contact details.
+
+### Notification to affected data subjects
+
+Template (adapt for each incident):
+
+```
+Subject: Important notice about your CareFirst information
+
+Dear <first name>,
+
+On <date>, CareFirst discovered <brief description of what happened
+in plain language>. Your personal information held by the CareFirst
+Third Party Booking System may have been affected.
+
+What information was involved:
+  <specific categories, e.g. "your name, ID number, contact details,
+  and the vitals recorded at your last consultation booking">
+
+What we've done:
+  <containment actions in plain language>
+
+What you should do:
+  <specific advice: change your passwords on other services if you
+  reused them, watch for suspicious emails, etc.>
+
+How to contact us:
+  Email support@care-first.co.za or phone <support line>. For more
+  information about your rights under POPIA, visit
+  https://inforegulator.org.za.
+
+Regards,
+<Information Officer name>
+<CareFirst>
+```
+
+Send via the email address on file. Log every send in an incident ledger.
+
+### Post-incident
+
+1. Write up a root cause document within 72 hours.
+2. Update this runbook with any lessons.
+3. If the vector was a code bug, open an audit item for a regression
+   test.
+4. Brief the team + any affected stakeholders.
+
+---
+
 ## Deploy and Rollback
 
 ### Deploy (VPS)
