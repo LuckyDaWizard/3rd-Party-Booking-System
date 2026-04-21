@@ -154,22 +154,58 @@ function CountryCodeSelect({
 // SA ID Number Validation & Extraction
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve a 2-digit YY into a full 4-digit year using a current-year pivot.
+ * Years <= the current YY are treated as 2000s; anything higher is 1900s.
+ * Self-maintaining — works past 2030 without a hardcoded cut-off.
+ */
+function resolveSaIdYear(yy: number): number {
+  const currentYY = new Date().getFullYear() % 100
+  return yy <= currentYY ? 2000 + yy : 1900 + yy
+}
+
 function validateSaIdNumber(id: string): { valid: boolean; error?: string } {
   if (!/^\d+$/.test(id)) return { valid: false, error: "ID number must contain only digits" }
   if (id.length !== 13) return { valid: false, error: "ID number must be exactly 13 digits" }
 
-  // Validate date of birth (positions 1-6)
+  // Parse date of birth positions (1-6).
   const yy = parseInt(id.slice(0, 2), 10)
   const mm = parseInt(id.slice(2, 4), 10)
   const dd = parseInt(id.slice(4, 6), 10)
   if (mm < 1 || mm > 12) return { valid: false, error: "Invalid month in ID number" }
   if (dd < 1 || dd > 31) return { valid: false, error: "Invalid day in ID number" }
 
-  // Validate citizenship digit (position 11)
+  // Round-trip the date: catches Feb 30, Apr 31, Feb 29 in non-leap years,
+  // and other non-days that pass the crude range checks above.
+  const year = resolveSaIdYear(yy)
+  const birth = new Date(year, mm - 1, dd)
+  if (
+    birth.getFullYear() !== year ||
+    birth.getMonth() !== mm - 1 ||
+    birth.getDate() !== dd
+  ) {
+    return { valid: false, error: "Invalid date of birth in ID number" }
+  }
+
+  // Reject future dates of birth.
+  const now = new Date()
+  if (birth > now) {
+    return { valid: false, error: "Date of birth in ID number is in the future" }
+  }
+
+  // Reject absurdly old DOBs (> 120 years). Oldest recorded South African
+  // was 110 at death, so 120 is a very safe upper bound.
+  const maxAge = new Date(now)
+  maxAge.setFullYear(now.getFullYear() - 120)
+  if (birth < maxAge) {
+    return { valid: false, error: "Date of birth in ID number is too far in the past" }
+  }
+
+  // Validate citizenship digit (position 11).
   const citizenship = parseInt(id[10], 10)
   if (citizenship !== 0 && citizenship !== 1) return { valid: false, error: "Invalid citizenship digit" }
 
-  // Luhn check digit validation
+  // Luhn check digit validation.
   let sum = 0
   for (let i = 0; i < 12; i++) {
     let digit = parseInt(id[i], 10)
@@ -195,7 +231,7 @@ function extractFromSaId(id: string): {
   const yy = parseInt(id.slice(0, 2), 10)
   const mm = id.slice(2, 4)
   const dd = id.slice(4, 6)
-  const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy
+  const year = resolveSaIdYear(yy)
   const dateOfBirth = `${year}-${mm}-${dd}`
 
   const genderSeq = parseInt(id.slice(6, 10), 10)

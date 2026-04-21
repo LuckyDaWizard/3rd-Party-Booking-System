@@ -17,10 +17,32 @@ type SearchTab = "id" | "passport" | "dob"
 function validateSaIdNumber(id: string): { valid: boolean; error?: string } {
   if (!/^\d+$/.test(id)) return { valid: false, error: "ID number must contain only digits" }
   if (id.length !== 13) return { valid: false, error: "ID number must be exactly 13 digits" }
+
+  const yy = parseInt(id.slice(0, 2), 10)
   const mm = parseInt(id.slice(2, 4), 10)
   const dd = parseInt(id.slice(4, 6), 10)
   if (mm < 1 || mm > 12) return { valid: false, error: "Invalid month in ID number" }
   if (dd < 1 || dd > 31) return { valid: false, error: "Invalid day in ID number" }
+
+  // Round-trip the date to reject non-days (e.g. Feb 30) that pass the
+  // crude range checks above. Current-year pivot keeps the 2000s/1900s
+  // split self-maintaining past 2030.
+  const currentYY = new Date().getFullYear() % 100
+  const year = yy <= currentYY ? 2000 + yy : 1900 + yy
+  const birth = new Date(year, mm - 1, dd)
+  if (
+    birth.getFullYear() !== year ||
+    birth.getMonth() !== mm - 1 ||
+    birth.getDate() !== dd
+  ) {
+    return { valid: false, error: "Invalid date of birth in ID number" }
+  }
+  const now = new Date()
+  if (birth > now) return { valid: false, error: "Date of birth in ID number is in the future" }
+  const maxAge = new Date(now)
+  maxAge.setFullYear(now.getFullYear() - 120)
+  if (birth < maxAge) return { valid: false, error: "Date of birth in ID number is too far in the past" }
+
   const citizenship = parseInt(id[10], 10)
   if (citizenship !== 0 && citizenship !== 1) return { valid: false, error: "Invalid citizenship digit" }
   let sum = 0
