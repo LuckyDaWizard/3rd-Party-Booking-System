@@ -8,6 +8,7 @@
 // =============================================================================
 
 import crypto from "crypto"
+import { getAppUrl } from "./app-url"
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -49,7 +50,7 @@ export function getPayfastConfig(): PayfastConfig {
   const merchantKey = process.env.PAYFAST_MERCHANT_KEY
   const passphrase = process.env.PAYFAST_PASSPHRASE
   const testMode = process.env.PAYFAST_TEST_MODE === "true"
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://187.127.135.11:3000"
+  const appUrl = getAppUrl()
 
   if (!merchantId || !merchantKey || !passphrase) {
     throw new Error(

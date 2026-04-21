@@ -9,6 +9,8 @@
 // IMPORTANT: server-only. The API key must never reach the browser.
 // =============================================================================
 
+import { getAppUrl } from "./app-url"
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -26,7 +28,7 @@ export function getCareFirstConfig(): CareFirstConfig {
   const apiKey = process.env.CAREFIRST_API_KEY
   const clientCode = process.env.CAREFIRST_CLIENT_CODE
   const clientPlanCode = process.env.CAREFIRST_CLIENT_PLAN_CODE || null
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://187.127.135.11:3000"
+  const appUrl = getAppUrl()
 
   if (!apiDomain || !apiKey || !clientCode) {
     throw new Error(

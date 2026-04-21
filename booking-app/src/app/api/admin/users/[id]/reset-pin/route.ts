@@ -4,6 +4,7 @@ import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
 import { sendPinResetEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { generateSecurePin } from "@/lib/pin"
+import { getAppUrl } from "@/lib/app-url"
 
 // =============================================================================
 // POST /api/admin/users/[id]/reset-pin
@@ -119,7 +120,7 @@ export async function POST(request: Request, context: RouteContext) {
     to: user.email,
     firstName: user.first_names,
     newPin,
-    appUrl: "http://187.127.135.11:3000",
+    appUrl: getAppUrl(),
   })
 
   // Audit log (PIN values masked).

@@ -4,6 +4,7 @@ import { requireAdminOrManager } from "@/lib/api-auth"
 import { sendPinResetEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { generateSecurePin } from "@/lib/pin"
+import { getAppUrl } from "@/lib/app-url"
 import type { User } from "@supabase/supabase-js"
 
 // =============================================================================
@@ -197,7 +198,7 @@ export async function POST(request: Request) {
       to: body.email,
       firstName: body.firstNames,
       newPin: newPin,
-      appUrl: "http://187.127.135.11:3000",
+      appUrl: getAppUrl(),
     })
     emailSent = result.sent
   }

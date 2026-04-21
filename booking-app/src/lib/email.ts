@@ -9,6 +9,7 @@
 // =============================================================================
 
 import nodemailer from "nodemailer"
+import { getAppUrl } from "./app-url"
 
 const SMTP_HOST = process.env.SMTP_HOST
 const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? "465", 10)
@@ -91,7 +92,11 @@ export async function sendPinResetEmail({
   newPin: string
   appUrl?: string
 }): Promise<{ sent: boolean; error?: string }> {
-  const url = appUrl || process.env.NEXT_PUBLIC_SUPABASE_URL?.replace("supabase.co", "") || "http://187.127.135.11:3000"
+  // Caller can pass an explicit appUrl, otherwise derive from the
+  // app's configured base URL. The old fallback chain tried to use
+  // NEXT_PUBLIC_SUPABASE_URL which generated a broken Supabase URL —
+  // remove that bad path.
+  const url = appUrl || getAppUrl()
 
   const safeFirstName = escapeHtml(firstName)
   const safePin = escapeHtml(newPin)

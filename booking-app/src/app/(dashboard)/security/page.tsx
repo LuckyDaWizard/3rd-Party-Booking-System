@@ -1278,7 +1278,7 @@ function SuspiciousActivityTab() {
               type="text"
               value={newIp}
               onChange={(e) => setNewIp(e.target.value)}
-              placeholder="e.g. 187.127.135.11"
+              placeholder="e.g. 203.0.113.42"
               disabled={addingIp}
               className="bg-white"
             />
