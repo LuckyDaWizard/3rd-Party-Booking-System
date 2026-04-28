@@ -643,15 +643,15 @@ export default function PatientHistoryPage() {
             const statusBadge = (
               <Badge
                 data-testid={`status-badge-${patient.id}`}
-                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
+                className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border px-4 py-3 text-center text-xs font-medium leading-tight ${getStatusStyle(patient.status)}`}
               >
-                {statusLabel}
+                <span>{statusLabel}</span>
                 {patient.selfCollect && (
                   <span
                     data-testid={`self-collect-badge-${patient.id}`}
-                    className="ml-1.5 opacity-80"
+                    className="text-[10px] font-normal opacity-80"
                   >
-                    · Self-Collect
+                    Self-Collect
                   </span>
                 )}
               </Badge>
