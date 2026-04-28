@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
+import { recordBookingValidator } from "@/lib/booking-validator"
 import {
   getPayfastConfig,
   getProcessUrl,
@@ -133,6 +134,9 @@ export async function POST(request: Request) {
     .from("bookings")
     .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
     .eq("id", bookingId)
+
+  // Snapshot the operator who initiated this payment for accountability.
+  await recordBookingValidator(admin, bookingId, caller)
 
   // Build the form data in PayFast's required field order
   const formData = buildPaymentData(config, {

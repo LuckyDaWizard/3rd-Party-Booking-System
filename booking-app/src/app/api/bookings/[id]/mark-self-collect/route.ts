@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
+import { recordBookingValidator } from "@/lib/booking-validator"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { PAYMENT_AMOUNT } from "@/lib/payfast"
 
@@ -128,6 +129,9 @@ export async function POST(request: Request, context: RouteContext) {
   if (updErr) {
     return NextResponse.json({ error: updErr.message }, { status: 500 })
   }
+
+  // Snapshot the operator who confirmed self-collect for accountability.
+  await recordBookingValidator(admin, id, caller)
 
   const patientName =
     [booking.first_names, booking.surname].filter(Boolean).join(" ") || "Unknown patient"

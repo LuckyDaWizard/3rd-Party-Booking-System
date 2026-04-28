@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
+import { recordBookingValidator } from "@/lib/booking-validator"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 
 // =============================================================================
@@ -122,6 +123,9 @@ export async function POST(request: Request, context: RouteContext) {
   if (updErr) {
     return NextResponse.json({ error: updErr.message }, { status: 500 })
   }
+
+  // Snapshot the supervisor who confirmed for accountability.
+  await recordBookingValidator(admin, id, caller)
 
   // Audit log: manual payment confirmations are high-trust actions.
   const patientName =
