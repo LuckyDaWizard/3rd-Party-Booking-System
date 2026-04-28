@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { useBookingStore, type BookingStatus } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
+import { useUnitStore } from "@/lib/unit-store"
 import { DataCard } from "@/components/data-card"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import * as XLSX from "xlsx"
@@ -295,6 +296,7 @@ export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { bookings, loading, discardBooking, updateBooking, refreshBookings } = useBookingStore()
+  const { units } = useUnitStore()
   const { isSystemAdmin, isUnitManager, activeUnitId } = useAuth()
   const canConfirmPayment = isSystemAdmin || isUnitManager
   const tabParam = searchParams.get("tab")
@@ -986,12 +988,20 @@ export default function PatientHistoryPage() {
         <button
           type="button"
           onClick={() => {
-            const exportData = bookings.map((b) => ({
+            const unitMap = new Map(units.map((u) => [u.id, u]))
+            const exportData = bookings.map((b) => {
+              const unit = b.unitId ? unitMap.get(b.unitId) : undefined
+              return {
               "Patient Name": [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
               "ID Number": b.idNumber || "N/A",
               "ID Type": b.idType || "",
               "Status": b.status,
               "Date": new Date(b.createdAt).toLocaleString("en-ZA"),
+              "Unit Name": unit?.unitName ?? "",
+              "Client Name": unit?.clientName ?? "",
+              "Unit Province": unit?.province ?? "",
+              "Unit Contact Person": unit ? [unit.contactPersonName, unit.contactPersonSurname].filter(Boolean).join(" ") : "",
+              "Unit Email": unit?.email ?? "",
               "Gender": b.gender || "",
               "Date of Birth": b.dateOfBirth || "",
               "Contact Number": b.contactNumber || "",
@@ -1004,7 +1014,8 @@ export default function PatientHistoryPage() {
               "Oxygen Saturation": b.oxygenSaturation || "",
               "Heart Rate": b.heartRate || "",
               "Terms Accepted": b.termsAccepted ? "Yes" : "No",
-            }))
+              }
+            })
 
             const ws = XLSX.utils.json_to_sheet(exportData)
             const wb = XLSX.utils.book_new()
