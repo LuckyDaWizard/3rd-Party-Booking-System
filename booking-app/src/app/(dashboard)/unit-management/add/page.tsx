@@ -162,6 +162,7 @@ export default function AddUnitPage() {
         contactPersonSurname,
         email: emailAddress,
         province,
+        collectPaymentAtUnit: false,
       })
       const params = new URLSearchParams({ added: unitName })
       router.push(`/unit-management?${params.toString()}`)

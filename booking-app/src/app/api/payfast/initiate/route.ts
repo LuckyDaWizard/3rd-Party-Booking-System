@@ -98,6 +98,27 @@ export async function POST(request: Request) {
     )
   }
 
+  // Refuse if the booking's unit is configured to collect payment directly.
+  // Defence-in-depth — the payment page already routes self-collect bookings
+  // to /api/bookings/[id]/mark-self-collect; this guards against any caller
+  // that tries to push them through the gateway anyway.
+  if (booking.unit_id) {
+    const { data: unit } = await admin
+      .from("units")
+      .select("collect_payment_at_unit")
+      .eq("id", booking.unit_id)
+      .single()
+    if ((unit as { collect_payment_at_unit: boolean | null } | null)?.collect_payment_at_unit) {
+      return NextResponse.json(
+        {
+          error:
+            "This unit collects payment directly. Use the in-unit payment confirmation flow instead.",
+        },
+        { status: 400 }
+      )
+    }
+  }
+
   // Store the payment amount on the booking for ITN validation later
   await admin
     .from("bookings")

@@ -33,6 +33,7 @@ interface PatientRecord {
   patientIdNumber: string
   patientType: string
   date: string
+  selfCollect: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +392,7 @@ export default function PatientHistoryPage() {
       hour: "2-digit",
       minute: "2-digit",
     }),
+    selfCollect: b.paymentType === "self_collect",
   }))
 
   const allCount = countByFilter(allPatients, "all")
@@ -637,12 +639,22 @@ export default function PatientHistoryPage() {
         ) : (
           visiblePatients.map((patient) => {
             const statusBadge = (
-              <Badge
-                data-testid={`status-badge-${patient.id}`}
-                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
-              >
-                {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
-              </Badge>
+              <div className="flex w-full flex-col gap-1">
+                <Badge
+                  data-testid={`status-badge-${patient.id}`}
+                  className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
+                >
+                  {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
+                </Badge>
+                {patient.selfCollect && (
+                  <Badge
+                    data-testid={`self-collect-badge-${patient.id}`}
+                    className="w-full rounded-full border-transparent bg-amber-100 px-3 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-amber-800"
+                  >
+                    Self-Collect
+                  </Badge>
+                )}
+              </div>
             )
 
             const actionButton =

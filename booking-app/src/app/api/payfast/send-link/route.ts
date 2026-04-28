@@ -109,6 +109,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // Refuse if the booking's unit collects payment directly — sending a
+  // PayFast link in that case would risk a double-charge.
+  if (booking.unit_id) {
+    const { data: unit } = await admin
+      .from("units")
+      .select("collect_payment_at_unit")
+      .eq("id", booking.unit_id)
+      .single()
+    if ((unit as { collect_payment_at_unit: boolean | null } | null)?.collect_payment_at_unit) {
+      return NextResponse.json(
+        {
+          error:
+            "This unit collects payment directly. Use the in-unit payment confirmation flow instead.",
+        },
+        { status: 400 }
+      )
+    }
+  }
+
   // Persist the payment_amount on the booking so the ITN handler can validate
   // the amount PayFast reports back (same pattern as /api/payfast/initiate).
   await admin

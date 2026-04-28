@@ -332,6 +332,7 @@ export default function AddNewClientPage() {
             contactPersonSurname: unitDetails.contactPersonSurname,
             email: unitDetails.emailAddress,
             province: unitDetails.province,
+            collectPaymentAtUnit: false,
           })
           await refreshClients()
         }
