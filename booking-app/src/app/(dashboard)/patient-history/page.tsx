@@ -639,17 +639,17 @@ export default function PatientHistoryPage() {
         ) : (
           visiblePatients.map((patient) => {
             const statusBadge = (
-              <div className="flex w-full flex-col gap-1">
+              <div className="flex w-full flex-row items-center gap-1.5">
                 <Badge
                   data-testid={`status-badge-${patient.id}`}
-                  className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
+                  className={`flex-1 rounded-full border px-3 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
                 >
                   {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
                 </Badge>
                 {patient.selfCollect && (
                   <Badge
                     data-testid={`self-collect-badge-${patient.id}`}
-                    className="w-full rounded-full border-transparent bg-amber-100 px-3 py-1 text-center text-[10px] font-semibold uppercase tracking-wider text-amber-800"
+                    className="shrink-0 rounded-full border-transparent bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800"
                   >
                     Self-Collect
                   </Badge>
@@ -773,7 +773,7 @@ export default function PatientHistoryPage() {
                 {/* Desktop row — md: and up. Existing layout, unchanged. */}
                 <div
                   data-testid={`patient-row-${patient.id}`}
-                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
+                  className="hidden md:grid grid-cols-[220px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
                 >
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
