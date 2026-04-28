@@ -638,23 +638,23 @@ export default function PatientHistoryPage() {
           </div>
         ) : (
           visiblePatients.map((patient) => {
+            const statusLabel =
+              patient.status === "Abandoned" ? "Incomplete Booking" : patient.status
             const statusBadge = (
-              <div className="flex w-full flex-row items-center gap-1.5">
-                <Badge
-                  data-testid={`status-badge-${patient.id}`}
-                  className={`flex-1 rounded-full border px-3 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
-                >
-                  {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
-                </Badge>
+              <Badge
+                data-testid={`status-badge-${patient.id}`}
+                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
+              >
+                {statusLabel}
                 {patient.selfCollect && (
-                  <Badge
+                  <span
                     data-testid={`self-collect-badge-${patient.id}`}
-                    className="shrink-0 rounded-full border-transparent bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800"
+                    className="ml-1.5 opacity-80"
                   >
-                    Self-Collect
-                  </Badge>
+                    · Self-Collect
+                  </span>
                 )}
-              </div>
+              </Badge>
             )
 
             const actionButton =
@@ -773,7 +773,7 @@ export default function PatientHistoryPage() {
                 {/* Desktop row — md: and up. Existing layout, unchanged. */}
                 <div
                   data-testid={`patient-row-${patient.id}`}
-                  className="hidden md:grid grid-cols-[220px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
+                  className="hidden md:grid grid-cols-[200px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
                 >
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
