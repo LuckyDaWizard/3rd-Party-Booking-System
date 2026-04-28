@@ -638,22 +638,26 @@ export default function PatientHistoryPage() {
           </div>
         ) : (
           visiblePatients.map((patient) => {
-            const statusLabel =
-              patient.status === "Abandoned" ? "Incomplete Booking" : patient.status
+            // For self-collect bookings, replace the "Payment Complete" label
+            // with "Self-Collect" — semantically equivalent (payment is done),
+            // but tells the operator at a glance how the fee was collected.
+            const isSelfCollectComplete =
+              patient.selfCollect && patient.status === "Payment Complete"
+            const statusLabel = isSelfCollectComplete
+              ? "Self-Collect"
+              : patient.status === "Abandoned"
+                ? "Incomplete Booking"
+                : patient.status
+            const statusStyle = isSelfCollectComplete
+              ? "bg-amber-100 text-amber-800 border-transparent"
+              : getStatusStyle(patient.status)
             const statusBadge = (
               <Badge
                 data-testid={`status-badge-${patient.id}`}
-                className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border px-4 py-3 text-center text-xs font-medium leading-tight ${getStatusStyle(patient.status)}`}
+                data-self-collect={isSelfCollectComplete ? "true" : undefined}
+                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${statusStyle}`}
               >
-                <span>{statusLabel}</span>
-                {patient.selfCollect && (
-                  <span
-                    data-testid={`self-collect-badge-${patient.id}`}
-                    className="text-[10px] font-normal opacity-80"
-                  >
-                    Self-Collect
-                  </span>
-                )}
+                {statusLabel}
               </Badge>
             )
 
@@ -773,7 +777,7 @@ export default function PatientHistoryPage() {
                 {/* Desktop row — md: and up. Existing layout, unchanged. */}
                 <div
                   data-testid={`patient-row-${patient.id}`}
-                  className="hidden md:grid grid-cols-[200px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
+                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
                 >
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
