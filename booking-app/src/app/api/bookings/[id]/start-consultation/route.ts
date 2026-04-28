@@ -228,6 +228,16 @@ export async function POST(request: Request, context: RouteContext) {
     )
   }
 
+  // Snapshot the validator's email for reporting. Name is already on
+  // CallerInfo. We denormalise both onto the booking so historical exports
+  // stay accurate if the user is later renamed/deleted.
+  const { data: validatorRow } = await admin
+    .from("users")
+    .select("email")
+    .eq("id", caller.id)
+    .single()
+  const validatorEmail = (validatorRow as { email: string | null } | null)?.email ?? null
+
   // Success — mark the booking handed off and status "Successful".
   const { error: updErr } = await admin
     .from("bookings")
@@ -240,6 +250,9 @@ export async function POST(request: Request, context: RouteContext) {
       handoff_error_reason: null,
       handoff_redirect_url: result.redirectUrl ?? null,
       external_reference_id: result.externalReferenceId ?? null,
+      validated_by_user_id: caller.id,
+      validated_by_name: caller.name,
+      validated_by_email: validatorEmail,
     })
     .eq("id", id)
 

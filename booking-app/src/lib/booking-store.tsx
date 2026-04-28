@@ -68,6 +68,9 @@ export interface BookingRecord {
    */
   consentAcceptedAt: string | null
   unitId: string | null
+  /** Snapshot of who ran Start Consult (PIN-verified). Read-only from app code. */
+  validatedByName: string | null
+  validatedByEmail: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +115,8 @@ interface DbBooking {
   terms_accepted_at: string | null
   consent_accepted_at: string | null
   unit_id: string | null
+  validated_by_name: string | null
+  validated_by_email: string | null
 }
 
 function mapDbToBooking(row: DbBooking): BookingRecord {
@@ -153,6 +158,8 @@ function mapDbToBooking(row: DbBooking): BookingRecord {
     termsAcceptedAt: row.terms_accepted_at,
     consentAcceptedAt: row.consent_accepted_at,
     unitId: row.unit_id,
+    validatedByName: row.validated_by_name,
+    validatedByEmail: row.validated_by_email,
   }
 }
 
