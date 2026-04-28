@@ -44,7 +44,7 @@ export default function ManageUnitPage() {
   const unitId = searchParams.get("id") ?? ""
   const { getUnit, updateUnit, deleteUnit, toggleUnitStatus } = useUnitStore()
   const { clients } = useClientStore()
-  const { activeUnitId, isSystemAdmin } = useAuth()
+  const { activeUnitId } = useAuth()
 
   const unit = getUnit(unitId)
 
@@ -61,7 +61,6 @@ export default function ManageUnitPage() {
   const [contactPersonSurname, setContactPersonSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
   const [province, setProvince] = useState("")
-  const [collectPaymentAtUnit, setCollectPaymentAtUnit] = useState(false)
 
   useEffect(() => {
     if (unit) {
@@ -71,7 +70,6 @@ export default function ManageUnitPage() {
       setContactPersonSurname(unit.contactPersonSurname)
       setEmailAddress(unit.email)
       setProvince(unit.province)
-      setCollectPaymentAtUnit(unit.collectPaymentAtUnit)
     }
   }, [unit])
 
@@ -93,7 +91,6 @@ export default function ManageUnitPage() {
         contactPersonSurname,
         email: emailAddress,
         province,
-        ...(isSystemAdmin ? { collectPaymentAtUnit } : {}),
       })
       router.push("/unit-management")
     } catch {
@@ -137,8 +134,7 @@ export default function ManageUnitPage() {
     contactPersonName !== unit.contactPersonName ||
     contactPersonSurname !== unit.contactPersonSurname ||
     emailAddress !== unit.email ||
-    province !== unit.province ||
-    (isSystemAdmin && collectPaymentAtUnit !== unit.collectPaymentAtUnit)
+    province !== unit.province
   ) : false
 
   // Build client options for the dropdown
@@ -254,40 +250,6 @@ export default function ManageUnitPage() {
             onChange={setProvince}
             options={PROVINCES.map((p) => ({ value: p, label: p }))}
           />
-
-          {/* Collect payment at unit (system_admin only) */}
-          {isSystemAdmin && (
-            <div
-              data-testid="collect-payment-toggle-row"
-              className="flex items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4"
-            >
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-900">
-                  Collect payment at unit
-                </span>
-                <span className="text-xs text-gray-600">
-                  When ON, bookings for this unit skip the payment gateway. The unit is responsible for collecting the consultation fee directly from the patient.
-                </span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={collectPaymentAtUnit}
-                aria-label="Collect payment at unit"
-                data-testid="collect-payment-toggle"
-                onClick={() => setCollectPaymentAtUnit((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                  collectPaymentAtUnit ? "bg-[#3ea3db]" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
-                    collectPaymentAtUnit ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Actions */}

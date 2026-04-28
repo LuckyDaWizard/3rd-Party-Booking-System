@@ -109,22 +109,31 @@ export async function POST(request: Request) {
     }
   }
 
-  // Refuse if the booking's unit collects payment directly — sending a
-  // PayFast link in that case would risk a double-charge.
+  // Refuse if the booking's client collects payment directly — sending a
+  // PayFast link in that case would risk a double-charge. The toggle lives
+  // on clients, resolved via units.client_id.
   if (booking.unit_id) {
     const { data: unit } = await admin
       .from("units")
-      .select("collect_payment_at_unit")
+      .select("client_id")
       .eq("id", booking.unit_id)
       .single()
-    if ((unit as { collect_payment_at_unit: boolean | null } | null)?.collect_payment_at_unit) {
-      return NextResponse.json(
-        {
-          error:
-            "This unit collects payment directly. Use the in-unit payment confirmation flow instead.",
-        },
-        { status: 400 }
-      )
+    const clientId = (unit as { client_id: string | null } | null)?.client_id
+    if (clientId) {
+      const { data: client } = await admin
+        .from("clients")
+        .select("collect_payment_at_unit")
+        .eq("id", clientId)
+        .single()
+      if ((client as { collect_payment_at_unit: boolean | null } | null)?.collect_payment_at_unit) {
+        return NextResponse.json(
+          {
+            error:
+              "This client collects payment directly. Use the in-unit payment confirmation flow instead.",
+          },
+          { status: 400 }
+        )
+      }
     }
   }
 

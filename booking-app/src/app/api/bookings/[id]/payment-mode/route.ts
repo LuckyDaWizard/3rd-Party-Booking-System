@@ -55,14 +55,24 @@ export async function GET(_request: Request, context: RouteContext) {
     }
   }
 
+  // The toggle now lives on the parent client. Resolve via the unit's
+  // client_id, then look up clients.collect_payment_at_unit.
   let collectAtUnit = false
   if (booking.unit_id) {
     const { data: unit } = await admin
       .from("units")
-      .select("collect_payment_at_unit")
+      .select("client_id")
       .eq("id", booking.unit_id)
       .single()
-    collectAtUnit = (unit as { collect_payment_at_unit: boolean | null } | null)?.collect_payment_at_unit ?? false
+    const clientId = (unit as { client_id: string | null } | null)?.client_id
+    if (clientId) {
+      const { data: client } = await admin
+        .from("clients")
+        .select("collect_payment_at_unit")
+        .eq("id", clientId)
+        .single()
+      collectAtUnit = (client as { collect_payment_at_unit: boolean | null } | null)?.collect_payment_at_unit ?? false
+    }
   }
 
   return NextResponse.json({

@@ -62,11 +62,13 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // Server-side authority check: the unit MUST have the collect_payment_at_unit
-  // flag set. Otherwise refuse — the payment must go through the gateway.
+  // Server-side authority check: the unit's parent client MUST have the
+  // collect_payment_at_unit flag set. Otherwise refuse — the payment must
+  // go through the gateway. The toggle lives on clients (one billing
+  // arrangement per client), and we resolve via units.client_id.
   const { data: unit, error: unitErr } = await admin
     .from("units")
-    .select("collect_payment_at_unit, unit_name")
+    .select("unit_name, client_id")
     .eq("id", booking.unit_id)
     .single()
 
@@ -74,11 +76,28 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unit not found" }, { status: 404 })
   }
 
-  if (!unit.collect_payment_at_unit) {
+  if (!unit.client_id) {
+    return NextResponse.json(
+      { error: "Unit has no client assigned" },
+      { status: 400 }
+    )
+  }
+
+  const { data: client, error: clientErr } = await admin
+    .from("clients")
+    .select("collect_payment_at_unit")
+    .eq("id", unit.client_id)
+    .single()
+
+  if (clientErr || !client) {
+    return NextResponse.json({ error: "Client not found" }, { status: 404 })
+  }
+
+  if (!client.collect_payment_at_unit) {
     return NextResponse.json(
       {
         error:
-          "This unit is not configured to collect payment directly. The booking must be paid via the payment gateway.",
+          "This client is not configured to collect payment directly. The booking must be paid via the payment gateway.",
       },
       { status: 400 }
     )

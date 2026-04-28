@@ -317,6 +317,7 @@ export default function AddNewClientPage() {
           units: "-",
           email: clientDetails.emailAddress,
           number: clientDetails.contactNumber,
+          collectPaymentAtUnit: false,
         })
         setNewClientId(id)
         setCurrentStep(2)
@@ -332,7 +333,6 @@ export default function AddNewClientPage() {
             contactPersonSurname: unitDetails.contactPersonSurname,
             email: unitDetails.emailAddress,
             province: unitDetails.province,
-            collectPaymentAtUnit: false,
           })
           await refreshClients()
         }

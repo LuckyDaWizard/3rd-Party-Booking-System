@@ -21,7 +21,6 @@ export interface UnitRecord {
   contactPersonSurname: string
   email: string
   province: string
-  collectPaymentAtUnit: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +53,6 @@ interface DbUnit {
   email: string | null
   province: string | null
   status: UnitStatus
-  collect_payment_at_unit: boolean | null
 }
 
 interface DbClient {
@@ -73,7 +71,6 @@ function mapDbToUnit(row: DbUnit, clientName: string): UnitRecord {
     contactPersonSurname: row.contact_person_surname ?? "",
     email: row.email ?? "",
     province: row.province ?? "",
-    collectPaymentAtUnit: row.collect_payment_at_unit ?? false,
   }
 }
 
@@ -176,7 +173,6 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
     if (updates.province !== undefined) body.province = updates.province
     if (updates.status !== undefined) body.status = updates.status
     if (updates.clientId !== undefined) body.clientId = updates.clientId
-    if (updates.collectPaymentAtUnit !== undefined) body.collectPaymentAtUnit = updates.collectPaymentAtUnit
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/units/${id}`, {

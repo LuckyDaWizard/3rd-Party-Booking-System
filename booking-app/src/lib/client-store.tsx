@@ -19,6 +19,7 @@ export interface ClientRecord {
   units: string
   email: string
   number: string
+  collectPaymentAtUnit: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +52,7 @@ interface DbClient {
   status: ClientStatus
   contact_person_name: string | null
   contact_person_surname: string | null
+  collect_payment_at_unit: boolean | null
 }
 
 interface DbUnit {
@@ -72,6 +74,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     units: unitName,
     email: row.email,
     number: row.contact_number,
+    collectPaymentAtUnit: row.collect_payment_at_unit ?? false,
   }
 }
 
@@ -182,6 +185,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.email !== undefined) body.email = updates.email
     if (updates.number !== undefined) body.contactNumber = updates.number
     if (updates.status !== undefined) body.status = updates.status
+    if (updates.collectPaymentAtUnit !== undefined) body.collectPaymentAtUnit = updates.collectPaymentAtUnit
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {

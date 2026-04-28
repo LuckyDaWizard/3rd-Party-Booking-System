@@ -24,7 +24,6 @@ interface UpdateUnitBody {
   email?: string
   province?: string
   status?: "Active" | "Disabled"
-  collectPaymentAtUnit?: boolean
 }
 
 interface RouteContext {
@@ -71,7 +70,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("units")
-    .select("unit_name, client_id, contact_person_name, contact_person_surname, email, province, status, collect_payment_at_unit")
+    .select("unit_name, client_id, contact_person_name, contact_person_surname, email, province, status")
     .eq("id", id)
     .single()
 
@@ -83,7 +82,6 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.email !== undefined) dbUpdates.email = body.email
   if (body.province !== undefined) dbUpdates.province = normalizeProvince(body.province)
   if (body.status !== undefined) dbUpdates.status = body.status
-  if (body.collectPaymentAtUnit !== undefined) dbUpdates.collect_payment_at_unit = body.collectPaymentAtUnit
 
   if (Object.keys(dbUpdates).length === 0) {
     return NextResponse.json({ ok: true })
@@ -114,8 +112,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Province"] = { old: current?.province, new: normalizeProvince(body.province) }
   if (body.status !== undefined && body.status !== current?.status)
     changes["Status"] = { old: current?.status, new: body.status }
-  if (body.collectPaymentAtUnit !== undefined && body.collectPaymentAtUnit !== current?.collect_payment_at_unit)
-    changes["Collect Payment At Unit"] = { old: current?.collect_payment_at_unit ?? false, new: body.collectPaymentAtUnit }
 
   if (Object.keys(changes).length > 0) {
     const action = changes["Status"] && Object.keys(changes).length === 1 ? "toggle_status" as const : "update" as const
