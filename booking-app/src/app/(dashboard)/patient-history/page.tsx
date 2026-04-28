@@ -51,7 +51,7 @@ function maskIdNumber(id: string | null): string {
 function getStatusStyle(status: PatientStatus): string {
   switch (status) {
     case "Payment Complete":
-      return "bg-yellow-100 text-yellow-800 border-transparent"
+      return "bg-green-100 text-green-800 border-transparent"
     case "In Progress":
       return "bg-[#CDE5F2] text-[#3ea3db] border-transparent"
     case "Abandoned":
