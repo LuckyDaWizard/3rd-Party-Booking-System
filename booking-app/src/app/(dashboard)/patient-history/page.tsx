@@ -1004,16 +1004,12 @@ export default function PatientHistoryPage() {
             const exportData = bookings.map((b) => {
               const unit = b.unitId ? unitMap.get(b.unitId) : undefined
               return {
+              // Patient details
               "Patient Name": [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
               "ID Number": b.idNumber || "N/A",
               "ID Type": b.idType || "",
               "Status": b.status,
               "Date": new Date(b.createdAt).toLocaleString("en-ZA"),
-              "Client Name": unit?.clientName ?? "",
-              "Unit Name": unit?.unitName ?? "",
-              "Unit Province": unit?.province ?? "",
-              "Validated By": b.validatedByName ?? "",
-              "Validator Email": b.validatedByEmail ?? "",
               "Gender": b.gender || "",
               "Date of Birth": b.dateOfBirth || "",
               "Contact Number": b.contactNumber || "",
@@ -1026,6 +1022,12 @@ export default function PatientHistoryPage() {
               "Oxygen Saturation": b.oxygenSaturation || "",
               "Heart Rate": b.heartRate || "",
               "Terms Accepted": b.termsAccepted ? "Yes" : "No",
+              // Unit / facility details (kept at the end so patient columns lead)
+              "Client Name": unit?.clientName ?? "",
+              "Unit Name": unit?.unitName ?? "",
+              "Unit Province": unit?.province ?? "",
+              "Validated By": b.validatedByName ?? "",
+              "Validator Email": b.validatedByEmail ?? "",
               }
             })
 
