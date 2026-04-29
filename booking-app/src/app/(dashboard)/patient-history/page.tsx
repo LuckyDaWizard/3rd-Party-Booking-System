@@ -33,7 +33,6 @@ interface PatientRecord {
   patientIdNumber: string
   patientType: string
   date: string
-  selfCollect: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -392,7 +391,6 @@ export default function PatientHistoryPage() {
       hour: "2-digit",
       minute: "2-digit",
     }),
-    selfCollect: b.paymentType === "self_collect",
   }))
 
   const allCount = countByFilter(allPatients, "all")
@@ -638,26 +636,12 @@ export default function PatientHistoryPage() {
           </div>
         ) : (
           visiblePatients.map((patient) => {
-            // For self-collect bookings, replace the "Payment Complete" label
-            // with "Self-Collect" — semantically equivalent (payment is done),
-            // but tells the operator at a glance how the fee was collected.
-            const isSelfCollectComplete =
-              patient.selfCollect && patient.status === "Payment Complete"
-            const statusLabel = isSelfCollectComplete
-              ? "Self-Collect"
-              : patient.status === "Abandoned"
-                ? "Incomplete Booking"
-                : patient.status
-            const statusStyle = isSelfCollectComplete
-              ? "bg-amber-100 text-amber-800 border-transparent"
-              : getStatusStyle(patient.status)
             const statusBadge = (
               <Badge
                 data-testid={`status-badge-${patient.id}`}
-                data-self-collect={isSelfCollectComplete ? "true" : undefined}
-                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${statusStyle}`}
+                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(patient.status)}`}
               >
-                {statusLabel}
+                {patient.status === "Abandoned" ? "Incomplete Booking" : patient.status}
               </Badge>
             )
 
