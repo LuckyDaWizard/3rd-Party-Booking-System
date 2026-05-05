@@ -19,6 +19,8 @@ export interface ClientRecord {
   units: string
   email: string
   number: string
+  logoUrl: string | null
+  faviconUrl: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +53,8 @@ interface DbClient {
   status: ClientStatus
   contact_person_name: string | null
   contact_person_surname: string | null
+  logo_url: string | null
+  favicon_url: string | null
 }
 
 interface DbUnit {
@@ -72,6 +76,8 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     units: unitName,
     email: row.email,
     number: row.contact_number,
+    logoUrl: row.logo_url,
+    faviconUrl: row.favicon_url,
   }
 }
 

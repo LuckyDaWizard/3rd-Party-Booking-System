@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { LogOut, Menu } from "lucide-react"
+import { LogOut, Menu, User as UserIcon } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-store"
@@ -24,13 +24,6 @@ export function Header({
   function handleLogout() {
     signOut()
   }
-
-  const initials = userName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
 
   return (
     <header
@@ -58,7 +51,9 @@ export function Header({
             {avatarUrl ? (
               <AvatarImage src={avatarUrl} alt={userName} />
             ) : null}
-            <AvatarFallback>{initials}</AvatarFallback>
+            <AvatarFallback className="bg-gray-50">
+              <UserIcon className="size-1/2 text-gray-300" strokeWidth={1.5} />
+            </AvatarFallback>
           </Avatar>
 
           <div className="flex min-w-0 flex-col">

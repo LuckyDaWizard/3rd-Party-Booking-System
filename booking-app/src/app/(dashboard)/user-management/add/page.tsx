@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, ArrowRight, X, ChevronDown } from "lucide-react"
+import { ArrowLeft, ArrowRight, X, ChevronDown, User as UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
@@ -11,6 +11,12 @@ import { useUnitStore } from "@/lib/unit-store"
 import { useUserStore } from "@/lib/user-store"
 import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
+import { validateImageMinDimensions } from "@/lib/image-dimensions"
+
+const AVATAR_MIN_WIDTH = 80
+const AVATAR_MIN_HEIGHT = 80
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024
+const AVATAR_ACCEPT = "image/png,image/jpeg,image/webp"
 
 // ---------------------------------------------------------------------------
 // Multi-Select Unit Dropdown with Chips
@@ -168,6 +174,8 @@ export default function AddUserPage() {
   const [emailError, setEmailError] = useState("")
   const [contactError, setContactError] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
 
   // System admin can assign any role; unit managers can only create regular users
   const roleOptions = isSystemAdmin
@@ -241,7 +249,7 @@ export default function AddUserPage() {
 
       // The server generates a cryptographically secure PIN with crypto.randomInt()
       // and returns it so we can show it once to the admin in the success banner.
-      const { pin: newPin } = await addUser({
+      const { id: newUserId, pin: newPin } = await addUser({
         firstNames,
         surname,
         email: emailAddress,
@@ -254,6 +262,26 @@ export default function AddUserPage() {
         sessionStorage.setItem("carefirst_new_user_pin", newPin)
       } catch {
         // ignore — SSR / private mode
+      }
+
+      // Avatar (optional). Best-effort: if upload fails the user still
+      // exists and admin can retry from Manage User. We surface a soft
+      // alert rather than blocking the flow.
+      if (avatarFile && newUserId) {
+        try {
+          const fd = new FormData()
+          fd.append("file", avatarFile)
+          const uploadRes = await fetch(`/api/users/${newUserId}/avatar`, {
+            method: "POST",
+            body: fd,
+          })
+          if (!uploadRes.ok) {
+            const { error } = await uploadRes.json().catch(() => ({}))
+            alert(`User created, but avatar upload failed: ${error ?? uploadRes.statusText}. You can upload it from Manage User.`)
+          }
+        } catch (uploadErr) {
+          console.warn("Avatar upload failed:", uploadErr)
+        }
       }
       const params = new URLSearchParams({
         added: `${firstNames} ${surname}`,
@@ -295,6 +323,85 @@ export default function AddUserPage() {
           <p className="text-base text-gray-500">
             Please provide the User&apos;s details below
           </p>
+        </div>
+
+        {/* Avatar (optional). Uploaded after the user record is created — we
+            need an id first. Best-effort; the user can upload later from
+            Manage User if this fails. */}
+        <div
+          data-testid="avatar-section"
+          className="flex flex-col items-center gap-3"
+        >
+          <div
+            data-testid="avatar-preview"
+            className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50"
+          >
+            {avatarPreviewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarPreviewUrl}
+                alt="Avatar preview"
+                className="size-full object-cover"
+              />
+            ) : (
+              <UserIcon className="size-12 text-gray-300" strokeWidth={1.5} />
+            )}
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="avatar-file"
+                className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              >
+                {avatarFile ? "Replace photo" : "Upload photo (optional)"}
+              </label>
+              <input
+                id="avatar-file"
+                data-testid="input-avatar-file"
+                type="file"
+                accept={AVATAR_ACCEPT}
+                className="hidden"
+                onChange={async (e) => {
+                  const picked = e.target.files?.[0] ?? null
+                  e.target.value = ""
+                  if (!picked) return
+                  if (picked.size > AVATAR_MAX_BYTES) {
+                    alert("Photo must be 2 MB or smaller.")
+                    return
+                  }
+                  const dimsError = await validateImageMinDimensions(
+                    picked,
+                    AVATAR_MIN_WIDTH,
+                    AVATAR_MIN_HEIGHT
+                  )
+                  if (dimsError) {
+                    alert(dimsError)
+                    return
+                  }
+                  if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+                  setAvatarFile(picked)
+                  setAvatarPreviewUrl(URL.createObjectURL(picked))
+                }}
+              />
+              {avatarFile && (
+                <button
+                  type="button"
+                  data-testid="avatar-remove-button"
+                  onClick={() => {
+                    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+                    setAvatarFile(null)
+                    setAvatarPreviewUrl(null)
+                  }}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <span className="text-[11px] text-gray-500">
+              PNG, JPEG, or WEBP. Max 2 MB.
+            </span>
+          </div>
         </div>
 
         {/* Fields */}

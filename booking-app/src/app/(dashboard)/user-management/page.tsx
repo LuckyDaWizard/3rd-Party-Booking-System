@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Search, Plus, ChevronDown, X } from "lucide-react"
+import { ArrowLeft, Search, Plus, ChevronDown, X, User as UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -464,6 +464,20 @@ export default function UserManagementPage() {
                     data-testid={`user-card-${user.id}`}
                     status={statusBadge}
                     action={manageButton}
+                    media={
+                      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+                        {user.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={user.avatarUrl}
+                            alt=""
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <UserIcon className="size-6 text-gray-300" strokeWidth={1.5} />
+                        )}
+                      </div>
+                    }
                     fields={[
                       { label: "First Names", value: user.firstNames },
                       { label: "Surname", value: user.surname },
@@ -482,10 +496,24 @@ export default function UserManagementPage() {
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
 
-                  {/* First Names */}
-                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">First Names</span>
-                    <span className="truncate text-sm text-gray-600" title={user.firstNames}>{user.firstNames}</span>
+                  {/* First Names (with avatar thumbnail) */}
+                  <div className="flex min-w-0 items-center gap-3 text-left">
+                    <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+                      {user.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={user.avatarUrl}
+                          alt=""
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <UserIcon className="size-5 text-gray-300" strokeWidth={1.5} />
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-xs font-bold text-gray-900">First Names</span>
+                      <span className="truncate text-sm text-gray-600" title={user.firstNames}>{user.firstNames}</span>
+                    </div>
                   </div>
 
                   {/* Surname */}

@@ -27,6 +27,7 @@ export interface UserRecord {
   unitName: string // comma-separated display string
   clientId: string
   clientName: string
+  avatarUrl: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +77,7 @@ interface DbUser {
   unit_id: string | null
   client_id: string | null
   status: UserStatus
+  avatar_url: string | null
 }
 
 interface DbUnit {
@@ -137,7 +139,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     // auth.users. Read the raw users table.
     const { data: userRows, error } = await supabase
       .from("users")
-      .select("id, first_names, surname, email, contact_number, role, unit_id, client_id, status")
+      .select("id, first_names, surname, email, contact_number, role, unit_id, client_id, status, avatar_url")
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -169,6 +171,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
         unitName: unitDisplayName,
         clientId: row.client_id ?? "",
         clientName: row.client_id ? clientMap.get(row.client_id) ?? "-" : "-",
+        avatarUrl: row.avatar_url,
       }
     })
 

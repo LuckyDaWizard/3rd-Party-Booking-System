@@ -8,6 +8,7 @@ import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
+import { validateImageMinDimensions } from "@/lib/image-dimensions"
 
 // ---------------------------------------------------------------------------
 // Success Banner
@@ -56,9 +57,24 @@ interface ClientDetails {
   contactPersonSurname: string
   emailAddress: string
   contactNumber: string
+  /** Logo file selected by the user; uploaded after the client is created. */
+  logoFile: File | null
+  logoPreviewUrl: string | null
+  /** Favicon file selected by the user; uploaded after the client is created. */
+  faviconFile: File | null
+  faviconPreviewUrl: string | null
 }
 
 const TOTAL_STEPS = 2
+const LOGO_MAX_BYTES = 2 * 1024 * 1024
+const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml"
+const FAVICON_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+// Minimum pixel dimensions — guard against tiny uploads that would scale up
+// poorly. Vector + ICO formats skip the check (see lib/image-dimensions.ts).
+const LOGO_MIN_WIDTH = 200
+const LOGO_MIN_HEIGHT = 60
+const FAVICON_MIN_WIDTH = 64
+const FAVICON_MIN_HEIGHT = 64
 
 const PROVINCES = [
   { value: "eastern-cape", label: "Eastern Cape" },
@@ -158,7 +174,170 @@ function StepClientDetails({
           onChange={(v) => handleChange("contactNumber", v)}
           onClear={() => handleClear("contactNumber")}
         />
+
+        {/* Branding (optional) — logo + favicon. Files are uploaded after the
+            client is created (we need an id first); previews use object URLs. */}
+        <div className="mt-2 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Branding (optional)</h3>
+            <p className="text-xs text-gray-500">
+              Logo for headers / printouts; favicon for tight icon spaces.
+            </p>
+          </div>
+
+          {/* Logo */}
+          <FilePickerRow
+            kind="logo"
+            label="logo"
+            accept={LOGO_ACCEPT}
+            minWidth={LOGO_MIN_WIDTH}
+            minHeight={LOGO_MIN_HEIGHT}
+            previewUrl={data.logoPreviewUrl}
+            file={data.logoFile}
+            onPick={(file) => {
+              if (data.logoPreviewUrl) URL.revokeObjectURL(data.logoPreviewUrl)
+              onChange({
+                ...data,
+                logoFile: file,
+                logoPreviewUrl: file ? URL.createObjectURL(file) : null,
+              })
+            }}
+            sizeClass="h-14 w-40"
+            shapeClass="rounded-lg"
+            placeholderLabel="Logo"
+            footnote="Horizontal. Displays at up to 180×48 px in the sidebar — recommend 360×96 px (about 4:1) or wider, transparent background. PNG, JPEG, WEBP, or SVG. Max 2 MB."
+          />
+
+          {/* Favicon */}
+          <FilePickerRow
+            kind="favicon"
+            label="favicon"
+            accept={FAVICON_ACCEPT}
+            minWidth={FAVICON_MIN_WIDTH}
+            minHeight={FAVICON_MIN_HEIGHT}
+            previewUrl={data.faviconPreviewUrl}
+            file={data.faviconFile}
+            onPick={(file) => {
+              if (data.faviconPreviewUrl) URL.revokeObjectURL(data.faviconPreviewUrl)
+              onChange({
+                ...data,
+                faviconFile: file,
+                faviconPreviewUrl: file ? URL.createObjectURL(file) : null,
+              })
+            }}
+            sizeClass="size-12"
+            shapeClass="rounded-md"
+            placeholderLabel="Icon"
+            footnote="Square (1:1). Displays at 36×36 px in the collapsed sidebar and client list — recommend 128×128 px or larger, transparent background. PNG / SVG / ICO. Max 2 MB."
+          />
+        </div>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// FilePickerRow — small inline file-picker used for logo + favicon. Pure
+// presentational; the parent owns the File state and preview URL lifecycle.
+// ---------------------------------------------------------------------------
+
+function FilePickerRow({
+  kind,
+  label,
+  accept,
+  minWidth,
+  minHeight,
+  previewUrl,
+  file,
+  onPick,
+  sizeClass,
+  shapeClass,
+  placeholderLabel,
+  footnote,
+}: {
+  kind: string
+  label: string
+  accept: string
+  minWidth?: number
+  minHeight?: number
+  previewUrl: string | null
+  file: File | null
+  onPick: (file: File | null) => void
+  sizeClass: string
+  shapeClass: string
+  placeholderLabel: string
+  footnote: string
+}) {
+  const inputId = `${kind}-file`
+  return (
+    <div className="flex flex-col items-start gap-2">
+      {/* Image + buttons inline; wrap onto a second line on narrow screens
+          so the buttons don't get clipped or pushed off-canvas. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div
+          data-testid={`${kind}-preview`}
+          className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden ${shapeClass} border border-gray-200 bg-white`}
+        >
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewUrl} alt={`${label} preview`} className="size-full object-cover" />
+          ) : (
+            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+              {placeholderLabel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <label
+            htmlFor={inputId}
+            className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          >
+            {file ? `Replace ${label}` : `Upload ${label}`}
+          </label>
+          <input
+            id={inputId}
+            data-testid={`input-${kind}-file`}
+            type="file"
+            accept={accept}
+            className="hidden"
+            onChange={async (e) => {
+              const picked = e.target.files?.[0] ?? null
+              e.target.value = ""
+              if (!picked) {
+                onPick(null)
+                return
+              }
+              if (picked.size > LOGO_MAX_BYTES) {
+                alert(`${placeholderLabel} must be 2 MB or smaller.`)
+                return
+              }
+              if (minWidth && minHeight) {
+                const dimsError = await validateImageMinDimensions(
+                  picked,
+                  minWidth,
+                  minHeight
+                )
+                if (dimsError) {
+                  alert(dimsError)
+                  return
+                }
+              }
+              onPick(picked)
+            }}
+          />
+          {file && (
+            <button
+              type="button"
+              data-testid={`${kind}-remove-button`}
+              onClick={() => onPick(null)}
+              className="text-xs text-red-600 hover:underline"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <span className="text-[11px] text-gray-500">{footnote}</span>
     </div>
   )
 }
@@ -289,6 +468,10 @@ export default function AddNewClientPage() {
     contactPersonSurname: "",
     emailAddress: "",
     contactNumber: "",
+    logoFile: null,
+    logoPreviewUrl: null,
+    faviconFile: null,
+    faviconPreviewUrl: null,
   })
 
   const [unitDetails, setUnitDetails] = useState<UnitDetails>({
@@ -317,7 +500,37 @@ export default function AddNewClientPage() {
           units: "-",
           email: clientDetails.emailAddress,
           number: clientDetails.contactNumber,
+          logoUrl: null,
+          faviconUrl: null,
         })
+        // Upload logo + favicon (if either selected) now that we have an id.
+        // Best-effort — if either fails the client still exists; admin can
+        // retry from Manage Client.
+        async function uploadAsset(kind: "logo" | "favicon", file: File) {
+          try {
+            const fd = new FormData()
+            fd.append("file", file)
+            const uploadRes = await fetch(`/api/admin/clients/${id}/${kind}`, {
+              method: "POST",
+              body: fd,
+            })
+            if (!uploadRes.ok) {
+              const { error } = await uploadRes.json().catch(() => ({}))
+              alert(`Client created, but ${kind} upload failed: ${error ?? uploadRes.statusText}. You can upload it from Manage Client.`)
+            }
+          } catch (uploadErr) {
+            console.warn(`${kind} upload failed:`, uploadErr)
+          }
+        }
+        if (clientDetails.logoFile) {
+          await uploadAsset("logo", clientDetails.logoFile)
+        }
+        if (clientDetails.faviconFile) {
+          await uploadAsset("favicon", clientDetails.faviconFile)
+        }
+        if (clientDetails.logoFile || clientDetails.faviconFile) {
+          await refreshClients()
+        }
         setNewClientId(id)
         setCurrentStep(2)
         setShowBanner(true)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, X, ChevronDown } from "lucide-react"
+import { ArrowLeft, ArrowRight, X, ChevronDown, User as UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -18,6 +18,12 @@ import { useUserStore } from "@/lib/user-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { PIN_LENGTH } from "@/lib/constants"
 import { useAuth } from "@/lib/auth-store"
+import { validateImageMinDimensions } from "@/lib/image-dimensions"
+
+// Minimum pixel dimensions for the avatar — guards against tiny crops that
+// would scale up unattractively in the header. SVG / ICO skip the check.
+const AVATAR_MIN_WIDTH = 80
+const AVATAR_MIN_HEIGHT = 80
 
 // ---------------------------------------------------------------------------
 // Multi-Select Unit Dropdown with Chips
@@ -159,12 +165,12 @@ export default function ManageUserPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get("id") ?? ""
-  const { getUser, updateUser, updateUserUnits, deleteUser, toggleUserStatus } = useUserStore()
+  const { getUser, updateUser, updateUserUnits, deleteUser, toggleUserStatus, refreshUsers } = useUserStore()
   const { units: allUnits } = useUnitStore()
 
   const user = getUser(userId)
 
-  const { activeUnitId } = useAuth()
+  const { activeUnitId, user: currentAuthUser, refreshUser: refreshAuthUser } = useAuth()
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isStatusOpen, setIsStatusOpen] = useState(false)
   const [isResetPinOpen, setIsResetPinOpen] = useState(false)
@@ -205,6 +211,13 @@ export default function ManageUserPage() {
         { value: "user", label: "User" },
       ]
 
+  // --- Avatar upload state -------------------------------------------------
+  // Optimistic UI for the upload — store the URL locally so the preview
+  // updates immediately without waiting for the user-store refresh round-trip.
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+
   useEffect(() => {
     if (user) {
       setFirstNames(user.firstNames)
@@ -213,8 +226,86 @@ export default function ManageUserPage() {
       setContactNumber(user.contactNumber)
       setSelectedUnitIds(user.units.map((u) => u.unitId))
       setUserRole(user.role)
+      setAvatarUrl(user.avatarUrl)
     }
   }, [user])
+
+  // Whether the current viewer is allowed to manage this user's avatar.
+  // Spec: self OR system_admin. Unit-managers managing their staff cannot
+  // change avatars (deliberate — keeps avatars personal / admin-curated).
+  const canManageAvatar =
+    isSystemAdmin || (currentAuthUser?.id === userId && currentAuthUser !== null)
+
+  async function handleAvatarUpload(file: File) {
+    if (!userId) return
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError("Image must be 2 MB or smaller.")
+      return
+    }
+    const dimsError = await validateImageMinDimensions(
+      file,
+      AVATAR_MIN_WIDTH,
+      AVATAR_MIN_HEIGHT
+    )
+    if (dimsError) {
+      setAvatarError(dimsError)
+      return
+    }
+    setAvatarBusy(true)
+    setAvatarError(null)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch(`/api/users/${userId}/avatar`, {
+        method: "POST",
+        body: fd,
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        avatarUrl?: string
+        error?: string
+      }
+      if (!res.ok || !data.ok) {
+        setAvatarError(data.error ?? "Upload failed")
+        return
+      }
+      setAvatarUrl(data.avatarUrl ?? null)
+      // Refresh the user-store so the list thumbnail picks up the new avatar.
+      await refreshUsers()
+      // If the viewer just updated their own avatar, refresh the auth-store
+      // so the header avatar updates without a page reload.
+      if (currentAuthUser?.id === userId) {
+        await refreshAuthUser()
+      }
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  async function handleAvatarRemove() {
+    if (!userId) return
+    setAvatarBusy(true)
+    setAvatarError(null)
+    try {
+      const res = await fetch(`/api/users/${userId}/avatar`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setAvatarError(data.error ?? "Failed to remove avatar")
+        return
+      }
+      setAvatarUrl(null)
+      await refreshUsers()
+      if (currentAuthUser?.id === userId) {
+        await refreshAuthUser()
+      }
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Failed to remove avatar")
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
 
   if (!user) {
     return (
@@ -443,6 +534,79 @@ export default function ManageUserPage() {
           <p className="text-base text-gray-500">
             Manage the user&apos;s units and personal information below
           </p>
+        </div>
+
+        {/* Avatar — visible to everyone (read-only fallback for those who
+            can't manage), upload controls only render for self or admin. */}
+        <div
+          data-testid="avatar-section"
+          className="flex flex-col items-center gap-3"
+        >
+          <div
+            data-testid="avatar-preview"
+            className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50"
+          >
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt={`${user.firstNames} ${user.surname}`}
+                className="size-full object-cover"
+              />
+            ) : (
+              <UserIcon className="size-12 text-gray-300" strokeWidth={1.5} />
+            )}
+          </div>
+          {canManageAvatar && (
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-3">
+                <label
+                  htmlFor="avatar-file"
+                  className={`inline-flex w-fit items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ${
+                    avatarBusy
+                      ? "cursor-wait opacity-60"
+                      : "cursor-pointer hover:bg-gray-100"
+                  }`}
+                >
+                  {avatarBusy
+                    ? "Uploading..."
+                    : avatarUrl
+                      ? "Replace photo"
+                      : "Upload photo"}
+                </label>
+                <input
+                  id="avatar-file"
+                  data-testid="input-avatar-file"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={avatarBusy}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ""
+                    if (file) void handleAvatarUpload(file)
+                  }}
+                />
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    data-testid="avatar-remove-button"
+                    onClick={handleAvatarRemove}
+                    disabled={avatarBusy}
+                    className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <span className="text-[11px] text-gray-500">
+                PNG, JPEG, or WEBP. Max 2 MB.
+              </span>
+              {avatarError && (
+                <span className="text-[11px] text-red-600">{avatarError}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Form */}

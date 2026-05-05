@@ -43,6 +43,13 @@ export interface DataCardProps {
   action: React.ReactNode
   /** Stacked label/value pairs rendered between status and action. */
   fields: DataCardField[]
+  /**
+   * Optional media block rendered between the status row and the fields.
+   * Used by list pages that show thumbnails on desktop (avatars, client
+   * logos / favicons) so the mobile card stays visually consistent with
+   * the desktop row.
+   */
+  media?: React.ReactNode
   /** Optional test id for E2E selectors. */
   "data-testid"?: string
 }
@@ -51,6 +58,7 @@ export function DataCard({
   status,
   action,
   fields,
+  media,
   "data-testid": testId,
 }: DataCardProps) {
   return (
@@ -63,6 +71,15 @@ export function DataCard({
         <div className="flex items-center">{status}</div>
         <div className="flex items-center">{action}</div>
       </div>
+
+      {media && (
+        <div
+          className="flex items-center"
+          data-testid={testId ? `${testId}-media` : undefined}
+        >
+          {media}
+        </div>
+      )}
 
       {/* Stacked fields */}
       <div className="flex flex-col gap-3">

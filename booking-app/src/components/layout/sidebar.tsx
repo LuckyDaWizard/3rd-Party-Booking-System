@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useSidebar } from "@/lib/sidebar-store"
 import { useAuth, type UserRole } from "@/lib/auth-store"
+import { useActiveClientBranding } from "@/lib/use-active-client-branding"
 
 interface NavChild {
   label: string
@@ -72,6 +73,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
   const searchParams = useSearchParams()
   const { collapsed: rawCollapsed, toggle, closeMobile } = useSidebar()
   const { user } = useAuth()
+  const branding = useActiveClientBranding()
 
   // Drawer mode is always "expanded" — the slide-over panel doesn't collapse,
   // it's either open or closed. Force collapsed=false in drawer mode so the
@@ -174,7 +176,15 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
         </button>
       )}
 
-      {/* Logo area */}
+      {/* Logo area
+          Resolution chain (defaults always end at the CareFirst image):
+            collapsed → client favicon → client logo → CareFirst favicon
+            expanded  → client logo → CareFirst wide logo
+          We render a plain <img> for client-uploaded images because their
+          dimensions vary and the URLs come from Supabase Storage, not from
+          /public; <Image> requires either declared dimensions or a remote
+          patterns config and we want this to "just work" for any uploaded
+          image. The CareFirst defaults stay on next/image for optimisation. */}
       <Link
         href="/home"
         onClick={isDrawer ? closeMobile : undefined}
@@ -184,25 +194,52 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
         )}
         data-testid="sidebar-logo"
       >
-        {collapsed ? (
-          <Image
-            src="/favicon.png"
-            alt="CareFirst"
-            width={36}
-            height={36}
-            priority
-            className="size-9 object-contain"
-          />
-        ) : (
-          <Image
-            src="/carefirst-logo.png"
-            alt="CareFirst"
-            width={200}
-            height={36}
-            priority
-            className="h-auto w-[200px]"
-          />
-        )}
+        {(() => {
+          const altText = branding.clientName ?? "CareFirst"
+          if (collapsed) {
+            const clientSrc = branding.faviconUrl ?? branding.logoUrl
+            if (clientSrc) {
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={clientSrc}
+                  alt={altText}
+                  className="size-9 object-contain"
+                />
+              )
+            }
+            return (
+              <Image
+                src="/favicon.png"
+                alt="CareFirst"
+                width={36}
+                height={36}
+                priority
+                className="size-9 object-contain"
+              />
+            )
+          }
+          if (branding.logoUrl) {
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={branding.logoUrl}
+                alt={altText}
+                className="h-12 w-full max-w-[180px] object-contain object-left"
+              />
+            )
+          }
+          return (
+            <Image
+              src="/carefirst-logo.png"
+              alt="CareFirst"
+              width={200}
+              height={36}
+              priority
+              className="h-auto w-[200px]"
+            />
+          )
+        })()}
       </Link>
 
       {/* Navigation */}

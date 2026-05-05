@@ -15,6 +15,20 @@ import { FloatingInput } from "@/components/ui/floating-input"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
+import { validateImageMinDimensions } from "@/lib/image-dimensions"
+
+const LOGO_MAX_BYTES = 2 * 1024 * 1024
+const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml"
+const FAVICON_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+// Minimum pixel dimensions — guards against tiny uploads that would scale
+// up unattractively in the sidebar / list. Vector and ICO formats skip the
+// check (see lib/image-dimensions.ts). Numbers track the recommended sizes
+// shown in the picker footnotes (recommend 360×96 / 128×128 — minimums are
+// half of those).
+const LOGO_MIN_WIDTH = 200
+const LOGO_MIN_HEIGHT = 60
+const FAVICON_MIN_WIDTH = 64
+const FAVICON_MIN_HEIGHT = 64
 
 // ---------------------------------------------------------------------------
 // Page
@@ -24,7 +38,7 @@ export default function ManageClientPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const clientId = searchParams.get("id") ?? ""
-  const { getClient, updateClient, deleteClient, toggleClientStatus } = useClientStore()
+  const { getClient, updateClient, deleteClient, toggleClientStatus, refreshClients } = useClientStore()
   const { activeUnitId } = useAuth()
 
   const client = getClient(clientId)
@@ -41,6 +55,12 @@ export default function ManageClientPage() {
   const [contactPersonSurname, setContactPersonSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
   const [contactNumber, setContactNumber] = useState("")
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoBusy, setLogoBusy] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
+  const [faviconBusy, setFaviconBusy] = useState(false)
+  const [faviconError, setFaviconError] = useState<string | null>(null)
 
   useEffect(() => {
     if (client) {
@@ -49,8 +69,95 @@ export default function ManageClientPage() {
       setContactPersonSurname(client.contactPersonSurname)
       setEmailAddress(client.email)
       setContactNumber(client.number)
+      setLogoUrl(client.logoUrl)
+      setFaviconUrl(client.faviconUrl)
     }
   }, [client])
+
+  // Generic asset upload — handles both logo + favicon. Same response shape:
+  //   { ok: true, logoUrl?: string, faviconUrl?: string }
+  async function uploadAsset(
+    kind: "logo" | "favicon",
+    file: File,
+    setUrl: (next: string | null) => void,
+    setBusy: (b: boolean) => void,
+    setError: (msg: string | null) => void
+  ) {
+    if (!clientId) return
+    if (file.size > LOGO_MAX_BYTES) {
+      setError(`${kind === "logo" ? "Logo" : "Favicon"} must be 2 MB or smaller.`)
+      return
+    }
+    // Reject pixel-too-small uploads before they hit the server.
+    const dimsError = await validateImageMinDimensions(
+      file,
+      kind === "logo" ? LOGO_MIN_WIDTH : FAVICON_MIN_WIDTH,
+      kind === "logo" ? LOGO_MIN_HEIGHT : FAVICON_MIN_HEIGHT
+    )
+    if (dimsError) {
+      setError(dimsError)
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch(`/api/admin/clients/${clientId}/${kind}`, {
+        method: "POST",
+        body: fd,
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        logoUrl?: string
+        faviconUrl?: string
+        error?: string
+      }
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? `${kind} upload failed`)
+        return
+      }
+      setUrl((kind === "logo" ? data.logoUrl : data.faviconUrl) ?? null)
+      // Refresh the client store so the list page + sidebar pick up the
+      // new asset without waiting for the next page load.
+      await refreshClients()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `${kind} upload failed`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeAsset(
+    kind: "logo" | "favicon",
+    setUrl: (next: string | null) => void,
+    setBusy: (b: boolean) => void,
+    setError: (msg: string | null) => void
+  ) {
+    if (!clientId) return
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/${kind}`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? `Failed to remove ${kind}`)
+        return
+      }
+      setUrl(null)
+      // Refresh the client store so the list page reflects removal too.
+      await refreshClients()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to remove ${kind}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const uploadLogo = (file: File) => uploadAsset("logo", file, setLogoUrl, setLogoBusy, setLogoError)
+  const removeLogo = () => removeAsset("logo", setLogoUrl, setLogoBusy, setLogoError)
+  const uploadFavicon = (file: File) => uploadAsset("favicon", file, setFaviconUrl, setFaviconBusy, setFaviconError)
+  const removeFavicon = () => removeAsset("favicon", setFaviconUrl, setFaviconBusy, setFaviconError)
 
   if (!client) {
     return (
@@ -208,6 +315,50 @@ export default function ManageClientPage() {
             onChange={setContactNumber}
             onClear={() => setContactNumber("")}
           />
+
+          {/* Branding — uploads fire immediately on file pick. The "Update
+              Information" button below is for the text fields only; logo /
+              favicon don't need to wait for a save. */}
+          <div className="mt-2 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Branding</h3>
+              <p className="text-xs text-gray-500">
+                Logo for headers / printouts; favicon for tight icon spaces.
+              </p>
+            </div>
+
+            {/* Logo */}
+            <ImmediateUploadRow
+              kind="logo"
+              label="logo"
+              accept={LOGO_ACCEPT}
+              url={logoUrl}
+              busy={logoBusy}
+              error={logoError}
+              onUpload={uploadLogo}
+              onRemove={removeLogo}
+              sizeClass="h-14 w-40"
+              shapeClass="rounded-lg"
+              placeholderLabel="Logo"
+              footnote="Horizontal. Displays at up to 180×48 px in the sidebar — recommend 360×96 px (about 4:1) or wider, transparent background. PNG, JPEG, WEBP, or SVG. Max 2 MB."
+            />
+
+            {/* Favicon */}
+            <ImmediateUploadRow
+              kind="favicon"
+              label="favicon"
+              accept={FAVICON_ACCEPT}
+              url={faviconUrl}
+              busy={faviconBusy}
+              error={faviconError}
+              onUpload={uploadFavicon}
+              onRemove={removeFavicon}
+              sizeClass="size-12"
+              shapeClass="rounded-md"
+              placeholderLabel="Icon"
+              footnote="Square (1:1). Displays at 36×36 px in the collapsed sidebar and client list — recommend 128×128 px or larger, transparent background. PNG / SVG / ICO. Max 2 MB."
+            />
+          </div>
         </div>
 
         {/* Actions */}
@@ -395,6 +546,99 @@ export default function ManageClientPage() {
           await handleDeleteClient()
         }}
       />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ImmediateUploadRow — file picker that fires the upload as soon as a file
+// is chosen. Used for logo + favicon on the Manage Client page where the
+// user expects the change to take effect without an extra "save" click.
+// ---------------------------------------------------------------------------
+
+function ImmediateUploadRow({
+  kind,
+  label,
+  accept,
+  url,
+  busy,
+  error,
+  onUpload,
+  onRemove,
+  sizeClass,
+  shapeClass,
+  placeholderLabel,
+  footnote,
+}: {
+  kind: string
+  label: string
+  accept: string
+  url: string | null
+  busy: boolean
+  error: string | null
+  onUpload: (file: File) => void
+  onRemove: () => void
+  sizeClass: string
+  shapeClass: string
+  placeholderLabel: string
+  footnote: string
+}) {
+  const inputId = `${kind}-file`
+  return (
+    <div className="flex flex-col items-start gap-2">
+      {/* Image + buttons inline; wrap onto a second line on narrow screens
+          so the buttons don't get clipped or pushed off-canvas. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div
+          data-testid={`${kind}-preview`}
+          className={`flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden ${shapeClass} border border-gray-200 bg-white`}
+        >
+          {url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={url} alt={`Client ${label}`} className="size-full object-cover" />
+          ) : (
+            <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+              {placeholderLabel}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <label
+            htmlFor={inputId}
+            className={`inline-flex w-fit items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ${
+              busy ? "cursor-wait opacity-60" : "cursor-pointer hover:bg-gray-100"
+            }`}
+          >
+            {busy ? "Uploading..." : url ? `Replace ${label}` : `Upload ${label}`}
+          </label>
+          <input
+            id={inputId}
+            data-testid={`input-${kind}-file`}
+            type="file"
+            accept={accept}
+            disabled={busy}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ""
+              if (file) onUpload(file)
+            }}
+          />
+          {url && (
+            <button
+              type="button"
+              data-testid={`${kind}-remove-button`}
+              onClick={onRemove}
+              disabled={busy}
+              className="text-xs text-red-600 hover:underline disabled:opacity-50"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <span className="text-[11px] text-gray-500">{footnote}</span>
+      {error && <span className="text-[11px] text-red-600">{error}</span>}
     </div>
   )
 }

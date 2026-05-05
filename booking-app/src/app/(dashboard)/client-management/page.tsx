@@ -176,6 +176,8 @@ export default function ClientManagementPage() {
                     units: data.units ?? "-",
                     email: data.email,
                     number: data.number,
+                    logoUrl: null,
+                    faviconUrl: null,
                   })
                   setDeleteBanner(null)
                 } catch {
@@ -439,6 +441,20 @@ export default function ClientManagementPage() {
                     data-testid={`client-card-${client.id}`}
                     status={statusBadge}
                     action={manageButton}
+                    media={
+                      client.faviconUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={client.faviconUrl}
+                          alt=""
+                          className="size-10 shrink-0 rounded-md border border-gray-200 bg-white object-contain p-0.5"
+                        />
+                      ) : (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
+                          Icon
+                        </div>
+                      )
+                    }
                     fields={[
                       { label: "Client Name", value: client.clientName },
                       { label: "Units", value: client.units },
@@ -456,10 +472,27 @@ export default function ClientManagementPage() {
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
 
-                  {/* Client Name */}
-                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Client Name</span>
-                    <span className="truncate text-sm text-gray-600" title={client.clientName}>{client.clientName}</span>
+                  {/* Client Name (with favicon thumbnail — favicons are
+                      square so they sit better than wide logos in a 36px
+                      slot. Strict swap: no fallback to logo here, the empty
+                      placeholder nudges admins to upload a favicon.) */}
+                  <div className="flex min-w-0 items-center gap-3 text-left">
+                    {client.faviconUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={client.faviconUrl}
+                        alt=""
+                        className="size-9 shrink-0 rounded-md border border-gray-200 bg-white object-contain p-0.5"
+                      />
+                    ) : (
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
+                        Icon
+                      </div>
+                    )}
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-xs font-bold text-gray-900">Client Name</span>
+                      <span className="truncate text-sm text-gray-600" title={client.clientName}>{client.clientName}</span>
+                    </div>
                   </div>
 
                   {/* Units */}
