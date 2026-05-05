@@ -49,6 +49,28 @@
 
 :root {
   --brand: #3ea3db;
+
+  /* ---------------------------------------------------------------------
+   * Per-client accent theme (Phase 2 of the theming work).
+   *
+   * The dashboard layout overrides --client-primary on its wrapper based
+   * on the active unit's parent client. The opacity-tinted variants use
+   * color-mix so refactored Tailwind classes (Phase 3) can pick the right
+   * shade without doing arithmetic at runtime.
+   *
+   * Defaults match the legacy hardcoded #3ea3db references, so anything
+   * already swapped to var(--client-primary) keeps rendering the original
+   * brand colour when no client is active (sign-in, error pages, before
+   * the stores hydrate).
+   * ------------------------------------------------------------------- */
+  --client-primary: #3ea3db;
+  --client-primary-10: color-mix(in srgb, var(--client-primary) 10%, transparent);
+  --client-primary-15: color-mix(in srgb, var(--client-primary) 15%, transparent);
+  --client-primary-20: color-mix(in srgb, var(--client-primary) 20%, transparent);
+  --client-primary-25: color-mix(in srgb, var(--client-primary) 25%, transparent);
+  --client-primary-30: color-mix(in srgb, var(--client-primary) 30%, transparent);
+  --client-primary-80: color-mix(in srgb, var(--client-primary) 80%, transparent);
+  --client-primary-90: color-mix(in srgb, var(--client-primary) 90%, transparent);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

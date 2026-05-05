@@ -12,6 +12,7 @@ import { UserStoreProvider } from "@/lib/user-store"
 import { BookingStoreProvider } from "@/lib/booking-store"
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-store"
 import { useAuth } from "@/lib/auth-store"
+import { useActiveClientBranding } from "@/lib/use-active-client-branding"
 
 // ---------------------------------------------------------------------------
 // Route access by role
@@ -61,6 +62,18 @@ function useRouteGuard() {
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { collapsed, mobileOpen, setMobileOpen } = useSidebar()
   const { user, loading } = useRouteGuard()
+  const branding = useActiveClientBranding()
+
+  // Inline-style override for the per-client accent. Setting --client-primary
+  // on the dashboard wrapper means everything beneath inherits this client's
+  // accent through the var() chain in globals.css. Routes outside this
+  // layout (sign-in, forgot-PIN, error pages) don't get the override and
+  // keep rendering the system default. Phase 2 only sets the variable;
+  // Phase 3 (separate refactor) is what actually reads it via the Tailwind
+  // arbitrary-value classes.
+  const themeStyle = {
+    "--client-primary": branding.accent,
+  } as React.CSSProperties
 
   if (loading || !user) {
     return (
@@ -74,7 +87,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" style={themeStyle}>
       {/* Desktop sidebar — hidden below lg: */}
       <div className="hidden lg:block">
         <Sidebar />
