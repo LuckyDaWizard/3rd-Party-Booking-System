@@ -23,6 +23,26 @@ interface UpdateClientBody {
   email?: string
   contactNumber?: string
   status?: "Active" | "Disabled"
+  /** Hex like '#3ea3db', or null to clear. Validated server-side. */
+  accentColor?: string | null
+}
+
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+
+/**
+ * Normalises an incoming accent value:
+ *   - undefined → leave unchanged
+ *   - null / "" → store NULL (clear)
+ *   - valid hex → store lowercased
+ *   - anything else → throw, so caller can return 400
+ */
+function normaliseAccent(raw: string | null | undefined): string | null | undefined {
+  if (raw === undefined) return undefined
+  if (raw === null || raw === "") return null
+  if (!HEX_RE.test(raw)) {
+    throw new Error(`Invalid accent colour: ${raw}`)
+  }
+  return raw.toLowerCase()
 }
 
 interface RouteContext {
@@ -45,6 +65,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
+  let normalisedAccent: string | null | undefined
+  try {
+    normalisedAccent = normaliseAccent(body.accentColor)
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Invalid accent colour" },
+      { status: 400 }
+    )
+  }
+
   let admin
   try {
     admin = getSupabaseAdmin()
@@ -58,7 +88,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color")
     .eq("id", id)
     .single()
 
@@ -69,6 +99,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.email !== undefined) dbUpdates.email = body.email
   if (body.contactNumber !== undefined) dbUpdates.contact_number = body.contactNumber
   if (body.status !== undefined) dbUpdates.status = body.status
+  if (normalisedAccent !== undefined) dbUpdates.accent_color = normalisedAccent
 
   if (Object.keys(dbUpdates).length === 0) {
     return NextResponse.json({ ok: true })
@@ -97,6 +128,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Contact Number"] = { old: current?.contact_number, new: body.contactNumber }
   if (body.status !== undefined && body.status !== current?.status)
     changes["Status"] = { old: current?.status, new: body.status }
+  if (normalisedAccent !== undefined && normalisedAccent !== current?.accent_color)
+    changes["Accent Colour"] = { old: current?.accent_color, new: normalisedAccent }
 
   if (Object.keys(changes).length > 0) {
     const action = changes["Status"] && Object.keys(changes).length === 1 ? "toggle_status" as const : "update" as const

@@ -16,6 +16,11 @@ import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
+import { checkAccentAgainstWhite } from "@/lib/color-contrast"
+
+// System default accent — used as the picker's starting value when a client
+// has no accent_color set yet. Matches globals.css `--brand`.
+const DEFAULT_ACCENT = "#3ea3db"
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml"
@@ -61,6 +66,10 @@ export default function ManageClientPage() {
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [faviconBusy, setFaviconBusy] = useState(false)
   const [faviconError, setFaviconError] = useState<string | null>(null)
+  // Accent colour — kept in form state and saved with the rest of the
+  // client record on "Update Information" (not via a separate immediate
+  // upload, since it's just a hex string and round-trips cheaply).
+  const [accentColor, setAccentColor] = useState<string>(DEFAULT_ACCENT)
 
   useEffect(() => {
     if (client) {
@@ -71,6 +80,7 @@ export default function ManageClientPage() {
       setContactNumber(client.number)
       setLogoUrl(client.logoUrl)
       setFaviconUrl(client.faviconUrl)
+      setAccentColor(client.accentColor ?? DEFAULT_ACCENT)
     }
   }, [client])
 
@@ -176,6 +186,10 @@ export default function ManageClientPage() {
         contactPersonSurname,
         email: emailAddress,
         number: contactNumber,
+        // Send null when the picker is back at the system default — keeps
+        // the row clean and means future bumps to the system default
+        // automatically apply.
+        accentColor: accentColor === DEFAULT_ACCENT ? null : accentColor,
       })
       router.push("/client-management")
     } catch {
@@ -357,6 +371,13 @@ export default function ManageClientPage() {
               shapeClass="rounded-md"
               placeholderLabel="Icon"
               footnote="Square (1:1). Displays at 36×36 px in the collapsed sidebar and client list — recommend 128×128 px or larger, transparent background. PNG / SVG / ICO. Max 2 MB."
+            />
+
+            {/* Accent colour — saves with the rest of the form on Update. */}
+            <AccentColorRow
+              accent={accentColor}
+              onChange={setAccentColor}
+              defaultAccent={DEFAULT_ACCENT}
             />
           </div>
         </div>
@@ -639,6 +660,104 @@ function ImmediateUploadRow({
       </div>
       <span className="text-[11px] text-gray-500">{footnote}</span>
       {error && <span className="text-[11px] text-red-600">{error}</span>}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AccentColorRow — native colour input + live WCAG contrast warning.
+//
+// The accent paints solid pills / buttons with white text on top throughout
+// the dashboard, so contrast against #fff is the dominant concern. We show
+// the ratio inline plus a verdict label so admins can see "AA" / "AA Large"
+// / "Fail" without having to open a separate tool.
+//
+// "Reset to default" sets the picker back to DEFAULT_ACCENT — the save
+// handler treats that as a sentinel to clear the DB column.
+// ---------------------------------------------------------------------------
+
+function AccentColorRow({
+  accent,
+  onChange,
+  defaultAccent,
+}: {
+  accent: string
+  onChange: (next: string) => void
+  defaultAccent: string
+}) {
+  const check = checkAccentAgainstWhite(accent)
+  const isAtDefault = accent.toLowerCase() === defaultAccent.toLowerCase()
+
+  let verdictLabel = ""
+  let verdictTone = "text-gray-500"
+  if (check) {
+    if (check.verdict === "aa-normal") {
+      verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — AA (text + UI)`
+      verdictTone = "text-green-700"
+    } else if (check.verdict === "aa-large") {
+      verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — AA Large only (UI / large text). Avoid for body text on this colour.`
+      verdictTone = "text-amber-700"
+    } else {
+      verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — Fails WCAG AA. White text on this colour will be hard to read.`
+      verdictTone = "text-red-700"
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Native colour picker. The visible swatch is the input itself —
+            we just style the surrounding box. */}
+        <label
+          htmlFor="accent-color"
+          className="flex h-14 w-40 cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white px-3"
+        >
+          <span
+            className="size-8 shrink-0 rounded border border-gray-200"
+            style={{ backgroundColor: accent }}
+            aria-hidden="true"
+          />
+          <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
+        </label>
+        <input
+          id="accent-color"
+          data-testid="input-accent-color"
+          type="color"
+          value={accent}
+          onChange={(e) => onChange(e.target.value)}
+          className="hidden"
+          aria-label="Accent colour"
+        />
+        <label
+          htmlFor="accent-color"
+          className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+        >
+          {isAtDefault ? "Pick a colour" : "Change colour"}
+        </label>
+        {!isAtDefault && (
+          <button
+            type="button"
+            data-testid="accent-reset-button"
+            onClick={() => onChange(defaultAccent)}
+            className="text-xs text-gray-600 hover:underline"
+          >
+            Reset to default
+          </button>
+        )}
+      </div>
+      <span className="text-[11px] text-gray-500">
+        Brand accent used for active filters, primary buttons, links, and the
+        sidebar. Saved when you click Update Information.
+      </span>
+      {check && (
+        <span
+          className={`text-[11px] ${verdictTone}`}
+          data-testid="accent-contrast-verdict"
+          aria-live="polite"
+        >
+          {verdictLabel}
+        </span>
+      )}
     </div>
   )
 }

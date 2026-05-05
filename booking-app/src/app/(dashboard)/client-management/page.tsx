@@ -178,6 +178,7 @@ export default function ClientManagementPage() {
                     number: data.number,
                     logoUrl: null,
                     faviconUrl: null,
+                    accentColor: null,
                   })
                   setDeleteBanner(null)
                 } catch {
