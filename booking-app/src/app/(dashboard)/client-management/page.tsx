@@ -176,7 +176,6 @@ export default function ClientManagementPage() {
                     units: data.units ?? "-",
                     email: data.email,
                     number: data.number,
-                    collectPaymentAtUnit: false,
                   })
                   setDeleteBanner(null)
                 } catch {

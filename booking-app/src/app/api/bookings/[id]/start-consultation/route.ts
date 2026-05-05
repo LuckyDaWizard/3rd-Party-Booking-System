@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
-import { recordBookingValidator } from "@/lib/booking-validator"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import {
   buildSsoPayload,
@@ -253,9 +252,6 @@ export async function POST(request: Request, context: RouteContext) {
       updErr
     )
   }
-
-  // Snapshot the operator who validated the consultation handoff.
-  await recordBookingValidator(admin, id, caller)
 
   writeAuditLog({
     actorId: caller.id,

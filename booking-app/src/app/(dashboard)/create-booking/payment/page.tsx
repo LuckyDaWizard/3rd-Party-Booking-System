@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, ShieldCheck, Mail, CheckCircle, Pencil, Check, X, Wallet } from "lucide-react"
+import { ArrowLeft, ArrowRight, ShieldCheck, Mail, CheckCircle, Pencil, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useBookingStore } from "@/lib/booking-store"
@@ -50,60 +50,9 @@ export default function PaymentPage() {
   const [savingEmail, setSavingEmail] = useState(false)
   const [emailError, setEmailError] = useState("")
 
-  // Payment mode — fetched from server. "gateway" = PayFast (default),
-  // "self_collect" = unit collects fee directly, no gateway redirect.
-  const [paymentMode, setPaymentMode] = useState<"gateway" | "self_collect" | null>(null)
-  const [selfCollectSubmitting, setSelfCollectSubmitting] = useState(false)
-
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
-
-  // Fetch the unit's payment mode so we know which UI to render. Server is
-  // authoritative — even if mode is wrong client-side, the gateway/self-
-  // collect endpoints both re-check before accepting.
-  useEffect(() => {
-    if (!bookingId) return
-    let cancelled = false
-    void (async () => {
-      try {
-        const res = await fetch(`/api/bookings/${bookingId}/payment-mode`)
-        if (!res.ok) {
-          if (!cancelled) setPaymentMode("gateway") // safe default
-          return
-        }
-        const data = (await res.json()) as { mode: "gateway" | "self_collect" }
-        if (!cancelled) setPaymentMode(data.mode)
-      } catch {
-        if (!cancelled) setPaymentMode("gateway")
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [bookingId])
-
-  async function handleConfirmSelfCollect() {
-    if (selfCollectSubmitting) return
-    setSelfCollectSubmitting(true)
-    setError("")
-    try {
-      const res = await fetch(`/api/bookings/${bookingId}/mark-self-collect`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setError(data.error ?? "Failed to confirm payment collection")
-        setSelfCollectSubmitting(false)
-        return
-      }
-      router.push(`/create-booking/patient-metrics?bookingId=${bookingId}`)
-    } catch {
-      setError("Network error. Please try again.")
-      setSelfCollectSubmitting(false)
-    }
-  }
 
   // Auto-submit the hidden form once we have PayFast data (device mode)
   useEffect(() => {
@@ -235,105 +184,15 @@ export default function PaymentPage() {
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            {paymentMode === "self_collect"
-              ? "Payment"
-              : paymentType === "link"
-                ? "Send Payment Link"
-                : "Payment"}
+            {paymentType === "link" ? "Send Payment Link" : "Payment"}
           </h1>
           <p className="text-base text-gray-500">
-            {paymentMode === "self_collect"
-              ? "This unit collects the consultation fee directly. The booking will continue once you confirm."
-              : paymentType === "link"
-                ? "Email the patient a secure PayFast payment link."
-                : "Complete your booking payment securely via PayFast."}
+            {paymentType === "link"
+              ? "Email the patient a secure PayFast payment link."
+              : "Complete your booking payment securely via PayFast."}
           </p>
         </div>
 
-        {paymentMode === null && (
-          <div className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400">
-            Loading payment options...
-          </div>
-        )}
-
-        {paymentMode === "self_collect" && (
-          <div className="flex flex-col items-stretch gap-6 md:flex-row md:items-start md:gap-8">
-            {/* Left — Self-collect info */}
-            <div className="flex flex-1 flex-col gap-6">
-              <div className="flex flex-col gap-4 rounded-xl bg-white p-6">
-                <div className="flex items-center gap-3">
-                  <Wallet className="size-6 text-amber-500" />
-                  <h2 className="text-lg font-bold text-gray-900">
-                    Collect payment at the unit
-                  </h2>
-                </div>
-                <p className="text-sm text-gray-500">
-                  This unit is configured to collect the consultation fee
-                  directly from the patient. No payment will be processed
-                  through the gateway. Once you confirm, the booking will be
-                  marked as paid and you can continue to capture the patient&apos;s
-                  vitals.
-                </p>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-                  By confirming, you acknowledge that the consultation fee has
-                  been (or will be) collected by the unit. This action is
-                  recorded in the audit log.
-                </div>
-              </div>
-
-              {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
-            </div>
-
-            {/* Right — Summary */}
-            <div className="w-full md:w-80 md:shrink-0">
-              <div className="flex flex-col gap-6 rounded-xl bg-white p-6">
-                <h2 className="text-xl font-bold text-gray-900">Payment Summary</h2>
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Consultation Booking</span>
-                    <span className="text-gray-500">R325.00</span>
-                  </div>
-                  <div className="border-t border-gray-100" />
-                  <div className="flex items-center justify-between text-sm font-semibold">
-                    <span className="text-gray-900">Total to collect</span>
-                    <span className="text-gray-900">R325.00</span>
-                  </div>
-                </div>
-                <Button
-                  onClick={handleConfirmSelfCollect}
-                  disabled={selfCollectSubmitting}
-                  data-testid="confirm-self-collect-button"
-                  className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
-                    !selfCollectSubmitting
-                      ? "bg-gray-900 text-white hover:bg-gray-800"
-                      : "bg-gray-300 text-gray-500"
-                  }`}
-                >
-                  {selfCollectSubmitting ? (
-                    <>
-                      Confirming...
-                      <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                        <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                        <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                      </svg>
-                    </>
-                  ) : (
-                    <>
-                      Confirm &amp; Continue
-                      <ArrowRight className="size-4" />
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {paymentMode === "gateway" && (
         <div className="flex flex-col items-stretch gap-6 md:flex-row md:items-start md:gap-8">
           {/* Left — Info */}
           <div className="flex flex-1 flex-col gap-6">
@@ -563,7 +422,6 @@ export default function PaymentPage() {
             </div>
           </div>
         </div>
-        )}
       </div>
 
       {/* Hidden form for PayFast redirect (device mode only) */}

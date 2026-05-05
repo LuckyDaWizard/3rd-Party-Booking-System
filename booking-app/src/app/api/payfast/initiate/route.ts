@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
-import { recordBookingValidator } from "@/lib/booking-validator"
 import {
   getPayfastConfig,
   getProcessUrl,
@@ -99,44 +98,11 @@ export async function POST(request: Request) {
     )
   }
 
-  // Refuse if the booking's client is configured to collect payment directly.
-  // Defence-in-depth — the payment page already routes self-collect bookings
-  // to /api/bookings/[id]/mark-self-collect; this guards against any caller
-  // that tries to push them through the gateway anyway. The toggle now lives
-  // on clients, resolved via units.client_id.
-  if (booking.unit_id) {
-    const { data: unit } = await admin
-      .from("units")
-      .select("client_id")
-      .eq("id", booking.unit_id)
-      .single()
-    const clientId = (unit as { client_id: string | null } | null)?.client_id
-    if (clientId) {
-      const { data: client } = await admin
-        .from("clients")
-        .select("collect_payment_at_unit")
-        .eq("id", clientId)
-        .single()
-      if ((client as { collect_payment_at_unit: boolean | null } | null)?.collect_payment_at_unit) {
-        return NextResponse.json(
-          {
-            error:
-              "This client collects payment directly. Use the in-unit payment confirmation flow instead.",
-          },
-          { status: 400 }
-        )
-      }
-    }
-  }
-
   // Store the payment amount on the booking for ITN validation later
   await admin
     .from("bookings")
     .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
     .eq("id", bookingId)
-
-  // Snapshot the operator who initiated this payment for accountability.
-  await recordBookingValidator(admin, bookingId, caller)
 
   // Build the form data in PayFast's required field order
   const formData = buildPaymentData(config, {

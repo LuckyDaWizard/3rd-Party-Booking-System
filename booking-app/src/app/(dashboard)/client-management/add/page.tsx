@@ -317,7 +317,6 @@ export default function AddNewClientPage() {
           units: "-",
           email: clientDetails.emailAddress,
           number: clientDetails.contactNumber,
-          collectPaymentAtUnit: false,
         })
         setNewClientId(id)
         setCurrentStep(2)

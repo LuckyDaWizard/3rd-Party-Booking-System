@@ -119,15 +119,8 @@ export default function SwitchUnitPage() {
                       <span className="size-2.5 rounded-full bg-[#3ea3db]" />
                     )}
                   </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-base font-medium text-gray-900">
-                      {unit.unitName}
-                    </span>
-                    {unit.clientName && (
-                      <span className="truncate text-xs text-gray-500">
-                        {unit.clientName}
-                      </span>
-                    )}
+                  <span className="text-base font-medium text-gray-900">
+                    {unit.unitName}
                   </span>
                 </button>
               )
@@ -168,11 +161,8 @@ export default function SwitchUnitPage() {
               Switch to {selectedUnit?.unitName}?
             </DialogTitle>
             <DialogDescription data-testid="dialog-description">
-              You&apos;ve selected <strong>{selectedUnit?.unitName}</strong>
-              {selectedUnit?.clientName ? (
-                <> &mdash; <span className="text-gray-700">{selectedUnit.clientName}</span></>
-              ) : null}
-              . Please confirm if this is correct.
+              You&apos;ve selected {selectedUnit?.unitName}. Please confirm if this
+              is correct.
             </DialogDescription>
           </DialogHeader>
 

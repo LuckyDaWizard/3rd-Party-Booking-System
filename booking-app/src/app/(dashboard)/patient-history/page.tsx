@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog"
 import { useBookingStore, type BookingStatus } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
-import { useUnitStore } from "@/lib/unit-store"
 import { DataCard } from "@/components/data-card"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import * as XLSX from "xlsx"
@@ -50,7 +49,7 @@ function maskIdNumber(id: string | null): string {
 function getStatusStyle(status: PatientStatus): string {
   switch (status) {
     case "Payment Complete":
-      return "bg-green-100 text-green-800 border-transparent"
+      return "bg-yellow-100 text-yellow-800 border-transparent"
     case "In Progress":
       return "bg-[#CDE5F2] text-[#3ea3db] border-transparent"
     case "Abandoned":
@@ -296,7 +295,6 @@ export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { bookings, loading, discardBooking, updateBooking, refreshBookings } = useBookingStore()
-  const { units } = useUnitStore()
   const { isSystemAdmin, isUnitManager, activeUnitId } = useAuth()
   const canConfirmPayment = isSystemAdmin || isUnitManager
   const tabParam = searchParams.get("tab")
@@ -988,11 +986,7 @@ export default function PatientHistoryPage() {
         <button
           type="button"
           onClick={() => {
-            const unitMap = new Map(units.map((u) => [u.id, u]))
-            const exportData = bookings.map((b) => {
-              const unit = b.unitId ? unitMap.get(b.unitId) : undefined
-              return {
-              // Patient details
+            const exportData = bookings.map((b) => ({
               "Patient Name": [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
               "ID Number": b.idNumber || "N/A",
               "ID Type": b.idType || "",
@@ -1010,14 +1004,7 @@ export default function PatientHistoryPage() {
               "Oxygen Saturation": b.oxygenSaturation || "",
               "Heart Rate": b.heartRate || "",
               "Terms Accepted": b.termsAccepted ? "Yes" : "No",
-              // Unit / facility details (kept at the end so patient columns lead)
-              "Client Name": unit?.clientName ?? "",
-              "Unit Name": unit?.unitName ?? "",
-              "Unit Province": unit?.province ?? "",
-              "Validated By": b.validatedByName ?? "",
-              "Validator Email": b.validatedByEmail ?? "",
-              }
-            })
+            }))
 
             const ws = XLSX.utils.json_to_sheet(exportData)
             const wb = XLSX.utils.book_new()

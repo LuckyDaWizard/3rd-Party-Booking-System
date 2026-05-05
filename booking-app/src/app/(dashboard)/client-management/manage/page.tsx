@@ -25,7 +25,7 @@ export default function ManageClientPage() {
   const searchParams = useSearchParams()
   const clientId = searchParams.get("id") ?? ""
   const { getClient, updateClient, deleteClient, toggleClientStatus } = useClientStore()
-  const { activeUnitId, isSystemAdmin } = useAuth()
+  const { activeUnitId } = useAuth()
 
   const client = getClient(clientId)
 
@@ -41,7 +41,6 @@ export default function ManageClientPage() {
   const [contactPersonSurname, setContactPersonSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
   const [contactNumber, setContactNumber] = useState("")
-  const [collectPaymentAtUnit, setCollectPaymentAtUnit] = useState(false)
 
   useEffect(() => {
     if (client) {
@@ -50,7 +49,6 @@ export default function ManageClientPage() {
       setContactPersonSurname(client.contactPersonSurname)
       setEmailAddress(client.email)
       setContactNumber(client.number)
-      setCollectPaymentAtUnit(client.collectPaymentAtUnit)
     }
   }, [client])
 
@@ -71,7 +69,6 @@ export default function ManageClientPage() {
         contactPersonSurname,
         email: emailAddress,
         number: contactNumber,
-        ...(isSystemAdmin ? { collectPaymentAtUnit } : {}),
       })
       router.push("/client-management")
     } catch {
@@ -211,42 +208,6 @@ export default function ManageClientPage() {
             onChange={setContactNumber}
             onClear={() => setContactNumber("")}
           />
-
-          {/* Collect payment at unit (system_admin only) — applies to ALL units under this client */}
-          {isSystemAdmin && (
-            <div
-              data-testid="collect-payment-toggle-row"
-              className="flex items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4"
-            >
-              <div className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-gray-900">
-                  Collect payment at unit
-                </span>
-                <span className="text-xs text-gray-600">
-                  When ON, every unit under this client skips the payment
-                  gateway. Each unit is responsible for collecting the
-                  consultation fee directly from the patient.
-                </span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={collectPaymentAtUnit}
-                aria-label="Collect payment at unit"
-                data-testid="collect-payment-toggle"
-                onClick={() => setCollectPaymentAtUnit((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                  collectPaymentAtUnit ? "bg-[#3ea3db]" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
-                    collectPaymentAtUnit ? "translate-x-5" : "translate-x-0.5"
-                  }`}
-                />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Actions */}
