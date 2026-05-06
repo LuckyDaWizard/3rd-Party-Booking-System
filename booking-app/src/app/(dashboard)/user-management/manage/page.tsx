@@ -200,16 +200,15 @@ export default function ManageUserPage() {
 
   const { isSystemAdmin } = useAuth()
 
-  // System admin can assign any role; unit managers can only set regular users
-  const roleOptions = isSystemAdmin
-    ? [
-        { value: "user", label: "User" },
-        { value: "unit_manager", label: "Unit Manager" },
-        { value: "system_admin", label: "System Admin" },
-      ]
-    : [
-        { value: "user", label: "User" },
-      ]
+  // Only system_admin can change roles. Unit-managers and regular users
+  // don't see the field at all — a single-option dropdown was useless and
+  // misleading (a unit_manager opening their own profile would see the
+  // dropdown stuck on a value not in its options).
+  const roleOptions = [
+    { value: "user", label: "User" },
+    { value: "unit_manager", label: "Unit Manager" },
+    { value: "system_admin", label: "System Admin" },
+  ]
 
   // --- Avatar upload state -------------------------------------------------
   // Optimistic UI for the upload — store the URL locally so the preview
@@ -664,15 +663,19 @@ export default function ManageUserPage() {
             onClear={() => setContactNumber("")}
           />
 
-          {/* Access Role */}
-          <FloatingSelect
-            id="role"
-            data-testid="select-role"
-            label="Select Access Role"
-            value={userRole}
-            onChange={setUserRole}
-            options={roleOptions}
-          />
+          {/* Access Role — system_admin only. Unit-managers and regular
+              users can't change roles, so the field is hidden entirely
+              instead of shown as a single-option dropdown. */}
+          {isSystemAdmin && (
+            <FloatingSelect
+              id="role"
+              data-testid="select-role"
+              label="Select Access Role"
+              value={userRole}
+              onChange={setUserRole}
+              options={roleOptions}
+            />
+          )}
         </div>
 
         {/* Actions */}
