@@ -196,7 +196,7 @@ export default function SelectPatientPage() {
       <div className="flex flex-1 items-center justify-center">
         <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
           <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-          <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+          <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
         </svg>
       </div>
     )
@@ -249,7 +249,7 @@ export default function SelectPatientPage() {
           onClick={() => setStep("email")}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             step === "email"
-              ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+              ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
               : step === "contact"
                 ? "bg-green-100 text-green-500"
                 : "text-gray-400"
@@ -265,7 +265,7 @@ export default function SelectPatientPage() {
           }}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
             step === "contact"
-              ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+              ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
               : "text-gray-400"
           }`}
         >

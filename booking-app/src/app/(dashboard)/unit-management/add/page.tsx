@@ -95,8 +95,8 @@ function ClientSearchSelect({
                     setSearch("")
                     setIsOpen(false)
                   }}
-                  className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                    value === client.id ? "bg-[#3ea3db]/15 font-medium" : ""
+                  className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                    value === client.id ? "bg-[var(--client-primary-15)] font-medium" : ""
                   }`}
                 >
                   {client.clientName}

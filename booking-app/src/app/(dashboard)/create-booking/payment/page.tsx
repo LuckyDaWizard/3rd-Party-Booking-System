@@ -199,7 +199,7 @@ export default function PaymentPage() {
             <div className="flex flex-col gap-4 rounded-xl bg-white p-6">
               <div className="flex items-center gap-3">
                 {paymentType === "link" ? (
-                  <Mail className="size-6 text-[#3ea3db]" />
+                  <Mail className="size-6 text-[var(--client-primary)]" />
                 ) : (
                   <ShieldCheck className="size-6 text-green-500" />
                 )}
@@ -224,7 +224,7 @@ export default function PaymentPage() {
                           type="button"
                           onClick={startEditingEmail}
                           disabled={sending}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-[#3ea3db] hover:text-[#3ea3db]/80 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--client-primary)] hover:text-[var(--client-primary-80)] disabled:opacity-50"
                         >
                           <Pencil className="size-3" />
                           {patientEmail ? "Change" : "Add email"}

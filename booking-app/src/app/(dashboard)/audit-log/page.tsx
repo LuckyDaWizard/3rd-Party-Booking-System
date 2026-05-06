@@ -271,7 +271,7 @@ export default function AuditLogPage() {
           Audit Log
         </h1>
         <Button
-          className="hidden justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:inline-flex"
+          className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
           size="lg"
           onClick={handleExportCsv}
           disabled={exporting || entries.length === 0}
@@ -298,7 +298,7 @@ export default function AuditLogPage() {
 
       {/* Mobile-only export button */}
       <Button
-        className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:hidden"
+        className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
         size="lg"
         onClick={handleExportCsv}
         disabled={exporting || entries.length === 0}
@@ -318,7 +318,7 @@ export default function AuditLogPage() {
               onClick={() => setEntityFilter(tab.value)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 entityFilter === tab.value
-                  ? "bg-[#3ea3db] text-white"
+                  ? "bg-[var(--client-primary)] text-white"
                   : "text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -354,8 +354,8 @@ export default function AuditLogPage() {
                         setActionFilter(opt.value)
                         setActionDropdownOpen(false)
                       }}
-                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                        actionFilter === opt.value ? "bg-[#3ea3db]/15 font-medium" : ""
+                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                        actionFilter === opt.value ? "bg-[var(--client-primary-15)] font-medium" : ""
                       }`}
                     >
                       {opt.label}
@@ -388,7 +388,7 @@ export default function AuditLogPage() {
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
             <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
               <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
           </div>
         )}
@@ -398,7 +398,7 @@ export default function AuditLogPage() {
           <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
             <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
               <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
             <span className="text-sm text-gray-400">Loading audit log...</span>
           </div>
@@ -449,7 +449,7 @@ export default function AuditLogPage() {
                       <button
                         type="button"
                         onClick={() => setExpandedId(isExpanded ? null : entry.id)}
-                        className="self-start text-xs font-medium text-[#3ea3db] hover:underline"
+                        className="self-start text-xs font-medium text-[var(--client-primary)] hover:underline"
                       >
                         {isExpanded ? "Hide details" : "Show details"}
                       </button>
@@ -523,7 +523,7 @@ export default function AuditLogPage() {
                     {/* Expand indicator */}
                     <div className="flex justify-end">
                       {hasChanges && (
-                        <span className="text-xs text-[#3ea3db]">
+                        <span className="text-xs text-[var(--client-primary)]">
                           {isExpanded ? "Hide" : "Details"}
                         </span>
                       )}
@@ -610,7 +610,7 @@ export default function AuditLogPage() {
                     onClick={() => setPage(p)}
                     className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                       p === page
-                        ? "bg-[#3ea3db] text-white"
+                        ? "bg-[var(--client-primary)] text-white"
                         : "border border-gray-300 text-gray-600 hover:bg-gray-100"
                     }`}
                   >

@@ -706,28 +706,31 @@ function AccentColorRow({
   return (
     <div className="flex flex-col items-start gap-2">
       <div className="flex flex-wrap items-center gap-3">
-        {/* Native colour picker. The visible swatch is the input itself —
-            we just style the surrounding box. */}
-        <label
-          htmlFor="accent-color"
-          className="flex h-14 w-40 cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white px-3"
-        >
-          <span
-            className="size-8 shrink-0 rounded border border-gray-200"
-            style={{ backgroundColor: accent }}
-            aria-hidden="true"
+        {/* Swatch tile — the native colour input is positioned absolutely
+            on top of this so the browser's colour picker anchors to the
+            swatch (not the top-left of the page, which is what happens
+            when the input is `display: none`). The input is opacity-0 so
+            we keep our own visual; clicks pass through to it because it
+            covers the full tile. */}
+        <div className="relative h-14 w-40">
+          <div className="pointer-events-none flex size-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3">
+            <span
+              className="size-8 shrink-0 rounded border border-gray-200"
+              style={{ backgroundColor: accent }}
+              aria-hidden="true"
+            />
+            <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
+          </div>
+          <input
+            id="accent-color"
+            data-testid="input-accent-color"
+            type="color"
+            value={accent}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+            aria-label="Accent colour"
           />
-          <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
-        </label>
-        <input
-          id="accent-color"
-          data-testid="input-accent-color"
-          type="color"
-          value={accent}
-          onChange={(e) => onChange(e.target.value)}
-          className="hidden"
-          aria-label="Accent colour"
-        />
+        </div>
         <label
           htmlFor="accent-color"
           className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"

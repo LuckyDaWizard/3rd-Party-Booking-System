@@ -80,7 +80,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen items-center justify-center">
         <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
           <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-          <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+          <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
         </svg>
       </div>
     )

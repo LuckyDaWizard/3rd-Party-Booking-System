@@ -237,7 +237,7 @@ export default function ClientManagementPage() {
         </h1>
         <Button
           data-testid="new-client-button"
-          className="hidden justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:inline-flex"
+          className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
           size="lg"
           onClick={() => router.push("/client-management/add")}
         >
@@ -256,7 +256,7 @@ export default function ClientManagementPage() {
           phones/small screens, where the desktop-placed button is hidden. */}
       <Button
         data-testid="new-client-button-mobile"
-        className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:hidden"
+        className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
         size="lg"
         onClick={() => router.push("/client-management/add")}
       >
@@ -276,7 +276,7 @@ export default function ClientManagementPage() {
             onClick={() => setActiveFilter("all")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "all"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -298,7 +298,7 @@ export default function ClientManagementPage() {
             onClick={() => setActiveFilter("active")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "active"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -320,7 +320,7 @@ export default function ClientManagementPage() {
             onClick={() => setActiveFilter("disabled")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "disabled"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -362,8 +362,8 @@ export default function ClientManagementPage() {
                       setSelectedClient("")
                       setIsClientDropdownOpen(false)
                     }}
-                    className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                      selectedClient === "" ? "bg-[#3ea3db]/15 font-medium" : ""
+                    className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                      selectedClient === "" ? "bg-[var(--client-primary-15)] font-medium" : ""
                     }`}
                   >
                     All Clients
@@ -376,8 +376,8 @@ export default function ClientManagementPage() {
                         setSelectedClient(name)
                         setIsClientDropdownOpen(false)
                       }}
-                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                        selectedClient === name ? "bg-[#3ea3db]/15 font-medium" : ""
+                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                        selectedClient === name ? "bg-[var(--client-primary-15)] font-medium" : ""
                       }`}
                     >
                       {name}

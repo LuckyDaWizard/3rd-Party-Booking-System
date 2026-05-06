@@ -391,26 +391,29 @@ function AccentPickerRow({
   return (
     <div className="flex flex-col items-start gap-2">
       <div className="flex flex-wrap items-center gap-3">
-        <label
-          htmlFor="accent-color"
-          className="flex h-14 w-40 cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-white px-3"
-        >
-          <span
-            className="size-8 shrink-0 rounded border border-gray-200"
-            style={{ backgroundColor: accent }}
-            aria-hidden="true"
+        {/* Swatch tile with the native colour input positioned over it
+            (opacity-0). This anchors the browser's picker dialog to the
+            swatch instead of the page top-left, which is what happens
+            when the input is `display: none`. */}
+        <div className="relative h-14 w-40">
+          <div className="pointer-events-none flex size-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3">
+            <span
+              className="size-8 shrink-0 rounded border border-gray-200"
+              style={{ backgroundColor: accent }}
+              aria-hidden="true"
+            />
+            <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
+          </div>
+          <input
+            id="accent-color"
+            data-testid="input-accent-color"
+            type="color"
+            value={accent}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+            aria-label="Accent colour"
           />
-          <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
-        </label>
-        <input
-          id="accent-color"
-          data-testid="input-accent-color"
-          type="color"
-          value={accent}
-          onChange={(e) => onChange(e.target.value)}
-          className="hidden"
-          aria-label="Accent colour"
-        />
+        </div>
         <label
           htmlFor="accent-color"
           className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
@@ -712,7 +715,7 @@ export default function AddNewClientPage() {
             data-testid="step-indicator-1"
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
               currentStep === 1
-                ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                 : "bg-green-100 text-green-500"
             }`}
           >
@@ -727,7 +730,7 @@ export default function AddNewClientPage() {
             data-testid="step-indicator-2"
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
               currentStep === 2
-                ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                 : "text-gray-400"
             }`}
           >

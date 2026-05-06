@@ -271,7 +271,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                     className={cn(
                       "flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-colors",
                       isActive
-                        ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                        ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     )}
                     title={item.label}
@@ -279,7 +279,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                     <item.icon
                       className={cn(
                         "size-5 shrink-0",
-                        isActive ? "text-[#3ea3db]" : "text-gray-400"
+                        isActive ? "text-[var(--client-primary)]" : "text-gray-400"
                       )}
                     />
                   </button>
@@ -301,7 +301,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                               className={cn(
                                 "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
                                 isChildActive
-                                  ? "text-[#3ea3db] font-medium bg-[#3ea3db]/10"
+                                  ? "text-[var(--client-primary)] font-medium bg-[var(--client-primary-10)]"
                                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                               )}
                             >
@@ -328,7 +328,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                   className={cn(
                     "flex items-center justify-between rounded-lg text-sm font-medium transition-colors gap-3 px-3 py-2.5",
                     isActive
-                      ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                      ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   )}
                 >
@@ -336,7 +336,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                     <item.icon
                       className={cn(
                         "size-5 shrink-0",
-                        isActive ? "text-[#3ea3db]" : "text-gray-400"
+                        isActive ? "text-[var(--client-primary)]" : "text-gray-400"
                       )}
                     />
                     {item.label}
@@ -363,7 +363,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                           className={cn(
                             "rounded-lg px-3 py-2 text-sm transition-colors",
                             isChildActive
-                              ? "text-[#3ea3db] font-medium"
+                              ? "text-[var(--client-primary)] font-medium"
                               : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                           )}
                         >
@@ -389,7 +389,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                   ? "justify-center px-2 py-2.5"
                   : "gap-3 px-3 py-2.5",
                 isActive
-                  ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                  ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
               aria-current={isActive ? "page" : undefined}
@@ -398,7 +398,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
               <item.icon
                 className={cn(
                   "size-5 shrink-0",
-                  isActive ? "text-[#3ea3db]" : "text-gray-400"
+                  isActive ? "text-[var(--client-primary)]" : "text-gray-400"
                 )}
               />
               {!collapsed && item.label}

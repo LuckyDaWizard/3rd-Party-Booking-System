@@ -32,7 +32,7 @@ export default function CreatingBookingPage() {
       <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Creating Booking</h1>
       <svg className="size-12 animate-spin" viewBox="0 0 40 40" fill="none">
         <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-        <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+        <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
       </svg>
     </div>
   )
