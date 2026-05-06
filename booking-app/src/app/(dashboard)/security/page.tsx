@@ -251,7 +251,7 @@ export default function SecurityPage() {
           onClick={() => setTab("attempts")}
           className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
             tab === "attempts"
-              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
               : "text-gray-500 hover:text-gray-900"
           }`}
         >
@@ -263,7 +263,7 @@ export default function SecurityPage() {
           onClick={() => setTab("sessions")}
           className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
             tab === "sessions"
-              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
               : "text-gray-500 hover:text-gray-900"
           }`}
         >
@@ -275,7 +275,7 @@ export default function SecurityPage() {
           onClick={() => setTab("suspicious")}
           className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
             tab === "suspicious"
-              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
               : "text-gray-500 hover:text-gray-900"
           }`}
         >
@@ -287,7 +287,7 @@ export default function SecurityPage() {
           onClick={() => setTab("history")}
           className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
             tab === "history"
-              ? "border-b-2 border-[#3ea3db] text-[#3ea3db] -mb-px"
+              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
               : "text-gray-500 hover:text-gray-900"
           }`}
         >
@@ -381,7 +381,7 @@ function FailedAttemptsTab() {
         <Button
           onClick={() => load(true)}
           disabled={refreshing}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
+          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
           size="lg"
         >
           {refreshing ? "Refreshing..." : "Refresh"}
@@ -435,7 +435,7 @@ function FailedAttemptsTab() {
           <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
             <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
               <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
             <span className="text-sm text-gray-400">Loading security data...</span>
           </div>
@@ -509,7 +509,7 @@ function FailedAttemptsTab() {
                       <Button
                         size="sm"
                         onClick={() => setUnlockTarget(entry)}
-                        className="gap-1 rounded-lg bg-[#3ea3db] text-xs text-white hover:bg-[#3ea3db]/90"
+                        className="gap-1 rounded-lg bg-[var(--client-primary)] text-xs text-white hover:bg-[var(--client-primary-90)]"
                       >
                         <Unlock className="size-3" />
                         Unlock
@@ -735,7 +735,7 @@ function ActiveSessionsTab() {
         <Button
           onClick={() => load(true)}
           disabled={refreshing}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
+          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
           size="lg"
         >
           {refreshing ? "Refreshing..." : "Refresh"}
@@ -791,7 +791,7 @@ function ActiveSessionsTab() {
             onClick={() => setShowEnded((v) => !v)}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               showEnded
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
             }`}
           >
@@ -812,7 +812,7 @@ function ActiveSessionsTab() {
               <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
                 <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
                   <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-                  <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
                 </svg>
                 <span className="text-sm text-gray-400">Loading sessions...</span>
               </div>
@@ -1148,7 +1148,7 @@ function SuspiciousActivityTab() {
         <Button
           onClick={() => loadFlags(true)}
           disabled={refreshing}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
+          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
           size="lg"
         >
           {refreshing ? "Refreshing..." : "Refresh"}
@@ -1200,7 +1200,7 @@ function SuspiciousActivityTab() {
           <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
             <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
               <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
             <span className="text-sm text-gray-400">Analysing activity...</span>
           </div>
@@ -1470,7 +1470,7 @@ function SignInHistoryTab() {
         <Button
           onClick={handleExportCsv}
           disabled={exporting || rows.length === 0}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 disabled:opacity-50"
+          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
           size="lg"
         >
           {exporting ? (
@@ -1542,7 +1542,7 @@ function SignInHistoryTab() {
               }}
               className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 windowFilter === w
-                  ? "bg-[#3ea3db] text-white"
+                  ? "bg-[var(--client-primary)] text-white"
                   : "text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -1570,7 +1570,7 @@ function SignInHistoryTab() {
           <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
             <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
               <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
             <span className="text-sm text-gray-400">Loading sign-in history...</span>
           </div>

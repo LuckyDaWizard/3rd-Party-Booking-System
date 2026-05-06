@@ -34,6 +34,18 @@ interface CreateClientBody {
   email?: string
   contactNumber?: string
   initialUnitName?: string | null
+  /** Hex like '#3ea3db', or null to leave the system default. */
+  accentColor?: string | null
+}
+
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+
+function normaliseAccent(raw: string | null | undefined): string | null {
+  if (raw === undefined || raw === null || raw === "") return null
+  if (!HEX_RE.test(raw)) {
+    throw new Error(`Invalid accent colour: ${raw}`)
+  }
+  return raw.toLowerCase()
 }
 
 export async function POST(request: Request) {
@@ -49,6 +61,16 @@ export async function POST(request: Request) {
 
   if (!body.clientName?.trim()) {
     return NextResponse.json({ error: "clientName is required" }, { status: 400 })
+  }
+
+  let accentColor: string | null
+  try {
+    accentColor = normaliseAccent(body.accentColor)
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Invalid accent colour" },
+      { status: 400 }
+    )
   }
 
   let admin
@@ -70,6 +92,7 @@ export async function POST(request: Request) {
       email: body.email ?? null,
       contact_number: body.contactNumber ?? null,
       status: "Active",
+      accent_color: accentColor,
     })
     .select("id")
     .single()

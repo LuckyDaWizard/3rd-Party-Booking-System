@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useUnitStore, type UnitStatus, type UnitRecord } from "@/lib/unit-store"
+import { useClientStore } from "@/lib/client-store"
+import { useAuth } from "@/lib/auth-store"
 import { ListPagination, usePagination } from "@/components/list-pagination"
 import { DataCard } from "@/components/data-card"
 
@@ -95,6 +97,18 @@ export default function UnitManagementPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { units, loading } = useUnitStore()
+  const { clients } = useClientStore()
+  // Unit creation is system_admin only on the server (POST /api/admin/units
+  // requires that role). Hide the "New Unit" button for everyone else so
+  // the action they can't complete isn't visible.
+  const { isSystemAdmin } = useAuth()
+
+  // clientId → faviconUrl lookup. Built once per render so the row map
+  // doesn't repeat the find for every unit.
+  const faviconByClient = React.useMemo(
+    () => new Map(clients.map((c) => [c.id, c.faviconUrl])),
+    [clients]
+  )
 
   // Check for banners from URL params
   React.useEffect(() => {
@@ -241,15 +255,17 @@ export default function UnitManagementPage() {
         >
           Unit Management
         </h1>
-        <Button
-          data-testid="new-unit-button"
-          className="hidden justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:inline-flex"
-          size="lg"
-          onClick={() => router.push("/unit-management/add")}
-        >
-          New Unit
-          <Plus className="ml-1 size-4" />
-        </Button>
+        {isSystemAdmin && (
+          <Button
+            data-testid="new-unit-button"
+            className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
+            size="lg"
+            onClick={() => router.push("/unit-management/add")}
+          >
+            New Unit
+            <Plus className="ml-1 size-4" />
+          </Button>
+        )}
       </div>
       <p
         data-testid="page-subtitle"
@@ -258,16 +274,18 @@ export default function UnitManagementPage() {
         Add new units and link them to clients from one central place
       </p>
 
-      {/* Mobile-only primary action */}
-      <Button
-        data-testid="new-unit-button-mobile"
-        className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90 sm:hidden"
-        size="lg"
-        onClick={() => router.push("/unit-management/add")}
-      >
-        New Unit
-        <Plus className="ml-1 size-4" />
-      </Button>
+      {/* Mobile-only primary action — same role gate as the desktop button. */}
+      {isSystemAdmin && (
+        <Button
+          data-testid="new-unit-button-mobile"
+          className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
+          size="lg"
+          onClick={() => router.push("/unit-management/add")}
+        >
+          New Unit
+          <Plus className="ml-1 size-4" />
+        </Button>
+      )}
 
       {/* Filters + Select Province + Search */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -281,7 +299,7 @@ export default function UnitManagementPage() {
             onClick={() => setActiveFilter("all")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "all"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -303,7 +321,7 @@ export default function UnitManagementPage() {
             onClick={() => setActiveFilter("active")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "active"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -325,7 +343,7 @@ export default function UnitManagementPage() {
             onClick={() => setActiveFilter("disabled")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "disabled"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -367,8 +385,8 @@ export default function UnitManagementPage() {
                       setSelectedProvince("")
                       setIsProvinceDropdownOpen(false)
                     }}
-                    className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                      selectedProvince === "" ? "bg-[#3ea3db]/15 font-medium" : ""
+                    className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                      selectedProvince === "" ? "bg-[var(--client-primary-15)] font-medium" : ""
                     }`}
                   >
                     All Provinces
@@ -381,8 +399,8 @@ export default function UnitManagementPage() {
                         setSelectedProvince(province)
                         setIsProvinceDropdownOpen(false)
                       }}
-                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                        selectedProvince === province ? "bg-[#3ea3db]/15 font-medium" : ""
+                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                        selectedProvince === province ? "bg-[var(--client-primary-15)] font-medium" : ""
                       }`}
                     >
                       {province}
@@ -451,6 +469,21 @@ export default function UnitManagementPage() {
                     data-testid={`unit-card-${unit.id}`}
                     status={statusBadge}
                     action={manageButton}
+                    media={(() => {
+                      const faviconUrl = faviconByClient.get(unit.clientId)
+                      return faviconUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={faviconUrl}
+                          alt=""
+                          className="size-10 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
+                          Icon
+                        </div>
+                      )
+                    })()}
                     fields={[
                       { label: "Unit Name", value: unit.unitName },
                       { label: "Client", value: unit.clientName },
@@ -468,10 +501,30 @@ export default function UnitManagementPage() {
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
 
-                  {/* Unit Name */}
-                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Unit Name</span>
-                    <span className="truncate text-sm text-gray-600" title={unit.unitName}>{unit.unitName}</span>
+                  {/* Unit Name (with parent client favicon thumbnail —
+                      surfaces who the unit belongs to at a glance, useful
+                      when the same unit name appears under multiple
+                      clients e.g. "Sandton" / "Sandton" / "Sandton"). */}
+                  <div className="flex min-w-0 items-center gap-3 text-left">
+                    {(() => {
+                      const faviconUrl = faviconByClient.get(unit.clientId)
+                      return faviconUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={faviconUrl}
+                          alt=""
+                          className="size-9 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
+                          Icon
+                        </div>
+                      )
+                    })()}
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-xs font-bold text-gray-900">Unit Name</span>
+                      <span className="truncate text-sm text-gray-600" title={unit.unitName}>{unit.unitName}</span>
+                    </div>
                   </div>
 
                   {/* Client */}

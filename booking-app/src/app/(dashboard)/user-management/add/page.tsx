@@ -116,7 +116,7 @@ function UnitMultiSelect({
                     onClick={() => {
                       handleSelect(unit.id)
                     }}
-                    className="w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[#3ea3db]/15"
+                    className="w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)]"
                   >
                     <span>{unit.unitName}</span>
                     <span className="ml-2 text-sm text-gray-400">
@@ -136,13 +136,13 @@ function UnitMultiSelect({
           {selectedUnits.map((unit) => (
             <span
               key={unit.id}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#3ea3db]/30 bg-[#3ea3db]/10 px-3 py-1 text-sm text-[#3ea3db]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-30)] bg-[var(--client-primary-10)] px-3 py-1 text-sm text-[var(--client-primary)]"
             >
               {unit.unitName}
               <button
                 type="button"
                 onClick={() => handleRemove(unit.id)}
-                className="rounded-full p-0.5 text-[#3ea3db] hover:bg-[#3ea3db]/20"
+                className="rounded-full p-0.5 text-[var(--client-primary)] hover:bg-[var(--client-primary-20)]"
                 aria-label={`Remove ${unit.unitName}`}
               >
                 <X className="size-3" />

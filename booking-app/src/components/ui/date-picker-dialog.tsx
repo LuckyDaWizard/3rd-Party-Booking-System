@@ -77,8 +77,8 @@ function CalendarDropdown({
                   onChange(opt.value)
                   setIsOpen(false)
                 }}
-                className={`w-full px-4 py-2.5 text-left text-sm text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                  opt.value === value ? "bg-[#3ea3db]/15 font-medium" : ""
+                className={`w-full px-4 py-2.5 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                  opt.value === value ? "bg-[var(--client-primary-15)] font-medium" : ""
                 }`}
               >
                 {opt.label}
@@ -172,9 +172,9 @@ function InlineCalendar({
               onClick={() => handleSelectDay(day)}
               className={`flex size-9 items-center justify-center rounded-full text-sm font-medium transition-colors ${
                 isSelected(day)
-                  ? "bg-[#3ea3db] text-white"
+                  ? "bg-[var(--client-primary)] text-white"
                   : isToday(day)
-                    ? "bg-[#3ea3db]/15 text-[#3ea3db] hover:bg-[#3ea3db]/25"
+                    ? "bg-[var(--client-primary-15)] text-[var(--client-primary)] hover:bg-[var(--client-primary-25)]"
                     : "text-gray-900 hover:bg-gray-100"
               }`}
             >

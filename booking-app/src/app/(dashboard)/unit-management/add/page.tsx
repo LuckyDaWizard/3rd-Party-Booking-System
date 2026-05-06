@@ -9,6 +9,7 @@ import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
+import { useAuth } from "@/lib/auth-store"
 
 // ---------------------------------------------------------------------------
 // Searchable Client Select
@@ -95,8 +96,8 @@ function ClientSearchSelect({
                     setSearch("")
                     setIsOpen(false)
                   }}
-                  className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[#3ea3db]/15 ${
-                    value === client.id ? "bg-[#3ea3db]/15 font-medium" : ""
+                  className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                    value === client.id ? "bg-[var(--client-primary-15)] font-medium" : ""
                   }`}
                 >
                   {client.clientName}
@@ -134,6 +135,17 @@ export default function AddUnitPage() {
   const router = useRouter()
   const { clients } = useClientStore()
   const { addUnit } = useUnitStore()
+  const { isSystemAdmin, loading: authLoading } = useAuth()
+
+  // Server enforces system_admin on POST /api/admin/units. Belt-and-braces:
+  // if a unit_manager types the URL directly, send them back to the list
+  // rather than letting them fill the form and hit a silent 403.
+  useEffect(() => {
+    if (authLoading) return
+    if (!isSystemAdmin) {
+      router.replace("/unit-management")
+    }
+  }, [isSystemAdmin, authLoading, router])
 
   const [clientId, setClientId] = useState("")
   const [unitName, setUnitName] = useState("")

@@ -135,8 +135,8 @@ function CountryCodeSelect({
                   onChange(country.code)
                   setIsOpen(false)
                 }}
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-[#3ea3db]/15 ${
-                  value === country.code ? "bg-[#3ea3db]/15 font-medium" : "text-gray-700"
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-[var(--client-primary-15)] ${
+                  value === country.code ? "bg-[var(--client-primary-15)] font-medium" : "text-gray-700"
                 }`}
               >
                 <span className="font-medium">{country.code}</span>
@@ -471,7 +471,7 @@ function StepBasicInfo({
           type="checkbox"
           checked={consentAccepted}
           onChange={(e) => onConsentChange(e.target.checked)}
-          className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-gray-300 text-[#3ea3db] focus:ring-2 focus:ring-[#3ea3db]"
+          className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-gray-300 text-[var(--client-primary)] focus:ring-2 focus:ring-[var(--client-primary)]"
         />
         <span className="text-sm text-gray-700">
           I have read and agree to the{" "}
@@ -479,7 +479,7 @@ function StepBasicInfo({
             href="https://carefirst.co.za/terms-and-conditions/"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-[#3ea3db] underline hover:text-[#3ea3db]/80"
+            className="font-medium text-[var(--client-primary)] underline hover:text-[var(--client-primary-80)]"
           >
             CareFirst Privacy Policy and Terms &amp; Conditions
           </a>
@@ -877,7 +877,7 @@ export default function PatientDetailsPage() {
                 data-testid={`step-indicator-${stepNumber}`}
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                    ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                     : isCompleted
                     ? "bg-green-100 text-green-500"
                     : "text-gray-400"
@@ -1068,7 +1068,7 @@ export default function PatientDetailsPage() {
                   Yes
                   <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
                     {contactInfo.scriptToAnotherEmail && (
-                      <span className="size-3 rounded-full bg-[#3ea3db]" />
+                      <span className="size-3 rounded-full bg-[var(--client-primary)]" />
                     )}
                   </span>
                 </button>
@@ -1080,7 +1080,7 @@ export default function PatientDetailsPage() {
                   No
                   <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
                     {!contactInfo.scriptToAnotherEmail && (
-                      <span className="size-3 rounded-full bg-[#3ea3db]" />
+                      <span className="size-3 rounded-full bg-[var(--client-primary)]" />
                     )}
                   </span>
                 </button>
@@ -1317,7 +1317,7 @@ export default function PatientDetailsPage() {
                     Yes
                     <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
                       {contactInfo.scriptToAnotherEmail && (
-                        <span className="size-3 rounded-full bg-[#3ea3db]" />
+                        <span className="size-3 rounded-full bg-[var(--client-primary)]" />
                       )}
                     </span>
                   </button>
@@ -1329,7 +1329,7 @@ export default function PatientDetailsPage() {
                     No
                     <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
                       {!contactInfo.scriptToAnotherEmail && (
-                        <span className="size-3 rounded-full bg-[#3ea3db]" />
+                        <span className="size-3 rounded-full bg-[var(--client-primary)]" />
                       )}
                     </span>
                   </button>
@@ -1381,12 +1381,12 @@ export default function PatientDetailsPage() {
                 onClick={() => setSelectedPaymentType("device")}
                 className={`flex items-center gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
                   selectedPaymentType === "device"
-                    ? "border-[#3ea3db] bg-[#CDE5F2]"
+                    ? "border-[var(--client-primary)] bg-[#CDE5F2]"
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
                 <span className={`flex size-6 items-center justify-center rounded-full border-2 ${
-                  selectedPaymentType === "device" ? "border-[#3ea3db] bg-[#3ea3db]" : "border-gray-300 bg-white"
+                  selectedPaymentType === "device" ? "border-[var(--client-primary)] bg-[var(--client-primary)]" : "border-gray-300 bg-white"
                 }`}>
                   {selectedPaymentType === "device" && (
                     <span className="size-3 rounded-full bg-white" />
@@ -1398,7 +1398,7 @@ export default function PatientDetailsPage() {
               {/* Send a payment link - Coming Soon */}
               <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-6 py-5">
                 <span className="text-sm font-medium text-gray-400">Send a payment link</span>
-                <span className="rounded-full bg-[#3ea3db] px-4 py-1.5 text-xs font-semibold text-white">
+                <span className="rounded-full bg-[var(--client-primary)] px-4 py-1.5 text-xs font-semibold text-white">
                   Coming Soon
                 </span>
               </div>
@@ -1406,7 +1406,7 @@ export default function PatientDetailsPage() {
               {/* Medical Aid - Coming Soon */}
               <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-6 py-5">
                 <span className="text-sm font-medium text-gray-400">Medical Aid</span>
-                <span className="rounded-full bg-[#3ea3db] px-4 py-1.5 text-xs font-semibold text-white">
+                <span className="rounded-full bg-[var(--client-primary)] px-4 py-1.5 text-xs font-semibold text-white">
                   Coming Soon
                 </span>
               </div>

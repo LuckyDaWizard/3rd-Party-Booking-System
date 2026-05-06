@@ -9,6 +9,7 @@ import { FloatingSelect } from "@/components/ui/floating-select"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
+import { checkAccentAgainstWhite } from "@/lib/color-contrast"
 
 // ---------------------------------------------------------------------------
 // Success Banner
@@ -63,7 +64,12 @@ interface ClientDetails {
   /** Favicon file selected by the user; uploaded after the client is created. */
   faviconFile: File | null
   faviconPreviewUrl: string | null
+  /** Brand accent colour. Defaults to the system value; sent as null to the
+   *  server when left at default so the row stays clean. */
+  accentColor: string
 }
+
+const DEFAULT_ACCENT = "#3ea3db"
 
 const TOTAL_STEPS = 2
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
@@ -230,6 +236,13 @@ function StepClientDetails({
             placeholderLabel="Icon"
             footnote="Square (1:1). Displays at 36×36 px in the collapsed sidebar and client list — recommend 128×128 px or larger, transparent background. PNG / SVG / ICO. Max 2 MB."
           />
+
+          {/* Accent colour — sent with the create payload. */}
+          <AccentPickerRow
+            accent={data.accentColor}
+            onChange={(next) => onChange({ ...data, accentColor: next })}
+            defaultAccent={DEFAULT_ACCENT}
+          />
         </div>
       </div>
     </div>
@@ -338,6 +351,95 @@ function FilePickerRow({
         </div>
       </div>
       <span className="text-[11px] text-gray-500">{footnote}</span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AccentPickerRow — same UX as the Manage page's row, scaled down for the
+// create flow. Shows the current swatch + hex, lets admin open the native
+// colour input, displays a live WCAG-against-white verdict.
+// ---------------------------------------------------------------------------
+
+function AccentPickerRow({
+  accent,
+  onChange,
+  defaultAccent,
+}: {
+  accent: string
+  onChange: (next: string) => void
+  defaultAccent: string
+}) {
+  const check = checkAccentAgainstWhite(accent)
+  const isAtDefault = accent.toLowerCase() === defaultAccent.toLowerCase()
+
+  let verdictLabel = ""
+  let verdictTone = "text-gray-500"
+  if (check) {
+    if (check.verdict === "aa-normal") {
+      verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — AA`
+      verdictTone = "text-green-700"
+    } else if (check.verdict === "aa-large") {
+      verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — AA Large only`
+      verdictTone = "text-amber-700"
+    } else {
+      verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — Fails WCAG AA`
+      verdictTone = "text-red-700"
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Swatch tile with the native colour input positioned over it
+            (opacity-0). This anchors the browser's picker dialog to the
+            swatch instead of the page top-left, which is what happens
+            when the input is `display: none`. */}
+        <div className="relative h-14 w-40">
+          <div className="pointer-events-none flex size-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3">
+            <span
+              className="size-8 shrink-0 rounded border border-gray-200"
+              style={{ backgroundColor: accent }}
+              aria-hidden="true"
+            />
+            <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
+          </div>
+          <input
+            id="accent-color"
+            data-testid="input-accent-color"
+            type="color"
+            value={accent}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+            aria-label="Accent colour"
+          />
+        </div>
+        <label
+          htmlFor="accent-color"
+          className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+        >
+          {isAtDefault ? "Pick accent" : "Change accent"}
+        </label>
+        {!isAtDefault && (
+          <button
+            type="button"
+            data-testid="accent-reset-button"
+            onClick={() => onChange(defaultAccent)}
+            className="text-xs text-gray-600 hover:underline"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+      <span className="text-[11px] text-gray-500">
+        Optional. Brand accent used for active filters, primary buttons, and
+        the sidebar.
+      </span>
+      {check && (
+        <span className={`text-[11px] ${verdictTone}`} aria-live="polite">
+          {verdictLabel}
+        </span>
+      )}
     </div>
   )
 }
@@ -472,6 +574,7 @@ export default function AddNewClientPage() {
     logoPreviewUrl: null,
     faviconFile: null,
     faviconPreviewUrl: null,
+    accentColor: DEFAULT_ACCENT,
   })
 
   const [unitDetails, setUnitDetails] = useState<UnitDetails>({
@@ -502,6 +605,12 @@ export default function AddNewClientPage() {
           number: clientDetails.contactNumber,
           logoUrl: null,
           faviconUrl: null,
+          // Send null when left at the system default so the row stays
+          // clean and inherits any future bumps to the system accent.
+          accentColor:
+            clientDetails.accentColor.toLowerCase() === DEFAULT_ACCENT.toLowerCase()
+              ? null
+              : clientDetails.accentColor,
         })
         // Upload logo + favicon (if either selected) now that we have an id.
         // Best-effort — if either fails the client still exists; admin can
@@ -606,7 +715,7 @@ export default function AddNewClientPage() {
             data-testid="step-indicator-1"
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
               currentStep === 1
-                ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                 : "bg-green-100 text-green-500"
             }`}
           >
@@ -621,7 +730,7 @@ export default function AddNewClientPage() {
             data-testid="step-indicator-2"
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
               currentStep === 2
-                ? "bg-[#3ea3db]/10 text-[#3ea3db]"
+                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                 : "text-gray-400"
             }`}
           >

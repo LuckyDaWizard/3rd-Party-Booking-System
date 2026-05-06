@@ -269,7 +269,7 @@ export function FloatingSelect({
         aria-controls={isOpen ? listboxId : undefined}
         aria-activedescendant={activeOptionId}
         aria-labelledby={`${id}-label`}
-        className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors focus:border-gray-900 focus-visible:ring-2 focus-visible:ring-[#3ea3db] ${
+        className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors focus:border-gray-900 focus-visible:ring-2 focus-visible:ring-[var(--client-primary)] ${
           isOpen ? "border-gray-900" : "border-gray-300"
         }`}
       >
@@ -322,8 +322,8 @@ export function FloatingSelect({
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => selectAtIndex(index)}
                   className={`cursor-pointer rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors ${
-                    isActive ? "bg-[#3ea3db]/15" : ""
-                  } ${isSelected && !isActive ? "bg-[#3ea3db]/10 font-medium" : ""} ${
+                    isActive ? "bg-[var(--client-primary-15)]" : ""
+                  } ${isSelected && !isActive ? "bg-[var(--client-primary-10)] font-medium" : ""} ${
                     isSelected && isActive ? "font-medium" : ""
                   }`}
                 >

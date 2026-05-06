@@ -21,6 +21,7 @@ export interface ClientRecord {
   number: string
   logoUrl: string | null
   faviconUrl: string | null
+  accentColor: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +56,7 @@ interface DbClient {
   contact_person_surname: string | null
   logo_url: string | null
   favicon_url: string | null
+  accent_color: string | null
 }
 
 interface DbUnit {
@@ -78,6 +80,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     number: row.contact_number,
     logoUrl: row.logo_url,
     faviconUrl: row.favicon_url,
+    accentColor: row.accent_color,
   }
 }
 
@@ -165,6 +168,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
         email: client.email,
         contactNumber: client.number,
         initialUnitName: client.units && client.units !== "-" ? client.units : null,
+        accentColor: client.accentColor ?? null,
       }),
     })
 
@@ -188,6 +192,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.email !== undefined) body.email = updates.email
     if (updates.number !== undefined) body.contactNumber = updates.number
     if (updates.status !== undefined) body.status = updates.status
+    if (updates.accentColor !== undefined) body.accentColor = updates.accentColor
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {

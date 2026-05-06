@@ -116,7 +116,7 @@ export function ListPagination({
             onClick={() => onPageChange(page)}
             className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
               page === currentPage
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "border border-gray-300 text-gray-600 hover:bg-gray-100"
             }`}
           >

@@ -51,6 +51,10 @@ function getStatusStyle(status: PatientStatus): string {
     case "Payment Complete":
       return "bg-yellow-100 text-yellow-800 border-transparent"
     case "In Progress":
+      // Status badges stay on the system blue regardless of client theme,
+      // so a status meaning is visually identical across every client.
+      // (The #CDE5F2 / #3ea3db pair is the only brand-coloured status; the
+      // rest are semantic — green / yellow / red / black.)
       return "bg-[#CDE5F2] text-[#3ea3db] border-transparent"
     case "Abandoned":
       return "bg-[#FF3A69] text-white border-transparent"
@@ -202,7 +206,7 @@ function OptionsModal({
                 Send the payment link to the same recipient or a different one
               </span>
             </div>
-            <span className="rounded-full bg-[#3ea3db] px-4 py-1.5 text-xs font-semibold text-white">
+            <span className="rounded-full bg-[var(--client-primary)] px-4 py-1.5 text-xs font-semibold text-white">
               Coming Soon
             </span>
           </div>
@@ -447,7 +451,7 @@ export default function PatientHistoryPage() {
         <Link href="/create-booking" className="hidden sm:inline-flex">
           <Button
             data-testid="new-patient-button"
-            className="justify-center gap-2 rounded-xl bg-[#3ea3db] px-8 py-6 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+            className="justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)]"
             size="lg"
           >
             New Patient
@@ -480,7 +484,7 @@ export default function PatientHistoryPage() {
                 Checking PayFast…
                 <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
                   <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-                  <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
                 </svg>
               </>
             ) : (
@@ -502,7 +506,7 @@ export default function PatientHistoryPage() {
       <Link href="/create-booking" className="sm:hidden">
         <Button
           data-testid="new-patient-button-mobile"
-          className="w-full justify-center gap-2 rounded-xl bg-[#3ea3db] px-6 py-5 text-sm font-medium text-white hover:bg-[#3ea3db]/90"
+          className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)]"
           size="lg"
         >
           New Patient
@@ -522,7 +526,7 @@ export default function PatientHistoryPage() {
             onClick={() => router.push("/patient-history")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "all"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -544,7 +548,7 @@ export default function PatientHistoryPage() {
             onClick={() => router.push("/patient-history?tab=in-progress")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "in-progress"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -566,7 +570,7 @@ export default function PatientHistoryPage() {
             onClick={() => router.push("/patient-history?tab=incomplete")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "incomplete"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -588,7 +592,7 @@ export default function PatientHistoryPage() {
             onClick={() => router.push("/patient-history?tab=completed")}
             className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeFilter === "completed"
-                ? "bg-[#3ea3db] text-white"
+                ? "bg-[var(--client-primary)] text-white"
                 : "text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -824,7 +828,7 @@ export default function PatientHistoryPage() {
                 onClick={() => setCurrentPage(page)}
                 className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                   page === currentPage
-                    ? "bg-[#3ea3db] text-white"
+                    ? "bg-[var(--client-primary)] text-white"
                     : "border border-gray-300 text-gray-600 hover:bg-gray-100"
                 }`}
               >
@@ -1011,7 +1015,7 @@ export default function PatientHistoryPage() {
             XLSX.utils.book_append_sheet(wb, ws, "Patient History")
             XLSX.writeFile(wb, `patient-history-${new Date().toISOString().slice(0, 10)}.xlsx`)
           }}
-          className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-[#3ea3db] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-[#3ea3db]/90 hover:shadow-xl"
+          className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-[var(--client-primary)] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-[var(--client-primary-90)] hover:shadow-xl"
         >
           <Download className="size-4" />
           Export to Excel

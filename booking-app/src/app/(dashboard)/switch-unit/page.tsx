@@ -103,7 +103,7 @@ export default function SwitchUnitPage() {
                   onClick={() => setSelectedUnitId(unit.id)}
                   className={`flex w-full items-center gap-3 rounded-xl border-2 px-4 py-4 text-left transition-colors ${
                     isSelected
-                      ? "border-[#3ea3db] bg-[#3ea3db]/15"
+                      ? "border-[var(--client-primary)] bg-[var(--client-primary-15)]"
                       : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
@@ -111,12 +111,12 @@ export default function SwitchUnitPage() {
                   <span
                     className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${
                       isSelected
-                        ? "border-[#3ea3db]"
+                        ? "border-[var(--client-primary)]"
                         : "border-gray-300"
                     }`}
                   >
                     {isSelected && (
-                      <span className="size-2.5 rounded-full bg-[#3ea3db]" />
+                      <span className="size-2.5 rounded-full bg-[var(--client-primary)]" />
                     )}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
