@@ -113,7 +113,15 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       >
         <Header
           userName={`${user.firstNames} ${user.surname}`}
-          companyName={user.clientName ?? "CareFirst"}
+          // Resolution order for the sub-name line:
+          //   1. Active unit's parent client (via useActiveClientBranding) —
+          //      the most relevant label when an admin has picked a unit.
+          //   2. User's primary clientName — for unit_managers / users
+          //      who only ever belong to one client.
+          //   3. "CareFirst" — fallback for system_admins with no active
+          //      unit yet, or any edge case where neither of the above
+          //      resolves.
+          companyName={branding.clientName ?? user.clientName ?? "CareFirst"}
           avatarUrl={user.avatarUrl ?? undefined}
         />
 
