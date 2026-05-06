@@ -64,24 +64,6 @@
    * the stores hydrate).
    * ------------------------------------------------------------------- */
   --client-primary: #3ea3db;
-
-  /* Tint variants — used for "selected" / "active" backgrounds. Mixed with
-   * WHITE (not transparent) so even very dark accents (#403834-style)
-   * produce a visible tint instead of an imperceptible alpha-over-white.
-   * The number is the percentage of accent in the mix; lower = more white. */
-  --client-primary-10: color-mix(in srgb, var(--client-primary) 10%, white);
-  --client-primary-15: color-mix(in srgb, var(--client-primary) 15%, white);
-  --client-primary-20: color-mix(in srgb, var(--client-primary) 20%, white);
-  --client-primary-25: color-mix(in srgb, var(--client-primary) 25%, white);
-  --client-primary-30: color-mix(in srgb, var(--client-primary) 30%, white);
-
-  /* Darken variants — used for solid-button hover / pressed states. Mixed
-   * with BLACK (not transparent) so they actually darken regardless of the
-   * starting luminance. Higher number = less black, so -90 is just slightly
-   * darker (good for hover) and -80 is more obviously darker (good for
-   * active/pressed). */
-  --client-primary-80: color-mix(in srgb, var(--client-primary) 80%, black);
-  --client-primary-90: color-mix(in srgb, var(--client-primary) 90%, black);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -114,6 +96,29 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* Per-client accent tint/darken variants.
+ *
+ * Declared on `*` so they re-derive at every element using the value of
+ * --client-primary inherited at that element. If they were declared on
+ * :root, the inner var(--client-primary) would resolve to :root's value
+ * (#3ea3db) and the computed result would be inherited as a static colour
+ * — meaning the dashboard wrapper's per-client override would have no
+ * effect on tints/darkens, only on the base accent.
+ *
+ * Tint variants mix with WHITE (not transparent) so even very dark
+ * accents like #403834 produce a visible tint. Darken variants mix with
+ * BLACK so hover/pressed states darken regardless of the accent's
+ * starting luminance. */
+* {
+  --client-primary-10: color-mix(in srgb, var(--client-primary) 10%, white);
+  --client-primary-15: color-mix(in srgb, var(--client-primary) 15%, white);
+  --client-primary-20: color-mix(in srgb, var(--client-primary) 20%, white);
+  --client-primary-25: color-mix(in srgb, var(--client-primary) 25%, white);
+  --client-primary-30: color-mix(in srgb, var(--client-primary) 30%, white);
+  --client-primary-80: color-mix(in srgb, var(--client-primary) 80%, black);
+  --client-primary-90: color-mix(in srgb, var(--client-primary) 90%, black);
 }
 
 .dark {
