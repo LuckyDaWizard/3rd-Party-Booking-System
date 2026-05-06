@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, Building2, FileText, Palette, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2, FileText, Palette, Users, User as UserIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -16,6 +16,7 @@ import { FloatingInput } from "@/components/ui/floating-input"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
+import { useUserStore } from "@/lib/user-store"
 import { useAuth } from "@/lib/auth-store"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
 import { checkAccentAgainstWhite } from "@/lib/color-contrast"
@@ -84,21 +85,34 @@ export default function ManageClientPage() {
   // `payment_type = 'self_collect'` and the unit collects the fee
   // directly. Saved with the rest of the form on Update Information.
   const [collectPaymentAtUnit, setCollectPaymentAtUnit] = useState(false)
-  // Tabbed layout — matches the Add Client flow. "details" holds the
-  // contact form; "branding" holds the logo / favicon / accent picker;
-  // "units" is a read-only list of every unit under this client.
-  // Update Information + Disable Client live below the tabs and apply
-  // to the whole client regardless of which tab is active. (They're
-  // hidden on the read-only "units" tab.)
-  const [activeTab, setActiveTab] = useState<"details" | "branding" | "units">(
-    "details"
-  )
+  // Tabbed layout — matches the Add Client flow.
+  //   details  → contact form (editable)
+  //   branding → logo / favicon / accent picker (editable)
+  //   units    → read-only list of units under this client
+  //   users    → read-only list of users assigned to any of those units
+  // Update Information lives below the tabs and only renders for the
+  // editable tabs. Disable Client stays visible everywhere because it's
+  // a whole-client action, not a per-tab action.
+  const [activeTab, setActiveTab] = useState<
+    "details" | "branding" | "units" | "users"
+  >("details")
 
-  // Units list for the read-only Units tab. Filtered client-side to avoid
-  // an extra round-trip — the unit-store is already populated by the
+  // Units list (read-only Units tab). Filtered client-side to avoid an
+  // extra round-trip — the unit-store is already populated by the
   // dashboard layout's UnitStoreProvider.
   const { units: allUnits } = useUnitStore()
   const clientUnits = allUnits.filter((u) => u.clientId === clientId)
+
+  // Users list (read-only Users tab). A user belongs to "this client"
+  // if any of their assigned units is owned by this client. We use the
+  // unit set rather than user.clientId because clientId is just the
+  // user's primary affiliation set at create time — multi-unit users
+  // can span clients, and we want the canonical view.
+  const { users: allUsers } = useUserStore()
+  const clientUnitIds = new Set(clientUnits.map((u) => u.id))
+  const clientUsers = allUsers.filter((u) =>
+    u.units.some((unit) => clientUnitIds.has(unit.unitId))
+  )
 
   useEffect(() => {
     if (client) {
@@ -435,6 +449,33 @@ export default function ManageClientPage() {
               </span>
             )}
           </button>
+          <button
+            type="button"
+            role="tab"
+            data-testid="tab-users"
+            aria-selected={activeTab === "users"}
+            onClick={() => setActiveTab("users")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "users"
+                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
+                : "text-gray-400 hover:text-gray-600"
+            }`}
+          >
+            <Users className="size-4" />
+            Users
+            {clientUsers.length > 0 && (
+              <span
+                data-testid="tab-users-count"
+                className={`ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
+                  activeTab === "users"
+                    ? "bg-[var(--client-primary)] text-white"
+                    : "bg-gray-200 text-gray-600"
+                }`}
+              >
+                {clientUsers.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Form — only the active tab's fields are mounted. Both share the
@@ -640,17 +681,109 @@ export default function ManageClientPage() {
               )}
             </div>
           )}
+
+          {activeTab === "users" && (
+            <div
+              data-testid="tab-content-users"
+              className="flex flex-col gap-3"
+            >
+              {clientUsers.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white px-6 py-10 text-center">
+                  <Users className="size-6 text-gray-300" strokeWidth={1.5} />
+                  <span className="text-sm font-semibold text-gray-900">
+                    No users yet
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    No users are assigned to any unit of this client. Add
+                    one from User Management.
+                  </span>
+                </div>
+              ) : (
+                clientUsers.map((u) => {
+                  // Show only the unit-name pills for units that belong
+                  // to *this* client. A multi-unit user spanning clients
+                  // shouldn't surface units from other clients here.
+                  const visibleUnits = u.units.filter((unit) =>
+                    clientUnitIds.has(unit.unitId)
+                  )
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      data-testid={`user-row-${u.id}`}
+                      onClick={() =>
+                        router.push(`/user-management/manage?id=${u.id}`)
+                      }
+                      className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-gray-300 hover:bg-gray-50"
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+                          {u.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={u.avatarUrl}
+                              alt=""
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <UserIcon
+                              className="size-4 text-gray-300"
+                              strokeWidth={1.5}
+                            />
+                          )}
+                        </div>
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="truncate text-sm font-semibold text-gray-900">
+                            {`${u.firstNames} ${u.surname}`.trim() || "Unnamed user"}
+                          </span>
+                          <span className="truncate text-xs text-gray-500">
+                            {u.email || u.contactNumber || "—"}
+                          </span>
+                          {visibleUnits.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {visibleUnits.map((unit) => (
+                                <span
+                                  key={unit.unitId}
+                                  className="inline-flex items-center rounded-full bg-[var(--client-primary-10)] px-2 py-0.5 text-[10px] font-medium text-[var(--client-primary)]"
+                                >
+                                  {unit.unitName}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <Badge
+                          className={`rounded-full border px-3 py-1 text-[11px] font-medium ${
+                            u.status === "Active"
+                              ? "bg-green-100 text-green-700 border-transparent"
+                              : "bg-gray-100 text-gray-600 border-transparent"
+                          }`}
+                        >
+                          {u.status}
+                        </Badge>
+                        <span className="text-[10px] uppercase tracking-wider text-gray-400">
+                          {u.role.replace("_", " ")}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
         {/* Update Information applies to the editable tabs only — hiding
-            it on the read-only Units tab avoids the misleading "did
-            clicking this update the units?" question. Disable Client is
+            it on the read-only Units / Users tabs avoids the misleading
+            "did clicking this update the units?" question. Disable Client is
             a whole-client action, not a tab action, so it stays visible
             on every tab (including Units) — admins shouldn't have to
             switch tabs just to toggle status. */}
         <div className="flex w-full max-w-md flex-col items-center gap-3">
-          {activeTab !== "units" && (
+          {activeTab !== "units" && activeTab !== "users" && (
             <Button
               data-testid="update-button"
               disabled={saving}
