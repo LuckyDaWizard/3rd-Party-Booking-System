@@ -448,7 +448,7 @@ export default function ClientManagementPage() {
                         <img
                           src={client.faviconUrl}
                           alt=""
-                          className="size-10 shrink-0 rounded-md border border-gray-200 bg-white object-contain p-0.5"
+                          className="size-10 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
                         />
                       ) : (
                         <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
@@ -483,7 +483,7 @@ export default function ClientManagementPage() {
                       <img
                         src={client.faviconUrl}
                         alt=""
-                        className="size-9 shrink-0 rounded-md border border-gray-200 bg-white object-contain p-0.5"
+                        className="size-9 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
                       />
                     ) : (
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
