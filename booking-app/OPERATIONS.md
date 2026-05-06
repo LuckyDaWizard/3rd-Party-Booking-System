@@ -211,6 +211,81 @@ If "Start Consult" returns a failure banner:
 
 ---
 
+## Self-Collect Payment
+
+Some Clients have a billing arrangement where each Unit collects the
+consultation fee directly from the patient (cash, EFT-on-arrival,
+their own card terminal, etc.) instead of going through PayFast. This
+is a per-Client switch.
+
+### Enabling it for a Client
+
+1. Sign in as `system_admin`.
+2. Client Management → Manage the relevant Client → **Client Details** tab.
+3. Toggle **Collect payment at unit** ON (amber warning row at the bottom
+   of the form).
+4. Click **Update Information** to save.
+
+The flag (`clients.collect_payment_at_unit`) is system_admin-only at
+both UI and API layers. unit_managers and users see no toggle and the
+PATCH route refuses their PINs.
+
+### What changes for bookings
+
+Once the flag is ON for a Client, every booking under any of that
+Client's Units behaves like this:
+
+- Step 5 of the booking flow shows an amber **"Confirm payment
+  collected at unit"** panel instead of the PayFast / payment-link
+  picker.
+- Clicking Next records the booking as `Payment Complete` with
+  `payment_type = 'self_collect'`. No PayFast transaction is created.
+  `payment_amount` is still recorded (`R325.00`) for reporting parity.
+- The `/payment/success` page short-circuits — it doesn't poll
+  PayFast's reconcile API for self-collect bookings.
+- For `system_admin` and `unit_manager` operators, the T&Cs page
+  short-circuits too: Accept → PIN modal → Start Consultation runs
+  immediately and CareFirst opens in a new tab. Plain `user` role
+  keeps the old Accept→/home behaviour and a manager runs Start
+  Consult later from Patient History.
+- Patient History shows an amber **"Self-Collect"** pill instead of
+  the green/yellow "Payment Complete".
+- `/api/payfast/initiate` and `/api/payfast/send-link` REFUSE to
+  process self-collect bookings (defence-in-depth — even if a stale
+  tab tries the old flow, the gateway never sees the request).
+
+### Audit trail
+
+Every transition writes to `audit_log`:
+- Toggle ON/OFF: `Collect Payment At Unit` field in the change set on
+  `entityType=client`.
+- `mark-self-collect`: `Payment Status` change with
+  `Payment Complete (self-collect at unit)` in the new value.
+- The operator's identity is also snapshotted onto the booking row
+  itself: `validated_by_user_id`, `validated_by_name`,
+  `validated_by_email` — useful for the Excel export and for
+  reconstructing "who confirmed this booking?" without joining audit
+  log to users.
+
+### Disabling it for a Client
+
+Same UI path, toggle OFF, Update Information. **Existing bookings are
+unchanged** — only NEW bookings will go through PayFast again. The
+historical self-collect bookings keep `payment_type='self_collect'`
+indefinitely.
+
+### Cascade-delete behaviour
+
+Deleting a Client is a hard cascade: bookings → user_units → units →
+client. The DELETE handler counts each step and writes the totals to
+the audit log. If any step fails (FK violation, RLS, network), the
+chain aborts with a 500 and the manage page shows a red error banner.
+The admin can then resolve the underlying issue (e.g. clear stuck
+bookings) and retry. **Self-collect bookings are NOT special-cased**
+in the cascade — they're deleted along with everything else.
+
+---
+
 ## POPIA Procedures
 
 South African POPIA (Protection of Personal Information Act) compliance

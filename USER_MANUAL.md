@@ -219,6 +219,30 @@ You'll see a **"Payment Unsuccessful"** page with two options:
 
 You can also click **Back Home** to cancel the booking.
 
+### What if my Client uses "Collect at Unit" billing?
+
+Some Clients have a billing arrangement where the Unit collects the
+consultation fee directly from the patient (cash, card terminal, or
+their own EFT process) instead of using PayFast. If your Client is
+set up this way, the booking flow will look slightly different:
+
+- **Step 6 (Payment)** shows an amber **"Confirm payment collected at unit"**
+  panel instead of the "Pay with PayFast" button.
+- Clicking **Next** records the booking as paid (no PayFast redirect)
+  and moves you to the next step. **Make sure the patient has actually
+  paid** before clicking — there's no auto-reversal.
+- In Patient History, these bookings show an amber **"Self-Collect"**
+  pill instead of the green "Payment Complete" pill.
+- If you're a Unit Manager or System Admin, accepting the T&Cs at the
+  end of the flow will prompt for your PIN and then **automatically
+  open the consultation in CareFirst Patient** (skipping the manual
+  "Start Consult" step). Regular users get the standard finish-flow
+  behaviour and the manager handles Start Consult later.
+
+The "Collect at Unit" toggle is set per-Client by a System Admin in
+Client Management → Manage Client → Client Details. It's not
+something operators can flip themselves.
+
 ---
 
 ## 7. Patient History
@@ -326,22 +350,30 @@ Click **Client Management** in the sidebar. Filter by Active/Disabled, search by
 
 ### Adding a new client
 
-1. Click **New Client**.
-2. Enter:
-   - **Client Name**
-   - **Contact Person** (name + surname)
-   - **Email** and **Contact Number**
-   - **Initial Unit Name** (optional — you can add units later)
-3. Click **Add Client**.
+The Add Client flow is a 4-step wizard:
+
+1. **Client Details** — name, contact person (name + surname), email, contact number.
+2. **Branding** *(optional)* — logo (recommended ~360×96 px, transparent background), favicon (square, ~128×128 px), and a brand accent colour. The accent is used on filter pills, primary buttons, and the active sidebar item; a live WCAG verdict warns if your colour fails contrast for white text. The client is created when you advance from this step.
+3. **Unit Details** *(optional — Skip available)* — add the first unit while you're at it.
+4. **Users** *(optional — Skip available)* — add a first user assigned to a unit you just created. Their PIN is auto-generated and shown once on the User Management page after the wizard finishes.
+
+You can always come back later and add more units / users / branding via Manage Client and the regular Unit / User Management pages.
 
 ### Editing a client
 
-Click **Manage** to update any field, then **Update Information**.
+Click **Manage** on the client row. The page is split into 4 tabs:
+
+- **Client Details** — contact info. System Admins also see the **Collect payment at unit** toggle here (see [What if my Client uses "Collect at Unit" billing?](#what-if-my-client-uses-collect-at-unit-billing) above).
+- **Branding** — replace logo / favicon / accent colour. Uploads save immediately on file pick; the accent colour saves with **Update Information**.
+- **Units** — read-only list of all units under this client with status badges. Click a row to manage that unit.
+- **Users** — read-only list of users assigned to any of this client's units. Each row shows the user's avatar, contact info, role, status, and a coloured pill for each unit (in this client's accent colour). Click a row to manage that user.
+
+Click **Update Information** to save changes from the **Client Details** or **Branding** tab. The button is hidden on the read-only Units / Users tabs. **Disable Client** stays visible across all tabs.
 
 ### Disabling vs deleting
 
-- **Disable** — hides from active lists; keeps all associated data
-- **Delete** — permanently removes the client (cascades to units and bookings — irreversible)
+- **Disable** — hides from active lists; keeps all associated data.
+- **Delete** — permanently removes the client AND all its units, user-unit assignments, and bookings (the cascade is shown in the audit log). PIN re-verification is required. **Irreversible.** If the delete fails part-way (e.g. a database constraint), you'll see a red error banner with the reason and nothing is partially deleted.
 
 ---
 
