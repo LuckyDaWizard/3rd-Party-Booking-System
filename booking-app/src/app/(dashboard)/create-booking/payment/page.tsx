@@ -16,6 +16,13 @@ import { useBookingStore } from "@/lib/booking-store"
 //
 // After a link is sent, user can continue to the next step (patient-metrics)
 // without completing payment on this device.
+//
+// Safety net: on mount we GET /api/bookings/[id]/payment-mode. If the booking
+// belongs to a self-collect client, we render a "Confirm payment collected at
+// unit" panel instead of the gateway UI. Patient-details step 5 already
+// short-circuits self-collect bookings to /payment/success, but this catches
+// stragglers — Resume Payment from Patient History, old bookmarks, or any
+// caller that lands here for a self-collect booking.
 // =============================================================================
 
 export default function PaymentPage() {
@@ -23,7 +30,7 @@ export default function PaymentPage() {
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId") ?? ""
   const paymentType = (searchParams.get("type") ?? "device") as "device" | "link"
-  const { discardBooking, setActiveBookingId, getBooking, updateBooking } = useBookingStore()
+  const { discardBooking, setActiveBookingId, getBooking, updateBooking, refreshBookings } = useBookingStore()
 
   const booking = getBooking(bookingId)
   const patientEmail = booking?.emailAddress ?? null
@@ -50,6 +57,14 @@ export default function PaymentPage() {
   const [savingEmail, setSavingEmail] = useState(false)
   const [emailError, setEmailError] = useState("")
 
+  // Payment-mode safety net. Resolved server-side from the booking's parent
+  // client's `collect_payment_at_unit` flag. "checking" until the API
+  // resolves; "gateway" is the default.
+  const [paymentMode, setPaymentMode] =
+    useState<"checking" | "gateway" | "self_collect">("checking")
+  const [markingSelfCollect, setMarkingSelfCollect] = useState(false)
+  const [selfCollectError, setSelfCollectError] = useState("")
+
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
@@ -60,6 +75,77 @@ export default function PaymentPage() {
       formRef.current.submit()
     }
   }, [formData])
+
+  // Resolve payment mode for this booking. If the parent client is set to
+  // collect at unit, we render the self-collect confirm UI instead of the
+  // PayFast button — even if the URL says ?type=device. The server is the
+  // source of truth.
+  //
+  // Fall back to "gateway" on any failure (404 because bookingId is bogus,
+  // 401 because session expired, network error, or 10s timeout). Better
+  // to show the existing PayFast UI than to leave the user staring at a
+  // spinner forever if the API is hanging.
+  useEffect(() => {
+    if (!bookingId) return
+    let cancelled = false
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10_000)
+
+    fetch(`/api/bookings/${bookingId}/payment-mode`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          setPaymentMode("gateway")
+          return
+        }
+        const data = (await res.json().catch(() => ({}))) as {
+          mode?: "gateway" | "self_collect"
+        }
+        if (cancelled) return
+        setPaymentMode(data.mode === "self_collect" ? "self_collect" : "gateway")
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentMode("gateway")
+      })
+      .finally(() => clearTimeout(timeoutId))
+
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+      controller.abort()
+    }
+  }, [bookingId])
+
+  async function handleConfirmSelfCollect() {
+    if (markingSelfCollect || !bookingId) return
+    setMarkingSelfCollect(true)
+    setSelfCollectError("")
+    try {
+      const res = await fetch(
+        `/api/bookings/${bookingId}/mark-self-collect`,
+        { method: "POST" }
+      )
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+      }
+      if (!res.ok || !data.ok) {
+        setSelfCollectError(data.error ?? "Failed to mark booking as self-collect")
+        setMarkingSelfCollect(false)
+        return
+      }
+      // Refresh the booking-store so /payment/success sees the booking's
+      // new status + payment_type immediately and skips the pointless
+      // PayFast reconcile call.
+      await refreshBookings()
+      router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+    } catch {
+      setSelfCollectError("Network error. Please try again.")
+      setMarkingSelfCollect(false)
+    }
+  }
 
   async function handlePayWithPayfast() {
     if (processing) return
@@ -180,7 +266,79 @@ export default function PaymentPage() {
         </Button>
       </div>
 
-      {/* Content */}
+      {/* Content — checking spinner / self-collect panel / gateway UI */}
+      {paymentMode === "checking" && (
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-center py-12">
+          <svg className="size-8 animate-spin text-gray-400" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="15" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />
+            <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+          </svg>
+        </div>
+      )}
+
+      {paymentMode === "self_collect" && (
+        <div
+          data-testid="payment-self-collect"
+          className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4"
+        >
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              Confirm payment collected at unit
+            </h1>
+            <p className="text-base text-gray-500">
+              This client collects the consultation fee directly. Confirm
+              that the patient has paid before continuing.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-6">
+            <span className="text-base font-bold text-gray-900">
+              Self-collect payment
+            </span>
+            <p className="text-sm text-gray-700">
+              Clicking <strong>Confirm &amp; Continue</strong> marks this
+              booking as Payment Complete and skips the payment gateway.
+              Make sure the consultation fee has been collected before
+              proceeding.
+            </p>
+
+            {selfCollectError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {selfCollectError}
+              </div>
+            )}
+
+            <Button
+              data-testid="confirm-self-collect-button"
+              onClick={handleConfirmSelfCollect}
+              disabled={markingSelfCollect}
+              className={`mt-2 h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-fit sm:px-8 ${
+                !markingSelfCollect
+                  ? "bg-gray-900 text-white hover:bg-gray-800"
+                  : "bg-gray-300 text-gray-500"
+              }`}
+            >
+              {markingSelfCollect ? (
+                <>
+                  Confirming...
+                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Confirm &amp; Continue
+                  <ArrowRight className="size-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Gateway UI — only when paymentMode is resolved as gateway. */}
+      {paymentMode === "gateway" && (
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
@@ -423,6 +581,7 @@ export default function PaymentPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Hidden form for PayFast redirect (device mode only) */}
       {formData && (

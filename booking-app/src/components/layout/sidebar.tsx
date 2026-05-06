@@ -41,17 +41,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: "Home", href: "/home", icon: Home },
   { label: "Create a Booking", href: "/create-booking", icon: CalendarPlus },
-  {
-    label: "Patient History",
-    href: "/patient-history",
-    icon: ClipboardList,
-    children: [
-      { label: "All Patients", href: "/patient-history" },
-      { label: "In Progress", href: "/patient-history?tab=in-progress" },
-      { label: "Incomplete", href: "/patient-history?tab=incomplete" },
-      { label: "Completed", href: "/patient-history?tab=completed" },
-    ],
-  },
+  { label: "Patient History", href: "/patient-history", icon: ClipboardList },
   { label: "Client Management", href: "/client-management", icon: UserCircle, roles: ["system_admin"] },
   { label: "Unit Management", href: "/unit-management", icon: Building2, roles: ["system_admin", "unit_manager"] },
   { label: "User Management", href: "/user-management", icon: Users, roles: ["system_admin", "unit_manager"] },

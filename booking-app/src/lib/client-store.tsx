@@ -22,6 +22,12 @@ export interface ClientRecord {
   logoUrl: string | null
   faviconUrl: string | null
   accentColor: string | null
+  /**
+   * When TRUE, every unit under this client skips the payment gateway and
+   * the unit collects the consultation fee directly. Set system-admin-side
+   * on the Manage Client page; defaults to FALSE for new clients.
+   */
+  collectPaymentAtUnit: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -31,7 +37,14 @@ export interface ClientRecord {
 interface ClientStoreContextValue {
   clients: ClientRecord[]
   loading: boolean
-  addClient: (client: Omit<ClientRecord, "id" | "status">) => Promise<string>
+  /**
+   * `collectPaymentAtUnit` is excluded from create — the column defaults to
+   * FALSE at the DB level and is only ever set via the Manage Client page
+   * toggle (system_admin only). New clients always start gateway-billed.
+   */
+  addClient: (
+    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit">
+  ) => Promise<string>
   updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
   updateClientUnit: (id: string, units: string) => Promise<void>
   deleteClient: (id: string) => Promise<void>
@@ -57,6 +70,7 @@ interface DbClient {
   logo_url: string | null
   favicon_url: string | null
   accent_color: string | null
+  collect_payment_at_unit: boolean | null
 }
 
 interface DbUnit {
@@ -81,6 +95,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     logoUrl: row.logo_url,
     faviconUrl: row.favicon_url,
     accentColor: row.accent_color,
+    collectPaymentAtUnit: row.collect_payment_at_unit ?? false,
   }
 }
 
@@ -154,7 +169,9 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     fetchClients()
   }, [fetchClients])
 
-  async function addClient(client: Omit<ClientRecord, "id" | "status">) {
+  async function addClient(
+    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit">
+  ) {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
     // role has no INSERT policy on public.clients, so direct writes fail
     // silently. All admin writes go through service-role API routes.
@@ -193,6 +210,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.number !== undefined) body.contactNumber = updates.number
     if (updates.status !== undefined) body.status = updates.status
     if (updates.accentColor !== undefined) body.accentColor = updates.accentColor
+    if (updates.collectPaymentAtUnit !== undefined) body.collectPaymentAtUnit = updates.collectPaymentAtUnit
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {
@@ -203,6 +221,11 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: res.statusText }))
         console.error("Error updating client:", error)
+        // Throw so the caller can surface the failure. Previously we
+        // returned silently and the manage page would navigate away on
+        // a 500 / RLS denial without any feedback. Mirrors the
+        // deleteClient pattern set up for the cascade fix.
+        throw new Error(error || "Failed to update client")
       }
     }
 
@@ -249,7 +272,11 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error deleting client:", error)
-      return
+      // Throw so the caller can surface the failure instead of navigating
+      // to a fake "deleted" success banner. Previously this returned
+      // silently and Manage Client would push to /client-management?deleted=...
+      // even when the row was still in the DB.
+      throw new Error(error || "Failed to delete client")
     }
     await fetchClients()
   }

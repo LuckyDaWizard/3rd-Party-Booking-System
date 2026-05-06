@@ -76,6 +76,10 @@ export function PinVerificationModal({
 
     setVerifying(true)
     setError("")
+
+    // Step 1 — verify the PIN. Errors here are the modal's responsibility
+    // and stay inside the modal (we re-prompt with a generic message).
+    let valid = false
     try {
       const res = await fetch("/api/verify/manager-pin", {
         method: "POST",
@@ -83,21 +87,28 @@ export function PinVerificationModal({
         body: JSON.stringify({ pin, unitId: activeUnitId }),
       })
       const data = (await res.json().catch(() => ({}))) as { valid?: boolean }
-      if (!res.ok || !data.valid) {
+      valid = res.ok && Boolean(data.valid)
+      if (!valid) {
         setError("Invalid verification code")
         setCode(Array.from({ length: PIN_LENGTH }, () => ""))
         setTimeout(() => refs.current[0]?.focus(), 50)
-        return
       }
-
-      // Verified — call the action through.
-      await onVerified()
-      onOpenChange(false)
     } catch {
       setError("Network error. Please try again.")
     } finally {
+      // Always stop the spinner before the action runs; if the action is
+      // long-running the parent shows its own busy state.
       setVerifying(false)
     }
+
+    if (!valid) return
+
+    // Step 2 — verified. Hand off to the action. If the action throws
+    // (e.g. CareFirst SSO failure), close the modal and let the parent
+    // surface the real error in its own UI — don't shadow it with a
+    // generic "Network error" message here.
+    onOpenChange(false)
+    await onVerified()
   }
 
   return (

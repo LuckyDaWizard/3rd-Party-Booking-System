@@ -1,13 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowRight, FileText, X, CheckCircle } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowRight,
+  FileText,
+  X,
+  CheckCircle,
+  ChevronDown,
+  User as UserIcon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
+import { useUserStore } from "@/lib/user-store"
+import { useAuth } from "@/lib/auth-store"
+import { supabase } from "@/lib/supabase"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
 import { checkAccentAgainstWhite } from "@/lib/color-contrast"
 
@@ -71,7 +82,7 @@ interface ClientDetails {
 
 const DEFAULT_ACCENT = "#3ea3db"
 
-const TOTAL_STEPS = 2
+const TOTAL_STEPS = 4
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml"
 const FAVICON_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
@@ -81,6 +92,12 @@ const LOGO_MIN_WIDTH = 200
 const LOGO_MIN_HEIGHT = 60
 const FAVICON_MIN_WIDTH = 64
 const FAVICON_MIN_HEIGHT = 64
+// User avatar — same constraints as the standalone Add User page so a
+// fresh-from-wizard user looks identical to one created via /user-management/add.
+const AVATAR_MIN_WIDTH = 80
+const AVATAR_MIN_HEIGHT = 80
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024
+const AVATAR_ACCEPT = "image/png,image/jpeg,image/webp"
 
 const PROVINCES = [
   { value: "eastern-cape", label: "Eastern Cape" },
@@ -180,17 +197,43 @@ function StepClientDetails({
           onChange={(v) => handleChange("contactNumber", v)}
           onClear={() => handleClear("contactNumber")}
         />
+      </div>
+    </div>
+  )
+}
 
-        {/* Branding (optional) — logo + favicon. Files are uploaded after the
-            client is created (we need an id first); previews use object URLs. */}
-        <div className="mt-2 flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Branding (optional)</h3>
-            <p className="text-xs text-gray-500">
-              Logo for headers / printouts; favicon for tight icon spaces.
-            </p>
-          </div>
+// ---------------------------------------------------------------------------
+// Step 2 — Branding (optional)
+// ---------------------------------------------------------------------------
 
+function StepBranding({
+  data,
+  onChange,
+}: {
+  data: ClientDetails
+  onChange: (updated: ClientDetails) => void
+}) {
+  return (
+    <div
+      data-testid="step-branding"
+      className="flex w-full max-w-md flex-col items-center gap-6"
+    >
+      <div className="flex flex-col items-center gap-1 text-center">
+        <h1
+          data-testid="step-heading"
+          className="text-3xl font-bold text-gray-900"
+        >
+          Branding
+        </h1>
+        <p className="text-base text-gray-500">
+          Optional. Add a logo, favicon, and accent colour for this client.
+        </p>
+      </div>
+
+      <div className="flex w-full flex-col gap-4">
+        {/* Logo + favicon files are uploaded after the client is created
+            (we need an id first); previews use object URLs. */}
+        <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
           {/* Logo */}
           <FilePickerRow
             kind="logo"
@@ -552,17 +595,371 @@ function StepUnitDetails({
 }
 
 // ---------------------------------------------------------------------------
+// Step 4 — User Details
+//
+// Mirrors /user-management/add: avatar upload, contact form, role select,
+// unit multi-select. The unit multi-select is pre-filtered to units owned
+// by the new client (just-created in step 3, plus any earlier units if the
+// admin came back through). Optional — the admin can Skip and add users
+// later from User Management.
+// ---------------------------------------------------------------------------
+
+interface UserDetails {
+  firstNames: string
+  surname: string
+  emailAddress: string
+  contactNumber: string
+  role: string
+  unitIds: string[]
+  avatarFile: File | null
+  avatarPreviewUrl: string | null
+}
+
+function ClientScopedUnitMultiSelect({
+  selectedIds,
+  onChange,
+  units,
+}: {
+  selectedIds: string[]
+  onChange: (unitIds: string[]) => void
+  units: { id: string; unitName: string }[]
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const ref = useRef<HTMLDivElement>(null)
+
+  const available = units.filter((u) => !selectedIds.includes(u.id))
+  const filtered = search.trim()
+    ? available.filter((u) =>
+        u.unitName.toLowerCase().includes(search.toLowerCase())
+      )
+    : available
+  const selectedUnits = units.filter((u) => selectedIds.includes(u.id))
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [isOpen])
+
+  return (
+    <div ref={ref} className="flex flex-col gap-2">
+      <div className="relative">
+        <button
+          type="button"
+          data-testid="user-unit-multi-select"
+          onClick={() => setIsOpen(!isOpen)}
+          disabled={units.length === 0}
+          className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors ${
+            isOpen ? "border-gray-900" : "border-gray-300"
+          } ${units.length === 0 ? "cursor-not-allowed opacity-60" : ""}`}
+        >
+          {/* Trigger reflects current selection state — easy to miss the
+              chip strip below on small viewports otherwise. */}
+          {units.length === 0 ? (
+            <span className="text-gray-400">
+              No units yet — add one in step 3 first
+            </span>
+          ) : selectedIds.length > 0 ? (
+            <span className="text-gray-700">
+              {selectedIds.length} unit{selectedIds.length === 1 ? "" : "s"} selected
+              <span className="ml-1 text-gray-400"> — add another</span>
+            </span>
+          ) : (
+            <span className="text-gray-400">Search unit to assign user to</span>
+          )}
+        </button>
+        <ChevronDown
+          className={`pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+
+        {isOpen && (
+          <div className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+            <div className="border-b border-gray-100 px-4 py-3">
+              <input
+                type="text"
+                placeholder="Search units..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                autoFocus
+              />
+            </div>
+            <div className="mx-2 my-2 flex max-h-64 flex-col gap-1 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-gray-400">
+                  {available.length === 0 ? "All units assigned" : "No units found"}
+                </div>
+              ) : (
+                filtered.map((unit) => (
+                  <button
+                    key={unit.id}
+                    type="button"
+                    onClick={() => {
+                      onChange([...selectedIds, unit.id])
+                      setSearch("")
+                    }}
+                    className="w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)]"
+                  >
+                    {unit.unitName}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selectedUnits.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedUnits.map((unit) => (
+            <span
+              key={unit.id}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--client-primary-30)] bg-[var(--client-primary-10)] px-3 py-1 text-sm text-[var(--client-primary)]"
+            >
+              {unit.unitName}
+              <button
+                type="button"
+                onClick={() =>
+                  onChange(selectedIds.filter((id) => id !== unit.id))
+                }
+                className="rounded-full p-0.5 text-[var(--client-primary)] hover:bg-[var(--client-primary-20)]"
+                aria-label={`Remove ${unit.unitName}`}
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StepUserDetails({
+  clientName,
+  clientUnits,
+  data,
+  onChange,
+  emailError,
+  contactError,
+  onCheckEmail,
+  onCheckContact,
+}: {
+  clientName: string
+  clientUnits: { id: string; unitName: string }[]
+  data: UserDetails
+  onChange: (updated: UserDetails) => void
+  emailError: string
+  contactError: string
+  onCheckEmail: (email: string) => void
+  onCheckContact: (contact: string) => void
+}) {
+  return (
+    <div
+      data-testid="step-user-details"
+      className="flex w-full max-w-md flex-col items-center gap-6"
+    >
+      <div className="flex flex-col items-center gap-1 text-center">
+        <h1
+          data-testid="step-heading"
+          className="text-3xl font-bold text-gray-900"
+        >
+          Add user
+        </h1>
+        <p className="text-base text-gray-500">
+          Optional. Create a user assigned to {clientName}&apos;s units.
+        </p>
+      </div>
+
+      {/* Avatar */}
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+          {data.avatarPreviewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={data.avatarPreviewUrl}
+              alt="Avatar preview"
+              className="size-full object-cover"
+            />
+          ) : (
+            <UserIcon className="size-12 text-gray-300" strokeWidth={1.5} />
+          )}
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-3">
+            <label
+              htmlFor="user-avatar-file"
+              className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+            >
+              {data.avatarFile ? "Replace photo" : "Upload photo (optional)"}
+            </label>
+            <input
+              id="user-avatar-file"
+              data-testid="input-user-avatar-file"
+              type="file"
+              accept={AVATAR_ACCEPT}
+              className="hidden"
+              onChange={async (e) => {
+                const picked = e.target.files?.[0] ?? null
+                e.target.value = ""
+                if (!picked) return
+                if (picked.size > AVATAR_MAX_BYTES) {
+                  alert("Photo must be 2 MB or smaller.")
+                  return
+                }
+                const dimsError = await validateImageMinDimensions(
+                  picked,
+                  AVATAR_MIN_WIDTH,
+                  AVATAR_MIN_HEIGHT
+                )
+                if (dimsError) {
+                  alert(dimsError)
+                  return
+                }
+                if (data.avatarPreviewUrl) URL.revokeObjectURL(data.avatarPreviewUrl)
+                onChange({
+                  ...data,
+                  avatarFile: picked,
+                  avatarPreviewUrl: URL.createObjectURL(picked),
+                })
+              }}
+            />
+            {data.avatarFile && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (data.avatarPreviewUrl) URL.revokeObjectURL(data.avatarPreviewUrl)
+                  onChange({ ...data, avatarFile: null, avatarPreviewUrl: null })
+                }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          <span className="text-[11px] text-gray-500">
+            PNG, JPEG, or WEBP. Max 2 MB.
+          </span>
+        </div>
+      </div>
+
+      {/* Form */}
+      <div className="flex w-full flex-col gap-4">
+        {/* No-units hint — without a unit the user can't be assigned, so
+            Submit will be blocked. Make the path forward (Back to step 3
+            and add one, or Skip the user step) explicit instead of
+            leaving the admin to puzzle out why Submit won't activate. */}
+        {clientUnits.length === 0 && (
+          <div
+            data-testid="no-units-hint"
+            className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            <span className="font-semibold text-gray-900">
+              No units linked to this client yet
+            </span>
+            <span className="text-xs">
+              A user must be assigned to at least one unit. Click{" "}
+              <strong>Back</strong> to add a unit, or{" "}
+              <strong>Skip this step for now</strong> to finish without
+              creating a user.
+            </span>
+          </div>
+        )}
+
+        <ClientScopedUnitMultiSelect
+          selectedIds={data.unitIds}
+          onChange={(ids) => onChange({ ...data, unitIds: ids })}
+          units={clientUnits}
+        />
+
+        <FloatingInput
+          id="user-first-names"
+          data-testid="input-user-first-names"
+          label="First Names"
+          value={data.firstNames}
+          onChange={(v) => onChange({ ...data, firstNames: v })}
+          onClear={() => onChange({ ...data, firstNames: "" })}
+        />
+
+        <FloatingInput
+          id="user-surname"
+          data-testid="input-user-surname"
+          label="Surname"
+          value={data.surname}
+          onChange={(v) => onChange({ ...data, surname: v })}
+          onClear={() => onChange({ ...data, surname: "" })}
+        />
+
+        <FloatingInput
+          id="user-email-address"
+          data-testid="input-user-email-address"
+          label="Email Address"
+          type="email"
+          value={data.emailAddress}
+          onChange={(v) => onChange({ ...data, emailAddress: v })}
+          onClear={() => onChange({ ...data, emailAddress: "" })}
+          onBlur={() => onCheckEmail(data.emailAddress)}
+          error={emailError}
+        />
+
+        <FloatingInput
+          id="user-contact-number"
+          data-testid="input-user-contact-number"
+          label="Contact Number"
+          type="tel"
+          value={data.contactNumber}
+          onChange={(v) => onChange({ ...data, contactNumber: v })}
+          onClear={() => onChange({ ...data, contactNumber: "" })}
+          onBlur={() => onCheckContact(data.contactNumber)}
+          error={contactError}
+        />
+
+        <FloatingSelect
+          id="user-role"
+          data-testid="select-user-role"
+          label="Select Access Role"
+          value={data.role}
+          onChange={(v) => onChange({ ...data, role: v })}
+          options={[
+            { value: "user", label: "User" },
+            { value: "unit_manager", label: "Unit Manager" },
+            { value: "system_admin", label: "System Admin" },
+          ]}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
 export default function AddNewClientPage() {
   const router = useRouter()
   const { addClient, refreshClients } = useClientStore()
-  const { addUnit } = useUnitStore()
+  const { addUnit, units: allUnits } = useUnitStore()
+  const { addUser } = useUserStore()
+  const { isSystemAdmin } = useAuth()
   const [currentStep, setCurrentStep] = useState(1)
   const [showBanner, setShowBanner] = useState(false)
   const [newClientId, setNewClientId] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [userEmailError, setUserEmailError] = useState("")
+  const [userContactError, setUserContactError] = useState("")
+  // Wizard-level error banner. Surfaces save failures from any step
+  // (addClient on step 2, addUnit on step 3, addUser on step 4). Cleared
+  // on each new Next click. Without this the outer catch swallowed
+  // errors and the admin couldn't tell whether retrying would create
+  // a duplicate.
+  const [stepError, setStepError] = useState("")
 
   const [clientDetails, setClientDetails] = useState<ClientDetails>({
     clientName: "",
@@ -585,6 +982,91 @@ export default function AddNewClientPage() {
     province: "",
   })
 
+  const [userDetails, setUserDetails] = useState<UserDetails>({
+    firstNames: "",
+    surname: "",
+    emailAddress: "",
+    contactNumber: "",
+    role: "",
+    unitIds: [],
+    avatarFile: null,
+    avatarPreviewUrl: null,
+  })
+
+  // The Users step pre-filters its unit dropdown to units owned by the new
+  // client. Recomputed each render — `allUnits` is the dashboard-layout's
+  // unit-store, which we re-fetch after step 3 creates a unit.
+  const clientUnitsForUser = newClientId
+    ? allUnits
+        .filter((u) => u.clientId === newClientId)
+        .map((u) => ({ id: u.id, unitName: u.unitName }))
+    : []
+
+  // System admin can create any role; unit_manager can only create regular
+  // users. Mirrors /user-management/add.
+  // Note: this wizard is system_admin-only (per dashboard route guard), but
+  // we keep the filter for defence-in-depth.
+  const userRoleOptions = isSystemAdmin
+    ? ["user", "unit_manager", "system_admin"]
+    : ["user"]
+  // Strip out any selected role the caller isn't allowed to set.
+  const userRoleAllowed = userRoleOptions.includes(userDetails.role)
+
+  async function checkUserEmail(email: string) {
+    if (!email.trim()) {
+      setUserEmailError("")
+      return
+    }
+    const { data } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email.trim())
+      .limit(1)
+    setUserEmailError(
+      data && data.length > 0
+        ? "This email is already assigned to an existing user"
+        : ""
+    )
+  }
+
+  async function checkUserContact(contact: string) {
+    if (!contact.trim()) {
+      setUserContactError("")
+      return
+    }
+    const { data } = await supabase
+      .from("users")
+      .select("id")
+      .eq("contact_number", contact.trim())
+      .limit(1)
+    setUserContactError(
+      data && data.length > 0
+        ? "This contact number is already assigned to an existing user"
+        : ""
+    )
+  }
+
+  // Has the admin filled in enough to actually create a user? The Users
+  // step is optional, so we don't gate Next on this — but we do gate the
+  // *create*: an empty form just skips through.
+  const isUserFormPopulated =
+    userDetails.firstNames.trim() !== "" ||
+    userDetails.surname.trim() !== "" ||
+    userDetails.emailAddress.trim() !== "" ||
+    userDetails.contactNumber.trim() !== "" ||
+    userDetails.role.trim() !== "" ||
+    userDetails.unitIds.length > 0 ||
+    userDetails.avatarFile !== null
+
+  const isUserFormValid =
+    userDetails.firstNames.trim() !== "" &&
+    userDetails.surname.trim() !== "" &&
+    userDetails.role.trim() !== "" &&
+    userRoleAllowed &&
+    userDetails.unitIds.length > 0 &&
+    !userEmailError &&
+    !userContactError
+
   const isStep1Complete =
     clientDetails.clientName.trim() !== "" &&
     clientDetails.contactPersonName.trim() !== "" &&
@@ -594,8 +1076,16 @@ export default function AddNewClientPage() {
 
   async function handleNext() {
     setSubmitting(true)
+    setStepError("")
     try {
       if (currentStep === 1 && isStep1Complete) {
+        // Step 1 → 2: just advance to the Branding step. The client row is
+        // not created until the admin commits to the branding choices on
+        // step 2, so they can still edit the contact details by going back.
+        setCurrentStep(2)
+        setSubmitting(false)
+      } else if (currentStep === 2) {
+        // Step 2 → 3: create the client row + upload any selected assets.
         const id = await addClient({
           clientName: clientDetails.clientName,
           contactPersonName: clientDetails.contactPersonName,
@@ -641,10 +1131,13 @@ export default function AddNewClientPage() {
           await refreshClients()
         }
         setNewClientId(id)
-        setCurrentStep(2)
+        setCurrentStep(3)
         setShowBanner(true)
         setSubmitting(false)
-      } else if (currentStep === 2) {
+      } else if (currentStep === 3) {
+        // Step 3 → 4: optionally create the unit, then advance to Users.
+        // Empty unit form just advances (admin can add units later from
+        // Unit Management).
         if (unitDetails.unitName.trim() && newClientId) {
           await addUnit({
             unitName: unitDetails.unitName,
@@ -657,10 +1150,82 @@ export default function AddNewClientPage() {
           })
           await refreshClients()
         }
+        setCurrentStep(4)
+        setSubmitting(false)
+      } else if (currentStep === 4) {
+        // Step 4 → finish: optionally create the user, then exit to list.
+        // Empty form just exits. A populated-but-incomplete form blocks
+        // (we can't half-create a user).
+        if (isUserFormPopulated) {
+          if (!isUserFormValid) {
+            setSubmitting(false)
+            return
+          }
+          const firstUnitId = userDetails.unitIds[0]
+          const firstUnit = allUnits.find((u) => u.id === firstUnitId)
+          const { id: newUserId, pin: newPin } = await addUser({
+            firstNames: userDetails.firstNames,
+            surname: userDetails.surname,
+            email: userDetails.emailAddress,
+            contactNumber: userDetails.contactNumber,
+            role: userDetails.role,
+            unitIds: userDetails.unitIds,
+            clientId: firstUnit?.clientId ?? newClientId,
+          })
+          try {
+            sessionStorage.setItem("carefirst_new_user_pin", newPin)
+          } catch {
+            // SSR / private mode — ignore
+          }
+          // Avatar upload (best-effort, same pattern as logo/favicon).
+          if (userDetails.avatarFile && newUserId) {
+            try {
+              const fd = new FormData()
+              fd.append("file", userDetails.avatarFile)
+              const uploadRes = await fetch(`/api/users/${newUserId}/avatar`, {
+                method: "POST",
+                body: fd,
+              })
+              if (!uploadRes.ok) {
+                const { error } = await uploadRes.json().catch(() => ({}))
+                alert(
+                  `User created, but avatar upload failed: ${error ?? uploadRes.statusText}. You can upload it from Manage User.`
+                )
+              }
+            } catch (uploadErr) {
+              console.warn("Avatar upload failed:", uploadErr)
+            }
+          }
+          // Route to /user-management?added=<name> — that page reads the
+          // sessionStorage PIN we just stashed and shows it once in a
+          // success banner. Without this redirect target the auto-generated
+          // PIN is silently dropped and the admin has no way to see it
+          // (their only recovery is to trigger Reset PIN).
+          const addedName = `${userDetails.firstNames} ${userDetails.surname}`.trim()
+          const params = new URLSearchParams({ added: addedName })
+          router.push(`/user-management?${params.toString()}`)
+          return
+        }
         router.push("/client-management")
       }
     } catch (err) {
-      console.error("Failed to save client:", err)
+      // Surface the failure so the admin doesn't sit on the same screen
+      // wondering whether retrying will create a duplicate. We tag the
+      // step so the banner copy can disambiguate (client vs unit vs user).
+      console.error("Wizard step failed:", err)
+      const stepLabel =
+        currentStep === 2
+          ? "client"
+          : currentStep === 3
+            ? "unit"
+            : currentStep === 4
+              ? "user"
+              : "step"
+      setStepError(
+        err instanceof Error
+          ? `Failed to save ${stepLabel}: ${err.message}`
+          : `Failed to save ${stepLabel}. Please try again.`
+      )
       setSubmitting(false)
     }
   }
@@ -670,15 +1235,34 @@ export default function AddNewClientPage() {
   }
 
   function handleTopBack() {
-    if (currentStep > 1) {
+    // Step 2 is pre-create — rewind to step 1.
+    // Step 4 → step 3 — adding a unit is non-destructive, and an admin
+    //   on step 4 with no available units is otherwise stuck (Submit
+    //   blocked, no escape but Skip).
+    // Step 3 is post-create — going back from here can't undo the
+    //   create, so we send to the client list. The unit is the only
+    //   thing not yet saved on step 3, and the admin can always add
+    //   more units later from Unit Management.
+    // Step 1 — same as cancel.
+    if (currentStep === 2) {
       setCurrentStep(1)
-      setShowBanner(false)
+    } else if (currentStep === 4) {
+      setCurrentStep(3)
+      setStepError("")
     } else {
       router.push("/client-management")
     }
   }
 
-  const isNextEnabled = currentStep === 1 ? isStep1Complete : true
+  // Step 4's Next button is enabled when (a) the form is empty (skip-through)
+  // OR (b) the form is fully valid. A populated-but-invalid form disables
+  // Next so the admin sees their pending validation errors.
+  const isNextEnabled =
+    currentStep === 1
+      ? isStep1Complete
+      : currentStep === 4
+        ? !isUserFormPopulated || isUserFormValid
+        : true
 
   return (
     <div
@@ -700,23 +1284,50 @@ export default function AddNewClientPage() {
       </div>
 
       {/* Success banner */}
-      {showBanner && currentStep === 2 && (
+      {showBanner && currentStep === 3 && (
         <SuccessBanner
           clientName={clientDetails.clientName}
           onDismiss={() => setShowBanner(false)}
         />
       )}
 
+      {/* Step-error banner — shown when addClient / addUnit / addUser
+          throws. Replaces the silent console-error that previously left
+          the admin guessing whether their data was saved. */}
+      {stepError && (
+        <div
+          data-testid="step-error-banner"
+          className="flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-6 py-4"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-gray-900">
+              Save failed
+            </span>
+            <span className="text-sm text-gray-700">{stepError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStepError("")}
+            className="shrink-0 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+
       {/* Content area */}
       <div className="flex flex-1 flex-col items-center justify-center gap-8 py-8">
         {/* Step indicators */}
-        <div className="flex items-center gap-8">
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
           <div
             data-testid="step-indicator-1"
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
               currentStep === 1
                 ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : "bg-green-100 text-green-500"
+                : currentStep > 1
+                  ? "bg-green-100 text-green-500"
+                  : "text-gray-400"
             }`}
           >
             {currentStep > 1 ? (
@@ -731,11 +1342,45 @@ export default function AddNewClientPage() {
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
               currentStep === 2
                 ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
+                : currentStep > 2
+                  ? "bg-green-100 text-green-500"
+                  : "text-gray-400"
+            }`}
+          >
+            {currentStep > 2 ? (
+              <CheckCircle className="size-4" />
+            ) : (
+              <FileText className="size-4" />
+            )}
+            Branding
+          </div>
+          <div
+            data-testid="step-indicator-3"
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
+              currentStep === 3
+                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
+                : currentStep > 3
+                  ? "bg-green-100 text-green-500"
+                  : "text-gray-400"
+            }`}
+          >
+            {currentStep > 3 ? (
+              <CheckCircle className="size-4" />
+            ) : (
+              <FileText className="size-4" />
+            )}
+            Unit Details
+          </div>
+          <div
+            data-testid="step-indicator-4"
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
+              currentStep === 4
+                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
                 : "text-gray-400"
             }`}
           >
             <FileText className="size-4" />
-            Unit Details
+            Users
           </div>
         </div>
 
@@ -748,10 +1393,30 @@ export default function AddNewClientPage() {
         )}
 
         {currentStep === 2 && (
+          <StepBranding
+            data={clientDetails}
+            onChange={setClientDetails}
+          />
+        )}
+
+        {currentStep === 3 && (
           <StepUnitDetails
             clientName={clientDetails.clientName}
             data={unitDetails}
             onChange={setUnitDetails}
+          />
+        )}
+
+        {currentStep === 4 && (
+          <StepUserDetails
+            clientName={clientDetails.clientName}
+            clientUnits={clientUnitsForUser}
+            data={userDetails}
+            onChange={setUserDetails}
+            emailError={userEmailError}
+            contactError={userContactError}
+            onCheckEmail={checkUserEmail}
+            onCheckContact={checkUserContact}
           />
         )}
 
@@ -769,7 +1434,11 @@ export default function AddNewClientPage() {
           >
             {submitting ? (
               <>
-                {currentStep === TOTAL_STEPS ? "Adding Client..." : "Saving..."}
+                {currentStep === 4
+                  ? isUserFormPopulated
+                    ? "Adding User..."
+                    : "Finishing..."
+                  : "Saving..."}
                 <svg className="ml-2 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
                   <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
                   <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
@@ -777,14 +1446,20 @@ export default function AddNewClientPage() {
               </>
             ) : (
               <>
-                {currentStep === TOTAL_STEPS ? "Submit" : "Next"}
+                {currentStep === TOTAL_STEPS
+                  ? isUserFormPopulated
+                    ? "Add User"
+                    : "Submit"
+                  : "Next"}
                 <ArrowRight className="ml-1 size-4" />
               </>
             )}
           </Button>
 
-          {/* Skip link — only on step 2 */}
-          {currentStep === 2 && (
+          {/* Skip link — visible on the optional post-create steps (3 and 4).
+              The client and its branding are already saved by this point;
+              skipping just leaves the client without a unit / user. */}
+          {(currentStep === 3 || currentStep === 4) && (
             <button
               type="button"
               data-testid="skip-button"

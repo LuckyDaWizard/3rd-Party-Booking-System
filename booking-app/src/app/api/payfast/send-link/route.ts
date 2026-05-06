@@ -8,6 +8,7 @@ import {
 } from "@/lib/payfast"
 import { sendPaymentLinkEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { recordBookingValidator } from "@/lib/booking-validator"
 
 // =============================================================================
 // POST /api/payfast/send-link
@@ -109,12 +110,47 @@ export async function POST(request: Request) {
     }
   }
 
+  // Defence-in-depth: refuse if the booking's parent client is configured
+  // to collect payment directly. Sending a PayFast link in that case would
+  // risk a double-charge (unit collects in person + patient pays online).
+  // Resolved via units.client_id → clients.
+  if (booking.unit_id) {
+    const { data: unit } = await admin
+      .from("units")
+      .select("client_id")
+      .eq("id", booking.unit_id)
+      .single()
+    const clientId = (unit as { client_id: string | null } | null)?.client_id
+    if (clientId) {
+      const { data: client } = await admin
+        .from("clients")
+        .select("collect_payment_at_unit")
+        .eq("id", clientId)
+        .single()
+      if (
+        (client as { collect_payment_at_unit: boolean | null } | null)
+          ?.collect_payment_at_unit
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This client collects payment directly. Use the in-unit payment confirmation flow instead.",
+          },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
   // Persist the payment_amount on the booking so the ITN handler can validate
   // the amount PayFast reports back (same pattern as /api/payfast/initiate).
   await admin
     .from("bookings")
     .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
     .eq("id", bookingId)
+
+  // Snapshot the operator who emailed the payment link — best-effort.
+  await recordBookingValidator(admin, bookingId, caller)
 
   // Build the payment link. The link points to our /pay/[bookingId] page,
   // which renders a form that auto-posts to PayFast. We don't link directly

@@ -88,33 +88,59 @@ export function SessionIdleMonitor() {
     }
   }, [user])
 
+  // Threshold check — extracted so we can run it both on the periodic
+  // tick AND when the tab regains focus. The tick can't be relied on
+  // in background tabs: Chrome throttles setInterval to ~1×/min after
+  // a tab has been hidden for 5 min, so without this `visibilitychange`
+  // hook a returning user could land past IDLE_TIMEOUT_MS in a single
+  // tick and get signed out without ever seeing the warning modal.
+  const checkIdle = useCallback(() => {
+    const idleMs = Date.now() - lastActivityRef.current
+    if (idleMs >= IDLE_TIMEOUT_MS) {
+      handleSignOutNow()
+      return true // signed out
+    }
+    if (idleMs >= IDLE_WARNING_MS) {
+      setShowWarning(true)
+      setRemainingMs(Math.max(0, IDLE_TIMEOUT_MS - idleMs))
+    } else if (showWarning) {
+      // User resumed activity mid-countdown (via Stay-signed-in click);
+      // hide the modal.
+      setShowWarning(false)
+    }
+    return false
+  }, [showWarning, handleSignOutNow])
+
   // Periodic check: are we past the warning threshold? The timeout
   // threshold? Keeps the countdown fresh when the modal is visible.
   useEffect(() => {
     if (!user) return
 
     const interval = setInterval(() => {
-      const idleMs = Date.now() - lastActivityRef.current
-
-      if (idleMs >= IDLE_TIMEOUT_MS) {
-        // Hit the hard timeout. Sign out immediately.
-        clearInterval(interval)
-        handleSignOutNow()
-        return
-      }
-
-      if (idleMs >= IDLE_WARNING_MS) {
-        setShowWarning(true)
-        setRemainingMs(Math.max(0, IDLE_TIMEOUT_MS - idleMs))
-      } else if (showWarning) {
-        // User resumed activity mid-countdown (via Stay-signed-in click);
-        // hide the modal.
-        setShowWarning(false)
-      }
+      if (checkIdle()) clearInterval(interval)
     }, IDLE_TICK_MS)
 
     return () => clearInterval(interval)
-  }, [user, showWarning, handleSignOutNow])
+  }, [user, checkIdle])
+
+  // Tab-focus check: when the user returns to a backgrounded tab, the
+  // periodic interval may have been throttled (Chrome cuts it to 1×/min
+  // after the tab has been hidden 5 min). Re-run the threshold check
+  // synchronously on visibilitychange so the warning modal can appear
+  // with the correct remaining time, or sign-out fires promptly if
+  // the tab was hidden past IDLE_TIMEOUT_MS.
+  useEffect(() => {
+    if (!user) return
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        checkIdle()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+  }, [user, checkIdle])
 
   if (!user) return null
 

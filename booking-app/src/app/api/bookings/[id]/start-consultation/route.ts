@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { recordBookingValidator } from "@/lib/booking-validator"
 import {
   buildSsoPayload,
   callSsoAutoRegister,
@@ -252,6 +253,9 @@ export async function POST(request: Request, context: RouteContext) {
       updErr
     )
   }
+
+  // Snapshot the operator who handed off to CareFirst — best-effort.
+  await recordBookingValidator(admin, id, caller)
 
   writeAuditLog({
     actorId: caller.id,

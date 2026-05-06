@@ -498,7 +498,7 @@ function StepBasicInfo({
 export default function PatientDetailsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { updateBooking, discardBooking, setActiveBookingId, getBooking } = useBookingStore()
+  const { updateBooking, discardBooking, setActiveBookingId, getBooking, refreshBookings } = useBookingStore()
   // Read booking ID and search params
   const bookingId = searchParams.get("bookingId") ?? ""
   const stepParam = searchParams.get("step")
@@ -517,6 +517,65 @@ export default function PatientDetailsPage() {
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
+
+  // Self-collect state. Declared here (above the effect that uses it)
+  // rather than grouped with other state declarations later in the file
+  // to avoid a temporal-dead-zone reference in the effect body — the
+  // setState identifier needs to be visible at the effect's declaration
+  // site, not just at its closure call time.
+  //
+  // Payment mode for this booking. Resolved from the booking's parent
+  // client's `collect_payment_at_unit` flag — when "self_collect", step 5
+  // hides the gateway/link picker and shows a single "Confirm payment
+  // collected at unit" affordance instead. "checking" while we wait for
+  // the API; "gateway" is the default until proven otherwise.
+  const [paymentMode, setPaymentMode] =
+    useState<"checking" | "gateway" | "self_collect">("gateway")
+  const [markingSelfCollect, setMarkingSelfCollect] = useState(false)
+  const [selfCollectError, setSelfCollectError] = useState("")
+
+  // Resolve the booking's payment mode from the parent client's
+  // collect_payment_at_unit flag. We refetch when bookingId changes (i.e.
+  // when the booking is created during step 4 verification) so step 5
+  // renders with the correct mode without an extra navigation.
+  //
+  // Fall back to "gateway" on any failure (404 because bookingId is bogus,
+  // 401 because session expired, network error, or 10s timeout). Better
+  // to show the existing picker than to leave the user staring at a
+  // spinner forever if the API is hanging.
+  useEffect(() => {
+    if (!bookingId) return
+    let cancelled = false
+    setPaymentMode("checking")
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10_000)
+
+    fetch(`/api/bookings/${bookingId}/payment-mode`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          setPaymentMode("gateway")
+          return
+        }
+        const data = (await res.json().catch(() => ({}))) as {
+          mode?: "gateway" | "self_collect"
+        }
+        if (cancelled) return
+        setPaymentMode(data.mode === "self_collect" ? "self_collect" : "gateway")
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentMode("gateway")
+      })
+      .finally(() => clearTimeout(timeoutId))
+
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+      controller.abort()
+    }
+  }, [bookingId])
 
   // Determine initial ID type and number from search params or existing booking
   const initialIdType = existingBooking?.idType ?? (searchType === "passport" ? "passport" : "national_id")
@@ -745,6 +804,38 @@ export default function PatientDetailsPage() {
       setCurrentStep(4)
     } else if (currentStep === 4) {
       setShowVerification(true)
+    } else if (currentStep === 5 && paymentMode === "self_collect") {
+      // Self-collect short-circuit: skip PayFast entirely. The server
+      // re-checks the client's flag in mark-self-collect, so even if
+      // paymentMode was tampered with client-side this can't forge a
+      // self-collect for a normal client.
+      if (!bookingId || markingSelfCollect) return
+      setMarkingSelfCollect(true)
+      setSelfCollectError("")
+      try {
+        const res = await fetch(
+          `/api/bookings/${bookingId}/mark-self-collect`,
+          { method: "POST" }
+        )
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean
+          error?: string
+        }
+        if (!res.ok || !data.ok) {
+          setSelfCollectError(data.error ?? "Failed to mark booking as self-collect")
+          setMarkingSelfCollect(false)
+          return
+        }
+        // Refresh the booking-store so downstream pages (success page,
+        // T&Cs auto-handoff, patient-history) see the booking's new
+        // status + payment_type immediately. Without this the row in
+        // the local store is briefly out of sync with the DB.
+        await refreshBookings()
+        router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+      } catch {
+        setSelfCollectError("Network error. Please try again.")
+        setMarkingSelfCollect(false)
+      }
     } else if (currentStep === 5 && selectedPaymentType) {
       // Save payment type to DB
       if (bookingId) {
@@ -804,8 +895,13 @@ export default function PatientDetailsPage() {
     currentStep === 2 ? isStep2Complete :
     currentStep === 3 ? isStep3Complete :
     currentStep === 4 ? true :
-    currentStep === 5 ? selectedPaymentType !== "" :
-    false
+    currentStep === 5
+      ? paymentMode === "self_collect"
+        ? !markingSelfCollect
+        : paymentMode === "checking"
+          ? false
+          : selectedPaymentType !== ""
+      : false
 
   return (
     <div
@@ -1356,8 +1452,60 @@ export default function PatientDetailsPage() {
           </div>
         )}
 
-        {/* Step 5 - Payment Type */}
-        {currentStep === 5 && (
+        {/* Step 5 - Payment Type. Branches on paymentMode:
+              - self_collect → confirm-only panel (no gateway picker)
+              - gateway      → existing "Pay on device" picker
+              - checking     → spinner placeholder while we resolve mode */}
+        {currentStep === 5 && paymentMode === "checking" && (
+          <div
+            data-testid="step-payment-type-loading"
+            className="flex w-full max-w-4xl items-center justify-center py-12"
+          >
+            <svg className="size-8 animate-spin text-gray-400" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="15" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />
+              <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+            </svg>
+          </div>
+        )}
+
+        {currentStep === 5 && paymentMode === "self_collect" && (
+          <div
+            data-testid="step-payment-type-self-collect"
+            className="flex w-full max-w-4xl flex-col gap-6"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Step 4 of {TOTAL_STEPS}
+              </span>
+              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+                Confirm payment collected at unit
+              </h1>
+              <p className="text-base text-gray-500">
+                This client collects the consultation fee directly. Confirm
+                that the patient has paid before continuing.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-5">
+              <span className="text-sm font-semibold text-gray-900">
+                Self-collect payment
+              </span>
+              <span className="text-sm text-gray-700">
+                Clicking <strong>Next</strong> marks this booking as
+                Payment Complete and skips the payment gateway. Make sure
+                the consultation fee has been collected before proceeding.
+              </span>
+            </div>
+
+            {selfCollectError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {selfCollectError}
+              </div>
+            )}
+          </div>
+        )}
+
+        {currentStep === 5 && paymentMode === "gateway" && (
           <div
             data-testid="step-payment-type"
             className="flex w-full max-w-4xl flex-col gap-6"
