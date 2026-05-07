@@ -51,6 +51,18 @@ export interface BookingRecord {
   scriptToAnotherEmail: boolean
   additionalEmail: string | null
   paymentType: string | null
+  /**
+   * 'instant' (default) or 'scheduled'. Captured at the Booking Type
+   * step of the booking flow. When 'scheduled', scheduledAt holds the
+   * requested consult time; CareFirst is told via the Start Consult
+   * payload and handles the actual slot scheduling on their side.
+   */
+  bookingType: string
+  /**
+   * ISO timestamp of the requested consultation start, when
+   * bookingType === 'scheduled'. NULL for instant bookings.
+   */
+  scheduledAt: string | null
   bloodPressure: string | null
   glucose: string | null
   temperature: string | null
@@ -101,6 +113,8 @@ interface DbBooking {
   script_to_another_email: boolean
   additional_email: string | null
   payment_type: string | null
+  booking_type: string | null
+  scheduled_at: string | null
   blood_pressure: string | null
   glucose: string | null
   temperature: string | null
@@ -142,6 +156,8 @@ function mapDbToBooking(row: DbBooking): BookingRecord {
     scriptToAnotherEmail: row.script_to_another_email,
     additionalEmail: row.additional_email,
     paymentType: row.payment_type,
+    bookingType: row.booking_type ?? "instant",
+    scheduledAt: row.scheduled_at,
     bloodPressure: row.blood_pressure,
     glucose: row.glucose,
     temperature: row.temperature,
@@ -187,6 +203,8 @@ function mapBookingToDb(
   if (updates.additionalEmail !== undefined)
     db.additional_email = updates.additionalEmail
   if (updates.paymentType !== undefined) db.payment_type = updates.paymentType
+  if (updates.bookingType !== undefined) db.booking_type = updates.bookingType
+  if (updates.scheduledAt !== undefined) db.scheduled_at = updates.scheduledAt
   if (updates.bloodPressure !== undefined)
     db.blood_pressure = updates.bloodPressure
   if (updates.glucose !== undefined) db.glucose = updates.glucose

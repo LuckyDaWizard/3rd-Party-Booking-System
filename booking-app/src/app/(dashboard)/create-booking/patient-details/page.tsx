@@ -17,18 +17,22 @@ import { PIN_LENGTH } from "@/lib/constants"
 // Constants
 // ---------------------------------------------------------------------------
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
 
 const STEP_LABELS = [
   "Basic Info",
   "Address",
   "Contact Details",
-  // Step 4 covers nurse PIN re-verification + the patient-data
-  // confirmation screen. The label is "Verification" rather than
-  // "Payment Type" — the actual payment branch (gateway vs self-
-  // collect vs monthly-invoice) renders on step 5 and may be
-  // skipped entirely for non-gateway clients, so the indicator
-  // shouldn't promise a payment step that might not appear.
+  // Step 4 — operator picks "instant" (the standard flow since
+  // launch) or "scheduled" (consult is for a future slot, the
+  // datetime is captured here and forwarded to CareFirst on Start
+  // Consult so their app can schedule it on their side).
+  "Booking Type",
+  // Step 5 — nurse PIN re-verification + patient-data confirmation
+  // screen. Was step 4 before the Booking Type step was inserted.
+  // The actual payment branch renders on step 6 and may be skipped
+  // entirely for non-gateway clients, so the indicator label avoids
+  // promising a payment step.
   "Verification",
 ]
 
@@ -639,8 +643,30 @@ export default function PatientDetailsPage() {
     )
   const [markingSelfCollect, setMarkingSelfCollect] = useState(false)
   const [selfCollectError, setSelfCollectError] = useState("")
+
+  // Booking type (step 4). 'instant' is the standard flow since launch
+  // and is the default; 'scheduled' captures a future consultation
+  // datetime which is forwarded to CareFirst on Start Consult so their
+  // app can schedule the actual slot. Pre-fills from the existing
+  // booking if the operator is resuming a draft.
+  const [bookingType, setBookingType] =
+    useState<"instant" | "scheduled">(
+      (existingBooking?.bookingType as "instant" | "scheduled") || "instant"
+    )
+  // Local datetime string for the native datetime-local input.
+  // Format: "YYYY-MM-DDTHH:mm" (matches the input's expected value).
+  // Converted to a full ISO timestamp on save so the DB stores UTC.
+  const [scheduledLocal, setScheduledLocal] = useState<string>(() => {
+    if (!existingBooking?.scheduledAt) return ""
+    // Convert stored UTC ISO back to a local-input-friendly format.
+    const d = new Date(existingBooking.scheduledAt)
+    if (Number.isNaN(d.getTime())) return ""
+    const pad = (n: number) => String(n).padStart(2, "0")
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  })
+
   // Auto-skip path for monthly_invoice clients: the operator never sees
-  // step 5. When paymentMode resolves to "monthly_invoice" while step 5
+  // step 5 (now step 6 after the Booking Type insertion). When paymentMode resolves to "monthly_invoice" while step 5
   // is mounted, we auto-fire mark-monthly-invoice and route past it.
   // This ref guards against double-firing on re-renders.
   const monthlyAutoSkipFiredRef = useRef(false)
@@ -715,7 +741,7 @@ export default function PatientDetailsPage() {
   // sees the new status and skips the (now-pointless) PayFast reconcile.
   useEffect(() => {
     if (
-      currentStep !== 5 ||
+      currentStep !== 6 ||
       paymentMode !== "monthly_invoice" ||
       !bookingId ||
       monthlyAutoSkipFiredRef.current
@@ -1035,8 +1061,31 @@ export default function PatientDetailsPage() {
       }
       setCurrentStep(4)
     } else if (currentStep === 4) {
+      // Step 4 — Booking Type. Persist the choice + scheduled_at and
+      // advance to step 5 (Verification). Validation: bookingType
+      // must be selected; if 'scheduled', scheduledLocal must be a
+      // non-empty datetime-local string. Slot availability is NOT
+      // validated here — CareFirst is the source of truth and the
+      // operator only sees CareFirst's slot picker after handoff.
+      if (bookingType === "scheduled" && !scheduledLocal) return
+      if (bookingId) {
+        // Convert "YYYY-MM-DDTHH:mm" (local time, no offset) to a
+        // full ISO timestamp. `new Date(localStr)` interprets the
+        // string in the browser's local timezone, then toISOString()
+        // serialises as UTC — which is what we want for storage.
+        const scheduledIso =
+          bookingType === "scheduled" && scheduledLocal
+            ? new Date(scheduledLocal).toISOString()
+            : null
+        await updateBooking(bookingId, {
+          bookingType,
+          scheduledAt: scheduledIso,
+        })
+      }
+      setCurrentStep(5)
+    } else if (currentStep === 5) {
       setShowVerification(true)
-    } else if (currentStep === 5 && paymentMode === "self_collect") {
+    } else if (currentStep === 6 && paymentMode === "self_collect") {
       // Self-collect short-circuit: skip PayFast entirely. The server
       // re-checks the client's flag in mark-self-collect, so even if
       // paymentMode was tampered with client-side this can't forge a
@@ -1075,7 +1124,7 @@ export default function PatientDetailsPage() {
         setSelfCollectError("Network error. Please try again.")
         setMarkingSelfCollect(false)
       }
-    } else if (currentStep === 5 && selectedPaymentType) {
+    } else if (currentStep === 6 && selectedPaymentType) {
       // Save payment type to DB
       if (bookingId) {
         await updateBooking(bookingId, {
@@ -1123,6 +1172,11 @@ export default function PatientDetailsPage() {
         scriptToAnotherEmail: contactInfo.scriptToAnotherEmail,
         additionalEmail: contactInfo.additionalEmail,
         paymentType: selectedPaymentType || null,
+        bookingType,
+        scheduledAt:
+          bookingType === "scheduled" && scheduledLocal
+            ? new Date(scheduledLocal).toISOString()
+            : null,
       })
       await discardBooking(bookingId)
     }
@@ -1133,10 +1187,16 @@ export default function PatientDetailsPage() {
     currentStep === 1 ? isStep1Complete :
     currentStep === 2 ? isStep2Complete :
     currentStep === 3 ? isStep3Complete :
-    currentStep === 4 ? true :
-    currentStep === 5
+    currentStep === 4
+      // Step 4 — Booking Type. Always-enabled when 'instant' (the
+      // default); 'scheduled' requires a non-empty datetime-local
+      // value. We don't validate against the future-or-past here —
+      // CareFirst surfaces actual slot availability post-handoff.
+      ? bookingType === "instant" || (bookingType === "scheduled" && scheduledLocal !== "")
+      : currentStep === 5 ? true :  // Verification dialog gates further progression
+    currentStep === 6
       ? paymentMode === "monthly_invoice"
-        ? false  // step 5 is auto-skipped for monthly clients — disable Next while we wait for the redirect
+        ? false  // step 6 is auto-skipped for monthly clients — disable Next while we wait for the redirect
         : paymentMode === "self_collect"
         ? !markingSelfCollect
         : paymentMode === "checking"
@@ -1203,10 +1263,17 @@ export default function PatientDetailsPage() {
         >
           {STEP_LABELS.map((label, index) => {
             const stepNumber = index + 1
-            // Step 5 (payment) maps to step indicator 4
-            const displayStep = currentStep > 4 ? 4 : currentStep
+            // Step 6 (payment) maps to step indicator 5 — payment is
+            // the implicit final step that doesn't get its own pill,
+            // so while on it we render the Verification indicator
+            // (step 5) as active. STEP_LABELS only has 5 entries.
+            const displayStep = currentStep > 5 ? 5 : currentStep
             const isActive = stepNumber === displayStep
-            const isCompleted = stepNumber < displayStep || (currentStep === 5 && stepNumber < 4)
+            // While on the payment step (6), all 5 prior indicators
+            // are completed.
+            const isCompleted =
+              stepNumber < displayStep ||
+              (currentStep === 6 && stepNumber < 6)
 
             return (
               <div
@@ -1446,15 +1513,136 @@ export default function PatientDetailsPage() {
           </div>
         )}
 
-        {/* Step 4 - Verify Details */}
+        {/* Step 4 - Booking Type */}
         {currentStep === 4 && (
+          <div
+            data-testid="step-booking-type"
+            className="flex w-full max-w-4xl flex-col gap-6"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                Step 4 of {TOTAL_STEPS}
+              </span>
+              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+                Select booking type
+              </h1>
+              <p className="text-base text-gray-500">
+                Choose whether the consultation should start now or be
+                scheduled for a future date and time.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Instant Consult — the standard flow since launch. */}
+              <button
+                type="button"
+                data-testid="booking-type-instant"
+                onClick={() => setBookingType("instant")}
+                className={`flex items-start gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
+                  bookingType === "instant"
+                    ? "border-[var(--client-primary)] bg-[#CDE5F2]"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 ${
+                    bookingType === "instant"
+                      ? "border-[var(--client-primary)] bg-[var(--client-primary)]"
+                      : "border-gray-300 bg-white"
+                  }`}
+                >
+                  {bookingType === "instant" && (
+                    <span className="size-3 rounded-full bg-white" />
+                  )}
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-gray-900">
+                    Instant Consult
+                  </span>
+                  <span className="text-xs text-gray-600">
+                    Consultation begins right after the booking is
+                    confirmed.
+                  </span>
+                </div>
+              </button>
+
+              {/* Schedule Consult — captures a future datetime. */}
+              <button
+                type="button"
+                data-testid="booking-type-scheduled"
+                onClick={() => setBookingType("scheduled")}
+                className={`flex items-start gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
+                  bookingType === "scheduled"
+                    ? "border-[var(--client-primary)] bg-[#CDE5F2]"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 ${
+                    bookingType === "scheduled"
+                      ? "border-[var(--client-primary)] bg-[var(--client-primary)]"
+                      : "border-gray-300 bg-white"
+                  }`}
+                >
+                  {bookingType === "scheduled" && (
+                    <span className="size-3 rounded-full bg-white" />
+                  )}
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-gray-900">
+                    Schedule Consult
+                  </span>
+                  <span className="text-xs text-gray-600">
+                    Pick a date and time for the consultation. The slot
+                    is finalised by CareFirst on their side.
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            {/* Datetime picker — only visible when "scheduled" is
+                selected. Native input keeps mobile + desktop both
+                covered without extra component code; CareFirst is the
+                source of truth for actual slot availability so we
+                deliberately don't pre-validate. */}
+            {bookingType === "scheduled" && (
+              <div
+                data-testid="booking-type-datetime-row"
+                className="flex w-full max-w-md flex-col gap-2"
+              >
+                <label
+                  htmlFor="scheduled-at"
+                  className="text-xs font-semibold uppercase tracking-wider text-gray-500"
+                >
+                  Preferred date &amp; time
+                </label>
+                <input
+                  id="scheduled-at"
+                  data-testid="input-scheduled-at"
+                  type="datetime-local"
+                  value={scheduledLocal}
+                  onChange={(e) => setScheduledLocal(e.target.value)}
+                  className="h-14 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900"
+                />
+                <span className="text-xs text-gray-500">
+                  CareFirst confirms the actual slot when the
+                  consultation is started.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 5 - Verify Details (was step 4 before the Booking Type
+            step was inserted). */}
+        {currentStep === 5 && (
           <div
             data-testid="step-verify-details"
             className="flex w-full max-w-4xl flex-col gap-8"
           >
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                Step 4 of {TOTAL_STEPS}
+                Step 5 of {TOTAL_STEPS}
               </span>
               <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
                 Verify your Details
@@ -1702,7 +1890,7 @@ export default function PatientDetailsPage() {
                                   past step 5 to /payment/success
               - gateway         → existing "Pay on device" picker
               - checking        → spinner placeholder while we resolve mode */}
-        {currentStep === 5 && paymentMode === "monthly_invoice" && (
+        {currentStep === 6 && paymentMode === "monthly_invoice" && (
           <div
             data-testid="step-payment-type-monthly"
             className="flex w-full max-w-4xl flex-col items-center gap-4 py-12 text-center"
@@ -1722,7 +1910,7 @@ export default function PatientDetailsPage() {
           </div>
         )}
 
-        {currentStep === 5 && paymentMode === "checking" && (
+        {currentStep === 6 && paymentMode === "checking" && (
           <div
             data-testid="step-payment-type-loading"
             className="flex w-full max-w-4xl items-center justify-center py-12"
@@ -1734,7 +1922,7 @@ export default function PatientDetailsPage() {
           </div>
         )}
 
-        {currentStep === 5 && paymentMode === "self_collect" && (
+        {currentStep === 6 && paymentMode === "self_collect" && (
           <div
             data-testid="step-payment-type-self-collect"
             className="flex w-full max-w-4xl flex-col gap-6"
@@ -1771,7 +1959,7 @@ export default function PatientDetailsPage() {
           </div>
         )}
 
-        {currentStep === 5 && paymentMode === "gateway" && (
+        {currentStep === 6 && paymentMode === "gateway" && (
           <div
             data-testid="step-payment-type"
             className="flex w-full max-w-4xl flex-col gap-6"
@@ -1915,7 +2103,10 @@ export default function PatientDetailsPage() {
                 setBookingVerificationCode("")
                 setVerificationError("")
                 setShowSuccessBanner(true)
-                setCurrentStep(5)
+                // Verification dialog success → advance to step 6
+                // (payment). Was step 5 before the Booking Type step
+                // was inserted at position 4.
+                setCurrentStep(6)
               }}
               disabled={bookingVerificationCode.length < PIN_LENGTH || verifying}
               className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${

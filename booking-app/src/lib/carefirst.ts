@@ -140,6 +140,18 @@ export interface BookingForHandoff {
   province: string | null
   country: string | null
   postal_code: string | null
+  /**
+   * Per-booking consultation timing. 'instant' = consult begins now;
+   * 'scheduled' = consult is for a future slot. Passed through to
+   * CareFirst so their app can schedule on their side.
+   */
+  booking_type: string | null
+  /**
+   * Requested consultation start time when booking_type='scheduled'.
+   * ISO 8601 timestamp; NULL for instant bookings. Forwarded to
+   * CareFirst as `scheduledAt`.
+   */
+  scheduled_at: string | null
 }
 
 export interface SsoAutoRegisterPayload {
@@ -169,6 +181,18 @@ export interface SsoAutoRegisterPayload {
       } | null
     }
   }
+  /**
+   * Per-booking consultation type. 'instant' = consult begins now,
+   * 'scheduled' = the scheduledAt field below holds the requested
+   * future slot.
+   */
+  bookingType?: "instant" | "scheduled"
+  /**
+   * ISO 8601 timestamp for the requested consultation start when
+   * bookingType='scheduled'. Omitted otherwise. CareFirst handles
+   * the actual slot scheduling on their side.
+   */
+  scheduledAt?: string
   returnUrl?: string
 }
 
@@ -207,6 +231,17 @@ export function buildSsoPayload(
           : null,
       },
     },
+    // Scheduled-consult fields. Only included when the booking is a
+    // scheduled type AND has a non-null scheduled_at — CareFirst is
+    // expected to schedule the consult on their side from this
+    // information. Instant bookings omit these fields entirely so
+    // the payload shape matches what CareFirst already accepts.
+    ...(booking.booking_type === "scheduled" && booking.scheduled_at
+      ? {
+          bookingType: "scheduled" as const,
+          scheduledAt: booking.scheduled_at,
+        }
+      : {}),
     returnUrl: `${config.appUrl}/patient-history`,
   }
 }
