@@ -338,7 +338,19 @@ function extractErrorMessage(body: unknown): string | undefined {
   if (typeof body === "string") return body
   if (typeof body !== "object") return undefined
   const obj = body as Record<string, unknown>
-  for (const key of ["message", "error", "detail", "title"]) {
+  // Key order matters — try the most user-facing first. CareFirst's actual
+  // shape (observed in production): { result: false, displayMessage: "...",
+  // errorMessage: "..." }. Both message keys hold the same human-readable
+  // string. We also fall back to standard REST conventions (message,
+  // error, detail, title) for older / future endpoints.
+  for (const key of [
+    "displayMessage",
+    "errorMessage",
+    "message",
+    "error",
+    "detail",
+    "title",
+  ]) {
     const v = obj[key]
     if (typeof v === "string" && v.trim()) return v.trim()
   }

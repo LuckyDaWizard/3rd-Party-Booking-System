@@ -294,11 +294,15 @@ function StepBasicInfo({
   onChange,
   consentAccepted,
   onConsentChange,
+  idConflictWarning,
+  onCheckIdConflict,
 }: {
   data: BasicInfoData
   onChange: (updated: BasicInfoData) => void
   consentAccepted: boolean
   onConsentChange: (accepted: boolean) => void
+  idConflictWarning: string
+  onCheckIdConflict: () => void
 }) {
   const [idError, setIdError] = useState("")
 
@@ -341,6 +345,11 @@ function StepBasicInfo({
         nationality: extracted.nationality,
       })
     }
+
+    // Once we have a valid ID, also run the cross-record name-conflict
+    // check. Operator-blurring the ID number is the trigger; the parent
+    // owns the check (it has bookingId in scope to exclude self).
+    onCheckIdConflict()
   }
 
   // Determine the ID field label based on selected type
@@ -382,6 +391,7 @@ function StepBasicInfo({
             value={data.firstNames}
             onChange={(v) => handleChange("firstNames", v.replace(/[^a-zA-Z\s-]/g, ""))}
             onClear={() => handleClear("firstNames")}
+            onBlur={onCheckIdConflict}
           />
           <FloatingInput
             id="surname"
@@ -390,6 +400,7 @@ function StepBasicInfo({
             value={data.surname}
             onChange={(v) => handleChange("surname", v.replace(/[^a-zA-Z\s-]/g, ""))}
             onClear={() => handleClear("surname")}
+            onBlur={onCheckIdConflict}
           />
         </div>
 
@@ -404,16 +415,34 @@ function StepBasicInfo({
             onChange={(v) => handleChange("idType", v)}
             options={ID_TYPE_OPTIONS}
           />
-          <FloatingInput
-            id="idNumber"
-            data-testid="input-id-number"
-            label={idFieldLabel}
-            value={data.idNumber}
-            onChange={handleIdNumberChange}
-            onClear={() => { handleClear("idNumber"); setIdError("") }}
-            onBlur={handleIdBlur}
-            error={idError}
-          />
+          <div className="flex flex-col gap-1">
+            <FloatingInput
+              id="idNumber"
+              data-testid="input-id-number"
+              label={idFieldLabel}
+              value={data.idNumber}
+              onChange={handleIdNumberChange}
+              onClear={() => { handleClear("idNumber"); setIdError("") }}
+              onBlur={handleIdBlur}
+              error={idError}
+            />
+            {/* Cross-record warning — fired by the parent when this ID
+                number is already on file under a different patient name.
+                NOT a blocker (operators sometimes need to fix typos on
+                existing records); just flags the conflict so they can
+                verify the patient identity before continuing. CareFirst
+                refuses to register a duplicate ID under a different name,
+                so left unchecked this surfaces later as a Start Consult
+                failure. */}
+            {idConflictWarning && !idError && (
+              <span
+                data-testid="id-conflict-warning"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              >
+                {idConflictWarning}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Row 3: Title + Nationality */}
@@ -702,6 +731,13 @@ export default function PatientDetailsPage() {
   const [verifying, setVerifying] = useState(false)
   const [emailError, setEmailError] = useState("")
   const [contactError, setContactError] = useState("")
+  // Soft warning when the entered ID number is already on file under a
+  // different patient name. Doesn't block Next — operators sometimes
+  // need to fix typos on existing records — but flags the conflict so
+  // they don't unintentionally double-register a CareFirst patient.
+  // (CareFirst rejects duplicate ID numbers across different names with
+  // a 500 + "already registered to a different account" body.)
+  const [idConflictWarning, setIdConflictWarning] = useState("")
   const { activeUnitId } = useAuth()
 
   async function checkEmailExists(email: string) {
@@ -716,6 +752,43 @@ export default function PatientDetailsPage() {
       setEmailError("This email is already associated with another patient")
     } else {
       setEmailError("")
+    }
+  }
+
+  // Cross-record check: is this ID number already on file under a
+  // DIFFERENT patient name? Pure warning — operators sometimes need to
+  // fix typos on existing rows, so a hard block would be too aggressive.
+  // Defends against the CareFirst handoff failing later with "already
+  // registered to a different account" (HTTP 500).
+  async function checkIdConflict() {
+    const idNumber = basicInfo.idNumber.trim()
+    const firstName = basicInfo.firstNames.trim().toLowerCase()
+    const surnameLc = basicInfo.surname.trim().toLowerCase()
+    // Need all three to do a meaningful comparison.
+    if (!idNumber || !firstName || !surnameLc) {
+      setIdConflictWarning("")
+      return
+    }
+    const { data } = await supabase
+      .from("bookings")
+      .select("first_names, surname")
+      .eq("id_number", idNumber)
+      .neq("id", bookingId || "")
+      .limit(5)
+    const conflict = (data ?? []).find((row) => {
+      const fn = (row.first_names ?? "").trim().toLowerCase()
+      const sn = (row.surname ?? "").trim().toLowerCase()
+      // Skip rows that are missing names — they're old drafts.
+      if (!fn && !sn) return false
+      return fn !== firstName || sn !== surnameLc
+    })
+    if (conflict) {
+      const otherName = `${conflict.first_names ?? ""} ${conflict.surname ?? ""}`.trim() || "another patient"
+      setIdConflictWarning(
+        `This ID number is already on file for ${otherName}. Verify the patient identity before continuing — CareFirst will reject the consultation handoff if the same ID is registered under a different name.`
+      )
+    } else {
+      setIdConflictWarning("")
     }
   }
 
@@ -997,6 +1070,8 @@ export default function PatientDetailsPage() {
             onChange={setBasicInfo}
             consentAccepted={consentAccepted}
             onConsentChange={setConsentAccepted}
+            idConflictWarning={idConflictWarning}
+            onCheckIdConflict={checkIdConflict}
           />
         )}
 
