@@ -57,14 +57,15 @@ export default function PaymentSuccessPage() {
   const isMonthlyInvoiceBooking = bookingPaymentType === "monthly_invoice"
   const isNonGatewayBooking = isSelfCollectBooking || isMonthlyInvoiceBooking
 
-  // Sub-flag for monthly_invoice clients: if the parent client has
-  // skip_patient_metrics = TRUE, the redirect after the countdown
-  // bypasses /patient-metrics and goes straight to /create-booking/creating.
-  // Resolved via /api/bookings/[id]/payment-mode on mount; kept in
-  // local state so the countdown doesn't have to wait for the fetch.
+  // Sub-flag for non-gateway clients (monthly_invoice OR self_collect):
+  // if the parent client has skip_patient_metrics = TRUE, the redirect
+  // after the countdown bypasses /patient-metrics and goes straight to
+  // /create-booking/creating. Resolved via /api/bookings/[id]/payment-mode
+  // on mount; kept in local state so the countdown doesn't have to wait
+  // for the fetch.
   const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
   useEffect(() => {
-    if (!bookingId || !isMonthlyInvoiceBooking) return
+    if (!bookingId || !isNonGatewayBooking) return
     let cancelled = false
     fetch(`/api/bookings/${bookingId}/payment-mode`)
       .then(async (res) => {
@@ -83,7 +84,7 @@ export default function PaymentSuccessPage() {
     return () => {
       cancelled = true
     }
-  }, [bookingId, isMonthlyInvoiceBooking])
+  }, [bookingId, isNonGatewayBooking])
 
   const nextStepHref = skipPatientMetrics
     ? `/create-booking/creating?bookingId=${bookingId}`

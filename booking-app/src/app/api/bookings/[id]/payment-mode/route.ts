@@ -92,12 +92,14 @@ export async function GET(_request: Request, context: RouteContext) {
       } | null
       collectAtUnit = c?.collect_payment_at_unit ?? false
       billMonthly = c?.bill_monthly ?? false
-      // Sub-flag is only effective when bill_monthly is TRUE. If the DB
-      // ever has skip_patient_metrics=true with bill_monthly=false (it
+      // Sub-flag is effective when EITHER non-gateway billing mode is
+      // ON (bill_monthly OR collect_payment_at_unit). If the DB ever
+      // has skip_patient_metrics=true with both billing flags off (it
       // shouldn't — server PATCH clamps that), still suppress here so
-      // the booking flow doesn't accidentally skip metrics for a non-
-      // monthly client.
-      skipPatientMetrics = billMonthly && (c?.skip_patient_metrics ?? false)
+      // the booking flow doesn't accidentally skip metrics for a
+      // gateway client.
+      skipPatientMetrics =
+        (billMonthly || collectAtUnit) && (c?.skip_patient_metrics ?? false)
     }
   }
 

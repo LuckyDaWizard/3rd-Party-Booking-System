@@ -134,20 +134,22 @@ export async function PATCH(request: Request, context: RouteContext) {
     dbUpdates.collect_payment_at_unit = false
   } else if (body.collectPaymentAtUnit === true) {
     dbUpdates.bill_monthly = false
-    // Cascade: skip_patient_metrics is sub to bill_monthly. If the
-    // operator turns OFF monthly billing (by turning ON self-collect),
-    // any pre-existing skip-metrics flag has to come off too — it's
-    // meaningless without monthly_invoice in the booking flow.
-    dbUpdates.skip_patient_metrics = false
   }
-  // Defensive: if bill_monthly is being set to FALSE explicitly, clear
-  // skip_patient_metrics in the same write so we don't end up with the
-  // sub-flag dangling on a non-monthly client.
+
+  // skip_patient_metrics is a sub-flag of EITHER non-gateway billing
+  // mode (bill_monthly OR collect_payment_at_unit). It only makes sense
+  // when at least one is ON. Force it FALSE only when the post-update
+  // state has BOTH billing flags FALSE — i.e. when the client is back
+  // on the standard PayFast gateway flow.
   const effectiveBillMonthly =
-    body.billMonthly !== undefined
-      ? body.billMonthly
+    dbUpdates.bill_monthly !== undefined
+      ? (dbUpdates.bill_monthly as boolean)
       : (current?.bill_monthly ?? false)
-  if (effectiveBillMonthly === false) {
+  const effectiveCollectAtUnit =
+    dbUpdates.collect_payment_at_unit !== undefined
+      ? (dbUpdates.collect_payment_at_unit as boolean)
+      : (current?.collect_payment_at_unit ?? false)
+  if (!effectiveBillMonthly && !effectiveCollectAtUnit) {
     dbUpdates.skip_patient_metrics = false
   }
 

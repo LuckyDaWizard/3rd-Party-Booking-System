@@ -559,44 +559,96 @@ export default function ManageClientPage() {
               {isSystemAdmin && (
                 <div
                   data-testid="collect-payment-toggle-row"
-                  className="flex items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4"
+                  className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
                 >
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-gray-900">
-                      Collect payment at unit
-                    </span>
-                    <span className="text-xs text-gray-600">
-                      When ON, every unit under this client skips the
-                      payment gateway. Each unit is responsible for
-                      collecting the consultation fee directly from the
-                      patient.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={collectPaymentAtUnit}
-                    aria-label="Collect payment at unit"
-                    data-testid="collect-payment-toggle"
-                    onClick={() => {
-                      setCollectPaymentAtUnit((v) => {
-                        const next = !v
-                        if (next) setBillMonthly(false)
-                        return next
-                      })
-                    }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                      collectPaymentAtUnit
-                        ? "bg-[var(--client-primary)]"
-                        : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
-                        collectPaymentAtUnit ? "translate-x-5" : "translate-x-0.5"
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-900">
+                        Collect payment at unit
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        When ON, every unit under this client skips the
+                        payment gateway. Each unit is responsible for
+                        collecting the consultation fee directly from the
+                        patient.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={collectPaymentAtUnit}
+                      aria-label="Collect payment at unit"
+                      data-testid="collect-payment-toggle"
+                      onClick={() => {
+                        setCollectPaymentAtUnit((v) => {
+                          const next = !v
+                          if (next) {
+                            setBillMonthly(false)
+                          } else if (!billMonthly) {
+                            // Both billing modes off → cascade the
+                            // sub-flag off too. Keeps it on if the
+                            // operator is mid-toggle to monthly.
+                            setSkipPatientMetrics(false)
+                          }
+                          return next
+                        })
+                      }}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                        collectPaymentAtUnit
+                          ? "bg-[var(--client-primary)]"
+                          : "bg-gray-300"
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                          collectPaymentAtUnit ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Sub-option — only visible when self-collect is ON.
+                      The same flag (skip_patient_metrics) backs both
+                      this toggle and the one inside the blue
+                      bill-monthly panel; they're alternate UI surfaces
+                      for the same client-level setting. */}
+                  {collectPaymentAtUnit && (
+                    <div
+                      data-testid="skip-patient-metrics-toggle-row-self-collect"
+                      className="ml-4 flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-white px-4 py-3"
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-gray-900">
+                          Skip patient metrics
+                        </span>
+                        <span className="text-xs text-gray-600">
+                          When ON, bookings also skip the
+                          &ldquo;Enter patient metrics&rdquo; step.
+                          Operators go from the booking flow directly
+                          to the consultation handoff.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={skipPatientMetrics}
+                        aria-label="Skip patient metrics"
+                        data-testid="skip-patient-metrics-toggle-self-collect"
+                        onClick={() => setSkipPatientMetrics((v) => !v)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                          skipPatientMetrics
+                            ? "bg-[var(--client-primary)]"
+                            : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                            skipPatientMetrics ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -628,10 +680,10 @@ export default function ManageClientPage() {
                           const next = !v
                           if (next) {
                             setCollectPaymentAtUnit(false)
-                          } else {
-                            // Turning monthly OFF cascades the sub-flag
-                            // off too — patient-metrics-skip is
-                            // meaningless without monthly invoicing.
+                          } else if (!collectPaymentAtUnit) {
+                            // Both billing modes off → cascade the
+                            // sub-flag off too. Keeps it on if the
+                            // operator is mid-toggle to self-collect.
                             setSkipPatientMetrics(false)
                           }
                           return next
