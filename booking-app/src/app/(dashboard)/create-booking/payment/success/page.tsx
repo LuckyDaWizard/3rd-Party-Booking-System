@@ -141,9 +141,28 @@ export default function PaymentSuccessPage() {
     }
   }, [state, checkStatus])
 
-  // Countdown to redirect, only once confirmed.
+  // Non-gateway bookings shouldn't see the countdown — no PayFast
+  // transaction was made, so there's nothing to "confirm" and the 10s
+  // wait is dead time. Primary paths (patient-details step 5,
+  // /payment safety net) now route past this page entirely; this
+  // effect catches any straggler that lands here directly (refresh,
+  // bookmark, manual URL), and immediately fast-forwards to the
+  // next step.
   useEffect(() => {
-    if (state !== "confirmed") return
+    if (!isNonGatewayBooking || !bookingId) return
+    if (state === "confirmed") {
+      // Already confirmed — short-circuit the countdown by navigating
+      // immediately. The countdown effect below also short-circuits
+      // because state will have moved on.
+      router.push(nextStepHref)
+    }
+  }, [isNonGatewayBooking, state, router, nextStepHref, bookingId])
+
+  // Countdown to redirect, only once confirmed AND it's a gateway
+  // booking. Non-gateway bookings are fast-forwarded by the effect
+  // above, so the countdown never runs for them.
+  useEffect(() => {
+    if (state !== "confirmed" || isNonGatewayBooking) return
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -157,7 +176,7 @@ export default function PaymentSuccessPage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [state, router, nextStepHref])
+  }, [state, router, nextStepHref, isNonGatewayBooking])
 
   const formatted = `00:${countdown.toString().padStart(2, "0")}`
 

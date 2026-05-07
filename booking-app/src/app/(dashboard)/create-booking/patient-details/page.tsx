@@ -639,6 +639,11 @@ export default function PatientDetailsPage() {
   // This ref guards against double-firing on re-renders.
   const monthlyAutoSkipFiredRef = useRef(false)
   const [monthlyAutoSkipError, setMonthlyAutoSkipError] = useState("")
+  // Sub-flag from payment-mode endpoint. When TRUE for a non-gateway
+  // booking, the post-payment navigation skips /patient-metrics and
+  // goes straight to /creating. Defaults to FALSE; only flipped to
+  // TRUE if the API confirms it for this booking's parent client.
+  const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
 
   // Resolve the booking's payment mode from the parent client's
   // collect_payment_at_unit flag. We refetch when bookingId changes (i.e.
@@ -667,6 +672,7 @@ export default function PatientDetailsPage() {
         }
         const data = (await res.json().catch(() => ({}))) as {
           mode?: "gateway" | "self_collect" | "monthly_invoice"
+          skipPatientMetrics?: boolean
         }
         if (cancelled) return
         setPaymentMode(
@@ -676,6 +682,7 @@ export default function PatientDetailsPage() {
               ? "monthly_invoice"
               : "gateway"
         )
+        if (data.skipPatientMetrics) setSkipPatientMetrics(true)
       })
       .catch(() => {
         if (!cancelled) setPaymentMode("gateway")
@@ -730,7 +737,12 @@ export default function PatientDetailsPage() {
           return
         }
         await refreshBookings()
-        router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+        // Skip /payment/success — no PayFast transaction here.
+        router.push(
+          skipPatientMetrics
+            ? `/create-booking/creating?bookingId=${bookingId}`
+            : `/create-booking/patient-metrics?bookingId=${bookingId}`
+        )
       } catch {
         monthlyAutoSkipFiredRef.current = false
         setMonthlyAutoSkipError(
@@ -738,7 +750,7 @@ export default function PatientDetailsPage() {
         )
       }
     })()
-  }, [currentStep, paymentMode, bookingId, refreshBookings, router])
+  }, [currentStep, paymentMode, bookingId, refreshBookings, router, skipPatientMetrics])
 
   // Determine initial ID type and number from search params or existing booking
   const initialIdType = existingBooking?.idType ?? (searchType === "passport" ? "passport" : "national_id")
@@ -1040,12 +1052,19 @@ export default function PatientDetailsPage() {
           setMarkingSelfCollect(false)
           return
         }
-        // Refresh the booking-store so downstream pages (success page,
-        // T&Cs auto-handoff, patient-history) see the booking's new
+        // Refresh the booking-store so downstream pages (T&Cs
+        // auto-handoff, patient-history) see the booking's new
         // status + payment_type immediately. Without this the row in
         // the local store is briefly out of sync with the DB.
         await refreshBookings()
-        router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+        // Skip /payment/success entirely — no PayFast transaction was
+        // made, so a "Confirming Payment..." page + 10s countdown is
+        // misleading dead time. Navigate directly to the next step.
+        router.push(
+          skipPatientMetrics
+            ? `/create-booking/creating?bookingId=${bookingId}`
+            : `/create-booking/patient-metrics?bookingId=${bookingId}`
+        )
       } catch {
         setSelfCollectError("Network error. Please try again.")
         setMarkingSelfCollect(false)

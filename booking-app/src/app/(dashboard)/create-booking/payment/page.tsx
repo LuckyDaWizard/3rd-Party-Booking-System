@@ -64,6 +64,10 @@ export default function PaymentPage() {
     useState<"checking" | "gateway" | "self_collect" | "monthly_invoice">("checking")
   const [markingSelfCollect, setMarkingSelfCollect] = useState(false)
   const [selfCollectError, setSelfCollectError] = useState("")
+  // Sub-flag from payment-mode endpoint. Same purpose as in
+  // patient-details — skip /patient-metrics on the post-success
+  // navigation when the parent client opts in.
+  const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
 
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
@@ -102,6 +106,7 @@ export default function PaymentPage() {
         }
         const data = (await res.json().catch(() => ({}))) as {
           mode?: "gateway" | "self_collect" | "monthly_invoice"
+          skipPatientMetrics?: boolean
         }
         if (cancelled) return
         setPaymentMode(
@@ -111,6 +116,7 @@ export default function PaymentPage() {
               ? "monthly_invoice"
               : "gateway"
         )
+        if (data.skipPatientMetrics) setSkipPatientMetrics(true)
       })
       .catch(() => {
         if (!cancelled) setPaymentMode("gateway")
@@ -127,7 +133,7 @@ export default function PaymentPage() {
   // Auto-skip safety net for monthly_invoice clients. If a user lands
   // here for a monthly-billed booking (Resume Payment from Patient
   // History, old bookmark, etc.), auto-mark and route past — they
-  // never see the PayFast UI.
+  // never see the PayFast UI or the /payment/success countdown.
   const monthlyAutoSkipFiredRef = useRef(false)
   useEffect(() => {
     if (paymentMode !== "monthly_invoice" || !bookingId) return
@@ -147,12 +153,17 @@ export default function PaymentPage() {
           return
         }
         await refreshBookings()
-        router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+        // Skip /payment/success — no PayFast transaction was made.
+        router.push(
+          skipPatientMetrics
+            ? `/create-booking/creating?bookingId=${bookingId}`
+            : `/create-booking/patient-metrics?bookingId=${bookingId}`
+        )
       } catch {
         monthlyAutoSkipFiredRef.current = false
       }
     })()
-  }, [paymentMode, bookingId, refreshBookings, router])
+  }, [paymentMode, bookingId, refreshBookings, router, skipPatientMetrics])
 
   async function handleConfirmSelfCollect() {
     if (markingSelfCollect || !bookingId) return
@@ -172,11 +183,15 @@ export default function PaymentPage() {
         setMarkingSelfCollect(false)
         return
       }
-      // Refresh the booking-store so /payment/success sees the booking's
-      // new status + payment_type immediately and skips the pointless
-      // PayFast reconcile call.
+      // Refresh the booking-store so downstream pages see the booking's
+      // new status + payment_type immediately.
       await refreshBookings()
-      router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+      // Skip /payment/success — no PayFast transaction was made.
+      router.push(
+        skipPatientMetrics
+          ? `/create-booking/creating?bookingId=${bookingId}`
+          : `/create-booking/patient-metrics?bookingId=${bookingId}`
+      )
     } catch {
       setSelfCollectError("Network error. Please try again.")
       setMarkingSelfCollect(false)
