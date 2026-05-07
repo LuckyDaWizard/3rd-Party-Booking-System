@@ -23,7 +23,13 @@ const STEP_LABELS = [
   "Basic Info",
   "Address",
   "Contact Details",
-  "Payment Type",
+  // Step 4 covers nurse PIN re-verification + the patient-data
+  // confirmation screen. The label is "Verification" rather than
+  // "Payment Type" — the actual payment branch (gateway vs self-
+  // collect vs monthly-invoice) renders on step 5 and may be
+  // skipped entirely for non-gateway clients, so the indicator
+  // shouldn't promise a payment step that might not appear.
+  "Verification",
 ]
 
 const ID_TYPE_OPTIONS = [
