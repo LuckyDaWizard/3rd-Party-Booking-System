@@ -658,7 +658,9 @@ export default function PatientHistoryPage() {
               ? "Self-Collect"
               : patient.status === "Abandoned"
                 ? "Incomplete Booking"
-                : patient.status
+                : patient.status === "Successful"
+                  ? "Booking Successful"
+                  : patient.status
             const statusStyle = isSelfCollectComplete
               ? "bg-amber-100 text-amber-800 border-transparent"
               : getStatusStyle(patient.status)

@@ -191,6 +191,28 @@ export async function POST(request: Request, context: RouteContext) {
     "Unknown patient"
 
   if (!result.ok) {
+    // Log CareFirst's raw response server-side so we can diagnose
+    // "HTTP 500" / "HTTP 502" failures where extractErrorMessage couldn't
+    // parse a useful reason out of their response body. This goes to the
+    // container's stderr — visible via `docker logs` on the VPS or in
+    // the dev server output locally.
+    console.error("[start-consultation] CareFirst handoff failed", {
+      bookingId: id,
+      statusCode: result.statusCode,
+      error: result.error,
+      rawResponse: result.rawResponse,
+      payloadSnapshot: {
+        // PII-safe snapshot: enough to pattern-match the cause without
+        // dumping the full booking row to logs.
+        firstName: booking.first_names,
+        idType: booking.id_type,
+        nationality: booking.nationality,
+        gender: booking.gender,
+        country: booking.country,
+        province: booking.province,
+      },
+    })
+
     // Record the failed attempt. Booking stays at "Payment Complete" so the
     // nurse can retry.
     await admin
