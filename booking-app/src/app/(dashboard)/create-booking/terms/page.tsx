@@ -34,9 +34,16 @@ export default function TermsAndConditionsPage() {
 
   const booking = getBooking(bookingId)
   const isSelfCollect = booking?.paymentType === "self_collect"
-  // Auto-handoff is only available to operators who can authorise it.
-  // For a `user` role, the manager handles Start Consult from Patient History.
-  const canAutoStartConsult = isSelfCollect && (isSystemAdmin || isUnitManager)
+  const isMonthlyInvoice = booking?.paymentType === "monthly_invoice"
+  // Auto-handoff applies to ALL non-gateway billing modes. For self-collect
+  // the operator confirmed the cash payment; for monthly_invoice the
+  // booking auto-completed without operator interaction. Either way the
+  // consultation is paid-for and ready, so collapse the two clicks
+  // (Accept + Start Consult later) into one PIN-gated handoff.
+  // For a `user` role, the manager handles Start Consult from Patient
+  // History — operators below manager can't authorise CareFirst handoff.
+  const canAutoStartConsult =
+    (isSelfCollect || isMonthlyInvoice) && (isSystemAdmin || isUnitManager)
 
   const [submitting, setSubmitting] = useState(false)
   const [pinOpen, setPinOpen] = useState(false)
@@ -152,10 +159,15 @@ export default function TermsAndConditionsPage() {
       {canAutoStartConsult && (
         <p
           data-testid="self-collect-handoff-hint"
-          className="max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs text-amber-900"
+          className={`max-w-xl rounded-lg border px-4 py-3 text-center text-xs ${
+            isMonthlyInvoice
+              ? "border-blue-200 bg-blue-50 text-blue-900"
+              : "border-amber-200 bg-amber-50 text-amber-900"
+          }`}
         >
-          This is a self-collect booking. After acceptance you&apos;ll be asked to
-          enter your access PIN, then the consultation will open in a new tab.
+          {isMonthlyInvoice
+            ? "This client is billed monthly. After acceptance you'll be asked to enter your access PIN, then the consultation will open in a new tab."
+            : "This is a self-collect booking. After acceptance you'll be asked to enter your access PIN, then the consultation will open in a new tab."}
         </p>
       )}
 

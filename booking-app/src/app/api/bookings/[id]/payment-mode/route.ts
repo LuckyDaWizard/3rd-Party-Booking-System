@@ -6,9 +6,13 @@ import { requireAuthenticated } from "@/lib/api-auth"
 // GET /api/bookings/[id]/payment-mode
 //
 // Returns the payment mode for a booking, derived from the parent client's
-// `collect_payment_at_unit` flag:
-//   { mode: "gateway" }       → normal PayFast flow
-//   { mode: "self_collect" }  → unit collects fee directly, skip gateway
+// billing flags (mutually exclusive at the UI; server resolves
+// monthly_invoice first if both ever arrive TRUE):
+//   { mode: "gateway" }          → normal PayFast flow
+//   { mode: "self_collect" }     → unit collects fee directly, skip gateway
+//   { mode: "monthly_invoice" }  → skip payment step entirely, client
+//                                  invoiced at month-end. Caller should
+//                                  auto-mark complete and bypass step 5.
 //
 // The patient-details step-5 picker and the /payment page both call this on
 // mount so they can render the right UI without speculatively initiating a
@@ -57,9 +61,10 @@ export async function GET(_request: Request, context: RouteContext) {
     }
   }
 
-  // The toggle lives on the parent client. Resolve unit → client_id →
-  // clients.collect_payment_at_unit.
+  // Both flags live on the parent client. Resolve unit → client_id →
+  // clients.{collect_payment_at_unit, bill_monthly}.
   let collectAtUnit = false
+  let billMonthly = false
   if (booking.unit_id) {
     const { data: unit } = await admin
       .from("units")
@@ -70,16 +75,26 @@ export async function GET(_request: Request, context: RouteContext) {
     if (clientId) {
       const { data: client } = await admin
         .from("clients")
-        .select("collect_payment_at_unit")
+        .select("collect_payment_at_unit, bill_monthly")
         .eq("id", clientId)
         .single()
       collectAtUnit =
         (client as { collect_payment_at_unit: boolean | null } | null)
           ?.collect_payment_at_unit ?? false
+      billMonthly =
+        (client as { bill_monthly: boolean | null } | null)
+          ?.bill_monthly ?? false
     }
   }
 
-  return NextResponse.json({
-    mode: collectAtUnit ? "self_collect" : "gateway",
-  })
+  // Resolution: monthly_invoice wins if both ever end up TRUE (defensive
+  // — UI enforces mutual exclusion, server PATCH also clamps, but the
+  // resolver shouldn't drop into self_collect for a misconfigured row).
+  const mode = billMonthly
+    ? "monthly_invoice"
+    : collectAtUnit
+      ? "self_collect"
+      : "gateway"
+
+  return NextResponse.json({ mode })
 }

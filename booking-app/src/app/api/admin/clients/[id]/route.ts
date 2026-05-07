@@ -33,6 +33,14 @@ interface UpdateClientBody {
    * requireSystemAdminWithCaller so this is structurally enforced.
    */
   collectPaymentAtUnit?: boolean
+  /**
+   * When TRUE, every booking under this client skips the payment step
+   * entirely — auto-marked Payment Complete with payment_type =
+   * 'monthly_invoice'. Mutually exclusive with collectPaymentAtUnit
+   * at the UI; if both arrive TRUE on the same PATCH (shouldn't be
+   * possible via the UI), monthly_invoice wins downstream.
+   */
+  billMonthly?: boolean
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -96,7 +104,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly")
     .eq("id", id)
     .single()
 
@@ -109,6 +117,17 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.status !== undefined) dbUpdates.status = body.status
   if (normalisedAccent !== undefined) dbUpdates.accent_color = normalisedAccent
   if (body.collectPaymentAtUnit !== undefined) dbUpdates.collect_payment_at_unit = body.collectPaymentAtUnit
+  if (body.billMonthly !== undefined) dbUpdates.bill_monthly = body.billMonthly
+
+  // Mutual exclusion: turning one billing-mode flag ON forces the other
+  // OFF. The UI already enforces this, but a malformed request that
+  // ships both TRUE would produce inconsistent server state — defend
+  // against it here. Order of precedence: monthly_invoice wins.
+  if (body.billMonthly === true) {
+    dbUpdates.collect_payment_at_unit = false
+  } else if (body.collectPaymentAtUnit === true) {
+    dbUpdates.bill_monthly = false
+  }
 
   if (Object.keys(dbUpdates).length === 0) {
     return NextResponse.json({ ok: true })
@@ -146,6 +165,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Collect Payment At Unit"] = {
       old: current?.collect_payment_at_unit ?? false,
       new: body.collectPaymentAtUnit,
+    }
+  if (
+    body.billMonthly !== undefined &&
+    body.billMonthly !== (current?.bill_monthly ?? false)
+  )
+    changes["Bill Monthly"] = {
+      old: current?.bill_monthly ?? false,
+      new: body.billMonthly,
     }
 
   if (Object.keys(changes).length > 0) {

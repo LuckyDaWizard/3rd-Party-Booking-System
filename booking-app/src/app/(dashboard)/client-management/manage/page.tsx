@@ -85,6 +85,13 @@ export default function ManageClientPage() {
   // `payment_type = 'self_collect'` and the unit collects the fee
   // directly. Saved with the rest of the form on Update Information.
   const [collectPaymentAtUnit, setCollectPaymentAtUnit] = useState(false)
+  // Monthly-invoice flag (system_admin-only). When ON, bookings under
+  // this client skip the payment STEP entirely — auto-marked as
+  // `payment_type = 'monthly_invoice'` with no operator interaction.
+  // Mutually exclusive with collectPaymentAtUnit at the UI: turning one
+  // ON forces the other OFF in local state. Server PATCH double-checks
+  // and clamps if both ever arrive TRUE.
+  const [billMonthly, setBillMonthly] = useState(false)
   // Tabbed layout — matches the Add Client flow.
   //   details  → contact form (editable)
   //   branding → logo / favicon / accent picker (editable)
@@ -125,6 +132,7 @@ export default function ManageClientPage() {
       setFaviconUrl(client.faviconUrl)
       setAccentColor(client.accentColor ?? DEFAULT_ACCENT)
       setCollectPaymentAtUnit(client.collectPaymentAtUnit)
+      setBillMonthly(client.billMonthly)
     }
   }, [client])
 
@@ -239,7 +247,9 @@ export default function ManageClientPage() {
         // to flip it. The API is system_admin-only so this is also
         // structurally enforced server-side; the omission here just
         // avoids sending a no-op field for non-admins.
-        ...(isSystemAdmin ? { collectPaymentAtUnit } : {}),
+        ...(isSystemAdmin
+          ? { collectPaymentAtUnit, billMonthly }
+          : {}),
       })
       router.push("/client-management")
     } catch (err) {
@@ -534,11 +544,13 @@ export default function ManageClientPage() {
                 onClear={() => setContactNumber("")}
               />
 
-              {/* Collect payment at unit (system_admin only) — applies to
-                  ALL units under this client. Bookings on a self-collect
-                  client skip the payment gateway entirely; the unit
-                  collects the consultation fee directly. Saved with the
-                  rest of the form on Update Information. */}
+              {/* Billing-mode toggles (system_admin only). Mutually
+                  exclusive — turning one ON forces the other OFF in
+                  local state; the server PATCH route also clamps if
+                  both ever arrive TRUE. The visual contrast (amber for
+                  self-collect, blue for monthly-invoice) carries
+                  through to the patient-history pills + the booking
+                  flow's step-5 panels. */}
               {isSystemAdmin && (
                 <div
                   data-testid="collect-payment-toggle-row"
@@ -561,7 +573,13 @@ export default function ManageClientPage() {
                     aria-checked={collectPaymentAtUnit}
                     aria-label="Collect payment at unit"
                     data-testid="collect-payment-toggle"
-                    onClick={() => setCollectPaymentAtUnit((v) => !v)}
+                    onClick={() => {
+                      setCollectPaymentAtUnit((v) => {
+                        const next = !v
+                        if (next) setBillMonthly(false)
+                        return next
+                      })
+                    }}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
                       collectPaymentAtUnit
                         ? "bg-[var(--client-primary)]"
@@ -571,6 +589,48 @@ export default function ManageClientPage() {
                     <span
                       className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
                         collectPaymentAtUnit ? "translate-x-5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {isSystemAdmin && (
+                <div
+                  data-testid="bill-monthly-toggle-row"
+                  className="flex items-start justify-between gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4"
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-gray-900">
+                      Bill at end of month
+                    </span>
+                    <span className="text-xs text-gray-600">
+                      When ON, bookings under this client skip the
+                      payment step entirely and auto-complete. The
+                      client is invoiced separately at month-end.
+                      Operators go straight to the consultation.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={billMonthly}
+                    aria-label="Bill at end of month"
+                    data-testid="bill-monthly-toggle"
+                    onClick={() => {
+                      setBillMonthly((v) => {
+                        const next = !v
+                        if (next) setCollectPaymentAtUnit(false)
+                        return next
+                      })
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                      billMonthly ? "bg-blue-600" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                        billMonthly ? "translate-x-5" : "translate-x-0.5"
                       }`}
                     />
                   </button>

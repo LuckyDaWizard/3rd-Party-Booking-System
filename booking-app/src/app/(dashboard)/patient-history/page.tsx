@@ -39,6 +39,13 @@ interface PatientRecord {
    * was collected.
    */
   selfCollect: boolean
+  /**
+   * TRUE when the booking is on a monthly-invoice client
+   * (`payment_type === "monthly_invoice"`). Same pattern as selfCollect,
+   * but the pill renders blue instead of amber so the two non-gateway
+   * modes are visually distinct.
+   */
+  monthlyInvoice: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -394,6 +401,7 @@ export default function PatientHistoryPage() {
     patientIdNumber: maskIdNumber(b.idNumber),
     patientType: "Cash Reservation",
     selfCollect: b.paymentType === "self_collect",
+    monthlyInvoice: b.paymentType === "monthly_invoice",
     date: new Date(b.createdAt).toLocaleString("en-ZA", {
       year: "numeric",
       month: "2-digit",
@@ -646,28 +654,37 @@ export default function PatientHistoryPage() {
           </div>
         ) : (
           visiblePatients.map((patient) => {
-            // For self-collect bookings the "Payment Complete" pill becomes
-            // an amber "Self-Collect" pill — semantically the same (payment
-            // is done) but tells the operator at a glance how the fee was
-            // collected. Other statuses are unchanged. The amber-100 +
-            // amber-800 pair contrasts cleanly against the green-100
-            // "Successful" pill so a row's full lifecycle stays scannable.
+            // For non-gateway "Payment Complete" bookings the pill is
+            // recoloured + relabelled so operators see at a glance how the
+            // booking was paid. Other statuses are unchanged.
+            //   - self_collect    → amber "Self-Collect"
+            //   - monthly_invoice → blue  "Monthly Invoice"
+            // The amber and blue pairs both contrast cleanly against the
+            // green-100 "Successful" pill so a row's full lifecycle stays
+            // scannable.
             const isSelfCollectComplete =
               patient.selfCollect && patient.status === "Payment Complete"
+            const isMonthlyInvoiceComplete =
+              patient.monthlyInvoice && patient.status === "Payment Complete"
             const statusLabel = isSelfCollectComplete
               ? "Self-Collect"
-              : patient.status === "Abandoned"
-                ? "Incomplete Booking"
-                : patient.status === "Successful"
-                  ? "Booking Successful"
-                  : patient.status
+              : isMonthlyInvoiceComplete
+                ? "Monthly Invoice"
+                : patient.status === "Abandoned"
+                  ? "Incomplete Booking"
+                  : patient.status === "Successful"
+                    ? "Booking Successful"
+                    : patient.status
             const statusStyle = isSelfCollectComplete
               ? "bg-amber-100 text-amber-800 border-transparent"
-              : getStatusStyle(patient.status)
+              : isMonthlyInvoiceComplete
+                ? "bg-blue-100 text-blue-800 border-transparent"
+                : getStatusStyle(patient.status)
             const statusBadge = (
               <Badge
                 data-testid={`status-badge-${patient.id}`}
                 data-self-collect={isSelfCollectComplete ? "true" : undefined}
+                data-monthly-invoice={isMonthlyInvoiceComplete ? "true" : undefined}
                 className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${statusStyle}`}
               >
                 {statusLabel}

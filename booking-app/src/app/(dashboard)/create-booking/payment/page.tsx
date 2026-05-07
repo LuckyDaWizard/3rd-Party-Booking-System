@@ -61,7 +61,7 @@ export default function PaymentPage() {
   // client's `collect_payment_at_unit` flag. "checking" until the API
   // resolves; "gateway" is the default.
   const [paymentMode, setPaymentMode] =
-    useState<"checking" | "gateway" | "self_collect">("checking")
+    useState<"checking" | "gateway" | "self_collect" | "monthly_invoice">("checking")
   const [markingSelfCollect, setMarkingSelfCollect] = useState(false)
   const [selfCollectError, setSelfCollectError] = useState("")
 
@@ -101,10 +101,16 @@ export default function PaymentPage() {
           return
         }
         const data = (await res.json().catch(() => ({}))) as {
-          mode?: "gateway" | "self_collect"
+          mode?: "gateway" | "self_collect" | "monthly_invoice"
         }
         if (cancelled) return
-        setPaymentMode(data.mode === "self_collect" ? "self_collect" : "gateway")
+        setPaymentMode(
+          data.mode === "self_collect"
+            ? "self_collect"
+            : data.mode === "monthly_invoice"
+              ? "monthly_invoice"
+              : "gateway"
+        )
       })
       .catch(() => {
         if (!cancelled) setPaymentMode("gateway")
@@ -117,6 +123,36 @@ export default function PaymentPage() {
       controller.abort()
     }
   }, [bookingId])
+
+  // Auto-skip safety net for monthly_invoice clients. If a user lands
+  // here for a monthly-billed booking (Resume Payment from Patient
+  // History, old bookmark, etc.), auto-mark and route past — they
+  // never see the PayFast UI.
+  const monthlyAutoSkipFiredRef = useRef(false)
+  useEffect(() => {
+    if (paymentMode !== "monthly_invoice" || !bookingId) return
+    if (monthlyAutoSkipFiredRef.current) return
+    monthlyAutoSkipFiredRef.current = true
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/bookings/${bookingId}/mark-monthly-invoice`,
+          { method: "POST" }
+        )
+        if (!res.ok) {
+          monthlyAutoSkipFiredRef.current = false
+          // Fall through — render still shows the spinner; user can
+          // refresh to retry. Failure here is rare (bookings already
+          // checked the same flag at step 5 entry).
+          return
+        }
+        await refreshBookings()
+        router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+      } catch {
+        monthlyAutoSkipFiredRef.current = false
+      }
+    })()
+  }, [paymentMode, bookingId, refreshBookings, router])
 
   async function handleConfirmSelfCollect() {
     if (markingSelfCollect || !bookingId) return
@@ -266,13 +302,28 @@ export default function PaymentPage() {
         </Button>
       </div>
 
-      {/* Content — checking spinner / self-collect panel / gateway UI */}
+      {/* Content — checking / monthly_invoice spinner / self-collect panel / gateway UI */}
       {paymentMode === "checking" && (
         <div className="mx-auto flex w-full max-w-4xl items-center justify-center py-12">
           <svg className="size-8 animate-spin text-gray-400" viewBox="0 0 40 40" fill="none">
             <circle cx="20" cy="20" r="15" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />
             <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
           </svg>
+        </div>
+      )}
+
+      {paymentMode === "monthly_invoice" && (
+        <div
+          data-testid="payment-monthly-invoice"
+          className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 py-12 text-center"
+        >
+          <svg className="size-8 animate-spin text-gray-400" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="15" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />
+            <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+          </svg>
+          <span className="text-sm font-medium text-gray-700">
+            This client is billed monthly — no payment needed. Continuing to the consultation...
+          </span>
         </div>
       )}
 

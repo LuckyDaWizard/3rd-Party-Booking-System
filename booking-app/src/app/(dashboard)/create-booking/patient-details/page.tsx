@@ -628,9 +628,17 @@ export default function PatientDetailsPage() {
   // collected at unit" affordance instead. "checking" while we wait for
   // the API; "gateway" is the default until proven otherwise.
   const [paymentMode, setPaymentMode] =
-    useState<"checking" | "gateway" | "self_collect">("gateway")
+    useState<"checking" | "gateway" | "self_collect" | "monthly_invoice">(
+      "gateway"
+    )
   const [markingSelfCollect, setMarkingSelfCollect] = useState(false)
   const [selfCollectError, setSelfCollectError] = useState("")
+  // Auto-skip path for monthly_invoice clients: the operator never sees
+  // step 5. When paymentMode resolves to "monthly_invoice" while step 5
+  // is mounted, we auto-fire mark-monthly-invoice and route past it.
+  // This ref guards against double-firing on re-renders.
+  const monthlyAutoSkipFiredRef = useRef(false)
+  const [monthlyAutoSkipError, setMonthlyAutoSkipError] = useState("")
 
   // Resolve the booking's payment mode from the parent client's
   // collect_payment_at_unit flag. We refetch when bookingId changes (i.e.
@@ -658,15 +666,26 @@ export default function PatientDetailsPage() {
           return
         }
         const data = (await res.json().catch(() => ({}))) as {
-          mode?: "gateway" | "self_collect"
+          mode?: "gateway" | "self_collect" | "monthly_invoice"
         }
         if (cancelled) return
-        setPaymentMode(data.mode === "self_collect" ? "self_collect" : "gateway")
+        setPaymentMode(
+          data.mode === "self_collect"
+            ? "self_collect"
+            : data.mode === "monthly_invoice"
+              ? "monthly_invoice"
+              : "gateway"
+        )
       })
       .catch(() => {
         if (!cancelled) setPaymentMode("gateway")
       })
       .finally(() => clearTimeout(timeoutId))
+
+    // Reset the auto-skip guard when the booking changes (e.g. resume
+    // from a different draft) so the auto-skip effect can fire fresh
+    // for the new booking.
+    monthlyAutoSkipFiredRef.current = false
 
     return () => {
       cancelled = true
@@ -674,6 +693,52 @@ export default function PatientDetailsPage() {
       controller.abort()
     }
   }, [bookingId])
+
+  // Auto-skip step 5 for monthly_invoice clients. Fires once per booking
+  // when the operator reaches step 5 AND payment-mode has resolved to
+  // monthly_invoice. The booking is auto-marked Payment Complete and the
+  // operator is routed to /payment/success — they never see step 5.
+  // The booking-store is refreshed before navigating so /payment/success
+  // sees the new status and skips the (now-pointless) PayFast reconcile.
+  useEffect(() => {
+    if (
+      currentStep !== 5 ||
+      paymentMode !== "monthly_invoice" ||
+      !bookingId ||
+      monthlyAutoSkipFiredRef.current
+    ) {
+      return
+    }
+    monthlyAutoSkipFiredRef.current = true
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/bookings/${bookingId}/mark-monthly-invoice`,
+          { method: "POST" }
+        )
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean
+          error?: string
+        }
+        if (!res.ok || !data.ok) {
+          // Reset the guard so the operator can manually retry by
+          // re-entering step 5. The error banner explains the failure.
+          monthlyAutoSkipFiredRef.current = false
+          setMonthlyAutoSkipError(
+            data.error ?? "Failed to auto-complete booking. Please retry."
+          )
+          return
+        }
+        await refreshBookings()
+        router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+      } catch {
+        monthlyAutoSkipFiredRef.current = false
+        setMonthlyAutoSkipError(
+          "Network error while auto-completing the booking. Please retry."
+        )
+      }
+    })()
+  }, [currentStep, paymentMode, bookingId, refreshBookings, router])
 
   // Determine initial ID type and number from search params or existing booking
   const initialIdType = existingBooking?.idType ?? (searchType === "passport" ? "passport" : "national_id")
@@ -1045,7 +1110,9 @@ export default function PatientDetailsPage() {
     currentStep === 3 ? isStep3Complete :
     currentStep === 4 ? true :
     currentStep === 5
-      ? paymentMode === "self_collect"
+      ? paymentMode === "monthly_invoice"
+        ? false  // step 5 is auto-skipped for monthly clients — disable Next while we wait for the redirect
+        : paymentMode === "self_collect"
         ? !markingSelfCollect
         : paymentMode === "checking"
           ? false
@@ -1605,9 +1672,31 @@ export default function PatientDetailsPage() {
         )}
 
         {/* Step 5 - Payment Type. Branches on paymentMode:
-              - self_collect → confirm-only panel (no gateway picker)
-              - gateway      → existing "Pay on device" picker
-              - checking     → spinner placeholder while we resolve mode */}
+              - self_collect    → confirm-only panel (no gateway picker)
+              - monthly_invoice → auto-skip spinner; useEffect routes us
+                                  past step 5 to /payment/success
+              - gateway         → existing "Pay on device" picker
+              - checking        → spinner placeholder while we resolve mode */}
+        {currentStep === 5 && paymentMode === "monthly_invoice" && (
+          <div
+            data-testid="step-payment-type-monthly"
+            className="flex w-full max-w-4xl flex-col items-center gap-4 py-12 text-center"
+          >
+            <svg className="size-8 animate-spin text-gray-400" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="15" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />
+              <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+            </svg>
+            <span className="text-sm font-medium text-gray-700">
+              This client is billed monthly — no payment needed. Continuing to the consultation...
+            </span>
+            {monthlyAutoSkipError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {monthlyAutoSkipError}
+              </div>
+            )}
+          </div>
+        )}
+
         {currentStep === 5 && paymentMode === "checking" && (
           <div
             data-testid="step-payment-type-loading"

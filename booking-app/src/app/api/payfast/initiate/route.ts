@@ -100,10 +100,11 @@ export async function POST(request: Request) {
   }
 
   // Defence-in-depth: refuse if the booking's parent client is configured
-  // to collect payment directly. The patient-details + /payment pages
-  // already route self-collect bookings to /api/bookings/[id]/mark-self-collect,
-  // but this guards against any caller that tries to push them through
-  // the gateway anyway. Resolved via units.client_id → clients.
+  // for any non-gateway billing mode. The patient-details + /payment pages
+  // already route self-collect / monthly-invoice bookings to their own
+  // mark-* endpoints, but this guards against any caller that tries to
+  // push them through the gateway anyway. Resolved via
+  // units.client_id → clients.{collect_payment_at_unit, bill_monthly}.
   if (booking.unit_id) {
     const { data: unit } = await admin
       .from("units")
@@ -114,13 +115,23 @@ export async function POST(request: Request) {
     if (clientId) {
       const { data: client } = await admin
         .from("clients")
-        .select("collect_payment_at_unit")
+        .select("collect_payment_at_unit, bill_monthly")
         .eq("id", clientId)
         .single()
-      if (
-        (client as { collect_payment_at_unit: boolean | null } | null)
-          ?.collect_payment_at_unit
-      ) {
+      const c = client as {
+        collect_payment_at_unit: boolean | null
+        bill_monthly: boolean | null
+      } | null
+      if (c?.bill_monthly) {
+        return NextResponse.json(
+          {
+            error:
+              "This client is billed monthly. Bookings auto-complete without going through the gateway.",
+          },
+          { status: 400 }
+        )
+      }
+      if (c?.collect_payment_at_unit) {
         return NextResponse.json(
           {
             error:

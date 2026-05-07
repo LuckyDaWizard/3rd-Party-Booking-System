@@ -124,13 +124,23 @@ export async function POST(request: Request) {
     if (clientId) {
       const { data: client } = await admin
         .from("clients")
-        .select("collect_payment_at_unit")
+        .select("collect_payment_at_unit, bill_monthly")
         .eq("id", clientId)
         .single()
-      if (
-        (client as { collect_payment_at_unit: boolean | null } | null)
-          ?.collect_payment_at_unit
-      ) {
+      const c = client as {
+        collect_payment_at_unit: boolean | null
+        bill_monthly: boolean | null
+      } | null
+      if (c?.bill_monthly) {
+        return NextResponse.json(
+          {
+            error:
+              "This client is billed monthly. No payment link applies to bookings under this client.",
+          },
+          { status: 400 }
+        )
+      }
+      if (c?.collect_payment_at_unit) {
         return NextResponse.json(
           {
             error:

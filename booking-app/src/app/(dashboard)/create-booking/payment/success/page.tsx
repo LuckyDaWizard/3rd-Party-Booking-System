@@ -47,13 +47,15 @@ export default function PaymentSuccessPage() {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
 
-  // Self-collect bookings have NO PayFast transaction to reconcile — the
-  // mark-self-collect API has already set status="Payment Complete" before
-  // we land here. Skip the reconcile call (which would otherwise burn a
-  // PayFast Transaction History API request for a nonexistent payment) and
-  // only refresh the local store. Resolved on first render via
-  // booking-store; the polling effect will pick it up immediately.
-  const isSelfCollectBooking = getBooking(bookingId)?.paymentType === "self_collect"
+  // Non-gateway bookings (self_collect or monthly_invoice) have NO PayFast
+  // transaction to reconcile — the mark-* APIs have already set
+  // status="Payment Complete" before we land here. Skip the reconcile
+  // call (which would otherwise burn a PayFast Transaction History API
+  // request for a nonexistent payment) and only refresh the local store.
+  const bookingPaymentType = getBooking(bookingId)?.paymentType ?? null
+  const isSelfCollectBooking = bookingPaymentType === "self_collect"
+  const isMonthlyInvoiceBooking = bookingPaymentType === "monthly_invoice"
+  const isNonGatewayBooking = isSelfCollectBooking || isMonthlyInvoiceBooking
 
   // Poll for ITN-driven status change AND actively query PayFast's Query API
   // via our reconcile route. Reconcile is best-effort — failures are logged
@@ -62,7 +64,7 @@ export default function PaymentSuccessPage() {
   // (either via ITN or via reconcile), flip to the confirmed state here so
   // we don't need a separate set-state-in-effect.
   const checkStatus = useCallback(async () => {
-    if (bookingId && !isSelfCollectBooking) {
+    if (bookingId && !isNonGatewayBooking) {
       try {
         await fetch("/api/payfast/reconcile", {
           method: "POST",
@@ -78,7 +80,7 @@ export default function PaymentSuccessPage() {
     if (current?.status === "Payment Complete") {
       setState((s) => (s === "pending" ? "confirmed" : s))
     }
-  }, [bookingId, isSelfCollectBooking, refreshBookings, getBooking])
+  }, [bookingId, isNonGatewayBooking, refreshBookings, getBooking])
 
   // Poll every POLL_INTERVAL_MS until confirmed or timed out. Kick off the
   // first check via a short timeout (not a synchronous call) so we don't
@@ -154,12 +156,18 @@ export default function PaymentSuccessPage() {
               <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
             <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">
-              {isSelfCollectBooking ? "Recording Payment..." : "Confirming Payment..."}
+              {isMonthlyInvoiceBooking
+                ? "Continuing to Consultation..."
+                : isSelfCollectBooking
+                  ? "Recording Payment..."
+                  : "Confirming Payment..."}
             </h1>
             <p className="text-center text-base text-gray-500">
-              {isSelfCollectBooking
-                ? "Just a moment while we record this booking as paid."
-                : "Please wait while we confirm your payment with PayFast. This usually takes a few seconds."}
+              {isMonthlyInvoiceBooking
+                ? "This client is billed monthly — no payment needed."
+                : isSelfCollectBooking
+                  ? "Just a moment while we record this booking as paid."
+                  : "Please wait while we confirm your payment with PayFast. This usually takes a few seconds."}
             </p>
           </>
         )}

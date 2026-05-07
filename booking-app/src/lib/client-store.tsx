@@ -28,6 +28,14 @@ export interface ClientRecord {
    * on the Manage Client page; defaults to FALSE for new clients.
    */
   collectPaymentAtUnit: boolean
+  /**
+   * When TRUE, every booking under this client skips the payment step
+   * entirely (no gateway, no in-unit confirm) and is auto-marked
+   * Payment Complete with payment_type = 'monthly_invoice'. The client
+   * is invoiced separately at month-end. Mutually exclusive with
+   * collectPaymentAtUnit at the UI layer; both default to FALSE.
+   */
+  billMonthly: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -43,7 +51,7 @@ interface ClientStoreContextValue {
    * toggle (system_admin only). New clients always start gateway-billed.
    */
   addClient: (
-    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit">
+    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit" | "billMonthly">
   ) => Promise<string>
   updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
   updateClientUnit: (id: string, units: string) => Promise<void>
@@ -71,6 +79,7 @@ interface DbClient {
   favicon_url: string | null
   accent_color: string | null
   collect_payment_at_unit: boolean | null
+  bill_monthly: boolean | null
 }
 
 interface DbUnit {
@@ -96,6 +105,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     faviconUrl: row.favicon_url,
     accentColor: row.accent_color,
     collectPaymentAtUnit: row.collect_payment_at_unit ?? false,
+    billMonthly: row.bill_monthly ?? false,
   }
 }
 
@@ -170,7 +180,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchClients])
 
   async function addClient(
-    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit">
+    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit" | "billMonthly">
   ) {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
     // role has no INSERT policy on public.clients, so direct writes fail
@@ -211,6 +221,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.status !== undefined) body.status = updates.status
     if (updates.accentColor !== undefined) body.accentColor = updates.accentColor
     if (updates.collectPaymentAtUnit !== undefined) body.collectPaymentAtUnit = updates.collectPaymentAtUnit
+    if (updates.billMonthly !== undefined) body.billMonthly = updates.billMonthly
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {
