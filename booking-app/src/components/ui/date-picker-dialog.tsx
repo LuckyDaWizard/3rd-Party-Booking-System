@@ -199,6 +199,13 @@ interface DatePickerDialogProps {
   onClear: () => void
   "data-testid"?: string
   className?: string
+  /**
+   * When TRUE, the trigger is uneditable: clicking does nothing, the
+   * clear button is hidden, and the field renders with the same grey
+   * styling as `FloatingInput readOnly`. Used for identity-locked
+   * date-of-birth on patient-details Step 1.
+   */
+  readOnly?: boolean
 }
 
 export function DatePickerField({
@@ -209,6 +216,7 @@ export function DatePickerField({
   onClear,
   "data-testid": dataTestId,
   className = "",
+  readOnly = false,
 }: DatePickerDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [tempDate, setTempDate] = useState(value)
@@ -241,8 +249,14 @@ export function DatePickerField({
           id={id}
           type="button"
           data-testid={dataTestId}
-          onClick={handleOpen}
-          className="flex h-14 w-full items-center rounded-lg border border-gray-300 bg-white px-4 text-left text-sm outline-none transition-colors hover:border-gray-900"
+          onClick={readOnly ? undefined : handleOpen}
+          aria-readonly={readOnly || undefined}
+          tabIndex={readOnly ? -1 : 0}
+          className={`flex h-14 w-full items-center rounded-lg border px-4 text-left text-sm outline-none transition-colors ${
+            readOnly
+              ? "cursor-default border-gray-200 bg-gray-100 text-gray-500"
+              : "border-gray-300 bg-white hover:border-gray-900"
+          }`}
         >
           <span className={hasValue ? "text-gray-900" : "text-transparent"}>
             {displayValue || label}
@@ -260,7 +274,7 @@ export function DatePickerField({
         <CalendarDays
           className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
         />
-        {hasValue && (
+        {hasValue && !readOnly && (
           <button
             type="button"
             onClick={(e) => {

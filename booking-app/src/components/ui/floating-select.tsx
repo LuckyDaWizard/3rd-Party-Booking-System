@@ -65,6 +65,13 @@ export interface FloatingSelectProps {
    * Used by the patient-details page's test suite.
    */
   testIdPrefix?: string
+  /**
+   * When TRUE, the select is uneditable: the listbox never opens and the
+   * trigger renders with the same grey styling as `FloatingInput readOnly`.
+   * Used to lock identity fields (idType, gender, nationality, title) on
+   * a booking that's linked to an existing patient record.
+   */
+  readOnly?: boolean
 }
 
 const TYPEAHEAD_RESET_MS = 500
@@ -78,6 +85,7 @@ export function FloatingSelect({
   className = "",
   "data-testid": dataTestId,
   testIdPrefix,
+  readOnly = false,
 }: FloatingSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState<number>(-1)
@@ -261,16 +269,25 @@ export function FloatingSelect({
         id={id}
         type="button"
         data-testid={dataTestId}
-        onClick={() => setIsOpen((prev) => !prev)}
-        onKeyDown={handleKeyDown}
+        onClick={() => {
+          if (readOnly) return
+          setIsOpen((prev) => !prev)
+        }}
+        onKeyDown={readOnly ? undefined : handleKeyDown}
         role="combobox"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={isOpen ? listboxId : undefined}
         aria-activedescendant={activeOptionId}
         aria-labelledby={`${id}-label`}
-        className={`flex h-14 w-full items-center rounded-lg border bg-white px-4 text-left text-sm outline-none transition-colors focus:border-gray-900 focus-visible:ring-2 focus-visible:ring-[var(--client-primary)] ${
-          isOpen ? "border-gray-900" : "border-gray-300"
+        aria-readonly={readOnly || undefined}
+        tabIndex={readOnly ? -1 : 0}
+        className={`flex h-14 w-full items-center rounded-lg border px-4 text-left text-sm outline-none transition-colors ${
+          readOnly
+            ? "cursor-default border-gray-200 bg-gray-100 text-gray-500"
+            : `bg-white focus:border-gray-900 focus-visible:ring-2 focus-visible:ring-[var(--client-primary)] ${
+                isOpen ? "border-gray-900" : "border-gray-300"
+              }`
         }`}
       >
         <span className={value ? "text-gray-900" : "text-transparent"}>
@@ -287,11 +304,13 @@ export function FloatingSelect({
       >
         {label}
       </label>
-      <ChevronDown
-        className={`pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-transform ${
-          isOpen ? "rotate-180" : ""
-        }`}
-      />
+      {!readOnly && (
+        <ChevronDown
+          className={`pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      )}
 
       {isOpen && (
         <div className="absolute left-0 bottom-full z-10 mb-1 max-h-96 w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">

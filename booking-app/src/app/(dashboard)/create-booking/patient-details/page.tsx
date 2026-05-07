@@ -296,6 +296,7 @@ function StepBasicInfo({
   onConsentChange,
   idConflictWarning,
   onCheckIdConflict,
+  identityLocked,
 }: {
   data: BasicInfoData
   onChange: (updated: BasicInfoData) => void
@@ -303,6 +304,7 @@ function StepBasicInfo({
   onConsentChange: (accepted: boolean) => void
   idConflictWarning: string
   onCheckIdConflict: () => void
+  identityLocked: boolean
 }) {
   const [idError, setIdError] = useState("")
 
@@ -382,6 +384,28 @@ function StepBasicInfo({
 
       {/* Form fields - 2-column layout */}
       <div className="flex w-full flex-col gap-4">
+        {/* Identity-locked banner — when the identity is "established" by
+            an earlier booking with the same ID number, the operator is
+            seeing pre-populated data and shouldn't be able to overwrite
+            it. Address + contact fields stay editable on the next steps. */}
+        {identityLocked && (
+          <div
+            data-testid="identity-locked-banner"
+            className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm"
+          >
+            <span className="font-semibold text-gray-900">
+              Existing patient record loaded
+            </span>
+            <span className="text-xs text-amber-900">
+              This patient&apos;s identity (name, ID, date of birth) is on
+              file from a previous booking and is locked here. Address and
+              contact details on the next steps can still be updated. If
+              the locked details are wrong, ask a system administrator to
+              correct them via the underlying record.
+            </span>
+          </div>
+        )}
+
         {/* Row 1: First Names + Surname */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FloatingInput
@@ -392,6 +416,7 @@ function StepBasicInfo({
             onChange={(v) => handleChange("firstNames", v.replace(/[^a-zA-Z\s-]/g, ""))}
             onClear={() => handleClear("firstNames")}
             onBlur={onCheckIdConflict}
+            readOnly={identityLocked}
           />
           <FloatingInput
             id="surname"
@@ -401,6 +426,7 @@ function StepBasicInfo({
             onChange={(v) => handleChange("surname", v.replace(/[^a-zA-Z\s-]/g, ""))}
             onClear={() => handleClear("surname")}
             onBlur={onCheckIdConflict}
+            readOnly={identityLocked}
           />
         </div>
 
@@ -414,6 +440,7 @@ function StepBasicInfo({
             value={data.idType}
             onChange={(v) => handleChange("idType", v)}
             options={ID_TYPE_OPTIONS}
+            readOnly={identityLocked}
           />
           <div className="flex flex-col gap-1">
             <FloatingInput
@@ -425,6 +452,7 @@ function StepBasicInfo({
               onClear={() => { handleClear("idNumber"); setIdError("") }}
               onBlur={handleIdBlur}
               error={idError}
+              readOnly={identityLocked}
             />
             {/* Cross-record warning — fired by the parent when this ID
                 number is already on file under a different patient name.
@@ -455,6 +483,7 @@ function StepBasicInfo({
             value={data.title}
             onChange={(v) => handleChange("title", v)}
             options={TITLE_OPTIONS}
+            readOnly={identityLocked}
           />
           <FloatingSelect
             id="nationality"
@@ -464,6 +493,7 @@ function StepBasicInfo({
             value={data.nationality}
             onChange={(v) => handleChange("nationality", v)}
             options={NATIONALITY_OPTIONS}
+            readOnly={identityLocked}
           />
         </div>
 
@@ -477,6 +507,7 @@ function StepBasicInfo({
             value={data.gender}
             onChange={(v) => handleChange("gender", v)}
             options={GENDER_OPTIONS}
+            readOnly={identityLocked}
           />
           <DatePickerField
             id="dateOfBirth"
@@ -485,6 +516,7 @@ function StepBasicInfo({
             value={data.dateOfBirth}
             onChange={(v) => handleChange("dateOfBirth", v)}
             onClear={() => handleClear("dateOfBirth")}
+            readOnly={identityLocked}
           />
         </div>
       </div>
@@ -546,6 +578,43 @@ export default function PatientDetailsPage() {
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
+
+  // Identity-lock check. Runs once on mount: if any OTHER booking exists
+  // with this booking's id_number AND has populated identity fields,
+  // the identity is "established" and we lock the identity inputs in
+  // Step 1 to prevent accidental overwrites (which would later cause
+  // CareFirst to reject the consult handoff with "already registered to
+  // a different account"). If multiple priors disagree on the name, we
+  // still lock (the operator should investigate via admin tools, not
+  // edit through the booking flow).
+  useEffect(() => {
+    if (!bookingId) return
+    const idToCheck = existingBooking?.idNumber?.trim() || initialIdNumber.trim()
+    if (!idToCheck) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase
+        .from("bookings")
+        .select("id, first_names, surname")
+        .eq("id_number", idToCheck)
+        .neq("id", bookingId)
+        .limit(1)
+      if (cancelled) return
+      const hasPriorWithIdentity = (data ?? []).some(
+        (row) =>
+          ((row.first_names as string | null) ?? "").trim() !== "" ||
+          ((row.surname as string | null) ?? "").trim() !== ""
+      )
+      if (hasPriorWithIdentity) setIdentityLocked(true)
+    })()
+    return () => {
+      cancelled = true
+    }
+    // We intentionally only run this on mount — re-running when the user
+    // edits the ID would be confusing (lock state shouldn't depend on
+    // mid-flow edits). The conflict-warning fires for that case instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingId])
 
   // Self-collect state. Declared here (above the effect that uses it)
   // rather than grouped with other state declarations later in the file
@@ -738,6 +807,13 @@ export default function PatientDetailsPage() {
   // (CareFirst rejects duplicate ID numbers across different names with
   // a 500 + "already registered to a different account" body.)
   const [idConflictWarning, setIdConflictWarning] = useState("")
+  // When TRUE, the patient identity fields (firstNames, surname, idType,
+  // idNumber, title, nationality, gender, dateOfBirth) are read-only.
+  // Set when an earlier booking exists with the same id_number — the
+  // identity is "established" by that prior record and shouldn't be
+  // accidentally overwritten. Address + contact fields stay editable
+  // because those legitimately change between visits.
+  const [identityLocked, setIdentityLocked] = useState(false)
   const { activeUnitId } = useAuth()
 
   async function checkEmailExists(email: string) {
@@ -1072,6 +1148,7 @@ export default function PatientDetailsPage() {
             onConsentChange={setConsentAccepted}
             idConflictWarning={idConflictWarning}
             onCheckIdConflict={checkIdConflict}
+            identityLocked={identityLocked}
           />
         )}
 
