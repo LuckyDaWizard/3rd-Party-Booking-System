@@ -36,6 +36,14 @@ export interface ClientRecord {
    * collectPaymentAtUnit at the UI layer; both default to FALSE.
    */
   billMonthly: boolean
+  /**
+   * Sub-option of billMonthly. When TRUE (and billMonthly is also TRUE),
+   * bookings under this client skip the patient-metrics step too, going
+   * straight from payment auto-complete to /create-booking/creating.
+   * Meaningless on its own — the UI hides this toggle when billMonthly
+   * is OFF and forces it FALSE when billMonthly is turned off.
+   */
+  skipPatientMetrics: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -51,7 +59,10 @@ interface ClientStoreContextValue {
    * toggle (system_admin only). New clients always start gateway-billed.
    */
   addClient: (
-    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit" | "billMonthly">
+    client: Omit<
+      ClientRecord,
+      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics"
+    >
   ) => Promise<string>
   updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
   updateClientUnit: (id: string, units: string) => Promise<void>
@@ -80,6 +91,7 @@ interface DbClient {
   accent_color: string | null
   collect_payment_at_unit: boolean | null
   bill_monthly: boolean | null
+  skip_patient_metrics: boolean | null
 }
 
 interface DbUnit {
@@ -106,6 +118,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     accentColor: row.accent_color,
     collectPaymentAtUnit: row.collect_payment_at_unit ?? false,
     billMonthly: row.bill_monthly ?? false,
+    skipPatientMetrics: row.skip_patient_metrics ?? false,
   }
 }
 
@@ -180,7 +193,10 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchClients])
 
   async function addClient(
-    client: Omit<ClientRecord, "id" | "status" | "collectPaymentAtUnit" | "billMonthly">
+    client: Omit<
+      ClientRecord,
+      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics"
+    >
   ) {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
     // role has no INSERT policy on public.clients, so direct writes fail
@@ -222,6 +238,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.accentColor !== undefined) body.accentColor = updates.accentColor
     if (updates.collectPaymentAtUnit !== undefined) body.collectPaymentAtUnit = updates.collectPaymentAtUnit
     if (updates.billMonthly !== undefined) body.billMonthly = updates.billMonthly
+    if (updates.skipPatientMetrics !== undefined) body.skipPatientMetrics = updates.skipPatientMetrics
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {

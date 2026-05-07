@@ -108,6 +108,41 @@ export default function PatientMetricsPage() {
     if (bookingId) setActiveBookingId(bookingId)
   }, [bookingId, setActiveBookingId])
 
+  // Safety net for monthly_invoice clients with skipPatientMetrics = TRUE.
+  // /payment/success already routes past this page when the flag is set,
+  // but a direct hit on /patient-metrics?bookingId=... (Resume Booking
+  // from Patient History, an old bookmark, etc.) shouldn't render the
+  // metrics form for a client that's been configured to skip it.
+  // Best-effort: if the flag is on, push to /creating; otherwise let the
+  // page render normally.
+  const [skipChecked, setSkipChecked] = useState(false)
+  useEffect(() => {
+    if (!bookingId || skipChecked) return
+    let cancelled = false
+    fetch(`/api/bookings/${bookingId}/payment-mode`)
+      .then(async (res) => {
+        if (cancelled || !res.ok) {
+          if (!cancelled) setSkipChecked(true)
+          return
+        }
+        const data = (await res.json().catch(() => ({}))) as {
+          skipPatientMetrics?: boolean
+        }
+        if (cancelled) return
+        if (data.skipPatientMetrics) {
+          router.push(`/create-booking/creating?bookingId=${bookingId}`)
+          return
+        }
+        setSkipChecked(true)
+      })
+      .catch(() => {
+        if (!cancelled) setSkipChecked(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bookingId, skipChecked, router])
+
   const [bloodPressure, setBloodPressure] = useState("")
   const [glucose, setGlucose] = useState("")
   const [temperature, setTemperature] = useState("")

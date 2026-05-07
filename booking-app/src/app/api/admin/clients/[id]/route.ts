@@ -41,6 +41,12 @@ interface UpdateClientBody {
    * possible via the UI), monthly_invoice wins downstream.
    */
   billMonthly?: boolean
+  /**
+   * Sub-option of billMonthly. When TRUE, bookings also skip the
+   * patient-metrics step. Server clamps to FALSE if billMonthly ends
+   * up FALSE on this PATCH (or already is FALSE in the DB).
+   */
+  skipPatientMetrics?: boolean
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -104,7 +110,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics")
     .eq("id", id)
     .single()
 
@@ -118,6 +124,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (normalisedAccent !== undefined) dbUpdates.accent_color = normalisedAccent
   if (body.collectPaymentAtUnit !== undefined) dbUpdates.collect_payment_at_unit = body.collectPaymentAtUnit
   if (body.billMonthly !== undefined) dbUpdates.bill_monthly = body.billMonthly
+  if (body.skipPatientMetrics !== undefined) dbUpdates.skip_patient_metrics = body.skipPatientMetrics
 
   // Mutual exclusion: turning one billing-mode flag ON forces the other
   // OFF. The UI already enforces this, but a malformed request that
@@ -127,6 +134,21 @@ export async function PATCH(request: Request, context: RouteContext) {
     dbUpdates.collect_payment_at_unit = false
   } else if (body.collectPaymentAtUnit === true) {
     dbUpdates.bill_monthly = false
+    // Cascade: skip_patient_metrics is sub to bill_monthly. If the
+    // operator turns OFF monthly billing (by turning ON self-collect),
+    // any pre-existing skip-metrics flag has to come off too — it's
+    // meaningless without monthly_invoice in the booking flow.
+    dbUpdates.skip_patient_metrics = false
+  }
+  // Defensive: if bill_monthly is being set to FALSE explicitly, clear
+  // skip_patient_metrics in the same write so we don't end up with the
+  // sub-flag dangling on a non-monthly client.
+  const effectiveBillMonthly =
+    body.billMonthly !== undefined
+      ? body.billMonthly
+      : (current?.bill_monthly ?? false)
+  if (effectiveBillMonthly === false) {
+    dbUpdates.skip_patient_metrics = false
   }
 
   if (Object.keys(dbUpdates).length === 0) {
@@ -173,6 +195,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Bill Monthly"] = {
       old: current?.bill_monthly ?? false,
       new: body.billMonthly,
+    }
+  // Compare against the EFFECTIVE post-clamp value rather than the raw
+  // body, so an audit-log entry only appears when the stored flag
+  // actually changed (e.g. operator sent skipPatientMetrics=true but
+  // bill_monthly was off → server clamped to false → no real change).
+  const postClampSkip =
+    dbUpdates.skip_patient_metrics !== undefined
+      ? (dbUpdates.skip_patient_metrics as boolean)
+      : (current?.skip_patient_metrics ?? false)
+  if (postClampSkip !== (current?.skip_patient_metrics ?? false))
+    changes["Skip Patient Metrics"] = {
+      old: current?.skip_patient_metrics ?? false,
+      new: postClampSkip,
     }
 
   if (Object.keys(changes).length > 0) {

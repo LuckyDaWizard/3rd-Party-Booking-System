@@ -57,6 +57,38 @@ export default function PaymentSuccessPage() {
   const isMonthlyInvoiceBooking = bookingPaymentType === "monthly_invoice"
   const isNonGatewayBooking = isSelfCollectBooking || isMonthlyInvoiceBooking
 
+  // Sub-flag for monthly_invoice clients: if the parent client has
+  // skip_patient_metrics = TRUE, the redirect after the countdown
+  // bypasses /patient-metrics and goes straight to /create-booking/creating.
+  // Resolved via /api/bookings/[id]/payment-mode on mount; kept in
+  // local state so the countdown doesn't have to wait for the fetch.
+  const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
+  useEffect(() => {
+    if (!bookingId || !isMonthlyInvoiceBooking) return
+    let cancelled = false
+    fetch(`/api/bookings/${bookingId}/payment-mode`)
+      .then(async (res) => {
+        if (cancelled || !res.ok) return
+        const data = (await res.json().catch(() => ({}))) as {
+          skipPatientMetrics?: boolean
+        }
+        if (cancelled) return
+        if (data.skipPatientMetrics) setSkipPatientMetrics(true)
+      })
+      .catch(() => {
+        // Best-effort — fall through to /patient-metrics like a normal
+        // booking. Skipping is the optimisation; running through metrics
+        // is the safe default.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bookingId, isMonthlyInvoiceBooking])
+
+  const nextStepHref = skipPatientMetrics
+    ? `/create-booking/creating?bookingId=${bookingId}`
+    : `/create-booking/patient-metrics?bookingId=${bookingId}`
+
   // Poll for ITN-driven status change AND actively query PayFast's Query API
   // via our reconcile route. Reconcile is best-effort — failures are logged
   // but don't break the polling loop (DB poll will still catch ITN if it
@@ -116,7 +148,7 @@ export default function PaymentSuccessPage() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer)
-          router.push(`/create-booking/patient-metrics?bookingId=${bookingId}`)
+          router.push(nextStepHref)
           return 0
         }
         return prev - 1
@@ -124,7 +156,7 @@ export default function PaymentSuccessPage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [state, router, bookingId])
+  }, [state, router, nextStepHref])
 
   const formatted = `00:${countdown.toString().padStart(2, "0")}`
 
@@ -141,7 +173,7 @@ export default function PaymentSuccessPage() {
               Your payment has been confirmed. Redirecting to the next step.
             </p>
             <Button
-              onClick={() => router.push(`/create-booking/patient-metrics?bookingId=${bookingId}`)}
+              onClick={() => router.push(nextStepHref)}
               className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800 sm:w-64"
             >
               Continue ({formatted})

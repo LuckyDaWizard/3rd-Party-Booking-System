@@ -92,6 +92,10 @@ export default function ManageClientPage() {
   // ON forces the other OFF in local state. Server PATCH double-checks
   // and clamps if both ever arrive TRUE.
   const [billMonthly, setBillMonthly] = useState(false)
+  // Sub-flag of billMonthly. When TRUE (and billMonthly is TRUE),
+  // bookings also skip the patient-metrics step. Hidden when
+  // billMonthly is OFF; auto-cleared when billMonthly is turned off.
+  const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
   // Tabbed layout — matches the Add Client flow.
   //   details  → contact form (editable)
   //   branding → logo / favicon / accent picker (editable)
@@ -133,6 +137,7 @@ export default function ManageClientPage() {
       setAccentColor(client.accentColor ?? DEFAULT_ACCENT)
       setCollectPaymentAtUnit(client.collectPaymentAtUnit)
       setBillMonthly(client.billMonthly)
+      setSkipPatientMetrics(client.skipPatientMetrics)
     }
   }, [client])
 
@@ -248,7 +253,7 @@ export default function ManageClientPage() {
         // structurally enforced server-side; the omission here just
         // avoids sending a no-op field for non-admins.
         ...(isSystemAdmin
-          ? { collectPaymentAtUnit, billMonthly }
+          ? { collectPaymentAtUnit, billMonthly, skipPatientMetrics }
           : {}),
       })
       router.push("/client-management")
@@ -598,42 +603,89 @@ export default function ManageClientPage() {
               {isSystemAdmin && (
                 <div
                   data-testid="bill-monthly-toggle-row"
-                  className="flex items-start justify-between gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4"
+                  className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4"
                 >
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-gray-900">
-                      Bill at end of month
-                    </span>
-                    <span className="text-xs text-gray-600">
-                      When ON, bookings under this client skip the
-                      payment step entirely and auto-complete. The
-                      client is invoiced separately at month-end.
-                      Operators go straight to the consultation.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={billMonthly}
-                    aria-label="Bill at end of month"
-                    data-testid="bill-monthly-toggle"
-                    onClick={() => {
-                      setBillMonthly((v) => {
-                        const next = !v
-                        if (next) setCollectPaymentAtUnit(false)
-                        return next
-                      })
-                    }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                      billMonthly ? "bg-blue-600" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
-                        billMonthly ? "translate-x-5" : "translate-x-0.5"
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-semibold text-gray-900">
+                        Bill at end of month
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        When ON, bookings under this client skip the
+                        payment step entirely and auto-complete. The
+                        client is invoiced separately at month-end.
+                        Operators go straight to the consultation.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={billMonthly}
+                      aria-label="Bill at end of month"
+                      data-testid="bill-monthly-toggle"
+                      onClick={() => {
+                        setBillMonthly((v) => {
+                          const next = !v
+                          if (next) {
+                            setCollectPaymentAtUnit(false)
+                          } else {
+                            // Turning monthly OFF cascades the sub-flag
+                            // off too — patient-metrics-skip is
+                            // meaningless without monthly invoicing.
+                            setSkipPatientMetrics(false)
+                          }
+                          return next
+                        })
+                      }}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                        billMonthly ? "bg-blue-600" : "bg-gray-300"
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                          billMonthly ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Sub-option — only visible when bill-monthly is ON.
+                      Indented + lighter border to communicate hierarchy. */}
+                  {billMonthly && (
+                    <div
+                      data-testid="skip-patient-metrics-toggle-row"
+                      className="ml-4 flex items-start justify-between gap-4 rounded-lg border border-blue-200 bg-white px-4 py-3"
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-gray-900">
+                          Skip patient metrics
+                        </span>
+                        <span className="text-xs text-gray-600">
+                          When ON, bookings also skip the
+                          &ldquo;Enter patient metrics&rdquo; step.
+                          Operators go from the booking flow directly
+                          to the consultation handoff.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={skipPatientMetrics}
+                        aria-label="Skip patient metrics"
+                        data-testid="skip-patient-metrics-toggle"
+                        onClick={() => setSkipPatientMetrics((v) => !v)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                          skipPatientMetrics ? "bg-blue-600" : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                            skipPatientMetrics ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

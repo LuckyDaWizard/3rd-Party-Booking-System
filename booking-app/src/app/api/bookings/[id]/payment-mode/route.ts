@@ -5,18 +5,24 @@ import { requireAuthenticated } from "@/lib/api-auth"
 // =============================================================================
 // GET /api/bookings/[id]/payment-mode
 //
-// Returns the payment mode for a booking, derived from the parent client's
-// billing flags (mutually exclusive at the UI; server resolves
-// monthly_invoice first if both ever arrive TRUE):
-//   { mode: "gateway" }          → normal PayFast flow
-//   { mode: "self_collect" }     → unit collects fee directly, skip gateway
-//   { mode: "monthly_invoice" }  → skip payment step entirely, client
-//                                  invoiced at month-end. Caller should
-//                                  auto-mark complete and bypass step 5.
+// Returns the payment mode for a booking + booking-flow flags, derived
+// from the parent client. Mode flags are mutually exclusive at the UI;
+// server resolves monthly_invoice first if both ever arrive TRUE.
+//   {
+//     mode: "gateway" | "self_collect" | "monthly_invoice",
+//     skipPatientMetrics: boolean   // only meaningful for monthly_invoice
+//   }
 //
-// The patient-details step-5 picker and the /payment page both call this on
-// mount so they can render the right UI without speculatively initiating a
-// PayFast payment.
+// gateway          → normal PayFast flow
+// self_collect     → unit collects fee directly, skip gateway
+// monthly_invoice  → skip payment step entirely, client invoiced at
+//                    month-end. Caller should auto-mark complete and
+//                    bypass step 5. If skipPatientMetrics is also TRUE,
+//                    /payment/success routes past /patient-metrics too.
+//
+// The patient-details step-5 picker, /payment page, and /payment/success
+// + /patient-metrics safety nets all call this so the flow can branch
+// without speculatively rendering an unwanted step.
 //
 // Auth: any authenticated user. Unit-scoped: non-admins may only ask about
 // bookings in their assigned units.
@@ -61,10 +67,11 @@ export async function GET(_request: Request, context: RouteContext) {
     }
   }
 
-  // Both flags live on the parent client. Resolve unit → client_id →
-  // clients.{collect_payment_at_unit, bill_monthly}.
+  // All three flags live on the parent client. Resolve unit → client_id →
+  // clients.{collect_payment_at_unit, bill_monthly, skip_patient_metrics}.
   let collectAtUnit = false
   let billMonthly = false
+  let skipPatientMetrics = false
   if (booking.unit_id) {
     const { data: unit } = await admin
       .from("units")
@@ -75,15 +82,22 @@ export async function GET(_request: Request, context: RouteContext) {
     if (clientId) {
       const { data: client } = await admin
         .from("clients")
-        .select("collect_payment_at_unit, bill_monthly")
+        .select("collect_payment_at_unit, bill_monthly, skip_patient_metrics")
         .eq("id", clientId)
         .single()
-      collectAtUnit =
-        (client as { collect_payment_at_unit: boolean | null } | null)
-          ?.collect_payment_at_unit ?? false
-      billMonthly =
-        (client as { bill_monthly: boolean | null } | null)
-          ?.bill_monthly ?? false
+      const c = client as {
+        collect_payment_at_unit: boolean | null
+        bill_monthly: boolean | null
+        skip_patient_metrics: boolean | null
+      } | null
+      collectAtUnit = c?.collect_payment_at_unit ?? false
+      billMonthly = c?.bill_monthly ?? false
+      // Sub-flag is only effective when bill_monthly is TRUE. If the DB
+      // ever has skip_patient_metrics=true with bill_monthly=false (it
+      // shouldn't — server PATCH clamps that), still suppress here so
+      // the booking flow doesn't accidentally skip metrics for a non-
+      // monthly client.
+      skipPatientMetrics = billMonthly && (c?.skip_patient_metrics ?? false)
     }
   }
 
@@ -96,5 +110,5 @@ export async function GET(_request: Request, context: RouteContext) {
       ? "self_collect"
       : "gateway"
 
-  return NextResponse.json({ mode })
+  return NextResponse.json({ mode, skipPatientMetrics })
 }
