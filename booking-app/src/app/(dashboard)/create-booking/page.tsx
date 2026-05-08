@@ -6,6 +6,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { useBookingStore } from "@/lib/booking-store"
+import { useUnitStore } from "@/lib/unit-store"
+import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
 import { DatePickerField } from "@/components/ui/date-picker-dialog"
@@ -59,7 +61,22 @@ function validateSaIdNumber(id: string): { valid: boolean; error?: string } {
 export default function CreateBookingPage() {
   const router = useRouter()
   const { createBooking } = useBookingStore()
+  const { units } = useUnitStore()
+  const { clients } = useClientStore()
   const { activeUnitId } = useAuth()
+
+  // Resolve nurse-verification flag from the active unit's parent
+  // client. Defaults to TRUE — fail-safe: if the stores haven't
+  // loaded yet, keep the verification gate. Only flip to FALSE when
+  // the client row explicitly has nurse_verification = false.
+  const nurseVerificationRequired = (() => {
+    if (!activeUnitId) return true
+    const unit = units.find((u) => u.id === activeUnitId)
+    if (!unit) return true
+    const client = clients.find((c) => c.id === unit.clientId)
+    if (!client) return true
+    return client.nurseVerification
+  })()
   const [activeTab, setActiveTab] = useState<SearchTab>("id")
 
   // Form fields
@@ -78,7 +95,7 @@ export default function CreateBookingPage() {
   const isCodeComplete = verificationCode.length === PIN_LENGTH
 
   const isFormValid = (() => {
-    if (!isCodeComplete) return false
+    if (nurseVerificationRequired && !isCodeComplete) return false
     switch (activeTab) {
       case "id":
         return idNumber.trim().length > 0 && !idError
@@ -195,25 +212,28 @@ export default function CreateBookingPage() {
           )}
         </div>
 
-        {/* Verification code */}
-        <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-4">
-          <p className="text-base text-gray-700">Enter nurse verification code to start journey</p>
-          <InputOTP
-            maxLength={PIN_LENGTH}
-            value={verificationCode}
-            onChange={setVerificationCode}
-          >
-            <InputOTPGroup className="gap-2 sm:gap-6">
-              {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                <InputOTPSlot
-                  key={i}
-                  index={i}
-                  className="!size-10 !rounded-lg !border border-input !bg-white text-lg font-semibold sm:!size-12"
-                />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
+        {/* Verification code — only shown for clients that opt into
+            the two-person sign-off via clients.nurse_verification. */}
+        {nurseVerificationRequired && (
+          <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-4">
+            <p className="text-base text-gray-700">Enter nurse verification code to start journey</p>
+            <InputOTP
+              maxLength={PIN_LENGTH}
+              value={verificationCode}
+              onChange={setVerificationCode}
+            >
+              <InputOTPGroup className="gap-2 sm:gap-6">
+                {Array.from({ length: PIN_LENGTH }, (_, i) => (
+                  <InputOTPSlot
+                    key={i}
+                    index={i}
+                    className="!size-10 !rounded-lg !border border-input !bg-white text-lg font-semibold sm:!size-12"
+                  />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+        )}
 
         {/* Next button */}
         <div className="mt-8 w-full max-w-xs">
@@ -231,18 +251,23 @@ export default function CreateBookingPage() {
               // to a unit_manager assigned to activeUnitId, or any system_admin.
               // Direct supabase lookup is forbidden under Phase 5 RLS — only
               // the service role can read other users' PINs.
-              const verifyRes = await fetch("/api/verify/manager-pin", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ pin: verificationCode, unitId: activeUnitId }),
-              })
-              const verifyData = (await verifyRes.json().catch(() => ({}))) as {
-                valid?: boolean
-              }
-              if (!verifyRes.ok || !verifyData.valid) {
-                setVerificationError("Invalid verification code")
-                setSubmitting(false)
-                return
+              //
+              // Skipped entirely when the active client has opted out via
+              // clients.nurse_verification = FALSE.
+              if (nurseVerificationRequired) {
+                const verifyRes = await fetch("/api/verify/manager-pin", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ pin: verificationCode, unitId: activeUnitId }),
+                })
+                const verifyData = (await verifyRes.json().catch(() => ({}))) as {
+                  valid?: boolean
+                }
+                if (!verifyRes.ok || !verifyData.valid) {
+                  setVerificationError("Invalid verification code")
+                  setSubmitting(false)
+                  return
+                }
               }
 
               // Search for existing patient

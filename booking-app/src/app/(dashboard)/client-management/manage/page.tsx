@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, Building2, FileText, Palette, Users, User as UserIcon, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2, FileText, Palette, Settings, Users, User as UserIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -96,16 +96,20 @@ export default function ManageClientPage() {
   // bookings also skip the patient-metrics step. Hidden when
   // billMonthly is OFF; auto-cleared when billMonthly is turned off.
   const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
+  // Independent flag — bookings under this client require a
+  // nurse-verification step. Combinable with any payment mode.
+  const [nurseVerification, setNurseVerification] = useState(false)
   // Tabbed layout — matches the Add Client flow.
   //   details  → contact form (editable)
   //   branding → logo / favicon / accent picker (editable)
+  //   settings → system_admin-only billing-mode toggles (editable)
   //   units    → read-only list of units under this client
   //   users    → read-only list of users assigned to any of those units
   // Update Information lives below the tabs and only renders for the
   // editable tabs. Disable Client stays visible everywhere because it's
   // a whole-client action, not a per-tab action.
   const [activeTab, setActiveTab] = useState<
-    "details" | "branding" | "units" | "users"
+    "details" | "branding" | "settings" | "units" | "users"
   >("details")
 
   // Units list (read-only Units tab). Filtered client-side to avoid an
@@ -138,6 +142,7 @@ export default function ManageClientPage() {
       setCollectPaymentAtUnit(client.collectPaymentAtUnit)
       setBillMonthly(client.billMonthly)
       setSkipPatientMetrics(client.skipPatientMetrics)
+      setNurseVerification(client.nurseVerification)
     }
   }, [client])
 
@@ -253,7 +258,7 @@ export default function ManageClientPage() {
         // structurally enforced server-side; the omission here just
         // avoids sending a no-op field for non-admins.
         ...(isSystemAdmin
-          ? { collectPaymentAtUnit, billMonthly, skipPatientMetrics }
+          ? { collectPaymentAtUnit, billMonthly, skipPatientMetrics, nurseVerification }
           : {}),
       })
       router.push("/client-management")
@@ -437,6 +442,23 @@ export default function ManageClientPage() {
             <Palette className="size-4" />
             Branding
           </button>
+          {isSystemAdmin && (
+            <button
+              type="button"
+              role="tab"
+              data-testid="tab-settings"
+              aria-selected={activeTab === "settings"}
+              onClick={() => setActiveTab("settings")}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "settings"
+                  ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              <Settings className="size-4" />
+              Settings
+            </button>
+          )}
           <button
             type="button"
             role="tab"
@@ -548,19 +570,22 @@ export default function ManageClientPage() {
                 onChange={setContactNumber}
                 onClear={() => setContactNumber("")}
               />
+            </div>
+          )}
 
-              {/* Billing-mode toggles (system_admin only). Mutually
-                  exclusive — turning one ON forces the other OFF in
-                  local state; the server PATCH route also clamps if
-                  both ever arrive TRUE. The visual contrast (amber for
-                  self-collect, blue for monthly-invoice) carries
-                  through to the patient-history pills + the booking
-                  flow's step-5 panels. */}
-              {isSystemAdmin && (
-                <div
-                  data-testid="collect-payment-toggle-row"
-                  className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
-                >
+          {activeTab === "settings" && isSystemAdmin && (
+            <div data-testid="tab-content-settings" className="flex flex-col gap-4">
+              {/* Billing-mode toggles. Mutually exclusive — turning one
+                  ON forces the other OFF in local state; the server
+                  PATCH route also clamps if both ever arrive TRUE. The
+                  visual contrast (amber for self-collect, blue for
+                  monthly-invoice) carries through to the
+                  patient-history pills + the booking flow's step-5
+                  panels. */}
+              <div
+                data-testid="collect-payment-toggle-row"
+                className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+              >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-semibold text-gray-900">
@@ -650,13 +675,11 @@ export default function ManageClientPage() {
                     </div>
                   )}
                 </div>
-              )}
 
-              {isSystemAdmin && (
-                <div
-                  data-testid="bill-monthly-toggle-row"
-                  className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4"
-                >
+              <div
+                data-testid="bill-monthly-toggle-row"
+                className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4"
+              >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-semibold text-gray-900">
@@ -739,7 +762,43 @@ export default function ManageClientPage() {
                     </div>
                   )}
                 </div>
-              )}
+
+              {/* Nurse verification — independent of billing modes.
+                  Neutral/green styling so it visually separates from
+                  the amber/blue billing panels. */}
+              <div
+                data-testid="nurse-verification-toggle-row"
+                className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-gray-900">
+                      Nurse verification
+                    </span>
+                    <span className="text-xs text-gray-600">
+                      When ON, bookings under this client require a
+                      nurse-verification step.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={nurseVerification}
+                    aria-label="Nurse verification"
+                    data-testid="nurse-verification-toggle"
+                    onClick={() => setNurseVerification((v) => !v)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                      nurseVerification ? "bg-emerald-600" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                        nurseVerification ? "translate-x-5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

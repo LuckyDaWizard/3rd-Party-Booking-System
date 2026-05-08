@@ -47,6 +47,11 @@ interface UpdateClientBody {
    * up FALSE on this PATCH (or already is FALSE in the DB).
    */
   skipPatientMetrics?: boolean
+  /**
+   * When TRUE, bookings under this client require a nurse-verification
+   * step. Independent of the billing-mode flags.
+   */
+  nurseVerification?: boolean
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -110,7 +115,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification")
     .eq("id", id)
     .single()
 
@@ -125,6 +130,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.collectPaymentAtUnit !== undefined) dbUpdates.collect_payment_at_unit = body.collectPaymentAtUnit
   if (body.billMonthly !== undefined) dbUpdates.bill_monthly = body.billMonthly
   if (body.skipPatientMetrics !== undefined) dbUpdates.skip_patient_metrics = body.skipPatientMetrics
+  if (body.nurseVerification !== undefined) dbUpdates.nurse_verification = body.nurseVerification
 
   // Mutual exclusion: turning one billing-mode flag ON forces the other
   // OFF. The UI already enforces this, but a malformed request that
@@ -210,6 +216,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Skip Patient Metrics"] = {
       old: current?.skip_patient_metrics ?? false,
       new: postClampSkip,
+    }
+  if (
+    body.nurseVerification !== undefined &&
+    body.nurseVerification !== (current?.nurse_verification ?? false)
+  )
+    changes["Nurse Verification"] = {
+      old: current?.nurse_verification ?? false,
+      new: body.nurseVerification,
     }
 
   if (Object.keys(changes).length > 0) {

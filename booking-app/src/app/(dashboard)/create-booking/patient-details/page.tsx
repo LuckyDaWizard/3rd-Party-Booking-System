@@ -9,6 +9,7 @@ import { useBookingStore } from "@/lib/booking-store"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-store"
 import { DatePickerField } from "@/components/ui/date-picker-dialog"
+import { TimePickerField } from "@/components/ui/time-picker-dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { PIN_LENGTH } from "@/lib/constants"
@@ -653,17 +654,37 @@ export default function PatientDetailsPage() {
     useState<"instant" | "scheduled">(
       (existingBooking?.bookingType as "instant" | "scheduled") || "instant"
     )
-  // Local datetime string for the native datetime-local input.
-  // Format: "YYYY-MM-DDTHH:mm" (matches the input's expected value).
-  // Converted to a full ISO timestamp on save so the DB stores UTC.
-  const [scheduledLocal, setScheduledLocal] = useState<string>(() => {
+  // Two separate pieces — date ("YYYY-MM-DD" matching DatePickerField's
+  // value contract) and time ("HH:mm" matching the native time input).
+  // Combined into a UTC ISO timestamp at save-time. Splitting into two
+  // visible fields beats a single cramped datetime-local where the
+  // value is hidden behind a tiny dropdown icon.
+  const [scheduledDate, setScheduledDate] = useState<string>(() => {
     if (!existingBooking?.scheduledAt) return ""
-    // Convert stored UTC ISO back to a local-input-friendly format.
     const d = new Date(existingBooking.scheduledAt)
     if (Number.isNaN(d.getTime())) return ""
     const pad = (n: number) => String(n).padStart(2, "0")
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
   })
+  const [scheduledTime, setScheduledTime] = useState<string>(() => {
+    if (!existingBooking?.scheduledAt) return ""
+    const d = new Date(existingBooking.scheduledAt)
+    if (Number.isNaN(d.getTime())) return ""
+    const pad = (n: number) => String(n).padStart(2, "0")
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  })
+
+  /**
+   * Combine scheduledDate ("YYYY-MM-DD") + scheduledTime ("HH:mm")
+   * into a UTC ISO string. Returns null if either piece is missing
+   * or the result is not a valid date — caller should guard on that
+   * before persisting.
+   */
+  function buildScheduledIso(): string | null {
+    if (!scheduledDate || !scheduledTime) return null
+    const d = new Date(`${scheduledDate}T${scheduledTime}`)
+    return Number.isNaN(d.getTime()) ? null : d.toISOString()
+  }
 
   // Auto-skip path for monthly_invoice clients: the operator never sees
   // step 5 (now step 6 after the Booking Type insertion). When paymentMode resolves to "monthly_invoice" while step 5
@@ -676,6 +697,11 @@ export default function PatientDetailsPage() {
   // goes straight to /creating. Defaults to FALSE; only flipped to
   // TRUE if the API confirms it for this booking's parent client.
   const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
+  // Independent flag from payment-mode endpoint. When FALSE, the step-5
+  // → step-6 transition skips the nurse-verification modal. Defaults
+  // to TRUE — fail-safe so the modal still shows if the API hasn't
+  // resolved or fails.
+  const [nurseVerification, setNurseVerification] = useState(true)
 
   // Resolve the booking's payment mode from the parent client's
   // collect_payment_at_unit flag. We refetch when bookingId changes (i.e.
@@ -705,6 +731,7 @@ export default function PatientDetailsPage() {
         const data = (await res.json().catch(() => ({}))) as {
           mode?: "gateway" | "self_collect" | "monthly_invoice"
           skipPatientMetrics?: boolean
+          nurseVerification?: boolean
         }
         if (cancelled) return
         setPaymentMode(
@@ -715,6 +742,10 @@ export default function PatientDetailsPage() {
               : "gateway"
         )
         if (data.skipPatientMetrics) setSkipPatientMetrics(true)
+        // Only honour an explicit FALSE — leave the fail-safe TRUE
+        // default in place when the field is missing or the request
+        // failed.
+        if (data.nurseVerification === false) setNurseVerification(false)
       })
       .catch(() => {
         if (!cancelled) setPaymentMode("gateway")
@@ -1063,20 +1094,14 @@ export default function PatientDetailsPage() {
     } else if (currentStep === 4) {
       // Step 4 — Booking Type. Persist the choice + scheduled_at and
       // advance to step 5 (Verification). Validation: bookingType
-      // must be selected; if 'scheduled', scheduledLocal must be a
-      // non-empty datetime-local string. Slot availability is NOT
-      // validated here — CareFirst is the source of truth and the
-      // operator only sees CareFirst's slot picker after handoff.
-      if (bookingType === "scheduled" && !scheduledLocal) return
+      // must be selected; if 'scheduled', BOTH date and time must be
+      // populated. Slot availability is NOT validated here —
+      // CareFirst is the source of truth and the operator only sees
+      // CareFirst's slot picker after handoff.
+      if (bookingType === "scheduled" && (!scheduledDate || !scheduledTime)) return
       if (bookingId) {
-        // Convert "YYYY-MM-DDTHH:mm" (local time, no offset) to a
-        // full ISO timestamp. `new Date(localStr)` interprets the
-        // string in the browser's local timezone, then toISOString()
-        // serialises as UTC — which is what we want for storage.
         const scheduledIso =
-          bookingType === "scheduled" && scheduledLocal
-            ? new Date(scheduledLocal).toISOString()
-            : null
+          bookingType === "scheduled" ? buildScheduledIso() : null
         await updateBooking(bookingId, {
           bookingType,
           scheduledAt: scheduledIso,
@@ -1084,7 +1109,28 @@ export default function PatientDetailsPage() {
       }
       setCurrentStep(5)
     } else if (currentStep === 5) {
-      setShowVerification(true)
+      // The Verify step exposes Booking Type + Date + Time as editable
+      // fields. Auto-save doesn't carry those (its dep list excludes
+      // them) and step 4's handleNext already fired BEFORE any Verify
+      // edits, so we must persist again here — otherwise edits made
+      // on Verify are silently dropped on advance.
+      if (bookingType === "scheduled" && (!scheduledDate || !scheduledTime)) return
+      if (bookingId) {
+        await updateBooking(bookingId, {
+          bookingType,
+          scheduledAt:
+            bookingType === "scheduled" ? buildScheduledIso() : null,
+        })
+      }
+      // Skip the nurse-verification modal entirely when the parent
+      // client has opted out (clients.nurse_verification = FALSE).
+      // Otherwise show the PIN dialog as before; on success it
+      // advances to step 6 itself.
+      if (!nurseVerification) {
+        setCurrentStep(6)
+      } else {
+        setShowVerification(true)
+      }
     } else if (currentStep === 6 && paymentMode === "self_collect") {
       // Self-collect short-circuit: skip PayFast entirely. The server
       // re-checks the client's flag in mark-self-collect, so even if
@@ -1174,9 +1220,7 @@ export default function PatientDetailsPage() {
         paymentType: selectedPaymentType || null,
         bookingType,
         scheduledAt:
-          bookingType === "scheduled" && scheduledLocal
-            ? new Date(scheduledLocal).toISOString()
-            : null,
+          bookingType === "scheduled" ? buildScheduledIso() : null,
       })
       await discardBooking(bookingId)
     }
@@ -1192,7 +1236,7 @@ export default function PatientDetailsPage() {
       // default); 'scheduled' requires a non-empty datetime-local
       // value. We don't validate against the future-or-past here —
       // CareFirst surfaces actual slot availability post-handoff.
-      ? bookingType === "instant" || (bookingType === "scheduled" && scheduledLocal !== "")
+      ? bookingType === "instant" || (bookingType === "scheduled" && scheduledDate !== "" && scheduledTime !== "")
       : currentStep === 5 ? true :  // Verification dialog gates further progression
     currentStep === 6
       ? paymentMode === "monthly_invoice"
@@ -1540,7 +1584,7 @@ export default function PatientDetailsPage() {
                 onClick={() => setBookingType("instant")}
                 className={`flex items-start gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
                   bookingType === "instant"
-                    ? "border-[var(--client-primary)] bg-[#CDE5F2]"
+                    ? "border-[var(--client-primary)] bg-[var(--client-primary-10)]"
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
@@ -1573,7 +1617,7 @@ export default function PatientDetailsPage() {
                 onClick={() => setBookingType("scheduled")}
                 className={`flex items-start gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
                   bookingType === "scheduled"
-                    ? "border-[var(--client-primary)] bg-[#CDE5F2]"
+                    ? "border-[var(--client-primary)] bg-[var(--client-primary-10)]"
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
@@ -1600,30 +1644,40 @@ export default function PatientDetailsPage() {
               </button>
             </div>
 
-            {/* Datetime picker — only visible when "scheduled" is
-                selected. Native input keeps mobile + desktop both
-                covered without extra component code; CareFirst is the
+            {/* Date + Time pickers — only visible when "scheduled" is
+                selected. Date uses the project's standard
+                DatePickerField (modal calendar); time uses a native
+                time input which renders consistently across mobile +
+                desktop. Both visible at once so the captured value
+                doesn't hide behind a dropdown. CareFirst is the
                 source of truth for actual slot availability so we
                 deliberately don't pre-validate. */}
             {bookingType === "scheduled" && (
               <div
                 data-testid="booking-type-datetime-row"
-                className="flex w-full max-w-md flex-col gap-2"
+                className="flex w-full max-w-2xl flex-col gap-2"
               >
-                <label
-                  htmlFor="scheduled-at"
-                  className="text-xs font-semibold uppercase tracking-wider text-gray-500"
-                >
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Preferred date &amp; time
-                </label>
-                <input
-                  id="scheduled-at"
-                  data-testid="input-scheduled-at"
-                  type="datetime-local"
-                  value={scheduledLocal}
-                  onChange={(e) => setScheduledLocal(e.target.value)}
-                  className="h-14 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none transition-colors focus:border-gray-900"
-                />
+                </span>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <DatePickerField
+                    id="scheduled-date"
+                    data-testid="input-scheduled-date"
+                    label="Date"
+                    value={scheduledDate}
+                    onChange={setScheduledDate}
+                    onClear={() => setScheduledDate("")}
+                  />
+                  <TimePickerField
+                    id="scheduled-time"
+                    data-testid="input-scheduled-time"
+                    label="Time"
+                    value={scheduledTime}
+                    onChange={setScheduledTime}
+                    onClear={() => setScheduledTime("")}
+                  />
+                </div>
                 <span className="text-xs text-gray-500">
                   CareFirst confirms the actual slot when the
                   consultation is started.
@@ -1881,6 +1935,64 @@ export default function PatientDetailsPage() {
                 </div>
               )}
             </div>
+
+            {/* Booking Type — editable like the other verify sections.
+                Same FloatingSelect pattern as the patient-detail
+                fields above; same DatePickerField + TimePickerField
+                pair as step 4. Switching to Instant clears the
+                scheduled fields locally so they don't persist as
+                stale values when Next is clicked. */}
+            <div className="flex flex-col gap-4">
+              <h2 className="text-xl font-bold text-gray-900">Booking Type</h2>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <FloatingSelect
+                  id="verify-booking-type"
+                  data-testid="verify-booking-type"
+                  label="Booking Type"
+                  value={bookingType}
+                  onChange={(v) => {
+                    const next = v as "instant" | "scheduled"
+                    setBookingType(next)
+                    if (next === "instant") {
+                      setScheduledDate("")
+                      setScheduledTime("")
+                    }
+                  }}
+                  options={[
+                    { value: "instant", label: "Instant Consult" },
+                    { value: "scheduled", label: "Scheduled Consult" },
+                  ]}
+                />
+                {bookingType === "scheduled" && (
+                  <DatePickerField
+                    id="verify-scheduled-date"
+                    data-testid="verify-scheduled-date"
+                    label="Date"
+                    value={scheduledDate}
+                    onChange={setScheduledDate}
+                    onClear={() => setScheduledDate("")}
+                  />
+                )}
+              </div>
+              {bookingType === "scheduled" && (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <TimePickerField
+                    id="verify-scheduled-time"
+                    data-testid="verify-scheduled-time"
+                    label="Time"
+                    value={scheduledTime}
+                    onChange={setScheduledTime}
+                    onClear={() => setScheduledTime("")}
+                  />
+                </div>
+              )}
+              {bookingType === "scheduled" && (
+                <p className="text-xs text-gray-500">
+                  CareFirst confirms the actual slot when the
+                  consultation is started.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -1983,7 +2095,7 @@ export default function PatientDetailsPage() {
                 onClick={() => setSelectedPaymentType("device")}
                 className={`flex items-center gap-3 rounded-xl border px-6 py-5 text-left transition-colors ${
                   selectedPaymentType === "device"
-                    ? "border-[var(--client-primary)] bg-[#CDE5F2]"
+                    ? "border-[var(--client-primary)] bg-[var(--client-primary-10)]"
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >

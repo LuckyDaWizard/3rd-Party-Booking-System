@@ -44,6 +44,12 @@ export interface ClientRecord {
    * is OFF and forces it FALSE when billMonthly is turned off.
    */
   skipPatientMetrics: boolean
+  /**
+   * When TRUE, bookings under this client require a nurse-verification
+   * step. Independent of the billing-mode flags — can be combined with
+   * any payment mode. Defaults to FALSE for new clients.
+   */
+  nurseVerification: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -61,7 +67,7 @@ interface ClientStoreContextValue {
   addClient: (
     client: Omit<
       ClientRecord,
-      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics"
+      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification"
     >
   ) => Promise<string>
   updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
@@ -92,6 +98,7 @@ interface DbClient {
   collect_payment_at_unit: boolean | null
   bill_monthly: boolean | null
   skip_patient_metrics: boolean | null
+  nurse_verification: boolean | null
 }
 
 interface DbUnit {
@@ -119,6 +126,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     collectPaymentAtUnit: row.collect_payment_at_unit ?? false,
     billMonthly: row.bill_monthly ?? false,
     skipPatientMetrics: row.skip_patient_metrics ?? false,
+    nurseVerification: row.nurse_verification ?? false,
   }
 }
 
@@ -195,7 +203,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   async function addClient(
     client: Omit<
       ClientRecord,
-      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics"
+      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification"
     >
   ) {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
@@ -239,6 +247,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.collectPaymentAtUnit !== undefined) body.collectPaymentAtUnit = updates.collectPaymentAtUnit
     if (updates.billMonthly !== undefined) body.billMonthly = updates.billMonthly
     if (updates.skipPatientMetrics !== undefined) body.skipPatientMetrics = updates.skipPatientMetrics
+    if (updates.nurseVerification !== undefined) body.nurseVerification = updates.nurseVerification
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {

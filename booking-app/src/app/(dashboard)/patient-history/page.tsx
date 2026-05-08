@@ -14,6 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useBookingStore, type BookingStatus } from "@/lib/booking-store"
+import { useUnitStore } from "@/lib/unit-store"
+import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 import { DataCard } from "@/components/data-card"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
@@ -46,6 +48,24 @@ interface PatientRecord {
    * modes are visually distinct.
    */
   monthlyInvoice: boolean
+  /**
+   * TRUE when the booking was captured as a future-dated consult
+   * (`booking_type === "scheduled"`). The row gets a "Scheduled"
+   * badge with the scheduled date/time so a manager can see at a
+   * glance which bookings need a Start Consult run later. There's
+   * also a "Scheduled only" filter on the page that surfaces just
+   * these rows, sorted by their scheduled_at ascending.
+   */
+  scheduled: boolean
+  /**
+   * Stored UTC ISO timestamp from `bookings.scheduled_at`. Display
+   * code converts to the operator's local timezone.
+   */
+  scheduledAt: string | null
+  /** Unit name for display. Empty string if the booking has no unit. */
+  unitName: string
+  /** Parent client id — used to look up the favicon thumbnail. */
+  clientId: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +78,19 @@ function maskIdNumber(id: string | null): string {
   const last2 = id.slice(-2)
   const masked = "X".repeat(id.length - 4)
   return `${first2}${masked}${last2}`
+}
+
+/**
+ * Format a stored UTC ISO timestamp as "DD/MM HH:mm" in the operator's
+ * local timezone — short form for inline pills on patient-history rows.
+ * Returns the empty string for null/undefined/invalid input.
+ */
+function formatScheduledShort(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function getStatusStyle(status: PatientStatus): string {
@@ -313,13 +346,33 @@ export default function PatientHistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { bookings, loading, discardBooking, updateBooking, refreshBookings } = useBookingStore()
+  const { units } = useUnitStore()
+  const { clients } = useClientStore()
   const { isSystemAdmin, isUnitManager, activeUnitId } = useAuth()
+
+  // unitId → { unitName, clientId } and clientId → faviconUrl. Built
+  // once per render so the per-row mapping below doesn't repeat the
+  // find for every booking.
+  const unitInfoById = React.useMemo(
+    () => new Map(units.map((u) => [u.id, { unitName: u.unitName, clientId: u.clientId }])),
+    [units]
+  )
+  const faviconByClient = React.useMemo(
+    () => new Map(clients.map((c) => [c.id, c.faviconUrl])),
+    [clients]
+  )
   const canConfirmPayment = isSystemAdmin || isUnitManager
   const tabParam = searchParams.get("tab")
   const [activeFilter, setActiveFilter] = React.useState<
     FilterType
   >("all")
   const [searchQuery, setSearchQuery] = React.useState("")
+  // Orthogonal "Scheduled only" filter. Sits alongside the status
+  // tabs because scheduled bookings can be at any status (In Progress,
+  // Payment Complete, etc.) — folding it into the status tabs would
+  // confuse the categorisation. When ON, the list is also sorted by
+  // scheduled_at ascending so the next-up consults surface first.
+  const [scheduledOnly, setScheduledOnly] = React.useState(false)
 
   // Sync filter with URL tab param
   React.useEffect(() => {
@@ -342,6 +395,51 @@ export default function PatientHistoryPage() {
   const [pendingStartConsultBookingId, setPendingStartConsultBookingId] = React.useState<string | null>(null)
   const [startConsultBusyId, setStartConsultBusyId] = React.useState<string | null>(null)
   const [startConsultError, setStartConsultError] = React.useState<string | null>(null)
+
+  // Shared handoff implementation — used by both the PIN-gated path
+  // (modal's onVerified) and the no-verification fast-path (when the
+  // booking's client has nurse_verification = false). Throws on
+  // failure so the modal path can keep its catch-on-modal behaviour;
+  // the fast-path catches and surfaces via setStartConsultError.
+  async function runStartConsult(bookingId: string) {
+    setStartConsultBusyId(bookingId)
+    setStartConsultError(null)
+    try {
+      const res = await fetch(
+        `/api/bookings/${bookingId}/start-consultation`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        redirectUrl?: string | null
+        error?: string
+      }
+      if (!res.ok || !data.ok) {
+        throw new Error(
+          data.error ?? "Failed to start consultation. Please try again."
+        )
+      }
+      await refreshBookings()
+      if (data.redirectUrl) {
+        window.open(data.redirectUrl, "_blank", "noopener,noreferrer")
+      } else {
+        setStartConsultError(
+          "Consultation registered but CareFirst did not return a redirect URL. Please contact support."
+        )
+      }
+    } catch (err) {
+      setStartConsultError(
+        err instanceof Error ? err.message : "Failed to start consultation."
+      )
+      throw err
+    } finally {
+      setStartConsultBusyId(null)
+      setPendingStartConsultBookingId(null)
+    }
+  }
 
   // PayFast reconcile on page mount — catches payments that PayFast's ITN
   // failed to deliver. Admin-only batch mode (server enforces role). Runs
@@ -394,14 +492,33 @@ export default function PatientHistoryPage() {
   }, [isSystemAdmin, runReconcile])
 
   // Map booking records to patient records for display
-  const allPatients: PatientRecord[] = bookings.map((b) => ({
+  const allPatients: PatientRecord[] = bookings.map((b) => {
+    const unitInfo = b.unitId ? unitInfoById.get(b.unitId) : undefined
+    return ({
     id: b.id,
     status: b.status,
     patientName: [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
     patientIdNumber: maskIdNumber(b.idNumber),
-    patientType: "Cash Reservation",
+    unitName: unitInfo?.unitName ?? "",
+    clientId: unitInfo?.clientId ?? null,
+    // "Patient Type" was historically a hardcoded "Cash Reservation"
+    // placeholder. Repurposed now to surface the booking's
+    // consult-timing — operators want to see at a glance which rows
+    // are scheduled for later vs. ready-to-handoff. Scheduled rows
+    // also append the formatted date/time so a manager can spot
+    // upcoming consults without opening the row.
+    patientType:
+      b.bookingType === "scheduled"
+        ? `Scheduled Consult${
+            b.scheduledAt
+              ? ` — ${formatScheduledShort(b.scheduledAt)}`
+              : ""
+          }`
+        : "Instant Consult",
     selfCollect: b.paymentType === "self_collect",
     monthlyInvoice: b.paymentType === "monthly_invoice",
+    scheduled: b.bookingType === "scheduled",
+    scheduledAt: b.scheduledAt,
     date: new Date(b.createdAt).toLocaleString("en-ZA", {
       year: "numeric",
       month: "2-digit",
@@ -409,18 +526,32 @@ export default function PatientHistoryPage() {
       hour: "2-digit",
       minute: "2-digit",
     }),
-  }))
+    })
+  })
 
   const allCount = countByFilter(allPatients, "all")
   const inProgressCount = countByFilter(allPatients, "in-progress")
   const incompleteCount = countByFilter(allPatients, "incomplete")
   const completedCount = countByFilter(allPatients, "completed")
 
-  const filteredPatients = filterPatients(
+  let filteredPatients = filterPatients(
     allPatients,
     activeFilter,
     searchQuery
   )
+  if (scheduledOnly) {
+    filteredPatients = filteredPatients.filter((p) => p.scheduled)
+    // Sort by scheduled_at ascending — soonest consult first. Rows
+    // without a scheduled_at (shouldn't happen for scheduled=true,
+    // but defensive) sink to the bottom.
+    filteredPatients = [...filteredPatients].sort((a, b) => {
+      if (!a.scheduledAt) return 1
+      if (!b.scheduledAt) return -1
+      return a.scheduledAt.localeCompare(b.scheduledAt)
+    })
+  }
+  // Count of scheduled bookings to surface on the toggle pill.
+  const scheduledCount = allPatients.filter((p) => p.scheduled).length
 
   // Pagination
   const ITEMS_PER_PAGE = 10
@@ -430,7 +561,7 @@ export default function PatientHistoryPage() {
   // Reset to page 1 when filter or search changes
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [activeFilter, searchQuery])
+  }, [activeFilter, searchQuery, scheduledOnly])
 
   const visiblePatients = filteredPatients.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -623,6 +754,39 @@ export default function PatientHistoryPage() {
               {completedCount}
             </span>
           </button>
+
+          {/* Orthogonal "Scheduled only" filter — sits next to the
+              status tabs but isn't part of the same group: scheduled
+              bookings can be at any status. Visually distinct (outline
+              when off, accent-filled when on) so it doesn't read as a
+              5th status tab. Only renders when at least one scheduled
+              booking exists. */}
+          {scheduledCount > 0 && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={scheduledOnly}
+              data-testid="filter-scheduled"
+              onClick={() => setScheduledOnly((v) => !v)}
+              className={`ml-2 inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                scheduledOnly
+                  ? "border-[var(--client-primary)] bg-[var(--client-primary-10)] text-[var(--client-primary)]"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+              title={scheduledOnly ? "Showing scheduled bookings only" : "Show scheduled bookings only"}
+            >
+              Scheduled
+              <span
+                className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
+                  scheduledOnly
+                    ? "bg-[var(--client-primary)] text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+              >
+                {scheduledCount}
+              </span>
+            </button>
+          )}
         </div>
 
         <div className="relative w-full sm:max-w-xs">
@@ -700,18 +864,42 @@ export default function PatientHistoryPage() {
                   disabled={startConsultBusyId === patient.id}
                   onClick={() => {
                     setStartConsultError(null)
-                    setPendingStartConsultBookingId(patient.id)
-                    setStartConsultPinOpen(true)
+                    // Resolve the booking's parent client's
+                    // nurse_verification flag. When OFF, skip the PIN
+                    // modal and run the handoff directly. Default
+                    // TRUE (fail-safe) if the client row is missing.
+                    const client = patient.clientId
+                      ? clients.find((c) => c.id === patient.clientId)
+                      : undefined
+                    const verificationRequired = client?.nurseVerification ?? true
+                    if (verificationRequired) {
+                      setPendingStartConsultBookingId(patient.id)
+                      setStartConsultPinOpen(true)
+                    } else {
+                      // Fire-and-forget — runStartConsult handles its
+                      // own busy + error state.
+                      void runStartConsult(patient.id)
+                    }
                   }}
                 >
                   {startConsultBusyId === patient.id ? (
                     <>
-                      Starting…
+                      {/* "Requesting…" / "Starting…" mirror the action verb on the
+                          idle button so the busy state reads naturally for both
+                          flows. */}
+                      {patient.scheduled ? "Requesting…" : "Starting…"}
                       <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
                         <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
                         <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
                       </svg>
                     </>
+                  ) : patient.scheduled ? (
+                    // Scheduled bookings → "Request Slot". The handoff
+                    // to CareFirst sends the requested datetime through
+                    // and CareFirst's app books the actual slot on
+                    // their side; the operator isn't kicking off a
+                    // live consult, just lodging the request.
+                    "Request Slot"
                   ) : (
                     "Start Consult"
                   )}
@@ -796,9 +984,13 @@ export default function PatientHistoryPage() {
                     status={statusBadge}
                     action={actionButton ?? <span className="text-xs text-gray-400">—</span>}
                     fields={[
+                      { label: "Unit Name", value: patient.unitName || "-" },
                       { label: "Patient Name", value: patient.patientName },
                       { label: "Patient ID Number", value: patient.patientIdNumber },
-                      { label: "Patient Type", value: patient.patientType },
+                      // Booking Type carries the scheduled date/time
+                      // appended inline for scheduled rows, so the
+                      // mobile card doesn't need a separate row for it.
+                      { label: "Booking Type", value: patient.patientType },
                       { label: "Date", value: patient.date },
                     ]}
                   />
@@ -807,10 +999,40 @@ export default function PatientHistoryPage() {
                 {/* Desktop row — md: and up. Existing layout, unchanged. */}
                 <div
                   data-testid={`patient-row-${patient.id}`}
-                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
+                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
                 >
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
+
+                  {/* Unit (with parent-client favicon thumbnail —
+                      mirrors the Unit Management list so the same
+                      visual carries the same meaning across pages.
+                      "—" placeholder when the booking has no unit
+                      record, e.g. legacy rows from before unit
+                      assignment was required). */}
+                  <div className="flex min-w-0 items-center gap-3 text-left">
+                    {(() => {
+                      const faviconUrl = patient.clientId ? faviconByClient.get(patient.clientId) : null
+                      return faviconUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={faviconUrl}
+                          alt=""
+                          className="size-9 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
+                          Icon
+                        </div>
+                      )
+                    })()}
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-xs font-bold text-gray-900">Unit Name</span>
+                      <span className="truncate text-sm text-gray-600" title={patient.unitName || undefined}>
+                        {patient.unitName || "-"}
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Patient Name */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
@@ -824,10 +1046,23 @@ export default function PatientHistoryPage() {
                     <span className="truncate text-sm text-gray-600" title={patient.patientIdNumber}>{patient.patientIdNumber}</span>
                   </div>
 
-                  {/* Patient Type */}
+                  {/* Booking Type — Instant or Scheduled. Scheduled
+                      rows render in the accent colour with the date/time
+                      inline so a manager can scan upcoming consults.
+                      Replaces the prior hardcoded "Cash Reservation"
+                      label, which carried no operational meaning. */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Patient Type</span>
-                    <span className="truncate text-sm text-gray-600" title={patient.patientType}>{patient.patientType}</span>
+                    <span className="text-xs font-bold text-gray-900">Booking Type</span>
+                    <span
+                      className={`truncate text-sm ${
+                        patient.scheduled
+                          ? "font-semibold text-[var(--client-primary)]"
+                          : "text-gray-600"
+                      }`}
+                      title={patient.patientType}
+                    >
+                      {patient.patientType}
+                    </span>
                   </div>
 
                   {/* Date */}
@@ -966,43 +1201,7 @@ export default function PatientHistoryPage() {
         onVerified={async () => {
           const bookingId = pendingStartConsultBookingId
           if (!bookingId) return
-          setStartConsultBusyId(bookingId)
-          setStartConsultError(null)
-          try {
-            const res = await fetch(
-              `/api/bookings/${bookingId}/start-consultation`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-              }
-            )
-            const data = (await res.json().catch(() => ({}))) as {
-              ok?: boolean
-              redirectUrl?: string | null
-              error?: string
-            }
-            if (!res.ok || !data.ok) {
-              throw new Error(
-                data.error ?? "Failed to start consultation. Please try again."
-              )
-            }
-            await refreshBookings()
-            if (data.redirectUrl) {
-              window.open(data.redirectUrl, "_blank", "noopener,noreferrer")
-            } else {
-              setStartConsultError(
-                "Consultation registered but CareFirst did not return a redirect URL. Please contact support."
-              )
-            }
-          } catch (err) {
-            setStartConsultError(
-              err instanceof Error ? err.message : "Failed to start consultation."
-            )
-            throw err
-          } finally {
-            setStartConsultBusyId(null)
-            setPendingStartConsultBookingId(null)
-          }
+          await runStartConsult(bookingId)
         }}
       />
 
@@ -1034,12 +1233,24 @@ export default function PatientHistoryPage() {
         <button
           type="button"
           onClick={() => {
-            const exportData = bookings.map((b) => ({
+            const exportData = bookings.map((b) => {
+              const unitInfo = b.unitId ? unitInfoById.get(b.unitId) : undefined
+              return ({
               "Patient Name": [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
               "ID Number": b.idNumber || "N/A",
               "ID Type": b.idType || "",
               "Status": b.status,
+              "Unit": unitInfo?.unitName || "",
               "Date": new Date(b.createdAt).toLocaleString("en-ZA"),
+              // Booking Type (instant vs scheduled) + scheduled date/time.
+              // Capitalised for export-readability vs the snake-case-ish
+              // 'instant'/'scheduled' values stored in the DB. The
+              // "Scheduled For" column is blank for instant bookings.
+              "Booking Type":
+                b.bookingType === "scheduled" ? "Scheduled" : "Instant",
+              "Scheduled For": b.scheduledAt
+                ? new Date(b.scheduledAt).toLocaleString("en-ZA")
+                : "",
               "Gender": b.gender || "",
               "Date of Birth": b.dateOfBirth || "",
               "Contact Number": b.contactNumber || "",
@@ -1052,7 +1263,8 @@ export default function PatientHistoryPage() {
               "Oxygen Saturation": b.oxygenSaturation || "",
               "Heart Rate": b.heartRate || "",
               "Terms Accepted": b.termsAccepted ? "Yes" : "No",
-            }))
+              })
+            })
 
             const ws = XLSX.utils.json_to_sheet(exportData)
             const wb = XLSX.utils.book_new()

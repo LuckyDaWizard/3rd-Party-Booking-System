@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { useBookingStore } from "@/lib/booking-store"
+import { useUnitStore } from "@/lib/unit-store"
+import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 
 // =============================================================================
@@ -30,9 +32,25 @@ export default function TermsAndConditionsPage() {
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId") ?? ""
   const { updateBooking, setActiveBookingId, getBooking, refreshBookings } = useBookingStore()
+  const { units } = useUnitStore()
+  const { clients } = useClientStore()
   const { activeUnitId, isSystemAdmin, isUnitManager } = useAuth()
 
   const booking = getBooking(bookingId)
+  // Resolve the booking's parent client to read nurse_verification.
+  // Falls back to TRUE — fail-safe: if we can't determine the client
+  // (stores not yet loaded, missing rows), keep the PIN gate in
+  // place. Only flips to FALSE when the client has explicitly
+  // opted out.
+  const nurseVerificationRequired = (() => {
+    const unitId = booking?.unitId ?? activeUnitId
+    if (!unitId) return true
+    const unit = units.find((u) => u.id === unitId)
+    if (!unit) return true
+    const client = clients.find((c) => c.id === unit.clientId)
+    if (!client) return true
+    return client.nurseVerification
+  })()
   const isSelfCollect = booking?.paymentType === "self_collect"
   const isMonthlyInvoice = booking?.paymentType === "monthly_invoice"
   // Auto-handoff applies to ALL non-gateway billing modes. For self-collect
@@ -78,11 +96,16 @@ export default function TermsAndConditionsPage() {
     try {
       await persistAcceptance()
       if (canAutoStartConsult) {
-        // Self-collect short-circuit: prompt for PIN, then hand off straight
-        // to CareFirst. Operator otherwise has to navigate to Patient History
-        // and click Start Consult separately.
-        setPinOpen(true)
+        // Self-collect short-circuit: hand off straight to CareFirst.
+        // When the client requires nurse verification, prompt for PIN
+        // first; otherwise call the handoff directly — runStartConsult
+        // navigates home on success and stays on the page on failure.
         setSubmitting(false)
+        if (nurseVerificationRequired) {
+          setPinOpen(true)
+        } else {
+          await runStartConsult()
+        }
         return
       }
       // Default: end of flow.
@@ -166,8 +189,12 @@ export default function TermsAndConditionsPage() {
           }`}
         >
           {isMonthlyInvoice
-            ? "This client is billed monthly. After acceptance you'll be asked to enter your access PIN, then the consultation will open in a new tab."
-            : "This is a self-collect booking. After acceptance you'll be asked to enter your access PIN, then the consultation will open in a new tab."}
+            ? nurseVerificationRequired
+              ? "This client is billed monthly. After acceptance you'll be asked to enter your access PIN, then the consultation will open in a new tab."
+              : "This client is billed monthly. After acceptance the consultation will open in a new tab."
+            : nurseVerificationRequired
+              ? "This is a self-collect booking. After acceptance you'll be asked to enter your access PIN, then the consultation will open in a new tab."
+              : "This is a self-collect booking. After acceptance the consultation will open in a new tab."}
         </p>
       )}
 

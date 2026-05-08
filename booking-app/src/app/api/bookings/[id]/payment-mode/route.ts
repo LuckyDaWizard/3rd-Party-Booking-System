@@ -10,7 +10,9 @@ import { requireAuthenticated } from "@/lib/api-auth"
 // server resolves monthly_invoice first if both ever arrive TRUE.
 //   {
 //     mode: "gateway" | "self_collect" | "monthly_invoice",
-//     skipPatientMetrics: boolean   // only meaningful for monthly_invoice
+//     skipPatientMetrics: boolean,  // only meaningful for monthly_invoice
+//     nurseVerification: boolean    // when FALSE, booking flow skips the
+//                                   // step-5 nurse-verification modal
 //   }
 //
 // gateway          → normal PayFast flow
@@ -72,6 +74,10 @@ export async function GET(_request: Request, context: RouteContext) {
   let collectAtUnit = false
   let billMonthly = false
   let skipPatientMetrics = false
+  // Default TRUE — fail-safe: if we can't resolve the client (no unit,
+  // missing row), keep the verification step. Only flip to FALSE when
+  // the parent client has explicitly opted out.
+  let nurseVerification = true
   if (booking.unit_id) {
     const { data: unit } = await admin
       .from("units")
@@ -82,13 +88,14 @@ export async function GET(_request: Request, context: RouteContext) {
     if (clientId) {
       const { data: client } = await admin
         .from("clients")
-        .select("collect_payment_at_unit, bill_monthly, skip_patient_metrics")
+        .select("collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification")
         .eq("id", clientId)
         .single()
       const c = client as {
         collect_payment_at_unit: boolean | null
         bill_monthly: boolean | null
         skip_patient_metrics: boolean | null
+        nurse_verification: boolean | null
       } | null
       collectAtUnit = c?.collect_payment_at_unit ?? false
       billMonthly = c?.bill_monthly ?? false
@@ -100,6 +107,7 @@ export async function GET(_request: Request, context: RouteContext) {
       // gateway client.
       skipPatientMetrics =
         (billMonthly || collectAtUnit) && (c?.skip_patient_metrics ?? false)
+      nurseVerification = c?.nurse_verification ?? false
     }
   }
 
@@ -112,5 +120,5 @@ export async function GET(_request: Request, context: RouteContext) {
       ? "self_collect"
       : "gateway"
 
-  return NextResponse.json({ mode, skipPatientMetrics })
+  return NextResponse.json({ mode, skipPatientMetrics, nurseVerification })
 }
