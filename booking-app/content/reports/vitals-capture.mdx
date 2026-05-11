@@ -1,0 +1,147 @@
+---
+title: Vitals Capture — What We Collect, What We Don't Send
+super: 3rd Party Booking System · Reference
+subtitle: We capture five vital-sign measurements at the unit before handoff. Today none of them are sent to CareFirst in the SSO payload — a deliberate gap that's worth surfacing as a potential integration point.
+audience: CareFirst Patient development team
+category: Patient Journey
+tags: [vitals, blood-pressure, glucose, observability, integration-gap]
+date: 2026-05-11
+updated: 2026-05-11
+order: 50
+pills:
+  - { label: Reference, variant: brand }
+  - { label: Integration gap, variant: warn }
+sections:
+  - { id: what-we-capture, label: What we capture }
+  - { id: when,            label: When in the flow }
+  - { id: storage,         label: How we store it }
+  - { id: skip,            label: When we skip vitals }
+  - { id: not-sent,        label: Not sent to CareFirst (yet) }
+  - { id: proposal,        label: Proposal — adding vitals to the handoff }
+  - { id: questions,       label: Open questions }
+---
+
+<Section id="what-we-capture" num="01 — What we capture" title="The five vitals">
+
+After payment and before T&Cs, the operator captures five measurements at the unit:
+
+| Vital | Unit | Column |
+|---|---|---|
+| Blood pressure | mmHg (systolic / diastolic) | `bp_systolic` + `bp_diastolic` |
+| Blood glucose | mmol/L | `glucose` |
+| Body temperature | °C | `temperature` |
+| Oxygen saturation | % | `oxygen_saturation` |
+| Heart rate | bpm | `heart_rate` |
+
+All five are optional individually but the page expects most of them to be filled in for a complete capture. Operators can submit with blanks if a measurement device is broken or the patient declined.
+
+</Section>
+
+<Section id="when" num="02 — When" title="When in the flow">
+
+```mermaid
+flowchart LR
+    A[Step 6: Payment Complete] --> B{skip_patient_metrics?}
+    B -->|FALSE| C[/patient-metrics/<br/>capture vitals]
+    B -->|TRUE| D[Skip — go to /creating]
+    C --> E[/creating/]
+    D --> E
+    E --> F[/terms/]
+    F --> G[Start Consult — SSO handoff]
+
+    classDef brand fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
+    classDef ok    fill:#dcfce7,stroke:#166534,color:#0f172a;
+    classDef warn  fill:#fef3c7,stroke:#92400e,color:#0f172a;
+    class A,C,E,F brand;
+    class D warn;
+    class G ok;
+```
+
+Vitals capture sits **after** payment and **before** T&Cs. The data is part of the booking row by the time T&Cs are accepted and the handoff fires.
+
+</Section>
+
+<Section id="storage" num="03 — Storage" title="How we store it">
+
+Stored as five columns on the same `bookings` row as everything else. No separate vitals table — keeping it denormalised makes pulling a complete booking record (one row) simple and avoids joins for the auto-register payload that **could** carry them.
+
+| Column | Type | Constraint |
+|---|---|---|
+| `bp_systolic` | `int` | nullable, range-validated client-side |
+| `bp_diastolic` | `int` | nullable, range-validated client-side |
+| `glucose` | `numeric(4,1)` | nullable |
+| `temperature` | `numeric(4,1)` | nullable |
+| `oxygen_saturation` | `int` | nullable, 0–100 |
+| `heart_rate` | `int` | nullable |
+
+Range validations are at the input UI only — the database accepts any number in range for the type. Operators see ranges suggested ("normal range: 60–100 bpm") as hints, not blocking errors.
+
+</Section>
+
+<Section id="skip" num="04 — Skip" title="When vitals are skipped">
+
+The `skip_patient_metrics` client flag bypasses this step entirely. Rules:
+
+| `collect_payment_at_unit` | `bill_monthly` | `skip_patient_metrics` | Vitals captured? |
+|---|---|---|---|
+| FALSE | FALSE | (any) | **Always captured** (the flag is ignored for gateway payment) |
+| TRUE | FALSE | FALSE | Captured |
+| TRUE | FALSE | TRUE | **Skipped** |
+| FALSE | TRUE | FALSE | Captured |
+| FALSE | TRUE | TRUE | **Skipped** |
+
+The flag only takes effect when payment isn't going through PayFast — the rationale being that clients running self-collect or monthly-invoice tend to be lighter-touch operations where vitals at every visit add friction.
+
+For skipped bookings, all five columns stay `null`.
+
+</Section>
+
+<Section id="not-sent" num="05 — Not sent" title="Not sent to CareFirst (today)">
+
+**None of the five vitals appear in the SSO auto-register payload.** The handoff sends identity, contact, address, payment intent (booking-type) — but no clinical data.
+
+This is partly historical and partly deliberate:
+
+- We didn't have a stable contract for clinical fields on your side
+- POPIA classifies vitals as sensitive personal information; minimal-necessary-transfer is a defensible default
+- The clinician inside CareFirst Patient can capture their own vitals during the consult if they need authoritative readings
+
+But it's also a potential integration improvement. The clinician seeing the patient's pre-consult vitals at handoff time could:
+
+- Triage urgency (BP 200/120 → seen first)
+- Skip re-capture if our readings are recent and sufficient
+- Trend against historical readings if your system stores them
+
+</Section>
+
+<Section id="proposal" num="06 — Proposal" title="Proposal — adding vitals to the handoff">
+
+If CareFirst wants this, the additive change on our side is small. Suggested payload extension:
+
+```payload
+{
+  ...existing payload fields...,
+  "intakeMetrics": {
+    "capturedAt":        "2026-05-14T09:12:34Z",
+    "bloodPressure":     { "systolic": 122, "diastolic": 78 },
+    "bloodGlucose":      { "value": 5.4, "unit": "mmol/L" },
+    "temperature":       { "value": 36.7, "unit": "C" },
+    "oxygenSaturation":  { "value": 98, "unit": "%" },
+    "heartRate":         { "value": 72, "unit": "bpm" }
+  }
+}
+```
+
+Nullable individually — we'd omit fields that weren't captured. The whole `intakeMetrics` object would be omitted for `skip_patient_metrics`-flagged bookings.
+
+</Section>
+
+<Section id="questions" num="07 — Questions" title="Open questions for CareFirst">
+
+1. **Do you want vitals in the handoff payload?** If yes, the field names above are suggestions — happy to align with whatever your data model already has.
+2. **Does CareFirst Patient have an "intake observations" surface** where these would land? Or would they need a new section?
+3. **POPIA / data-sharing implications.** Vitals are health data under POPIA. Forwarding them to your application creates joint-controller responsibilities — worth a separate compliance conversation if we go ahead.
+4. **Trending against history.** If you do receive them, would your clinician see them as standalone readings or as part of a longitudinal record?
+5. **Authority / overwrite rules.** If CareFirst captures vitals again during the consult, do ours stay as "pre-consult" and theirs as "in-consult", or do they overwrite? Affects how clinicians interpret them.
+
+</Section>

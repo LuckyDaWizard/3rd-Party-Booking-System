@@ -1,0 +1,145 @@
+---
+title: Architecture at a Glance
+super: 3rd Party Booking System · Reference
+subtitle: Tech stack, deployment shape, where state lives, and how a single booking moves through our system from operator click to CareFirst handoff.
+audience: CareFirst Patient development team
+category: System Overview
+tags: [architecture, stack, deployment, nextjs, supabase]
+date: 2026-05-11
+updated: 2026-05-11
+order: 30
+pills:
+  - { label: Reference, variant: brand }
+  - { label: Architecture, variant: mute }
+sections:
+  - { id: stack,         label: Tech stack }
+  - { id: topology,      label: Topology }
+  - { id: request-life,  label: Lifecycle of one booking }
+  - { id: state,         label: Where state lives }
+  - { id: external,      label: External dependencies }
+  - { id: dev-cycle,     label: Build and release }
+---
+
+<Section id="stack" num="01 — Stack" title="Tech stack at a glance">
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Frontend framework | Next.js 16 (App Router) + React 19 | Server components by default; client components only where interactivity demands them |
+| Styling | Tailwind 4 + a small shadcn slice | Plus brand tokens in `globals.css` for per-client accents |
+| Auth + DB | Supabase (Postgres + Supabase Auth) | Real Row-Level Security — every table has policies; we don't have a "service mode" that bypasses RLS in user-facing code |
+| File storage | Supabase Storage | Used for client logos / favicons / user avatars |
+| Payments | PayFast (sandbox + production) | Both the ITN webhook *and* the Transaction History API for reconcile |
+| Email | nodemailer over SMTP | `mail.carefirst.co.za:465` — used for invite codes and PIN reset |
+| Hosting | Docker on Hostinger VPS | Traefik reverse proxy, currently HTTP-only |
+| External APIs | CareFirst Patient SSO | Single outbound integration point — `POST /api/external/client-sso/auto-register` |
+
+</Section>
+
+<Section id="topology" num="02 — Topology" title="Topology">
+
+```mermaid
+flowchart LR
+    subgraph Browser
+      A[Operator UI<br/>Next.js client components]
+    end
+
+    subgraph VPS [Hostinger VPS · Docker]
+      B[Traefik]
+      C[Next.js app<br/>standalone server]
+      B --> C
+    end
+
+    subgraph Cloud
+      D[Supabase<br/>Postgres + Auth + Storage]
+      E[PayFast]
+      F[CareFirst Patient<br/>SSO endpoint]
+      G[SMTP server<br/>mail.carefirst.co.za]
+    end
+
+    A -->|HTTPS / HTTP*| B
+    C -->|RLS-scoped queries| D
+    C -->|payment initiate + reconcile| E
+    E -->|ITN webhook| C
+    C -->|auto-register| F
+    C -->|invite + reset emails| G
+
+    classDef us    fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
+    classDef them  fill:#dcfce7,stroke:#166534,color:#0f172a;
+    classDef other fill:#fef3c7,stroke:#92400e,color:#0f172a;
+    class A,B,C us;
+    class F them;
+    class D,E,G other;
+```
+
+\* Currently HTTP-only — HTTPS rollout pending domain. See [Deployment & Hosting](/reports/deployment-hosting).
+
+</Section>
+
+<Section id="request-life" num="03 — Request lifecycle" title="Lifecycle of one booking">
+
+A single booking flows through these stages — each is a request to our Next.js server, validated by middleware, RLS-scoped at the DB, and audit-logged.
+
+```mermaid
+flowchart LR
+    A[Operator opens<br/>Create Booking] --> B[Capture<br/>patient details]
+    B -->|auto-save every 2s| C[Postgres<br/>bookings row]
+    C --> D[Payment branch]
+    D -->|gateway| E[PayFast checkout]
+    D -->|self-collect| F[Mark in unit + PIN]
+    D -->|monthly| G[Auto-mark]
+    E --> H[ITN webhook]
+    F --> I[bookings.status<br/>= Payment Complete]
+    G --> I
+    H --> I
+    I --> J[Vitals + T&amp;Cs]
+    J --> K[Start Consult]
+    K --> L[POST CareFirst<br/>auto-register]
+    L --> M[bookings.status<br/>= Successful]
+```
+
+Every transition is recorded in `audit_log` with actor, action, before/after diff, and source IP. The handoff itself is the only step where our server makes an outbound call to CareFirst.
+
+</Section>
+
+<Section id="state" num="04 — State" title="Where state lives">
+
+| State type | Where | Lifetime |
+|---|---|---|
+| Booking record | Postgres `bookings` table | Forever (subject to POPIA retention sweep) |
+| Operator session | Cookie (Supabase Auth JWT) + Postgres session table | 30 days default, revoked on PIN reset |
+| Patient-details auto-save draft | Same `bookings` row — written every 2s during capture | Until the booking moves to a terminal status |
+| PayFast payment | Postgres + PayFast — we reconcile against PayFast as source of truth | Per booking |
+| Operator UI state | React (in browser) | Per session |
+| Audit log | Postgres `audit_log` table | Forever |
+| CSRF token | Cookie (non-HttpOnly, SameSite=Lax) | 1 week, rotates if missing |
+
+We are deliberately **stateless** in the application layer — no in-memory caches that matter, no sticky sessions. Restarting the Next.js container drops nothing user-visible; the Postgres state survives.
+
+</Section>
+
+<Section id="external" num="05 — External" title="External dependencies and how we depend on them">
+
+| Service | Sync/async | What breaks if it's down |
+|---|---|---|
+| Supabase | Sync | Everything — we can't read or write without it |
+| PayFast | Sync (initiate) + async (ITN) | Gateway-paid bookings can't initiate; ITN drops get rescued by reconcile on restore |
+| CareFirst Patient SSO | Sync (handoff only) | Start Consult fails; booking stays at Payment Complete; operator can retry |
+| SMTP | Async | New users can't receive invite codes; forgot-PIN doesn't deliver |
+
+Note that CareFirst being down **doesn't block bookings from being created or paid** — only the final handoff. Bookings queue at Payment Complete and clear automatically once handoff is reattempted.
+
+</Section>
+
+<Section id="dev-cycle" num="06 — Dev cycle" title="Build, release, rollback">
+
+| Stage | What happens |
+|---|---|
+| Local dev | `npm run dev` → Next.js on port 3000, hot reload, Supabase remote |
+| CI | None today — direct-to-main workflow; tests run locally before merge |
+| Deploy | SSH to VPS → `git pull && docker compose build && docker compose up -d` with `IMAGE_TAG=<short-sha>` |
+| Rollback | `IMAGE_TAG=<previous-sha> docker compose up -d --no-build` — ~10 seconds, no rebuild |
+| Health check | `GET /api/health` → `{ status: "ok", checks: { db: "ok" } }` |
+
+Every deploy tags the new image with the commit SHA, so the previous image stays available locally as a rollback target until pruned.
+
+</Section>

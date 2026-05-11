@@ -1,0 +1,143 @@
+---
+title: Data Model — Booking Row Reference
+super: 3rd Party Booking System · Reference
+subtitle: The canonical reference for every column on the `bookings` table. What we capture, what we send to CareFirst, and what we keep on our side. Useful when a CareFirst support ticket references a specific field.
+audience: CareFirst Patient development team
+category: System Overview
+tags: [data-model, schema, bookings, postgres, reference]
+date: 2026-05-11
+updated: 2026-05-11
+order: 60
+pills:
+  - { label: Reference, variant: brand }
+  - { label: Schema, variant: mute }
+sections:
+  - { id: overview,      label: Overview }
+  - { id: identity,      label: Identity fields }
+  - { id: contact,       label: Contact + address }
+  - { id: booking-type,  label: Booking type + scheduling }
+  - { id: payment,       label: Payment }
+  - { id: handoff,       label: Handoff }
+  - { id: vitals,        label: Vitals }
+  - { id: meta,          label: Status, audit, lifecycle }
+  - { id: what-we-send,  label: What CareFirst actually sees }
+---
+
+<Section id="overview" num="01 — Overview" title="One row per booking">
+
+Every booking the system has ever created exists as one row in the `bookings` table. The row is created when the operator clicks Create Booking, populated incrementally as the patient walks through the flow (auto-save every 2 seconds), and reaches a terminal status at handoff or abandonment.
+
+Roughly 40 columns. They cluster into 8 groups, documented below. Anything not listed here is either a soft-delete flag, a per-environment metadata field, or an internal optimisation; the columns below cover everything externally visible.
+
+</Section>
+
+<Section id="identity" num="02 — Identity" title="Identity fields">
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | Primary key. Sent to CareFirst as `uniqueReference` |
+| `id_number` | `text` | 13-digit SA ID or passport string. Sent as `user.idNumber` |
+| `id_type` | `text` | `national` / `passport` / `other`. Mapped to enum `0`/`1`/`2` for CareFirst |
+| `title` | `text` | Free-text; whitelisted before send (MR/MRS/MS/...). Non-matching → `null` |
+| `first_names` | `text` | Sent as `user.userProfile.firstName` |
+| `surname` | `text` | Sent as `user.userProfile.surname` |
+| `date_of_birth` | `date` | Stored as date, sent as `YYYY-MM-DD` string |
+| `gender` | `text` | First char uppercased — `M`/`F`/`O`/`N` |
+| `country_code` | `text` | Free-text; normalised to `za`/`bw`/`lso` for CareFirst |
+| `nationality` | `text` | Same normalisation as `country_code` |
+
+</Section>
+
+<Section id="contact" num="03 — Contact + address" title="Contact and address fields">
+
+| Column | Type | Sent to CareFirst? |
+|---|---|---|
+| `email_address` | `text` | Yes, as `user.email` |
+| `contact_number` | `text` | Yes, as `user.cellNumber` (E.164-ish, not strictly validated) |
+| `address` | `text` | Yes, in `user.userProfile.fullAddress.address` |
+| `suburb` | `text` | Yes, as `fullAddress.suburb` |
+| `city` | `text` | Yes, as `fullAddress.city` |
+| `province` | `text` | Yes, as `fullAddress.province` |
+| `country` | `text` | Yes, as `fullAddress.country` |
+| `postal_code` | `text` | Yes, as `fullAddress.postalCode` |
+
+`fullAddress` is omitted entirely when `address` or `city` is blank.
+
+</Section>
+
+<Section id="booking-type" num="04 — Booking type" title="Booking type and scheduling">
+
+| Column | Type | Notes |
+|---|---|---|
+| `booking_type` | `text` | `instant` or `scheduled`. Sent as `bookingType` only when `scheduled` |
+| `scheduled_at` | `timestamptz` | UTC. Sent as `scheduledAt` only when `booking_type = 'scheduled'` |
+
+See [Scheduled vs Instant](/reports/scheduled-vs-instant) for the full mechanics.
+
+</Section>
+
+<Section id="payment" num="05 — Payment" title="Payment fields">
+
+| Column | Type | Notes |
+|---|---|---|
+| `payment_type` | `text` | `gateway` / `self_collect` / `monthly_invoice` / `manual` |
+| `payment_amount` | `numeric` | Set when payment is initiated (gateway) or confirmed (self-collect/monthly) |
+| `payment_reference` | `text` | PayFast's transaction ID for gateway bookings |
+| `payment_confirmed_at` | `timestamptz` | When status flipped to Payment Complete |
+
+**Not sent to CareFirst today.** See [Per-Client Configuration Flags](/reports/per-client-configuration) for the why.
+
+</Section>
+
+<Section id="handoff" num="06 — Handoff" title="Handoff state — the CareFirst-facing fields">
+
+These are the columns CareFirst's devs are most likely to encounter in support tickets.
+
+| Column | Type | Notes |
+|---|---|---|
+| `handoff_status` | `text` | `sent` (success) or `failed` |
+| `handoff_error_reason` | `text` | Latest error from your response body, parsed via `displayMessage > errorMessage > message > error > detail > title` |
+| `handoff_attempt_count` | `int` | Increments every retry |
+| `last_handoff_attempt_at` | `timestamptz` | When the most recent attempt happened |
+| `handed_off_at` | `timestamptz` | When a successful handoff first happened |
+| `handoff_redirect_url` | `text` | The URL we extracted from your response and opened in a new tab |
+| `external_reference_id` | `text` | The reference ID we extracted (`referenceId` / `patientId` / similar) |
+
+</Section>
+
+<Section id="vitals" num="07 — Vitals" title="Vitals">
+
+| Column | Type | Sent to CareFirst? |
+|---|---|---|
+| `bp_systolic`, `bp_diastolic` | `int` | No — kept on our side only |
+| `glucose` | `numeric` | No |
+| `temperature` | `numeric` | No |
+| `oxygen_saturation` | `int` | No |
+| `heart_rate` | `int` | No |
+
+See [Vitals Capture — What We Collect, What We Don't Send](/reports/vitals-capture) for the rationale and integration question.
+
+</Section>
+
+<Section id="meta" num="08 — Meta" title="Status, audit, lifecycle">
+
+| Column | Type | Notes |
+|---|---|---|
+| `status` | `text` | `In Progress` / `Payment Complete` / `Successful` / `Abandoned` / `Discarded` |
+| `unit_id` | `uuid` | FK to `units`; determines which operator can see this row via RLS |
+| `current_step` | `int` | Auto-save resume point; 1–6 during capture, fixed after handoff |
+| `created_at` | `timestamptz` | When operator clicked Create Booking |
+| `updated_at` | `timestamptz` | Last auto-save or status change |
+| `terms_accepted_at` | `timestamptz` | When the patient hit Accept on T&Cs |
+| `booking_validator_id` | `uuid` | Snapshot of who handed off / manually confirmed (denormalised so audit survives user deletes) |
+| `booking_validator_name` | `text` | Same — name at the time of the action |
+
+</Section>
+
+<Section id="what-we-send" num="09 — Summary" title="What CareFirst actually sees from the row">
+
+About **20 of the 40 fields** make it into the SSO auto-register payload. The rest are operational: payment internals, vitals (today), audit snapshots, status machinery.
+
+If any of the "not sent" columns would be useful in the handoff payload for your side — e.g. `payment_type` for billing reconciliation, vitals for clinical context — they're trivially forwardable. Just let us know.
+
+</Section>

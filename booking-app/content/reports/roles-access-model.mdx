@@ -1,0 +1,117 @@
+---
+title: Roles & Access Model
+super: 3rd Party Booking System · Reference
+subtitle: Three operator roles, what each can do, and how Postgres Row-Level Security enforces unit-scoping server-side. Background for support conversations where "the operator says they can't see X" comes up.
+audience: CareFirst Patient development team
+category: System Overview
+tags: [roles, rbac, rls, supabase, security]
+date: 2026-05-11
+updated: 2026-05-11
+order: 40
+pills:
+  - { label: Reference, variant: brand }
+  - { label: Security, variant: warn }
+sections:
+  - { id: roles,      label: The three roles }
+  - { id: matrix,     label: Permissions matrix }
+  - { id: unit-scope, label: Unit-scoping (the load-bearing concept) }
+  - { id: rls,        label: How RLS enforces it }
+  - { id: edge-cases, label: Edge cases & gotchas }
+---
+
+<Section id="roles" num="01 — Roles" title="The three roles">
+
+| Role | Who it is | Cardinality |
+|---|---|---|
+| <Pill variant="brand">system_admin</Pill> | First Care Solutions / CareFirst central ops | A handful — one or two people |
+| <Pill variant="brand">unit_manager</Pill> | Clinic supervisor or pharmacy manager | One per unit, sometimes shared across units |
+| <Pill variant="brand">user</Pill> | Front-desk operator | Many — the bulk of accounts |
+
+A user is assigned to **one or more units**. Their active unit is selected via the **Switch Unit** UI; everything they see (bookings, patients, branding) is scoped to it.
+
+</Section>
+
+<Section id="matrix" num="02 — Matrix" title="Permissions matrix">
+
+| Action | system_admin | unit_manager | user |
+|---|---|---|---|
+| Create a booking | ✓ | ✓ | ✓ |
+| View bookings in their unit | ✓ | ✓ | ✓ |
+| View bookings in **any** unit | ✓ | ✗ | ✗ |
+| Start Consult (CareFirst handoff) | ✓ | ✓ | ✗ |
+| Manual confirm payment | ✓ | ✗ | ✗ |
+| Reconcile with PayFast | ✓ | ✗ | ✗ |
+| Add / disable users in their unit | ✓ | ✓ | ✗ |
+| Add / edit units in their client | ✓ | ✓ | ✗ |
+| Add a client | ✓ | ✗ | ✗ |
+| Audit log | ✓ | ✗ | ✗ |
+| Security dashboard | ✓ | ✗ | ✗ |
+
+</Section>
+
+<Section id="unit-scope" num="03 — Unit-scoping" title="Unit-scoping is the load-bearing concept">
+
+Almost every page in our app implicitly filters by the user's **assigned units**. The "active unit" decides:
+
+- Which bookings appear in Patient History
+- Which unit a new booking is created against
+- Which logo and accent colour render in the sidebar (via the parent client's branding)
+- Which client config flags drive the booking flow (e.g. `collect_payment_at_unit`, `bill_monthly`)
+
+A unit_manager assigned to "Sandton Pharmacy" cannot see "Rosebank Pharmacy" data — even though their role is the same — because the scope is per-assignment, not per-role.
+
+</Section>
+
+<Section id="rls" num="04 — RLS" title="How RLS enforces it">
+
+Every table has Row-Level Security policies in Postgres. The user's session contains their identity (Supabase Auth JWT); the policies check that identity against `user_units` to determine what's visible.
+
+A simplified policy for `bookings`:
+
+```sql
+-- Read: visible if user has an assignment to the booking's unit
+-- OR is system_admin
+CREATE POLICY "Read own-unit bookings" ON bookings
+FOR SELECT
+USING (
+  exists (
+    select 1 from user_units
+    where user_units.user_id = auth.uid()
+      and user_units.unit_id = bookings.unit_id
+  )
+  OR
+  exists (
+    select 1 from users
+    where users.id = auth.uid()
+      and users.role = 'system_admin'
+  )
+);
+```
+
+Why this matters for CareFirst conversations: **there's no way an operator can URL-hack into another unit's bookings**. If support asks "can operator X see this booking?", the answer is determined by `user_units` — not by the operator's role and not by what URL they typed.
+
+Service-role queries (i.e. our API routes that need to act outside RLS) go through a separate code path with explicit allowlists.
+
+</Section>
+
+<Section id="edge-cases" num="05 — Edge cases" title="Edge cases worth knowing">
+
+<Grid2>
+<Card variant="brand" title="One person, multiple units">
+A unit_manager who supervises two clinics gets two rows in <code>user_units</code>. They see both units' data and can Switch Unit between them. Their role stays <code>unit_manager</code>.
+</Card>
+
+<Card variant="brand" title="Disabling a user">
+Setting <code>status = 'Disabled'</code> immediately denies sign-in and revokes active sessions. The user's <code>user_units</code> assignments remain intact, so re-enabling restores access without reassigning units.
+</Card>
+
+<Card variant="warn" title="Booking validator snapshot">
+When a booking advances through high-stakes steps (Start Consult, Manual confirm), we snapshot the caller's <code>id</code> and <code>name</code> into <code>booking_validator</code> fields. So even if the user is later renamed or deactivated, the audit trail preserves who acted at the time.
+</Card>
+
+<Card variant="warn" title="Trusted IPs for admin pages">
+Some admin pages (audit log, security dashboard) gate on a trusted-IP allowlist in addition to role. Helps reduce risk if a system_admin credential is compromised from an unexpected location.
+</Card>
+</Grid2>
+
+</Section>

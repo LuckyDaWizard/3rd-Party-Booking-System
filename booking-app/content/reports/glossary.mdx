@@ -1,0 +1,92 @@
+---
+title: Glossary
+super: 3rd Party Booking System · Reference
+subtitle: Terms we use throughout this reference. Pinning them here prevents drift between our docs, CareFirst's docs, and casual conversations.
+audience: CareFirst Patient development team
+category: System Overview
+tags: [glossary, terminology, definitions]
+date: 2026-05-11
+updated: 2026-05-11
+order: 20
+pills:
+  - { label: Reference, variant: brand }
+  - { label: Terminology, variant: mute }
+sections:
+  - { id: entities, label: Entities }
+  - { id: states,   label: Booking states }
+  - { id: actors,   label: Actors and roles }
+  - { id: flows,    label: Flows and concepts }
+  - { id: external, label: External terms }
+---
+
+<Section id="entities" num="01 — Entities" title="Entities">
+
+| Term | Definition |
+|---|---|
+| **Booking** | One patient's intake through our system — from operator click to handoff. Identified by a UUID. Equivalent to a "session" but we reserve "session" for auth contexts. |
+| **Consult / Consultation** | The actual medical interaction inside CareFirst Patient. **Not** the same as a booking — a booking can be Successful (handed off) without the consult having happened yet. |
+| **Client** | The brand or organisation we're integrating for. Examples: pharmacy chain, corporate wellness programme, private clinic. Has its own branding, billing config, and operator team. |
+| **Unit** | A physical or virtual location belonging to a client. A clinic, pharmacy branch, or online service point. Bookings are scoped to a unit. |
+| **Operator** | Generic term for any signed-in staff user — usually clinic-side. Has a role (`user` / `unit_manager` / `system_admin`) and one or more unit assignments. |
+| **Patient** | The end user a booking is for. Never directly signs in to our system; only sees us during the capture / payment flow. |
+| **Booking validator** | A snapshot of the operator who advanced a booking through a high-stakes step (Start Consult, manual confirm). Preserves audit even if the user is later renamed or deleted. |
+
+</Section>
+
+<Section id="states" num="02 — States" title="Booking states">
+
+| State | Meaning |
+|---|---|
+| <Pill variant="brand">In Progress</Pill> | Booking created, patient details being captured / payment pending. |
+| <Pill variant="warn">Incomplete</Pill> | Aggregated filter label on Patient History — covers stuck states. Not a real status value. |
+| <Pill variant="ok">Payment Complete</Pill> | Paid (gateway / self-collect / monthly). Awaiting Start Consult. |
+| <Pill variant="ok">Successful</Pill> | CareFirst auto-register returned 2xx. **The handoff succeeded; the consultation may or may not have happened.** |
+| <Pill variant="mute">Abandoned</Pill> | No activity for &gt; 30 minutes mid-flow. Can be rescued by reconcile. |
+| <Pill variant="mute">Discarded</Pill> | Operator explicitly clicked Discard. Soft-deleted; visible to admin. |
+
+</Section>
+
+<Section id="actors" num="03 — Actors" title="Actors and roles">
+
+| Role | Who | Can |
+|---|---|---|
+| <Pill variant="brand">system_admin</Pill> | First Care Solutions / CareFirst central ops | Everything |
+| <Pill variant="brand">unit_manager</Pill> | Clinic supervisor | Everything within their assigned units; can Start Consult |
+| <Pill variant="brand">user</Pill> | Front-desk operator | Create bookings + capture vitals + accept T&Cs; **cannot** Start Consult |
+
+</Section>
+
+<Section id="flows" num="04 — Flows" title="Flows and concepts we mention often">
+
+| Term | Meaning |
+|---|---|
+| **SSO handoff** / **auto-register** | Our single outbound call to `POST /api/external/client-sso/auto-register` on CareFirst Patient. The boundary between our system and yours. |
+| **Start Consult** | Operator-initiated action that triggers the SSO handoff. PIN-gated; manager+ only. |
+| **ITN** (Instant Transaction Notification) | PayFast's webhook to us when a payment resolves. The mechanism by which gateway-paid bookings advance from In Progress to Payment Complete. |
+| **Reconcile** | Our fallback when ITN doesn't arrive — we poll PayFast's Transaction History API and match by `m_payment_id` (our booking UUID). |
+| **Identity-lock** | A defensive UI behaviour on Step 1: if a prior booking with the same `id_number` has a populated name, we lock the identity fields read-only on the new booking. Prevents most CareFirst "already registered" rejections. |
+| **Nurse verification** | A per-client flag (`nurse_verification`) that inserts PIN gates at search, verification, and handoff steps. Used by clinics that require a nurse's sign-off on each booking. |
+| **Self-collect** | Payment mode where the unit takes payment directly (cash / card at the desk) and the operator confirms with a PIN. Skips PayFast. |
+| **Monthly invoice** | Payment mode where the client is invoiced at month-end. Operator never sees a payment step; booking auto-marks Payment Complete. |
+| **Booking type** | `instant` or `scheduled`. Captured on Step 4 of the patient-details flow. Only `scheduled` carries `scheduledAt` to CareFirst. |
+| **Identity-lock banner** | Warning shown to the operator when identity fields are locked. Tells them why and who to escalate to. |
+| **Throttle** | Shared rate-limit keyed on (IP, unit). Applied to PIN attempts and forgot-PIN requests. Prevents brute-force and enumeration. |
+| **Audit log** | Append-only Postgres table recording every state-changing action. See [Audit Log](/reports/audit-log). |
+| **Active unit** | The unit the current operator is "acting as" — drives Patient History scope, Create Booking destination, sidebar branding. |
+
+</Section>
+
+<Section id="external" num="05 — External" title="External terms (CareFirst, PayFast, etc.)">
+
+| Term | Meaning |
+|---|---|
+| **CareFirst Patient** | The downstream application — your consultation app. The destination of the SSO handoff. |
+| **PayFast** | South African payment gateway. Used for the `gateway` payment mode. |
+| **POPIA** | Protection of Personal Information Act (SA). Our compliance framework for handling patient data. |
+| **Multi-Service** | A CareFirst-side configuration that enables both Instant and Scheduled Video on a single client. See [Multi-Service Config](/reports/multi-service-config). |
+| **Single-Service** | The default CareFirst-side configuration — a client offers only Instant Video. The auto-register handoff goes straight into the consult. |
+| **Plan code** | An optional `planCode` we send in the auto-register payload. Configured per-environment via `CAREFIRST_CLIENT_PLAN_CODE` env var. |
+| **Client code** | The `clientCode` we send in the auto-register payload. Configured via `CAREFIRST_CLIENT_CODE` env var. |
+| **Return URL** | `returnUrl` field in the SSO payload. Where CareFirst is asked to redirect the patient after the consult ends. See [returnUrl Contract](/reports/return-url-contract). |
+
+</Section>

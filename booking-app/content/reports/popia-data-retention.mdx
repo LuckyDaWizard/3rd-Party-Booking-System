@@ -1,0 +1,148 @@
+---
+title: POPIA & Data Retention
+super: 3rd Party Booking System · Reference
+subtitle: What patient data we hold, for how long, and how the SA Protection of Personal Information Act shapes our integration with CareFirst. A compliance-and-integration RFC that needs alignment between both sides.
+audience: CareFirst Patient development team
+category: Open Questions / RFCs
+tags: [popia, compliance, retention, privacy, gdpr-ish]
+date: 2026-05-11
+updated: 2026-05-11
+order: 40
+pills:
+  - { label: RFC, variant: warn }
+  - { label: Compliance, variant: err }
+sections:
+  - { id: framing,     label: Framing }
+  - { id: what-we-hold, label: What we hold }
+  - { id: how-long,    label: How long we hold it }
+  - { id: data-flow,   label: Data flow to CareFirst }
+  - { id: shared,      label: Joint-controller implications }
+  - { id: erasure,     label: Right to erasure }
+  - { id: subject-access, label: Subject access requests }
+  - { id: questions,   label: Open questions }
+---
+
+<Section id="framing" num="01 — Framing" title="Framing">
+
+POPIA — the Protection of Personal Information Act — is South Africa's data-protection law. It applies to every booking we process because every patient is a South African data subject (or a foreign visitor whose data is processed in SA). It applies to **both us and CareFirst Patient** for the data we share with you.
+
+This document is partly a reference (what we hold, for how long) and partly an RFC (what we need to align with CareFirst on so we don't end up with conflicting interpretations).
+
+</Section>
+
+<Section id="what-we-hold" num="02 — What we hold" title="What we hold per booking">
+
+Categorised by POPIA's sensitivity ladder:
+
+| Category | Fields | Retention sensitivity |
+|---|---|---|
+| **Identifying** | Name, ID number, passport, DOB | Personal information |
+| **Contact** | Email, phone, address | Personal information |
+| **Health** | Vitals (BP, glucose, temp, O₂, heart rate) | **Special personal information** — higher protection |
+| **Financial** | Payment amount, payment_type, PayFast reference | Personal information |
+| **Behavioural** | Booking timestamps, retry counts, audit trail | Personal information |
+| **Consent** | T&Cs acceptance timestamp | Required record |
+
+We do **not** hold:
+
+- Clinical records from the actual consultation (those live with CareFirst)
+- Prescription details
+- Patient passwords (we have no patient login)
+- Card numbers / PAN (PayFast handles that)
+
+</Section>
+
+<Section id="how-long" num="03 — How long" title="How long we hold it">
+
+Currently we hold **everything indefinitely**. We have a retention sweep mechanism designed but not yet enforcing — that's the gap to close.
+
+### Designed retention policy (proposed, not yet enforced)
+
+| Data category | Retention | Trigger |
+|---|---|---|
+| Identifying + Contact fields on a Successful booking | 7 years after consultation | Healthcare records-retention norm |
+| Health (vitals) | 7 years after consultation | Same |
+| Financial | 7 years after payment | SARS records-retention |
+| Audit log | Indefinite | Compliance evidence |
+| Bookings in <Pill variant="mute">Abandoned</Pill> / <Pill variant="mute">Discarded</Pill> | 90 days | No legitimate basis to keep longer |
+
+### Retention sweep mechanism
+
+A scheduled job that **nulls PII** on bookings past their retention window. Audit log row IDs survive (compliance), but the joined data (`actor_name`, `entity_name`, `changes.old/new`) is redacted to `[redacted-retention]`.
+
+</Section>
+
+<Section id="data-flow" num="04 — Data flow" title="Data flow to CareFirst — what crosses the boundary">
+
+The SSO auto-register payload (see [SSO contract](/reports/sso-auto-register)) transfers personal information to CareFirst. Specifically:
+
+**Always sent:**
+- Identity (name, ID, DOB, gender, title)
+- Contact (email, phone, address)
+- Booking reference
+
+**Never sent today:**
+- Vitals (health information — see [Vitals Capture](/reports/vitals-capture))
+- Payment details
+- Audit trail
+- IP addresses or device fingerprints
+
+The boundary at the auto-register POST is the **point of joint controllership** under POPIA. From that POST onward, both parties hold the data; both have obligations to the data subject.
+
+</Section>
+
+<Section id="shared" num="05 — Joint controller" title="Joint-controller implications">
+
+When two parties hold the same personal data, POPIA expects:
+
+- A **written agreement** describing each party's responsibilities
+- A **single point of contact** for data-subject queries
+- **Aligned retention policies** — if you keep something for 10 years and we delete at 7, the data subject doesn't have a clean answer to "do you still have my information?"
+- **Coordinated breach notification** — if your side is breached, our patients are affected; we need to know in time to inform them
+
+We don't have a written joint-controller agreement today. **That's an actionable gap on both sides.**
+
+</Section>
+
+<Section id="erasure" num="06 — Erasure" title="Right to erasure">
+
+A data subject can request their data be erased from our system. Our flow:
+
+1. Subject submits a request (via email today; structured form planned)
+2. system_admin verifies identity
+3. Bookings are looked up by `id_number` / `email_address`
+4. We run an admin-gated erasure endpoint that:
+   - Nulls PII columns on the matching bookings
+   - Audit-logs the erasure event
+   - Returns the list of booking UUIDs affected
+
+**The problem:** if those bookings have already been handed off to CareFirst, you also hold the patient's data. The subject's right to erasure extends to you too — but our erasure endpoint doesn't notify your side today.
+
+Suggested integration: a `DELETE /api/external/patient/<referenceId>` call (or similar) from us to you, fired during our erasure flow. We'd send the `external_reference_id` we have stored; you'd act on your side.
+
+</Section>
+
+<Section id="subject-access" num="07 — Subject access" title="Subject access requests">
+
+Subjects can also request a copy of all data we hold on them. Our flow:
+
+1. Subject submits a request
+2. system_admin verifies identity
+3. We dump all bookings + audit-log rows matching their `id_number` / `email_address`
+4. Output is a structured JSON file we email to the subject
+
+If the subject also wants their CareFirst Patient consultation data, that's a separate request to your side — but we should be able to **direct them appropriately**. Today we don't surface the external reference IDs we hold to the subject, but we could.
+
+</Section>
+
+<Section id="questions" num="08 — Questions" title="Open questions for CareFirst">
+
+1. **Joint-controller agreement.** Do you have a template, or should we draft? Either way, this should land before more clients onboard.
+2. **Retention alignment.** What's your retention policy for data we hand off? Aligning at 7 years would simplify subject conversations.
+3. **Erasure propagation API.** Would you accept a `DELETE` call (or webhook) from us when a subject requests erasure on our side? What endpoint shape works for you?
+4. **Reverse erasure.** If a subject requests erasure from your side first, can you notify us so we can mirror? Suggested: same shape as our outbound — `POST /api/webhooks/carefirst/erasure-request`.
+5. **Breach notification channel.** Is there a designated email / Slack / contact for breach coordination? Should be documented before we need it.
+6. **Cross-system subject access.** Should a subject access request to one party include the other party's data? Or do we direct them to each system independently?
+7. **Special-category protection.** Vitals (if we start sending them) are health data. Acceptable channel for transfer? Any additional encryption-at-rest commitments needed on your side?
+
+</Section>
