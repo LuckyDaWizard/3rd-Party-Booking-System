@@ -90,7 +90,11 @@ function normaliseFrontmatter(data: Record<string, unknown>): ReportFrontmatter 
       out[key] = (out[key] as Date).toISOString().slice(0, 10)
     }
   }
-  return out as ReportFrontmatter
+  // Cast via `unknown` — gray-matter returns Record<string, unknown> which
+  // doesn't structurally overlap with ReportFrontmatter, but at runtime the
+  // YAML frontmatter is exactly the shape we declare. Direct casts are
+  // refused by strict tsc; the `unknown` step is the canonical escape hatch.
+  return out as unknown as ReportFrontmatter
 }
 
 /**
