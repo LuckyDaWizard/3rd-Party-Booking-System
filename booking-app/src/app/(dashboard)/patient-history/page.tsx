@@ -1235,12 +1235,16 @@ export default function PatientHistoryPage() {
           onClick={() => {
             const exportData = bookings.map((b) => {
               const unitInfo = b.unitId ? unitInfoById.get(b.unitId) : undefined
+              const clientName = unitInfo?.clientId
+                ? clients.find((c) => c.id === unitInfo.clientId)?.clientName ?? ""
+                : ""
               return ({
               "Patient Name": [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
               "ID Number": b.idNumber || "N/A",
               "ID Type": b.idType || "",
               "Status": b.status,
               "Unit": unitInfo?.unitName || "",
+              "Client": clientName,
               "Date": new Date(b.createdAt).toLocaleString("en-ZA"),
               // Booking Type (instant vs scheduled) + scheduled date/time.
               // Capitalised for export-readability vs the snake-case-ish
