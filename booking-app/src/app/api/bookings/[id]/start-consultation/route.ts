@@ -9,6 +9,9 @@ import {
   getCareFirstConfig,
   type BookingForHandoff,
 } from "@/lib/carefirst"
+import { sendConsultLinkEmail } from "@/lib/email"
+
+type DeliveryMode = "device" | "email"
 
 // =============================================================================
 // POST /api/bookings/[id]/start-consultation
@@ -52,6 +55,20 @@ export async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params
   if (!id) {
     return NextResponse.json({ error: "Missing booking id" }, { status: 400 })
+  }
+
+  // Optional body: { deliveryMode: "device" | "email" }
+  // Defaults to "device" — backward-compatible with callers that don't
+  // send a body. "email" routes the CareFirst redirect URL to the patient
+  // by email instead of opening it in a new tab on the operator's device.
+  let deliveryMode: DeliveryMode = "device"
+  try {
+    const body = await request.clone().json().catch(() => null)
+    if (body && (body.deliveryMode === "email" || body.deliveryMode === "device")) {
+      deliveryMode = body.deliveryMode
+    }
+  } catch {
+    // No body / unparseable — keep the default.
   }
 
   let config
@@ -279,6 +296,32 @@ export async function POST(request: Request, context: RouteContext) {
   // Snapshot the operator who handed off to CareFirst — best-effort.
   await recordBookingValidator(admin, id, caller)
 
+  // If the operator asked us to email the link, do that now. The handoff
+  // itself has already succeeded — the booking is marked Successful no
+  // matter what happens here. Email failure is a soft-fail surfaced to
+  // the operator so they can fall back to opening the link on-device.
+  let emailSent: boolean | null = null
+  let emailError: string | null = null
+  if (deliveryMode === "email") {
+    if (!result.redirectUrl) {
+      emailSent = false
+      emailError = "CareFirst did not return a redirect URL; nothing to email."
+    } else if (!booking.email_address) {
+      emailSent = false
+      emailError = "Booking has no email address on file."
+    } else {
+      const sendResult = await sendConsultLinkEmail({
+        to: booking.email_address,
+        firstName: booking.first_names ?? "there",
+        consultUrl: result.redirectUrl,
+      })
+      emailSent = sendResult.sent
+      if (!sendResult.sent) {
+        emailError = sendResult.error ?? "Email delivery failed."
+      }
+    }
+  }
+
   writeAuditLog({
     actorId: caller.id,
     actorName: caller.name,
@@ -286,12 +329,16 @@ export async function POST(request: Request, context: RouteContext) {
     action: "update",
     entityType: "user",
     entityId: id,
-    entityName: `Start Consult: ${patientName}`,
+    entityName: `Start Consult (${deliveryMode === "email" ? "Email" : "Device"}): ${patientName}`,
     changes: {
       "Status": { old: "Payment Complete", new: "Successful" },
       "Handoff Status": { new: "sent" },
+      "Delivery": { new: deliveryMode },
       "External Reference": { new: result.externalReferenceId ?? "none" },
       "Attempt": { new: String(attemptCount) },
+      ...(deliveryMode === "email"
+        ? { "Email Sent": { new: emailSent ? "yes" : `no (${emailError})` } }
+        : {}),
     },
     ipAddress: getCallerIp(request),
   })
@@ -299,5 +346,8 @@ export async function POST(request: Request, context: RouteContext) {
   return NextResponse.json({
     ok: true,
     redirectUrl: result.redirectUrl ?? null,
+    deliveryMode,
+    emailSent,
+    emailError,
   })
 }

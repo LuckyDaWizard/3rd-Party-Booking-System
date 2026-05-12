@@ -19,6 +19,10 @@ import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 import { DataCard } from "@/components/data-card"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
+import {
+  ConsultDeliveryModal,
+  type ConsultDeliveryMode,
+} from "@/components/ui/consult-delivery-modal"
 import * as XLSX from "xlsx"
 
 // ---------------------------------------------------------------------------
@@ -51,6 +55,12 @@ interface PatientRecord {
   unitName: string
   /** Parent client id — used to look up the favicon thumbnail. */
   clientId: string | null
+  /**
+   * Patient's email address. Used by the Select-Option modal to gate
+   * the "Send link via email" choice — disabled when this is null/empty.
+   * Not displayed elsewhere on the row.
+   */
+  emailAddress: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -359,28 +369,46 @@ export default function PatientHistoryPage() {
   // PIN verification for the "Start Consult" handoff to CareFirst Patient.
   const [startConsultPinOpen, setStartConsultPinOpen] = React.useState(false)
   const [pendingStartConsultBookingId, setPendingStartConsultBookingId] = React.useState<string | null>(null)
+  const [pendingDeliveryMode, setPendingDeliveryMode] = React.useState<ConsultDeliveryMode>("device")
   const [startConsultBusyId, setStartConsultBusyId] = React.useState<string | null>(null)
   const [startConsultError, setStartConsultError] = React.useState<string | null>(null)
+  const [emailSentToast, setEmailSentToast] = React.useState<string | null>(null)
+
+  // Delivery-option picker — shown before the PIN modal. Operator chooses
+  // whether the consultation link opens on this device or is emailed to
+  // the patient.
+  const [deliveryModalOpen, setDeliveryModalOpen] = React.useState(false)
+  const [pendingDeliveryBookingId, setPendingDeliveryBookingId] = React.useState<string | null>(null)
+  const [pendingDeliveryPatientName, setPendingDeliveryPatientName] = React.useState<string>("")
+  const [pendingDeliveryPatientEmail, setPendingDeliveryPatientEmail] = React.useState<string | null>(null)
 
   // Shared handoff implementation — used by both the PIN-gated path
   // (modal's onVerified) and the no-verification fast-path (when the
   // booking's client has nurse_verification = false). Throws on
   // failure so the modal path can keep its catch-on-modal behaviour;
   // the fast-path catches and surfaces via setStartConsultError.
-  async function runStartConsult(bookingId: string) {
+  async function runStartConsult(
+    bookingId: string,
+    deliveryMode: ConsultDeliveryMode = "device"
+  ) {
     setStartConsultBusyId(bookingId)
     setStartConsultError(null)
+    setEmailSentToast(null)
     try {
       const res = await fetch(
         `/api/bookings/${bookingId}/start-consultation`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deliveryMode }),
         }
       )
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean
         redirectUrl?: string | null
+        deliveryMode?: ConsultDeliveryMode
+        emailSent?: boolean | null
+        emailError?: string | null
         error?: string
       }
       if (!res.ok || !data.ok) {
@@ -389,7 +417,18 @@ export default function PatientHistoryPage() {
         )
       }
       await refreshBookings()
-      if (data.redirectUrl) {
+      if (deliveryMode === "email") {
+        if (data.emailSent) {
+          setEmailSentToast(
+            "Consultation link sent to the patient. They can now join from their own device."
+          )
+        } else {
+          setStartConsultError(
+            data.emailError ??
+              "Consultation registered but the link couldn't be emailed. Try opening on this device instead."
+          )
+        }
+      } else if (data.redirectUrl) {
         window.open(data.redirectUrl, "_blank", "noopener,noreferrer")
       } else {
         setStartConsultError(
@@ -404,6 +443,7 @@ export default function PatientHistoryPage() {
     } finally {
       setStartConsultBusyId(null)
       setPendingStartConsultBookingId(null)
+      setPendingDeliveryMode("device")
     }
   }
 
@@ -469,6 +509,7 @@ export default function PatientHistoryPage() {
     clientId: unitInfo?.clientId ?? null,
     selfCollect: b.paymentType === "self_collect",
     monthlyInvoice: b.paymentType === "monthly_invoice",
+    emailAddress: b.emailAddress ?? null,
     date: new Date(b.createdAt).toLocaleString("en-ZA", {
       year: "numeric",
       month: "2-digit",
@@ -769,22 +810,20 @@ export default function PatientHistoryPage() {
                   disabled={startConsultBusyId === patient.id}
                   onClick={() => {
                     setStartConsultError(null)
-                    // Resolve the booking's parent client's
-                    // nurse_verification flag. When OFF, skip the PIN
-                    // modal and run the handoff directly. Default
-                    // TRUE (fail-safe) if the client row is missing.
-                    const client = patient.clientId
-                      ? clients.find((c) => c.id === patient.clientId)
-                      : undefined
-                    const verificationRequired = client?.nurseVerification ?? true
-                    if (verificationRequired) {
-                      setPendingStartConsultBookingId(patient.id)
-                      setStartConsultPinOpen(true)
-                    } else {
-                      // Fire-and-forget — runStartConsult handles its
-                      // own busy + error state.
-                      void runStartConsult(patient.id)
-                    }
+                    setEmailSentToast(null)
+                    // Open the delivery-option picker first. The PIN
+                    // modal (or no-PIN fast-path) only fires after the
+                    // operator picks how to deliver the consultation
+                    // link — either open on this device or email to
+                    // the patient.
+                    setPendingDeliveryBookingId(patient.id)
+                    setPendingDeliveryPatientName(
+                      patient.patientName === "Unknown"
+                        ? "this patient"
+                        : patient.patientName
+                    )
+                    setPendingDeliveryPatientEmail(patient.emailAddress)
+                    setDeliveryModalOpen(true)
                   }}
                 >
                   {startConsultBusyId === patient.id ? (
@@ -796,7 +835,7 @@ export default function PatientHistoryPage() {
                       </svg>
                     </>
                   ) : (
-                    "Start Consult"
+                    "Select Option"
                   )}
                 </Button>
               ) : patient.status === "Abandoned" ? (
@@ -1060,6 +1099,44 @@ export default function PatientHistoryPage() {
         }}
       />
 
+      {/* Delivery-option picker — operator chooses device vs email before
+          the PIN modal fires. */}
+      <ConsultDeliveryModal
+        open={deliveryModalOpen}
+        onOpenChange={(o) => {
+          setDeliveryModalOpen(o)
+          if (!o) {
+            setPendingDeliveryBookingId(null)
+            setPendingDeliveryPatientEmail(null)
+          }
+        }}
+        patientName={pendingDeliveryPatientName}
+        patientEmail={pendingDeliveryPatientEmail}
+        onSelect={(mode) => {
+          const bookingId = pendingDeliveryBookingId
+          if (!bookingId) return
+          setPendingDeliveryMode(mode)
+          // Resolve the booking's parent client's nurse_verification
+          // flag. When OFF, skip the PIN modal and run the handoff
+          // directly. Default TRUE (fail-safe) if the client row is
+          // missing.
+          const patient = bookings.find((b) => b.id === bookingId)
+          const client = patient?.unitId
+            ? units.find((u) => u.id === patient.unitId)
+            : undefined
+          const clientRow = client
+            ? clients.find((c) => c.id === client.clientId)
+            : undefined
+          const verificationRequired = clientRow?.nurseVerification ?? true
+          if (verificationRequired) {
+            setPendingStartConsultBookingId(bookingId)
+            setStartConsultPinOpen(true)
+          } else {
+            void runStartConsult(bookingId, mode)
+          }
+        }}
+      />
+
       {/* PIN Verification Modal — gates Start Consult handoff to CareFirst Patient */}
       <PinVerificationModal
         open={startConsultPinOpen}
@@ -1073,9 +1150,32 @@ export default function PatientHistoryPage() {
         onVerified={async () => {
           const bookingId = pendingStartConsultBookingId
           if (!bookingId) return
-          await runStartConsult(bookingId)
+          await runStartConsult(bookingId, pendingDeliveryMode)
         }}
       />
+
+      {/* Email-sent success toast */}
+      {emailSentToast && (
+        <div
+          data-testid="consult-email-toast"
+          className="fixed bottom-24 left-1/2 z-50 w-[min(90vw,32rem)] -translate-x-1/2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800 shadow-lg"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold">Consultation link sent</div>
+              <div className="mt-1 text-xs">{emailSentToast}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEmailSentToast(null)}
+              className="text-green-700 hover:text-green-900"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Start Consult error banner */}
       {startConsultError && (

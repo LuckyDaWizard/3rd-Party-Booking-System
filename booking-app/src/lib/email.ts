@@ -208,6 +208,77 @@ export async function sendPinResetCodeEmail({
 }
 
 /**
+ * Send a consultation link email to a patient. Used when the operator
+ * chooses "Send link via email" on the Start Consult delivery picker —
+ * the CareFirst SSO URL is emailed to the patient so they can join the
+ * consultation from a personal device.
+ *
+ * Returns `{ sent: true }` on success, `{ sent: false, error: string }`
+ * on failure. The handoff to CareFirst has already happened by the time
+ * this is called; the email is the delivery step only, so a send failure
+ * doesn't invalidate the booking — surface it so the operator can fall
+ * back to the device-handoff option or copy the link manually.
+ */
+export async function sendConsultLinkEmail({
+  to,
+  firstName,
+  consultUrl,
+}: {
+  to: string
+  firstName: string
+  consultUrl: string
+}): Promise<{ sent: boolean; error?: string }> {
+  const safeFirstName = escapeHtml(firstName)
+  const safeUrlHref = escapeUrlAttribute(consultUrl)
+  const safeUrlText = escapeHtml(consultUrl)
+
+  try {
+    const transport = getTransporter()
+
+    await transport.sendMail({
+      from: `"CareFirst Booking" <${SMTP_USER}>`,
+      to,
+      subject: "Your CareFirst consultation is ready",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #1a1a1a; margin-bottom: 16px;">Your consultation is ready</h2>
+          <p style="color: #4a4a4a; font-size: 15px;">
+            Hi ${safeFirstName},
+          </p>
+          <p style="color: #4a4a4a; font-size: 15px;">
+            Your CareFirst consultation has been scheduled and is ready to start.
+            Tap the button below from your phone or computer to join.
+          </p>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${safeUrlHref}"
+               style="display: inline-block; background: #3ea3db; color: white; padding: 14px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 15px;">
+              Start Consultation
+            </a>
+          </div>
+          <p style="color: #666; font-size: 13px;">
+            Or copy this link into your browser:<br>
+            <a href="${safeUrlHref}" style="color: #3ea3db; word-break: break-all;">${safeUrlText}</a>
+          </p>
+          <p style="color: #4a4a4a; font-size: 14px; margin-top: 24px;">
+            Please join as soon as you're able. If you have any questions,
+            contact the clinic where you registered.
+          </p>
+          <p style="color: #999; font-size: 12px; margin-top: 24px; border-top: 1px solid #eee; padding-top: 16px;">
+            If you didn&apos;t expect this email, please ignore it — your link won't be used unless you click it.
+          </p>
+        </div>
+      `,
+    })
+
+    return { sent: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("Failed to send consult link email:", message)
+    return { sent: false, error: message }
+  }
+}
+
+/**
  * Send a payment link email to a patient. Used when the booking flow's
  * payment-type step selects "Send a payment link" — the patient receives
  * the PayFast checkout URL by email and pays later from any device.
