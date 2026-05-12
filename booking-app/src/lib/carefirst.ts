@@ -263,6 +263,17 @@ export async function callSsoAutoRegister(
   }
 
   if (!res.ok) {
+    // Upstream gateway errors usually indicate CareFirst's infrastructure
+    // is down — operator-friendly message instead of "rejected the handoff",
+    // which sounds like a data problem we caused.
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      return {
+        ok: false,
+        statusCode: res.status,
+        error: `CareFirst service is currently unavailable (HTTP ${res.status}). Please try again in a few minutes.`,
+        rawResponse: body,
+      }
+    }
     const errorMsg = extractErrorMessage(body) ?? `HTTP ${res.status}`
     return {
       ok: false,
@@ -335,7 +346,14 @@ function extractExternalReferenceId(body: unknown): string | undefined {
 
 function extractErrorMessage(body: unknown): string | undefined {
   if (!body) return undefined
-  if (typeof body === "string") return body
+  if (typeof body === "string") {
+    // Non-JSON response (e.g. nginx HTML error page from an upstream
+    // outage). Don't dump raw HTML into the operator's banner — fall
+    // through so callSsoAutoRegister can use the HTTP status code to
+    // produce a clean message.
+    if (/<\s*html|<!DOCTYPE/i.test(body)) return undefined
+    return body
+  }
   if (typeof body !== "object") return undefined
   const obj = body as Record<string, unknown>
   // Key order matters — try the most user-facing first. CareFirst's actual
