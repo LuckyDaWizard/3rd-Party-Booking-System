@@ -37,6 +37,13 @@ interface NavItem {
   children?: NavChild[]
   /** Which roles can see this item. If omitted, all roles can see it. */
   roles?: UserRole[]
+  /**
+   * Open the destination in a new browser tab. Used for items where
+   * leaving the booking flow would be disruptive (e.g. the Reports
+   * knowledge base, which an admin reads while keeping Patient History
+   * open in the original tab).
+   */
+  openInNewTab?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -48,7 +55,7 @@ const navItems: NavItem[] = [
   { label: "User Management", href: "/user-management", icon: Users, roles: ["system_admin", "unit_manager"] },
   { label: "Audit Log", href: "/audit-log", icon: ScrollText, roles: ["system_admin"] },
   { label: "Security", href: "/security", icon: Shield, roles: ["system_admin"] },
-  { label: "Reports", href: "/reports", icon: BookOpen, roles: ["system_admin"] },
+  { label: "Reports", href: "/reports", icon: BookOpen, roles: ["system_admin"], openInNewTab: true },
 ]
 
 interface SidebarProps {
@@ -375,6 +382,8 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
               href={item.href}
               data-testid={`nav-link-${item.href.replace(/\//g, "").replace(/-/g, "-") || "home"}`}
               onClick={isDrawer ? closeMobile : undefined}
+              target={item.openInNewTab ? "_blank" : undefined}
+              rel={item.openInNewTab ? "noopener noreferrer" : undefined}
               className={cn(
                 "flex items-center rounded-lg text-sm font-medium transition-colors",
                 collapsed
