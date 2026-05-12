@@ -57,7 +57,7 @@ export function ConsultDeliveryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl p-6">
+      <DialogContent className="max-w-lg rounded-2xl p-6 sm:max-w-xl">
         <DialogHeader className="flex flex-col items-center gap-1 text-center">
           <DialogTitle className="mx-4 text-xl font-bold text-gray-900">
             How should the consultation be delivered?
