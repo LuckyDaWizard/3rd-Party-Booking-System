@@ -15,7 +15,6 @@ sections:
   - { id: overview,      label: Overview }
   - { id: identity,      label: Identity fields }
   - { id: contact,       label: Contact + address }
-  - { id: booking-type,  label: Booking type + scheduling }
   - { id: payment,       label: Payment }
   - { id: handoff,       label: Handoff }
   - { id: vitals,        label: Vitals }
@@ -27,7 +26,7 @@ sections:
 
 Every booking the system has ever created exists as one row in the `bookings` table. The row is created when the operator clicks Create Booking, populated incrementally as the patient walks through the flow (auto-save every 2 seconds), and reaches a terminal status at handoff or abandonment.
 
-Roughly 40 columns. They cluster into 8 groups, documented below. Anything not listed here is either a soft-delete flag, a per-environment metadata field, or an internal optimisation; the columns below cover everything externally visible.
+Roughly 40 columns. They cluster into 7 groups, documented below. Anything not listed here is either a soft-delete flag, a per-environment metadata field, or an internal optimisation; the columns below cover everything externally visible.
 
 </Section>
 
@@ -65,18 +64,7 @@ Roughly 40 columns. They cluster into 8 groups, documented below. Anything not l
 
 </Section>
 
-<Section id="booking-type" num="04 — Booking type" title="Booking type and scheduling">
-
-| Column | Type | Notes |
-|---|---|---|
-| `booking_type` | `text` | `instant` or `scheduled`. Sent as `bookingType` only when `scheduled` |
-| `scheduled_at` | `timestamptz` | UTC. Sent as `scheduledAt` only when `booking_type = 'scheduled'` |
-
-See [Scheduled vs Instant](/reports/scheduled-vs-instant) for the full mechanics.
-
-</Section>
-
-<Section id="payment" num="05 — Payment" title="Payment fields">
+<Section id="payment" num="04 — Payment" title="Payment fields">
 
 | Column | Type | Notes |
 |---|---|---|
@@ -89,7 +77,7 @@ See [Scheduled vs Instant](/reports/scheduled-vs-instant) for the full mechanics
 
 </Section>
 
-<Section id="handoff" num="06 — Handoff" title="Handoff state — the CareFirst-facing fields">
+<Section id="handoff" num="05 — Handoff" title="Handoff state — the CareFirst-facing fields">
 
 These are the columns CareFirst's devs are most likely to encounter in support tickets.
 
@@ -105,7 +93,7 @@ These are the columns CareFirst's devs are most likely to encounter in support t
 
 </Section>
 
-<Section id="vitals" num="07 — Vitals" title="Vitals">
+<Section id="vitals" num="06 — Vitals" title="Vitals">
 
 | Column | Type | Sent to CareFirst? |
 |---|---|---|
@@ -119,13 +107,13 @@ See [Vitals Capture — What We Collect, What We Don't Send](/reports/vitals-cap
 
 </Section>
 
-<Section id="meta" num="08 — Meta" title="Status, audit, lifecycle">
+<Section id="meta" num="07 — Meta" title="Status, audit, lifecycle">
 
 | Column | Type | Notes |
 |---|---|---|
 | `status` | `text` | `In Progress` / `Payment Complete` / `Successful` / `Abandoned` / `Discarded` |
 | `unit_id` | `uuid` | FK to `units`; determines which operator can see this row via RLS |
-| `current_step` | `int` | Auto-save resume point; 1–6 during capture, fixed after handoff |
+| `current_step` | `int` | Auto-save resume point; 1–5 during capture, fixed after handoff |
 | `created_at` | `timestamptz` | When operator clicked Create Booking |
 | `updated_at` | `timestamptz` | Last auto-save or status change |
 | `terms_accepted_at` | `timestamptz` | When the patient hit Accept on T&Cs |
@@ -134,7 +122,7 @@ See [Vitals Capture — What We Collect, What We Don't Send](/reports/vitals-cap
 
 </Section>
 
-<Section id="what-we-send" num="09 — Summary" title="What CareFirst actually sees from the row">
+<Section id="what-we-send" num="08 — Summary" title="What CareFirst actually sees from the row">
 
 About **20 of the 40 fields** make it into the SSO auto-register payload. The rest are operational: payment internals, vitals (today), audit snapshots, status machinery.
 

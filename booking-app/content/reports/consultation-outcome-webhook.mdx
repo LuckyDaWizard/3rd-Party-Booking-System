@@ -30,9 +30,8 @@ That means we can't tell the difference between:
 - **Consult completed normally** — script issued, patient happy
 - **No-show** — patient never joined the consult
 - **Cancelled** — patient or clinician cancelled mid-way
-- **Slot expired** — for scheduled bookings that the patient never used
 
-All four of these resolve to <Pill variant="ok">Successful</Pill> on our side, because that status reflects only that the **handoff succeeded** — not that the consult happened.
+All three of these resolve to <Pill variant="ok">Successful</Pill> on our side, because that status reflects only that the **handoff succeeded** — not that the consult happened.
 
 ```mermaid
 flowchart LR
@@ -41,7 +40,6 @@ flowchart LR
     C -->|consult completed| D[we don't know]
     C -->|no-show| D
     C -->|cancelled| D
-    C -->|slot expired| D
 
     classDef brand fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
     classDef warn  fill:#fef3c7,stroke:#92400e,color:#0f172a;
@@ -79,7 +77,7 @@ content-type: application/json
 {
   "referenceId":      "<the externalReferenceId you returned to us on auto-register>",
   "uniqueReference":  "<the booking UUID we sent originally>",
-  "status":           "started | completed | cancelled | no_show | expired",
+  "status":           "started | completed | cancelled | no_show",
   "occurredAt":       "2026-05-14T09:35:12Z",
   "outcome": {
     "scriptIssued":   true,
@@ -100,8 +98,7 @@ Either `referenceId` or `uniqueReference` is enough to find the booking on our s
 | `started` | Consult is in session | (No status change; informational only) |
 | `completed` | Consult ended normally | <Pill variant="ok">Consultation Complete</Pill> (new) |
 | `cancelled` | Patient or clinician cancelled | <Pill variant="mute">Consultation Cancelled</Pill> (new) |
-| `no_show` | Patient never joined (scheduled bookings) | <Pill variant="mute">No-show</Pill> (new) |
-| `expired` | Scheduled slot passed without consult | <Pill variant="mute">Slot expired</Pill> (new) |
+| `no_show` | Patient never joined | <Pill variant="mute">No-show</Pill> (new) |
 
 We'd add these as states downstream of <Pill variant="ok">Successful</Pill> on our state diagram (see [Booking Status Lifecycle](/reports/status-lifecycle)).
 
@@ -115,9 +112,8 @@ We'd add these as states downstream of <Pill variant="ok">Successful</Pill> on o
 | `completed` | Mark <Pill variant="ok">Consultation Complete</Pill>; include in monthly-invoice billing for `bill_monthly` clients |
 | `cancelled` | Mark <Pill variant="mute">Consultation Cancelled</Pill>; **exclude** from monthly invoice |
 | `no_show` | Mark <Pill variant="mute">No-show</Pill>; **exclude** from monthly invoice; surface in reporting |
-| `expired` | Mark <Pill variant="mute">Slot expired</Pill>; **exclude** from monthly invoice |
 
-Even just `completed` and `no_show` would close 80% of the gap. The other three are valuable but not blocking.
+Even just `completed` and `no_show` would close 80% of the gap. The other two are valuable but not blocking.
 
 </Section>
 
@@ -145,7 +141,7 @@ This webhook can't go live until our HTTPS rollout is complete — see <a href="
 1. **Feasibility** — is a webhook from your application to a third-party feasible on your side today, or roadmap?
 2. **Authentication preference** — shared secret + HMAC works for us. Do you prefer a different scheme (mTLS, API key, JWT)?
 3. **Retry policy** — what's your retry-on-failure behaviour? (We'd target at-least-once delivery with idempotent processing on our end.)
-4. **Status enum** — are the five states above (`started/completed/cancelled/no_show/expired`) a reasonable approximation of what your system tracks? If you have additional states, list them.
+4. **Status enum** — are the four states above (`started/completed/cancelled/no_show`) a reasonable approximation of what your system tracks? If you have additional states, list them.
 5. **Outcome detail** — would you be willing to send `scriptIssued: boolean` and `referredTo: string` in the outcome block? Important for downstream reporting; understand if it raises medical-data-handling concerns.
 6. **Backfill** — for the period between go-live and now, can we receive historical webhooks? Or do we just accept the visibility gap pre-launch?
 7. **Per-client opt-in** — should this be configured per CareFirst client, or always-on?

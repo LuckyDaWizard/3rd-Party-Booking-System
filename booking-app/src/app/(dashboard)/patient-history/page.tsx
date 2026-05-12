@@ -32,7 +32,6 @@ interface PatientRecord {
   status: PatientStatus
   patientName: string
   patientIdNumber: string
-  patientType: string
   date: string
   /**
    * TRUE when the booking was paid via the unit (`payment_type === "self_collect"`).
@@ -48,20 +47,6 @@ interface PatientRecord {
    * modes are visually distinct.
    */
   monthlyInvoice: boolean
-  /**
-   * TRUE when the booking was captured as a future-dated consult
-   * (`booking_type === "scheduled"`). The row gets a "Scheduled"
-   * badge with the scheduled date/time so a manager can see at a
-   * glance which bookings need a Start Consult run later. There's
-   * also a "Scheduled only" filter on the page that surfaces just
-   * these rows, sorted by their scheduled_at ascending.
-   */
-  scheduled: boolean
-  /**
-   * Stored UTC ISO timestamp from `bookings.scheduled_at`. Display
-   * code converts to the operator's local timezone.
-   */
-  scheduledAt: string | null
   /** Unit name for display. Empty string if the booking has no unit. */
   unitName: string
   /** Parent client id — used to look up the favicon thumbnail. */
@@ -78,19 +63,6 @@ function maskIdNumber(id: string | null): string {
   const last2 = id.slice(-2)
   const masked = "X".repeat(id.length - 4)
   return `${first2}${masked}${last2}`
-}
-
-/**
- * Format a stored UTC ISO timestamp as "DD/MM HH:mm" in the operator's
- * local timezone — short form for inline pills on patient-history rows.
- * Returns the empty string for null/undefined/invalid input.
- */
-function formatScheduledShort(iso: string | null): string {
-  if (!iso) return ""
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ""
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function getStatusStyle(status: PatientStatus): string {
@@ -367,12 +339,6 @@ export default function PatientHistoryPage() {
     FilterType
   >("all")
   const [searchQuery, setSearchQuery] = React.useState("")
-  // Orthogonal "Scheduled only" filter. Sits alongside the status
-  // tabs because scheduled bookings can be at any status (In Progress,
-  // Payment Complete, etc.) — folding it into the status tabs would
-  // confuse the categorisation. When ON, the list is also sorted by
-  // scheduled_at ascending so the next-up consults surface first.
-  const [scheduledOnly, setScheduledOnly] = React.useState(false)
 
   // Sync filter with URL tab param
   React.useEffect(() => {
@@ -501,24 +467,8 @@ export default function PatientHistoryPage() {
     patientIdNumber: maskIdNumber(b.idNumber),
     unitName: unitInfo?.unitName ?? "",
     clientId: unitInfo?.clientId ?? null,
-    // "Patient Type" was historically a hardcoded "Cash Reservation"
-    // placeholder. Repurposed now to surface the booking's
-    // consult-timing — operators want to see at a glance which rows
-    // are scheduled for later vs. ready-to-handoff. Scheduled rows
-    // also append the formatted date/time so a manager can spot
-    // upcoming consults without opening the row.
-    patientType:
-      b.bookingType === "scheduled"
-        ? `Scheduled Consult${
-            b.scheduledAt
-              ? ` — ${formatScheduledShort(b.scheduledAt)}`
-              : ""
-          }`
-        : "Instant Consult",
     selfCollect: b.paymentType === "self_collect",
     monthlyInvoice: b.paymentType === "monthly_invoice",
-    scheduled: b.bookingType === "scheduled",
-    scheduledAt: b.scheduledAt,
     date: new Date(b.createdAt).toLocaleString("en-ZA", {
       year: "numeric",
       month: "2-digit",
@@ -534,24 +484,11 @@ export default function PatientHistoryPage() {
   const incompleteCount = countByFilter(allPatients, "incomplete")
   const completedCount = countByFilter(allPatients, "completed")
 
-  let filteredPatients = filterPatients(
+  const filteredPatients = filterPatients(
     allPatients,
     activeFilter,
     searchQuery
   )
-  if (scheduledOnly) {
-    filteredPatients = filteredPatients.filter((p) => p.scheduled)
-    // Sort by scheduled_at ascending — soonest consult first. Rows
-    // without a scheduled_at (shouldn't happen for scheduled=true,
-    // but defensive) sink to the bottom.
-    filteredPatients = [...filteredPatients].sort((a, b) => {
-      if (!a.scheduledAt) return 1
-      if (!b.scheduledAt) return -1
-      return a.scheduledAt.localeCompare(b.scheduledAt)
-    })
-  }
-  // Count of scheduled bookings to surface on the toggle pill.
-  const scheduledCount = allPatients.filter((p) => p.scheduled).length
 
   // Pagination
   const ITEMS_PER_PAGE = 10
@@ -561,7 +498,7 @@ export default function PatientHistoryPage() {
   // Reset to page 1 when filter or search changes
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [activeFilter, searchQuery, scheduledOnly])
+  }, [activeFilter, searchQuery])
 
   const visiblePatients = filteredPatients.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -755,38 +692,6 @@ export default function PatientHistoryPage() {
             </span>
           </button>
 
-          {/* Orthogonal "Scheduled only" filter — sits next to the
-              status tabs but isn't part of the same group: scheduled
-              bookings can be at any status. Visually distinct (outline
-              when off, accent-filled when on) so it doesn't read as a
-              5th status tab. Only renders when at least one scheduled
-              booking exists. */}
-          {scheduledCount > 0 && (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={scheduledOnly}
-              data-testid="filter-scheduled"
-              onClick={() => setScheduledOnly((v) => !v)}
-              className={`ml-2 inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                scheduledOnly
-                  ? "border-[var(--client-primary)] bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
-              }`}
-              title={scheduledOnly ? "Showing scheduled bookings only" : "Show scheduled bookings only"}
-            >
-              Scheduled
-              <span
-                className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                  scheduledOnly
-                    ? "bg-[var(--client-primary)] text-white"
-                    : "bg-gray-200 text-gray-700"
-                }`}
-              >
-                {scheduledCount}
-              </span>
-            </button>
-          )}
         </div>
 
         <div className="relative w-full sm:max-w-xs">
@@ -884,22 +789,12 @@ export default function PatientHistoryPage() {
                 >
                   {startConsultBusyId === patient.id ? (
                     <>
-                      {/* "Requesting…" / "Starting…" mirror the action verb on the
-                          idle button so the busy state reads naturally for both
-                          flows. */}
-                      {patient.scheduled ? "Requesting…" : "Starting…"}
+                      Starting…
                       <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
                         <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
                         <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
                       </svg>
                     </>
-                  ) : patient.scheduled ? (
-                    // Scheduled bookings → "Request Slot". The handoff
-                    // to CareFirst sends the requested datetime through
-                    // and CareFirst's app books the actual slot on
-                    // their side; the operator isn't kicking off a
-                    // live consult, just lodging the request.
-                    "Request Slot"
                   ) : (
                     "Start Consult"
                   )}
@@ -987,10 +882,6 @@ export default function PatientHistoryPage() {
                       { label: "Unit Name", value: patient.unitName || "-" },
                       { label: "Patient Name", value: patient.patientName },
                       { label: "Patient ID Number", value: patient.patientIdNumber },
-                      // Booking Type carries the scheduled date/time
-                      // appended inline for scheduled rows, so the
-                      // mobile card doesn't need a separate row for it.
-                      { label: "Booking Type", value: patient.patientType },
                       { label: "Date", value: patient.date },
                     ]}
                   />
@@ -999,7 +890,7 @@ export default function PatientHistoryPage() {
                 {/* Desktop row — md: and up. Existing layout, unchanged. */}
                 <div
                   data-testid={`patient-row-${patient.id}`}
-                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
+                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
                 >
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
@@ -1044,25 +935,6 @@ export default function PatientHistoryPage() {
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-gray-900">Patient ID Number</span>
                     <span className="truncate text-sm text-gray-600" title={patient.patientIdNumber}>{patient.patientIdNumber}</span>
-                  </div>
-
-                  {/* Booking Type — Instant or Scheduled. Scheduled
-                      rows render in the accent colour with the date/time
-                      inline so a manager can scan upcoming consults.
-                      Replaces the prior hardcoded "Cash Reservation"
-                      label, which carried no operational meaning. */}
-                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Booking Type</span>
-                    <span
-                      className={`truncate text-sm ${
-                        patient.scheduled
-                          ? "font-semibold text-[var(--client-primary)]"
-                          : "text-gray-600"
-                      }`}
-                      title={patient.patientType}
-                    >
-                      {patient.patientType}
-                    </span>
                   </div>
 
                   {/* Date */}
@@ -1246,15 +1118,6 @@ export default function PatientHistoryPage() {
               "Unit": unitInfo?.unitName || "",
               "Client": clientName,
               "Date": new Date(b.createdAt).toLocaleString("en-ZA"),
-              // Booking Type (instant vs scheduled) + scheduled date/time.
-              // Capitalised for export-readability vs the snake-case-ish
-              // 'instant'/'scheduled' values stored in the DB. The
-              // "Scheduled For" column is blank for instant bookings.
-              "Booking Type":
-                b.bookingType === "scheduled" ? "Scheduled" : "Instant",
-              "Scheduled For": b.scheduledAt
-                ? new Date(b.scheduledAt).toLocaleString("en-ZA")
-                : "",
               "Gender": b.gender || "",
               "Date of Birth": b.dateOfBirth || "",
               "Contact Number": b.contactNumber || "",

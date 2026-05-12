@@ -99,8 +99,6 @@ export async function POST(request: Request, context: RouteContext) {
         "province",
         "country",
         "postal_code",
-        "booking_type",
-        "scheduled_at",
         "handoff_redirect_url",
         "handoff_attempt_count",
       ].join(", ")

@@ -80,7 +80,6 @@ A "**client**" in our system is a brand or organisation that owns one or more "*
 <Card variant="ok" title="What CareFirst owns">
 - The consultation itself (video, clinician matching, scripts)
 - Patient identity reconciliation (we send what we captured; you decide if it matches your records)
-- Scheduling and slot management (currently we send `scheduledAt` as a request; see <a href="/reports/scheduling-integration">Scheduling RFC</a>)
 - Medical records beyond intake vitals
 - Anything that happens after our handoff returns 200
 </Card>
@@ -115,7 +114,7 @@ POST https://<your-api-domain>/api/external/client-sso/auto-register
 
 Authenticated with `x-api-key` (configured per environment). Sent once per booking, after payment is complete and T&Cs are accepted. Full contract is in [SSO auto-register — the contract](/reports/sso-auto-register).
 
-There is currently **no inbound** channel from CareFirst to us. That's intentional in v1, but it limits what we can observe — see [Status lifecycle](/reports/status-lifecycle) for the consequences and [Scheduling RFC](/reports/scheduling-integration) for the proposed extensions.
+There is currently **no inbound** channel from CareFirst to us. That's intentional in v1, but it limits what we can observe — see [Status lifecycle](/reports/status-lifecycle) for the consequences.
 
 </Section>
 
@@ -123,9 +122,8 @@ There is currently **no inbound** channel from CareFirst to us. That's intention
 
 In rough priority order:
 
-1. **Slot-availability API** — so we can show the operator real bookable slots instead of sending `scheduledAt` blind. Detail: <a href="/reports/scheduling-integration">Scheduling RFC</a>
-2. **Consultation-outcome webhook** — so we can mark bookings <Pill variant="ok">Consultation Complete</Pill> (vs the current `Successful = handed off`) and improve month-end invoice accuracy
-3. **Stable `externalReferenceId` in the auto-register response** — so we can quote it in support tickets without doing opportunistic parsing
+1. **Consultation-outcome webhook** — so we can mark bookings <Pill variant="ok">Consultation Complete</Pill> (vs the current `Successful = handed off`) and improve month-end invoice accuracy
+2. **Stable `externalReferenceId` in the auto-register response** — so we can quote it in support tickets without doing opportunistic parsing
 
 These are documented as standalone RFCs in the **Open Questions / RFCs** category.
 

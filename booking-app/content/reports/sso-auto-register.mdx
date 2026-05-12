@@ -74,12 +74,11 @@ flowchart LR
 
 <Section id="payload" num="04 — Payload" title="Request body — every field">
 
-The full body we POST. `bookingType` and `scheduledAt` are only present when the operator picked **Scheduled Consult** on Step 4 of the booking flow.
+The full body we POST.
 
 ```json
 {
   "clientCode":      "<configured per environment>",
-  "planCode":        "<optional — configured per client>",
   "uniqueReference": "<our booking UUID>",
   "user": {
     "email":      "patient@example.com",
@@ -104,8 +103,6 @@ The full body we POST. `bookingType` and `scheduledAt` are only present when the
       }
     }
   },
-  "bookingType": "scheduled",
-  "scheduledAt": "2026-05-14T09:30:00Z",
   "returnUrl":   "https://<our-app>/patient-history"
 }
 ```
@@ -115,7 +112,6 @@ The full body we POST. `bookingType` and `scheduledAt` are only present when the
 | Field | Source on our side | Notes |
 |---|---|---|
 | `clientCode` | Env var `CAREFIRST_CLIENT_CODE` | Per-environment, immutable per deploy |
-| `planCode` | Env var `CAREFIRST_CLIENT_PLAN_CODE` (optional) | Omitted when unset |
 | `uniqueReference` | `bookings.id` (UUID) | One value per booking; safe to use as your idempotency key |
 | `user.email` | `bookings.email_address` | Captured at patient-details step 3 |
 | `user.cellNumber` | `bookings.contact_number` | E.164-ish; we don't enforce strict E.164 |
@@ -129,8 +125,6 @@ The full body we POST. `bookingType` and `scheduledAt` are only present when the
 | `user.userProfile.nationality` | `bookings.nationality` | Same enum as `countryCode` |
 | `user.userProfile.gender` | `bookings.gender` | First character upper-cased, defaulted to `N` |
 | `user.userProfile.fullAddress` | `bookings.{address,suburb,city,...}` | `null` if `address` or `city` is blank |
-| `bookingType` | `bookings.booking_type` | `"scheduled"` or omitted entirely |
-| `scheduledAt` | `bookings.scheduled_at` | ISO 8601 UTC; omitted when `bookingType` is not `"scheduled"` |
 | `returnUrl` | `<APP_URL>/patient-history` | We send the operator back here after the patient finishes |
 
 ### Title enum
@@ -212,7 +206,6 @@ In rough priority order:
 1. **Stable `referenceId` field.** Can you commit to a field name so we can stop opportunistic parsing? We'd suggest top-level `referenceId` returning your patient or session identifier.
 2. **Field name for `redirectUrl`** — same question. Pin one name, we'll use it exclusively.
 3. **Error body shape.** Can we standardise on `{ displayMessage, errorMessage, errorCode }`? `errorCode` (an enum / string token, not human-readable) would let us route operators to the right scenario without parsing English strings.
-4. **Multi-Service config.** Recent conversation suggests scheduled-video clients need Multi-Service config + plan adjustment on your side. We'd like a written reference for what changes when a client flips between Single-Service and Multi-Service, and whether the payload above changes at all.
-5. **Multiple environments.** Confirm staging/production endpoint URLs, API key issuance process, and any rate limits.
+4. **Multiple environments.** Confirm staging/production endpoint URLs, API key issuance process, and any rate limits.
 
 </Section>

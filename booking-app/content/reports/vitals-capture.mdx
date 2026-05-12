@@ -41,7 +41,7 @@ All five are optional individually but the page expects most of them to be fille
 
 ```mermaid
 flowchart LR
-    A[Step 6: Payment Complete] --> B{skip_patient_metrics?}
+    A[Step 5: Payment Complete] --> B{skip_patient_metrics?}
     B -->|FALSE| C[/patient-metrics/<br/>capture vitals]
     B -->|TRUE| D[Skip — go to /creating]
     C --> E[/creating/]
@@ -98,7 +98,7 @@ For skipped bookings, all five columns stay `null`.
 
 <Section id="not-sent" num="05 — Not sent" title="Not sent to CareFirst (today)">
 
-**None of the five vitals appear in the SSO auto-register payload.** The handoff sends identity, contact, address, payment intent (booking-type) — but no clinical data.
+**None of the five vitals appear in the SSO auto-register payload.** The handoff sends identity, contact, and address — but no clinical data.
 
 This is partly historical and partly deliberate:
 

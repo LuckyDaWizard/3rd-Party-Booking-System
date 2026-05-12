@@ -25,7 +25,7 @@ sections:
 
 Every booking in our system has exactly **one status** at any given moment. The status reflects only what **we** know — we can observe up to the SSO handoff response, but not what happens once the patient lands in CareFirst Patient.
 
-This means our terminal status, <Pill variant="ok">Successful</Pill>, marks a successful **handoff** — not a successful **consultation**. The distinction matters for monthly billing, no-show tracking, and audit completeness. This doc explains how we model the lifecycle today and what we'd need from CareFirst to close the visibility gap.
+This means our terminal status, <Pill variant="ok">Successful</Pill>, marks a successful **handoff** — not a successful **consultation**. The distinction matters for monthly billing and audit completeness. This doc explains how we model the lifecycle today and what we'd need from CareFirst to close the visibility gap.
 
 </Section>
 
@@ -103,7 +103,6 @@ What we **don't** know:
 - Did the consultation complete, or did the patient or clinician disconnect mid-way?
 - Was a script issued?
 - Was the patient referred elsewhere?
-- For scheduled bookings: did the patient show up at the agreed time?
 
 ```mermaid
 flowchart LR
@@ -135,7 +134,7 @@ Clients on <code>bill_monthly</code> are invoiced per booking handed off — not
 </Card>
 
 <Card variant="warn" title="No-show tracking is blind">
-For scheduled bookings, we have no way to know whether the patient kept the slot. The booking sits at <code>Successful</code> regardless of attendance. Reporting on no-show rates is impossible from our side alone.
+We have no way to know whether the patient actually attended the consultation after handoff. The booking sits at <code>Successful</code> regardless of attendance. Reporting on no-show rates is impossible from our side alone.
 </Card>
 
 <Card variant="warn" title="Support requires cross-system lookups">
@@ -160,7 +159,7 @@ Authorization: x-api-key <shared-secret>
 {
   "referenceId": "<the externalReferenceId we stored>",
   "uniqueReference": "<the booking UUID we sent originally>",
-  "status": "started | completed | cancelled | no_show | expired",
+  "status": "started | completed | cancelled | no_show",
   "occurredAt": "2026-05-14T09:35:12Z",
   "outcome": {
     "scriptIssued": true,
@@ -178,8 +177,7 @@ What we'd do with it:
 | `completed` | Mark booking <Pill variant="ok">Consultation Complete</Pill> (new status); update monthly-billing counter |
 | `cancelled` | Mark <Pill variant="mute">Consultation Cancelled</Pill> (new status); flag for monthly invoice exclusion |
 | `no_show` | Mark <Pill variant="mute">No-show</Pill> (new status); flag for monthly invoice exclusion |
-| `expired` | Mark <Pill variant="mute">Slot expired</Pill> (new status); useful for scheduled-booking reporting |
 
-This is the **#2 priority** in our integration roadmap (#1 being the slot-availability API for scheduling). Even a barebones `completed`/`no_show` toggle would close most of the gap.
+Even a barebones `completed`/`no_show` toggle would close most of the gap.
 
 </Section>

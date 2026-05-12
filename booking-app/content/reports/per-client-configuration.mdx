@@ -34,8 +34,8 @@ Stored on the `clients` table. Each flag can be ON or OFF independently (with mu
 
 | Flag | When ON | Effect on the flow |
 |---|---|---|
-| `collect_payment_at_unit` | Operator confirms payment at the unit with a PIN; we skip PayFast entirely | Step 6 shows a "Confirm payment in unit" panel instead of the PayFast picker |
-| `bill_monthly` | Client is invoiced monthly; operator never sees Step 6 | Step 6 auto-fires `mark-monthly-invoice`; booking advances without operator action |
+| `collect_payment_at_unit` | Operator confirms payment at the unit with a PIN; we skip PayFast entirely | Step 5 shows a "Confirm payment in unit" panel instead of the PayFast picker |
+| `bill_monthly` | Client is invoiced monthly; operator never sees Step 5 | Step 5 auto-fires `mark-monthly-invoice`; booking advances without operator action |
 | `skip_patient_metrics` | Skips the vitals capture page; only available if one of the two above is ON | Booking goes from Payment Complete → /creating directly |
 | `nurse_verification` | Requires nurse PIN at search, verification, and handoff | Inserts up to 4 PIN gates across the flow |
 | `accent_color` | Custom brand colour (hex) applied via CSS variable | Affects UI only — operator + (in future) patient-facing surfaces |
@@ -109,11 +109,7 @@ We do not currently send `payment_type` to CareFirst in the auto-register payloa
 
 <Section id="handoff-effect" num="05 — Handoff effect" title="What reaches CareFirst across configurations">
 
-For all four scenarios above, the **SSO auto-register payload is identical in shape**. The fields that vary:
-
-- `bookingType` — only `"scheduled"` if the operator picked it on Step 4 (independent of client config)
-- `scheduledAt` — same condition
-- All other fields are the same
+For all four scenarios above, the **SSO auto-register payload is identical in shape**.
 
 **Things CareFirst does NOT see today:**
 

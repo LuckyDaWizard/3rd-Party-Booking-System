@@ -18,9 +18,8 @@ sections:
   - { id: patient-details, label: Patient details }
   - { id: step-1,          label: Step 1 — Basic info }
   - { id: steps-2-3,       label: Steps 2 + 3 — Address & Contact }
-  - { id: step-4,          label: Step 4 — Booking type }
-  - { id: step-5,          label: Step 5 — Verification }
-  - { id: step-6,          label: Step 6 — Payment branches }
+  - { id: step-4,          label: Step 4 — Verification }
+  - { id: step-5,          label: Step 5 — Payment branches }
   - { id: payfast,         label: PayFast (gateway) flow }
   - { id: self-collect,    label: Self-collect }
   - { id: monthly,         label: Monthly invoice }
@@ -67,8 +66,8 @@ Each client carries flags on the `clients` table that change which pages render 
 
 | Flag | When ON | Where it shows |
 |---|---|---|
-| `collect_payment_at_unit` | Skip PayFast — pay at unit, confirm with PIN | Step 6 |
-| `bill_monthly` | Skip payment entirely; client invoiced at month-end | Auto-skip step 6 |
+| `collect_payment_at_unit` | Skip PayFast — pay at unit, confirm with PIN | Step 5 |
+| `bill_monthly` | Skip payment entirely; client invoiced at month-end | Auto-skip step 5 |
 | `skip_patient_metrics` | Skip vitals capture (only with one of the two above) | After payment |
 | `nurse_verification` | Require nurse PIN before booking + before handoff | 4 PIN gates across the flow |
 | `accent_color` | Custom brand colour for buttons + pills | Whole UI |
@@ -124,9 +123,9 @@ SA ID validates length, month, day, citizenship digit, and Luhn checksum before 
 
 </Section>
 
-<Section id="patient-details" num="04 — Patient Details" title="6 steps in one page">
+<Section id="patient-details" num="04 — Patient Details" title="5 steps in one page">
 
-One page, six logical steps. Auto-saves every 2 seconds so a crash costs at most a sentence of typing.
+One page, five logical steps. Auto-saves every 2 seconds so a crash costs at most a sentence of typing.
 
 <StepRow>
   <Step num="1." title="Basic Info">Name, ID, title, gender, DOB, nationality</Step>
@@ -137,18 +136,15 @@ One page, six logical steps. Auto-saves every 2 seconds so a crash costs at most
 </StepRow>
 
 <StepRow>
-  <Step num="4." title="Booking Type">Instant or Scheduled (date + time)</Step>
+  <Step num="4." title="Verification">Review + edit + nurse PIN if required</Step>
   <Arrow />
-  <Step num="5." title="Verification">Review + edit + nurse PIN if required</Step>
-  <Arrow />
-  <Step num="6." title="Payment Type">Branch on client settings</Step>
+  <Step num="5." title="Payment Type">Branch on client settings</Step>
 </StepRow>
 
 ### Persistence
 
 - **Auto-save** debounced 2s on basic / address / contact changes
 - **Step Next** always persists the step's fields plus `current_step`
-- **Verify-step edits** (booking type / date / time) re-persisted on Next — auto-save's payload doesn't carry those
 
 </Section>
 
@@ -213,49 +209,20 @@ Field-level validation only. Empty required fields leave the Next button disable
 
 </Section>
 
-<Section id="step-4" num="07 — Step 4" title="Booking Type">
-
-Defines whether the consultation runs immediately or is scheduled for later.
-
-<Grid2>
-<Card variant="ok" title="Instant Consult">
-<Pill variant="ok">default</Pill>
-Standard flow. After payment + handoff, the patient is seen straight away in the CareFirst Patient app.
-</Card>
-
-<Card variant="brand" title="Scheduled Consult">
-Operator captures the patient now; CareFirst schedules the slot at `scheduled_at`.
-
-- Date + Time pickers (modal-based for both)
-- Stored UTC; displayed local
-- Forwarded to CareFirst as `{ bookingType: "scheduled", scheduledAt }`
-</Card>
-</Grid2>
-
-### Persistence
-
-Fields persisted both at step 4 → 5 (initial pick) *and* step 5 → 6 (Verify-step edits). Step 4 forgets, step 5 catches.
-
-### Errors handled
-
-If "Scheduled" is picked without a date or time, Next stays disabled. We do **not** validate slot availability — CareFirst is the source of truth and surfaces conflicts post-handoff.
-
-</Section>
-
-<Section id="step-5" num="08 — Step 5" title="Verification">
+<Section id="step-4" num="07 — Step 4" title="Verification">
 
 Read-only review of all captured fields, with the option to **edit any section in place**. Nurse PIN gate (if enabled) fires on Next.
 
 ```mermaid
 flowchart LR
-    A[Step 5 mounted] --> B{Edits made?}
+    A[Step 4 mounted] --> B{Edits made?}
     B -->|yes| C[Persist changes]
     B -->|no| D{nurse_verification?}
     C --> D
     D -->|TRUE| E[Open PIN modal]
     D -->|FALSE| F[Skip modal]
     E --> G{PIN valid?}
-    G -->|yes| H[Step 6]
+    G -->|yes| H[Step 5]
     G -->|no| I[Stay on modal<br/>show error]
     F --> H
 
@@ -279,13 +246,13 @@ Modal stays open on wrong PIN with inline error. After N consecutive failures th
 
 </Section>
 
-<Section id="step-6" num="09 — Step 6" title="Payment branches">
+<Section id="step-5" num="08 — Step 5" title="Payment branches">
 
 Resolved server-side from the booking's parent client. UI auto-renders the right panel.
 
 ```mermaid
 flowchart TD
-    A[Step 6 mounted] --> B{client config}
+    A[Step 5 mounted] --> B{client config}
     B -->|gateway| C[Show payment-type picker]
     B -->|self-collect| D["Show &#39;Confirm payment in unit&#39; panel"]
     B -->|monthly| E[Auto-fire mark-monthly-invoice]
@@ -381,11 +348,11 @@ If CareFirst rejects (e.g. "already registered to a different account"), operato
 
 <Section id="monthly" num="12 — Monthly invoice" title="Bill at month-end">
 
-For clients invoiced at month-end. The operator never sees Step 6.
+For clients invoiced at month-end. The operator never sees Step 5.
 
 ```mermaid
 flowchart LR
-    A[Step 6 mounts] --> B["useEffect detects mode=&#39;monthly_invoice&#39;"]
+    A[Step 5 mounts] --> B["useEffect detects mode=&#39;monthly_invoice&#39;"]
     B --> C[POST mark-monthly-invoice]
     C --> D[Server: re-check bill_monthly flag]
     D -->|valid| E[Status = Payment Complete<br/>payment_type=monthly_invoice]

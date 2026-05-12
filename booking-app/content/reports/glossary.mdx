@@ -68,7 +68,6 @@ sections:
 | **Nurse verification** | A per-client flag (`nurse_verification`) that inserts PIN gates at search, verification, and handoff steps. Used by clinics that require a nurse's sign-off on each booking. |
 | **Self-collect** | Payment mode where the unit takes payment directly (cash / card at the desk) and the operator confirms with a PIN. Skips PayFast. |
 | **Monthly invoice** | Payment mode where the client is invoiced at month-end. Operator never sees a payment step; booking auto-marks Payment Complete. |
-| **Booking type** | `instant` or `scheduled`. Captured on Step 4 of the patient-details flow. Only `scheduled` carries `scheduledAt` to CareFirst. |
 | **Identity-lock banner** | Warning shown to the operator when identity fields are locked. Tells them why and who to escalate to. |
 | **Throttle** | Shared rate-limit keyed on (IP, unit). Applied to PIN attempts and forgot-PIN requests. Prevents brute-force and enumeration. |
 | **Audit log** | Append-only Postgres table recording every state-changing action. See [Audit Log](/reports/audit-log). |
@@ -83,9 +82,6 @@ sections:
 | **CareFirst Patient** | The downstream application — your consultation app. The destination of the SSO handoff. |
 | **PayFast** | South African payment gateway. Used for the `gateway` payment mode. |
 | **POPIA** | Protection of Personal Information Act (SA). Our compliance framework for handling patient data. |
-| **Multi-Service** | A CareFirst-side configuration that enables both Instant and Scheduled Video on a single client. See [Multi-Service Config](/reports/multi-service-config). |
-| **Single-Service** | The default CareFirst-side configuration — a client offers only Instant Video. The auto-register handoff goes straight into the consult. |
-| **Plan code** | An optional `planCode` we send in the auto-register payload. Configured per-environment via `CAREFIRST_CLIENT_PLAN_CODE` env var. |
 | **Client code** | The `clientCode` we send in the auto-register payload. Configured via `CAREFIRST_CLIENT_CODE` env var. |
 | **Return URL** | `returnUrl` field in the SSO payload. Where CareFirst is asked to redirect the patient after the consult ends. See [returnUrl Contract](/reports/return-url-contract). |
 

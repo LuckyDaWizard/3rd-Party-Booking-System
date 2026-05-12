@@ -89,8 +89,7 @@ A patient walks in. You sit at the booking desk. Here's the full flow.
 flowchart LR
     A([Patient<br/>arrives]) --> B[Search patient<br/>by ID / passport / DOB]
     B --> C[Capture details<br/>basic + address + contact]
-    C --> D[Booking type<br/>Instant or Scheduled]
-    D --> E[Verification<br/>review + nurse PIN]
+    C --> E[Verification<br/>review + nurse PIN]
     E --> F[Payment<br/>gateway / self-collect / monthly]
     F --> G[Vitals<br/>BP / glucose / etc.]
     G --> H[T&Cs<br/>patient signs]
@@ -99,7 +98,7 @@ flowchart LR
 
     classDef brand fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
     classDef ok    fill:#dcfce7,stroke:#166534,color:#0f172a;
-    class B,C,D,E,F,G,H,I brand;
+    class B,C,E,F,G,H,I brand;
     class A,J ok;
 ```
 
@@ -110,15 +109,14 @@ flowchart LR
 3. **Step 1 — Basic info**: confirm name, ID, title, gender, DOB, nationality. If a banner says "identity locked", don't try to edit those fields — that's a safety mechanism.
 4. **Step 2 — Address**: ask the patient. Suburb + city + postal code are needed.
 5. **Step 3 — Contact**: phone (with country code) and email. Optional: send the script to a different email at the end.
-6. **Step 4 — Booking type**: Instant if the patient is being seen now; Scheduled if they're booking for a future slot. Scheduled requires picking date + time.
-7. **Step 5 — Verification**: review everything. If anything's wrong, click the section to edit. If your client requires nurse verification, a PIN modal will pop up — enter the on-duty nurse's PIN.
-8. **Step 6 — Payment**: this is the one place the flow branches. You'll see one of:
+6. **Step 4 — Verification**: review everything. If anything's wrong, click the section to edit. If your client requires nurse verification, a PIN modal will pop up — enter the on-duty nurse's PIN.
+7. **Step 5 — Payment**: this is the one place the flow branches. You'll see one of:
    - **Gateway** (PayFast) — hand the patient the device or send them a link
    - **Self-collect** — confirm payment-in-unit with your PIN
    - **Monthly invoice** — this step is automatic and instant; you'll see "Marked monthly invoice"
-9. **Vitals** — BP, glucose, temp, O₂, heart rate. Skip-able per client; if your client skips this, you'll jump straight to T&Cs.
-10. **T&Cs** — the patient reads and accepts. The system records the timestamp.
-11. **Start Consult** — if you're a manager/admin, this fires automatically when T&Cs are accepted. CareFirst opens in a new tab and the patient is in their hands.
+8. **Vitals** — BP, glucose, temp, O₂, heart rate. Skip-able per client; if your client skips this, you'll jump straight to T&Cs.
+9. **T&Cs** — the patient reads and accepts. The system records the timestamp.
+10. **Start Consult** — if you're a manager/admin, this fires automatically when T&Cs are accepted. CareFirst opens in a new tab and the patient is in their hands.
 
 <Callout variant="ok" title="Auto-save protects your work">
 The patient-details steps auto-save every <b>2 seconds</b>. A power cut at step 3 costs you at most one sentence of typing — when you come back, the booking is right where you left it (look for it in Patient History → In Progress).
