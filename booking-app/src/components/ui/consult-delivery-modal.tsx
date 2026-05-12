@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Monitor, Mail } from "lucide-react"
+import { Monitor, Mail, ArrowRight } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -57,59 +57,100 @@ export function ConsultDeliveryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>How should the consultation be delivered?</DialogTitle>
+      <DialogContent className="max-w-md rounded-2xl p-6">
+        <DialogHeader className="flex flex-col items-center gap-1 text-center">
+          <DialogTitle className="mx-4 text-xl font-bold text-gray-900">
+            How should the consultation be delivered?
+          </DialogTitle>
+          <p className="text-sm text-gray-500">
+            Choose how to send the CareFirst consultation link to{" "}
+            <span className="font-semibold text-gray-700">{patientName}</span>.
+            Either option records the consultation as started in the audit log.
+          </p>
         </DialogHeader>
 
-        <p className="text-sm text-gray-500">
-          Choose how to send the CareFirst consultation link to{" "}
-          <span className="font-semibold text-gray-700">{patientName}</span>.
-          Either option records the consultation as started in the audit log.
-        </p>
-
-        <div className="mt-2 flex flex-col gap-3">
-          <button
-            type="button"
+        <div className="mt-4 flex flex-col gap-3">
+          <DeliveryOptionCard
+            icon={<Monitor className="size-5" />}
+            title="Start on this device"
+            description="Open the consultation in a new browser tab right now. The patient joins from this device."
             onClick={() => pick("device")}
-            className="flex items-start gap-4 rounded-xl border border-gray-200 px-5 py-4 text-left transition-colors hover:border-[var(--client-primary)] hover:bg-[var(--client-primary-10)]"
-          >
-            <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--client-primary-10)] text-[var(--client-primary-90)]">
-              <Monitor className="size-5" />
-            </span>
-            <span className="flex flex-col gap-1">
-              <span className="text-base font-semibold text-gray-900">
-                Start on this device
-              </span>
-              <span className="text-sm text-gray-500">
-                Open the consultation in a new browser tab right now. The patient
-                joins from this device.
-              </span>
-            </span>
-          </button>
+          />
 
-          <button
-            type="button"
-            onClick={() => !emailDisabled && pick("email")}
+          <DeliveryOptionCard
+            icon={<Mail className="size-5" />}
+            title="Send link via email"
+            description={
+              emailDisabled
+                ? "No email address on file for this booking — add one before using this option."
+                : `Email the consultation link to ${patientEmail}. The patient joins from their own device.`
+            }
             disabled={emailDisabled}
-            className="flex items-start gap-4 rounded-xl border border-gray-200 px-5 py-4 text-left transition-colors hover:border-[var(--client-primary)] hover:bg-[var(--client-primary-10)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-gray-200 disabled:hover:bg-transparent"
-          >
-            <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--client-primary-10)] text-[var(--client-primary-90)]">
-              <Mail className="size-5" />
-            </span>
-            <span className="flex flex-col gap-1">
-              <span className="text-base font-semibold text-gray-900">
-                Send link via email
-              </span>
-              <span className="text-sm text-gray-500">
-                {emailDisabled
-                  ? "No email address on file for this booking — add one before using this option."
-                  : `Email the consultation link to ${patientEmail}. The patient joins from their own device.`}
-              </span>
-            </span>
-          </button>
+            onClick={() => !emailDisabled && pick("email")}
+          />
         </div>
+
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          className="mt-2 text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+        >
+          Cancel
+        </button>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * Single option card — matches the visual language of the booking-flow's
+ * payment-type and (former) booking-type pickers: rounded-xl card, soft
+ * border, brand-tinted icon chip, hover-to-accent border.
+ */
+function DeliveryOptionCard({
+  icon,
+  title,
+  description,
+  disabled,
+  onClick,
+}: {
+  icon: React.ReactNode
+  title: string
+  description: string
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`group flex w-full items-start gap-4 rounded-xl border px-5 py-4 text-left transition-colors ${
+        disabled
+          ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
+          : "border-gray-200 bg-white hover:border-[var(--client-primary)] hover:bg-[var(--client-primary-10)]"
+      }`}
+    >
+      <span
+        className={`mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full ${
+          disabled
+            ? "bg-gray-100 text-gray-400"
+            : "bg-[var(--client-primary-10)] text-[var(--client-primary-90)] group-hover:bg-white"
+        }`}
+      >
+        {icon}
+      </span>
+      <span className="flex flex-1 flex-col gap-1">
+        <span className="flex items-center justify-between gap-3">
+          <span className="text-base font-bold text-gray-900">{title}</span>
+          {!disabled && (
+            <ArrowRight className="size-4 shrink-0 text-gray-400 transition-colors group-hover:text-[var(--client-primary)]" />
+          )}
+        </span>
+        <span className="text-sm leading-relaxed text-gray-500">
+          {description}
+        </span>
+      </span>
+    </button>
   )
 }
