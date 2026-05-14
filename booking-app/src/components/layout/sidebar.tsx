@@ -55,7 +55,7 @@ const navItems: NavItem[] = [
   { label: "User Management", href: "/user-management", icon: Users, roles: ["system_admin", "unit_manager"] },
   { label: "Audit Log", href: "/audit-log", icon: ScrollText, roles: ["system_admin"] },
   { label: "Security", href: "/security", icon: Shield, roles: ["system_admin"] },
-  { label: "Reports", href: "/reports", icon: BookOpen, roles: ["system_admin"], openInNewTab: true },
+  { label: "Reports", href: "/reports", icon: BookOpen, openInNewTab: true },
 ]
 
 interface SidebarProps {

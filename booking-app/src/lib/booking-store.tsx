@@ -13,6 +13,25 @@ import { usePathname } from "next/navigation"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
+// Fire-and-forget audit-log write. Best-effort: an audit failure must never
+// break the booking flow, so we swallow errors after logging to the console.
+async function postBookingAudit(payload: {
+  bookingId: string
+  action: "create" | "update" | "delete"
+  entityName?: string
+  changes?: Record<string, { old?: unknown; new?: unknown }>
+}): Promise<void> {
+  try {
+    await fetch("/api/bookings/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+  } catch (err) {
+    console.warn("Booking audit write failed:", err)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -307,6 +326,18 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
 
       const id = row.id
       setActiveBookingId(id)
+      const patientName =
+        [data.firstNames, data.surname].filter(Boolean).join(" ").trim()
+      postBookingAudit({
+        bookingId: id,
+        action: "create",
+        entityName: patientName
+          ? `Booking for ${patientName}`
+          : "Booking (no patient info yet)",
+        changes: {
+          Status: { new: "In Progress" },
+        },
+      })
       await fetchBookings()
       return id
     },
@@ -342,6 +373,13 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         .eq("id", id)
 
       if (error) console.error("Error discarding booking:", error)
+      else {
+        postBookingAudit({
+          bookingId: id,
+          action: "update",
+          changes: { Status: { new: "Discarded" } },
+        })
+      }
 
       setActiveBookingId(null)
       await fetchBookings()
@@ -360,6 +398,13 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         .eq("status", "In Progress")
 
       if (error) console.error("Error abandoning booking:", error)
+      else {
+        postBookingAudit({
+          bookingId: id,
+          action: "update",
+          changes: { Status: { new: "Abandoned" } },
+        })
+      }
 
       setActiveBookingId(null)
       await fetchBookings()

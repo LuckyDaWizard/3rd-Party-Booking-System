@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
-import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { recordBookingValidator } from "@/lib/booking-validator"
 import {
   buildSsoPayload,
@@ -247,12 +247,18 @@ export async function POST(request: Request, context: RouteContext) {
       actorName: caller.name,
       actorRole: caller.role,
       action: "update",
-      entityType: "user",
+      entityType: "booking",
       entityId: id,
-      entityName: `Start Consult (FAILED): ${patientName}`,
+      entityName: `[${bookingRef(id)}] Start Consult (FAILED): ${patientName}`,
       changes: {
         "Handoff Status": { new: "failed" },
         "Error": { new: result.error ?? "Unknown" },
+        "HTTP Status": { new: result.statusCode ? String(result.statusCode) : "n/a" },
+        "Raw Response": {
+          new: result.rawResponse
+            ? String(result.rawResponse).slice(0, 500)
+            : "(none)",
+        },
         "Attempt": { new: String(attemptCount) },
       },
       ipAddress: getCallerIp(request),
@@ -327,9 +333,9 @@ export async function POST(request: Request, context: RouteContext) {
     actorName: caller.name,
     actorRole: caller.role,
     action: "update",
-    entityType: "user",
+    entityType: "booking",
     entityId: id,
-    entityName: `Start Consult (${deliveryMode === "email" ? "Email" : "Device"}): ${patientName}`,
+    entityName: `[${bookingRef(id)}] Start Consult (${deliveryMode === "email" ? "Email" : "Device"}): ${patientName}`,
     changes: {
       "Status": { old: "Payment Complete", new: "Successful" },
       "Handoff Status": { new: "sent" },

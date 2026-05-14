@@ -8,6 +8,7 @@ import {
   validateItnServerConfirmation,
 } from "@/lib/payfast"
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit"
+import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
 
 // Per-IP rate limiter for the ITN endpoint. PayFast's legitimate retry
 // pattern is exponential backoff over minutes — nothing close to this
@@ -148,7 +149,7 @@ async function processItn(request: Request): Promise<ItnOutcome> {
   // Load booking. A DB error here is transient; a "not found" is not.
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
-    .select("id, status, payment_amount, pf_payment_id")
+    .select("id, status, payment_amount, pf_payment_id, first_names, surname")
     .eq("id", bookingId)
     .single()
 
@@ -203,6 +204,25 @@ async function processItn(request: Request): Promise<ItnOutcome> {
       // DB write failure is transient — let PayFast retry.
       return transientFailure("Failed to update booking", 503)
     }
+
+    const patientName =
+      [booking.first_names, booking.surname].filter(Boolean).join(" ") ||
+      "Unknown patient"
+
+    writeAuditLog({
+      actorId: SYSTEM_ACTOR_ID,
+      actorName: "PayFast ITN",
+      actorRole: "system",
+      action: "update",
+      entityType: "booking",
+      entityId: bookingId,
+      entityName: `[${bookingRef(bookingId)}] Booking for ${patientName}`,
+      changes: {
+        "Payment Status": { old: booking.status, new: "Payment Complete (ITN)" },
+        "PF Payment ID": { new: pfPaymentId ?? "unknown" },
+      },
+      ipAddress: clientIp,
+    })
 
     return accept(`Booking ${bookingId} marked as Payment Complete`)
   }

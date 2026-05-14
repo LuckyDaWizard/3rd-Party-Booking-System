@@ -10,7 +10,7 @@ import { requireSystemAdmin } from "@/lib/api-auth"
 // Query params (all optional):
 //   page       — page number (default 1)
 //   pageSize   — items per page (default 25, max 100)
-//   entityType — filter: "user" | "client" | "unit" (whitelisted — invalid values ignored)
+//   entityType — filter: "user" | "client" | "unit" | "booking" (whitelisted — invalid values ignored)
 //   action     — filter: "create" | "update" | "delete" | "reset_pin" | "toggle_status"
 //                (whitelisted — invalid values ignored)
 //   search     — text search on actor_name or entity_name (case-insensitive).
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") ?? "25", 10)))
 
   // Whitelist entity types and actions — reject anything outside the known set.
-  const ALLOWED_ENTITY_TYPES = new Set(["user", "client", "unit"])
+  const ALLOWED_ENTITY_TYPES = new Set(["user", "client", "unit", "booking"])
   const ALLOWED_ACTIONS = new Set([
     "create",
     "update",

@@ -7,7 +7,7 @@ import {
   PAYMENT_ITEM_NAME,
 } from "@/lib/payfast"
 import { sendPaymentLinkEmail } from "@/lib/email"
-import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { recordBookingValidator } from "@/lib/booking-validator"
 
 // =============================================================================
@@ -184,9 +184,9 @@ export async function POST(request: Request) {
     actorName: caller.name,
     actorRole: caller.role,
     action: "update",
-    entityType: "user",
+    entityType: "booking",
     entityId: bookingId,
-    entityName: `Payment link: ${`${booking.first_names ?? ""} ${booking.surname ?? ""}`.trim() || "Unknown patient"}`,
+    entityName: `[${bookingRef(bookingId)}] Payment link: ${`${booking.first_names ?? ""} ${booking.surname ?? ""}`.trim() || "Unknown patient"}`,
     changes: {
       "Payment Link Email": {
         new: emailResult.sent ? booking.email_address : "FAILED",

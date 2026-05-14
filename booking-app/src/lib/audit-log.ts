@@ -9,12 +9,25 @@
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 
+// Sentinel actor for system-originated events (PayFast ITN, reconcile sweeps).
+// The audit_log.actor_id column is NOT NULL, so we use the zero UUID rather
+// than altering the schema. Filter on this client-side if you ever want to
+// hide system rows from a "user actions only" view.
+export const SYSTEM_ACTOR_ID = "00000000-0000-0000-0000-000000000000"
+
+// Short, human-scannable reference derived from the booking UUID. Used as a
+// prefix on audit-log entity_name strings so two bookings for the same patient
+// can be told apart at a glance.
+export function bookingRef(bookingId: string): string {
+  return bookingId.slice(0, 8).toUpperCase()
+}
+
 export interface AuditEntry {
   actorId: string
   actorName: string
   actorRole: string
   action: "create" | "update" | "delete" | "reset_pin" | "toggle_status"
-  entityType: "user" | "client" | "unit"
+  entityType: "user" | "client" | "unit" | "booking"
   entityId: string
   entityName?: string
   changes?: Record<string, { old?: unknown; new?: unknown }>

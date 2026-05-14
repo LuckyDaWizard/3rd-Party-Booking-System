@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
-import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { recordBookingValidator } from "@/lib/booking-validator"
 
 // =============================================================================
@@ -136,9 +136,9 @@ export async function POST(request: Request, context: RouteContext) {
     actorName: caller.name,
     actorRole: caller.role,
     action: "update",
-    entityType: "user", // booking isn't a tracked entity type; log against user table for searchability
+    entityType: "booking",
     entityId: id,
-    entityName: `Booking for ${patientName}`,
+    entityName: `[${bookingRef(id)}] Booking for ${patientName}`,
     changes: {
       "Payment Status": {
         old: booking.status,

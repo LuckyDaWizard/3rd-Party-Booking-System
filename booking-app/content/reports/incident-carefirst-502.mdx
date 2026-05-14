@@ -1,0 +1,186 @@
+---
+title: Incident — Start Consult returning HTTP 502
+super: 3rd Party Booking System · Incident Report
+subtitle: On 13 May 2026 the Start Consult action began returning a 502 Bad Gateway error from CareFirst's nginx for every booking. This report captures what we observed, what we tested, and where the fault lies.
+audience: Management · First Care Solutions
+category: Incidents
+tags: [carefirst, handoff, outage, 502, incident, diagnostic]
+date: 2026-05-13
+updated: 2026-05-13
+order: 5
+pills:
+  - { label: Incident, variant: warn }
+  - { label: Upstream outage, variant: warn }
+  - { label: No code change needed, variant: ok }
+sections:
+  - { id: summary,     label: Executive summary }
+  - { id: symptom,     label: What operators saw }
+  - { id: our-side,    label: What our system did correctly }
+  - { id: carefirst,   label: What CareFirst returned }
+  - { id: probes,      label: Reachability probes }
+  - { id: ruled-out,   label: What this rules out }
+  - { id: action,      label: Action required }
+  - { id: customer,    label: Impact on bookings + customers }
+  - { id: followups,   label: Optional follow-ups }
+---
+
+<Section id="summary" num="01 — Summary" title="Executive summary">
+
+The **Start Consult** step of the booking flow has been failing with the operator banner:
+
+> *"CareFirst service is currently unavailable (HTTP 502). Please try again in a few minutes."*
+
+This is a **CareFirst-side infrastructure outage**, not a defect in our system. Our integration is behaving exactly as designed under an upstream failure: clear operator messaging, full audit trail, no data loss, retry-safe.
+
+**No code change is required on our side.** Resolution depends on CareFirst restoring whatever lives behind their nginx 1.18.0 reverse proxy on `stage-patient.care-first.co.za`.
+
+<Grid2>
+<Card variant="ok" title="What's healthy on our side">
+- Booking flow up to and including payment
+- Audit logging captures every failed attempt with full error context
+- Operator can retry without data corruption
+- Booking stays at Payment Complete (recoverable)
+</Card>
+
+<Card variant="warn" title="What's broken at CareFirst">
+- The auto-register endpoint behind their nginx is unreachable from nginx
+- Every request returns the default nginx 502 error page
+- Affects every payload (verified with junk diagnostic payload)
+</Card>
+</Grid2>
+
+</Section>
+
+<Section id="symptom" num="02 — Symptom" title="What operators saw">
+
+When a nurse / operator clicks **Start Consult** on a paid booking, the system displays:
+
+```
+Start Consult failed
+CareFirst service is currently unavailable (HTTP 502).
+Please try again in a few minutes.
+```
+
+The booking is **not lost**. It stays at status **Payment Complete** and the operator can click **Start Consult** again — every attempt is recorded in the audit log.
+
+</Section>
+
+<Section id="our-side" num="03 — Our side" title="What our system did correctly">
+
+| Stage | Result |
+|---|---|
+| Booking reached Payment Complete | ✓ |
+| `/api/bookings/[id]/start-consultation` invoked | ✓ |
+| PIN verified | ✓ |
+| SSO payload constructed | ✓ |
+| HTTPS POST to CareFirst auto-register endpoint | ✓ — request sent, response received |
+| Failure recorded against the booking | ✓ — `handoff_status = failed`, `handoff_error_reason` populated, `handoff_attempt_count` incremented |
+| Audit log entry written with HTTP status, error reason, raw response | ✓ — visible in Audit Log → Bookings tab |
+| Booking left in retry-safe state | ✓ — stays at Payment Complete |
+| Operator informed with a clean banner | ✓ |
+
+Every guard, every audit hook, every retry path on our side performed as specified.
+
+</Section>
+
+<Section id="carefirst" num="04 — CareFirst response" title="What CareFirst returned">
+
+The exact response body captured from the production-staging endpoint:
+
+```html
+<html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.18.0 (Ubuntu)</center>
+</body>
+</html>
+```
+
+Response headers showed `Server: nginx/1.18.0 (Ubuntu)`.
+
+**Interpretation:** This is nginx's default error page. nginx is alive on CareFirst's side — it's accepting our HTTPS request, completing TLS, and answering — but **nginx cannot reach the application server it's supposed to forward the request to** (the "upstream"). The application behind nginx is either crashed, restarting, mis-configured in the nginx upstream block, or behind a network partition. Only CareFirst's infrastructure team can resolve this.
+
+</Section>
+
+<Section id="probes" num="05 — Probes" title="Reachability probes (run during diagnostic)">
+
+To confirm the fault is at CareFirst and not in our network path, we ran the following independent probes from this machine, **bypassing our application entirely**:
+
+| Probe | Result | Interpretation |
+|---|---|---|
+| DNS lookup `stage-patient.care-first.co.za` | resolves to `192.168.200.20` | A private IP — CareFirst's staging is on an internal/VPN-routed network. Reachable from us, so routing is fine. |
+| TCP/443 connect | open | Their server accepts TCP connections on the TLS port |
+| TLS 1.2 handshake | succeeds | Their TLS cert + nginx are alive |
+| `HEAD /api/external/client-sso/auto-register` | `502 Bad Gateway`, `Server: nginx/1.18.0` | Same response as a real handoff — proves the 502 is not payload-dependent |
+| `POST /api/external/client-sso/auto-register` with junk body and junk API key | `502 Bad Gateway` | Auth is never reached — the 502 happens before nginx can forward to the auth-handling app |
+
+The conclusion is unambiguous: **CareFirst's nginx cannot reach its upstream application server.**
+
+</Section>
+
+<Section id="ruled-out" num="06 — Ruled out" title="What this rules out on our side">
+
+<Grid2>
+<Card variant="ok" title="Network / DNS / TLS">
+DNS resolves, TCP connects, TLS handshakes — we're talking to CareFirst's server fine.
+</Card>
+
+<Card variant="ok" title="API key / client code">
+Bad credentials would yield HTTP `401` or `403`, not `502`. We never reach the auth layer.
+</Card>
+
+<Card variant="ok" title="Payload shape">
+A junk payload (`{"diagnostic": true}`) returns the same `502`. The response is not driven by anything we send.
+</Card>
+
+<Card variant="ok" title="Our audit + retry logic">
+Failure is captured end-to-end. The retry is safe and idempotent. The booking is not stuck in a corrupted state.
+</Card>
+</Grid2>
+
+</Section>
+
+<Section id="action" num="07 — Action required" title="What needs to happen, who does it">
+
+| Step | Owner | Notes |
+|---|---|---|
+| Contact CareFirst support | **First Care Solutions** | Reference: `stage-patient.care-first.co.za` returning `502 Bad Gateway` from nginx 1.18.0 on `/api/external/client-sso/auto-register`. Their upstream service is down. |
+| Restart the auto-register application server behind nginx | **CareFirst infra** | We have no access to do this — it is fully on their side. |
+| Verify with one test booking | **First Care Solutions** | Once they confirm recovery, click Start Consult on any affected booking. |
+| Replay stuck bookings | **First Care Solutions ops** | Affected bookings sit at Payment Complete and just need Start Consult clicked again. No manual DB intervention needed. |
+
+</Section>
+
+<Section id="customer" num="08 — Customer impact" title="Impact on bookings + customers">
+
+- **Patients seen during the outage**: not lost. Their booking record is complete and at status `Payment Complete`. They can be handed off to CareFirst the moment the upstream recovers.
+- **Payments collected**: not refunded automatically. They're recorded and reconciled. No financial corruption — PayFast / monthly invoice / self-collect records are unaffected by the CareFirst outage.
+- **Operator confidence**: messaging is clear ("CareFirst service is currently unavailable"). The banner does not blame the operator or the patient.
+- **Audit trail for support tickets**: every failed attempt is recorded in the Audit Log → Bookings tab, including HTTP status code, error reason, and CareFirst's raw response. We can hand any specific booking's timeline to CareFirst support if they need it.
+
+</Section>
+
+<Section id="followups" num="09 — Follow-ups" title="Optional follow-ups (not required to resolve this incident)">
+
+These are improvements worth scoping after the immediate outage is closed — none are needed for recovery.
+
+<Grid2>
+<Card variant="brand" title="At-a-glance retry indicator">
+Surface "Last handoff attempt: HTTP 502 at 15:54" on the booking row so an operator scanning the list can spot stuck bookings without opening the audit log.
+</Card>
+
+<Card variant="brand" title="CareFirst health probe">
+Periodic background ping to a CareFirst health endpoint (if they expose one) so we can show a system-wide "CareFirst is currently unavailable" banner instead of letting each operator discover it the hard way.
+</Card>
+
+<Card variant="brand" title="Auto-retry with backoff">
+For 502/503/504 specifically, retry once after a short delay before surfacing the error to the operator. CareFirst transient outages are common enough that a single auto-retry would mask many of them.
+</Card>
+
+<Card variant="warn" title="Production DNS posture">
+CareFirst staging resolves to a private IP (`192.168.200.20`) and only works because our network routes the 192.168.200.0/24 range. Worth confirming with CareFirst that production has a stable public DNS posture so we're not coupled to a VPN tunnel for live traffic.
+</Card>
+</Grid2>
+
+</Section>

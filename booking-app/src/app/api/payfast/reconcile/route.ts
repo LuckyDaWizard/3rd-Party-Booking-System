@@ -6,6 +6,7 @@ import {
   getPayfastConfig,
   validateItnAmount,
 } from "@/lib/payfast"
+import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
 
 // =============================================================================
 // POST /api/payfast/reconcile
@@ -159,7 +160,7 @@ async function reconcileOne(
 ): Promise<ReconcileResult> {
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
-    .select("id, status, payment_amount, pf_payment_id")
+    .select("id, status, payment_amount, pf_payment_id, first_names, surname")
     .eq("id", bookingId)
     .single()
 
@@ -256,6 +257,27 @@ async function reconcileOne(
   console.log(
     `[PayFast Reconcile] Booking ${bookingId} marked Payment Complete (pf_payment_id=${pfPaymentId ?? "none"})`
   )
+
+  const patientName =
+    [booking.first_names, booking.surname].filter(Boolean).join(" ") ||
+    "Unknown patient"
+
+  writeAuditLog({
+    actorId: SYSTEM_ACTOR_ID,
+    actorName: "PayFast Reconcile",
+    actorRole: "system",
+    action: "update",
+    entityType: "booking",
+    entityId: bookingId,
+    entityName: `[${bookingRef(bookingId)}] Booking for ${patientName}`,
+    changes: {
+      "Payment Status": {
+        old: booking.status,
+        new: "Payment Complete (reconciled)",
+      },
+      "PF Payment ID": { new: pfPaymentId ?? "unknown" },
+    },
+  })
 
   return {
     bookingId,

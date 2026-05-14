@@ -24,6 +24,30 @@ interface AuditEntry {
   ipAddress: string | null
 }
 
+interface BookingGroupEvent {
+  id: string
+  createdAt: string
+  actorName: string
+  actorRole: string
+  action: string
+  entityName: string | null
+  changes: Record<string, { old?: unknown; new?: unknown }> | null
+  ipAddress: string | null
+}
+
+interface BookingGroup {
+  bookingId: string
+  ref: string
+  patientName: string
+  clientName: string | null
+  unitName: string | null
+  currentStatus: string
+  firstEventAt: string
+  lastEventAt: string
+  eventCount: number
+  events: BookingGroupEvent[]
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -55,8 +79,27 @@ function getEntityStyle(entityType: string): string {
       return "bg-green-50 text-green-600 border-transparent"
     case "unit":
       return "bg-orange-50 text-orange-600 border-transparent"
+    case "booking":
+      return "bg-purple-50 text-purple-600 border-transparent"
     default:
       return "bg-gray-50 text-gray-600 border-transparent"
+  }
+}
+
+function getBookingStatusStyle(status: string): string {
+  switch (status) {
+    case "In Progress":
+      return "bg-blue-100 text-blue-700 border-transparent"
+    case "Payment Complete":
+      return "bg-emerald-100 text-emerald-700 border-transparent"
+    case "Successful":
+      return "bg-green-100 text-green-700 border-transparent"
+    case "Discarded":
+      return "bg-pink-100 text-pink-700 border-transparent"
+    case "Abandoned":
+      return "bg-gray-200 text-gray-700 border-transparent"
+    default:
+      return "bg-gray-100 text-gray-600 border-transparent"
   }
 }
 
@@ -89,11 +132,12 @@ function formatRole(role: string): string {
 // Page
 // ---------------------------------------------------------------------------
 
-type EntityFilter = "" | "user" | "client" | "unit"
+type EntityFilter = "" | "user" | "client" | "unit" | "booking"
 type ActionFilter = "" | "create" | "update" | "delete" | "reset_pin" | "toggle_status"
 
 export default function AuditLogPage() {
   const [entries, setEntries] = React.useState<AuditEntry[]>([])
+  const [bookingGroups, setBookingGroups] = React.useState<BookingGroup[]>([])
   const [loading, setLoading] = React.useState(true)
   const [total, setTotal] = React.useState(0)
   const [page, setPage] = React.useState(1)
@@ -112,27 +156,22 @@ export default function AuditLogPage() {
   const actionDropdownRef = React.useRef<HTMLDivElement>(null)
 
   // Export all matching entries (respects current filters) as CSV download.
+  // The Bookings tab uses the grouped endpoint and flattens to one CSV row per
+  // event, enriched with the booking's patient / client / unit context — that's
+  // what an investigator actually wants when triaging a support ticket.
   async function handleExportCsv() {
     setExporting(true)
     try {
-      // Fetch ALL matching entries (up to 10 000) — not just the current page.
       const params = new URLSearchParams()
       params.set("page", "1")
       params.set("pageSize", "10000")
-      if (entityFilter) params.set("entityType", entityFilter)
-      if (actionFilter) params.set("action", actionFilter)
       if (debouncedSearch) params.set("search", debouncedSearch)
 
-      const res = await fetch(`/api/admin/audit-log?${params}`)
-      if (!res.ok) throw new Error("Failed to fetch")
-      const json = await res.json()
-      const rows: AuditEntry[] = json.data
-
-      // Build CSV content.
-      const csvHeaders = ["Date", "Who", "Role", "Action", "Entity Type", "Target", "Changes"]
-      const csvRows = rows.map((r) => {
-        const changesStr = r.changes
-          ? Object.entries(r.changes)
+      const formatChanges = (
+        changes: Record<string, { old?: unknown; new?: unknown }> | null
+      ): string =>
+        changes
+          ? Object.entries(changes)
               .map(([field, diff]) => {
                 const oldVal = formatValue(diff.old)
                 const newVal = formatValue(diff.new)
@@ -143,16 +182,69 @@ export default function AuditLogPage() {
               .join("; ")
           : ""
 
-        return [
-          formatDate(r.createdAt),
-          r.actorName,
-          formatRole(r.actorRole),
-          formatAction(r.action),
-          r.entityType,
-          r.entityName ?? "",
-          changesStr,
-        ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-      })
+      const escape = (cell: unknown) =>
+        `"${String(cell ?? "").replace(/"/g, '""')}"`
+
+      let csvHeaders: string[]
+      let csvRows: string[][]
+
+      if (entityFilter === "booking") {
+        const res = await fetch(`/api/admin/audit-log/bookings?${params}`)
+        if (!res.ok) throw new Error("Failed to fetch")
+        const json = await res.json()
+        const groups: BookingGroup[] = json.data
+
+        csvHeaders = [
+          "Date",
+          "Booking Ref",
+          "Patient",
+          "Client",
+          "Unit",
+          "Current Status",
+          "Who",
+          "Role",
+          "Action",
+          "Event Target",
+          "Changes",
+        ]
+        csvRows = groups.flatMap((g) =>
+          g.events.map((e) =>
+            [
+              formatDate(e.createdAt),
+              g.ref,
+              g.patientName,
+              g.clientName ?? "",
+              g.unitName ?? "",
+              g.currentStatus,
+              e.actorName,
+              formatRole(e.actorRole),
+              formatAction(e.action),
+              e.entityName ?? "",
+              formatChanges(e.changes),
+            ].map(escape)
+          )
+        )
+      } else {
+        if (entityFilter) params.set("entityType", entityFilter)
+        if (actionFilter) params.set("action", actionFilter)
+        const res = await fetch(`/api/admin/audit-log?${params}`)
+        if (!res.ok) throw new Error("Failed to fetch")
+        const json = await res.json()
+        const rows: AuditEntry[] = json.data
+
+        csvHeaders = ["Date", "Who", "Role", "Action", "Entity Type", "Target", "Changes"]
+        csvRows = rows.map((r) =>
+          [
+            formatDate(r.createdAt),
+            r.actorName,
+            formatRole(r.actorRole),
+            formatAction(r.action),
+            r.entityType,
+            r.entityName ?? "",
+            formatChanges(r.changes),
+          ].map(escape)
+        )
+      }
 
       const csv = [csvHeaders.join(","), ...csvRows.map((r) => r.join(","))].join("\n")
 
@@ -185,7 +277,8 @@ export default function AuditLogPage() {
     setPage(1)
   }, [entityFilter, actionFilter])
 
-  // Fetch data
+  // Fetch data — Bookings tab pulls from a grouped endpoint; everything else
+  // uses the flat audit-log endpoint.
   React.useEffect(() => {
     let cancelled = false
     async function load() {
@@ -193,21 +286,35 @@ export default function AuditLogPage() {
       const params = new URLSearchParams()
       params.set("page", String(page))
       params.set("pageSize", String(PAGE_SIZE))
-      if (entityFilter) params.set("entityType", entityFilter)
-      if (actionFilter) params.set("action", actionFilter)
       if (debouncedSearch) params.set("search", debouncedSearch)
 
+      const url =
+        entityFilter === "booking"
+          ? `/api/admin/audit-log/bookings?${params}`
+          : (() => {
+              if (entityFilter) params.set("entityType", entityFilter)
+              if (actionFilter) params.set("action", actionFilter)
+              return `/api/admin/audit-log?${params}`
+            })()
+
       try {
-        const res = await fetch(`/api/admin/audit-log?${params}`)
+        const res = await fetch(url)
         if (!res.ok) throw new Error("Failed to fetch")
         const json = await res.json()
         if (!cancelled) {
-          setEntries(json.data)
+          if (entityFilter === "booking") {
+            setBookingGroups(json.data)
+            setEntries([])
+          } else {
+            setEntries(json.data)
+            setBookingGroups([])
+          }
           setTotal(json.total)
         }
       } catch {
         if (!cancelled) {
           setEntries([])
+          setBookingGroups([])
           setTotal(0)
         }
       } finally {
@@ -238,6 +345,7 @@ export default function AuditLogPage() {
     { label: "Users", value: "user" },
     { label: "Clients", value: "client" },
     { label: "Units", value: "unit" },
+    { label: "Bookings", value: "booking" },
   ]
 
   const actionOptions: { label: string; value: ActionFilter }[] = [
@@ -274,7 +382,12 @@ export default function AuditLogPage() {
           className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
           size="lg"
           onClick={handleExportCsv}
-          disabled={exporting || entries.length === 0}
+          disabled={
+          exporting ||
+          (entityFilter === "booking"
+            ? bookingGroups.length === 0
+            : entries.length === 0)
+        }
         >
           {exporting ? (
             <>
@@ -301,7 +414,12 @@ export default function AuditLogPage() {
         className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
         size="lg"
         onClick={handleExportCsv}
-        disabled={exporting || entries.length === 0}
+        disabled={
+          exporting ||
+          (entityFilter === "booking"
+            ? bookingGroups.length === 0
+            : entries.length === 0)
+        }
       >
         {exporting ? "Exporting..." : "Export CSV"}
         <Download className="ml-1 size-4" />
@@ -328,7 +446,8 @@ export default function AuditLogPage() {
         </div>
 
         <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
-          {/* Action dropdown */}
+          {/* Action dropdown — hidden on Bookings tab (events aggregated per booking) */}
+          {entityFilter !== "booking" && (
           <div ref={actionDropdownRef} className="relative w-full sm:w-48 sm:shrink-0">
             <button
               type="button"
@@ -365,6 +484,7 @@ export default function AuditLogPage() {
               </div>
             )}
           </div>
+          )}
 
           {/* Search */}
           <div className="relative w-full sm:w-72">
@@ -383,30 +503,171 @@ export default function AuditLogPage() {
 
       {/* Entries */}
       <div className="relative flex min-w-0 flex-col gap-3">
-        {/* Loading overlay — shows spinner over existing content during page/filter changes */}
-        {loading && entries.length > 0 && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
-            <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
-              <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-            </svg>
-          </div>
-        )}
+        {(() => {
+          const isBookings = entityFilter === "booking"
+          const items = isBookings ? bookingGroups.length : entries.length
 
-        {/* Initial load spinner — no entries yet */}
-        {loading && entries.length === 0 ? (
-          <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
-            <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
-              <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-              <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-            </svg>
-            <span className="text-sm text-gray-400">Loading audit log...</span>
-          </div>
-        ) : !loading && entries.length === 0 ? (
-          <div className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400">
-            No entries found
-          </div>
-        ) : (
+          if (loading && items === 0) {
+            return (
+              <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-xl bg-white">
+                <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                </svg>
+                <span className="text-sm text-gray-400">Loading audit log...</span>
+              </div>
+            )
+          }
+          if (!loading && items === 0) {
+            return (
+              <div className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400">
+                No entries found
+              </div>
+            )
+          }
+          return null
+        })()}
+
+        {/* Loading overlay — shows spinner over existing content during page/filter changes */}
+        {loading &&
+          (entityFilter === "booking"
+            ? bookingGroups.length > 0
+            : entries.length > 0) && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70">
+              <svg className="size-10 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              </svg>
+            </div>
+          )}
+
+        {/* Booking-grouped cards — one card per booking, with its event timeline */}
+        {entityFilter === "booking" &&
+          bookingGroups.map((group) => {
+            const isExpanded = expandedId === group.bookingId
+            return (
+              <div
+                key={group.bookingId}
+                className="flex flex-col gap-4 rounded-xl bg-white p-4 md:p-6"
+              >
+                {/* Header */}
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-semibold text-gray-700">
+                        [{group.ref}]
+                      </span>
+                      <span className="text-base font-semibold text-gray-900">
+                        {group.patientName}
+                      </span>
+                      <Badge
+                        className={`rounded-full border px-3 py-1 text-xs font-medium ${getBookingStatusStyle(group.currentStatus)}`}
+                      >
+                        {group.currentStatus}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500">
+                      <span>
+                        <span className="font-medium text-gray-700">Client: </span>
+                        {group.clientName ?? "—"}
+                      </span>
+                      <span>
+                        <span className="font-medium text-gray-700">Unit: </span>
+                        {group.unitName ?? "—"}
+                      </span>
+                      <span>
+                        <span className="font-medium text-gray-700">Events: </span>
+                        {group.eventCount}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedId(isExpanded ? null : group.bookingId)
+                    }
+                    className="self-start text-xs font-medium text-[var(--client-primary)] hover:underline"
+                  >
+                    {isExpanded ? "Hide details" : "Show details"}
+                  </button>
+                </div>
+
+                {/* Timeline */}
+                <ol className="flex flex-col gap-2 border-l border-gray-200 pl-4">
+                  {group.events.map((evt) => {
+                    const hasChanges =
+                      evt.changes && Object.keys(evt.changes).length > 0
+                    return (
+                      <li key={evt.id} className="relative">
+                        <span
+                          className="absolute -left-[21px] top-1.5 size-2 rounded-full bg-[var(--client-primary)]"
+                          aria-hidden
+                        />
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                            <span>{formatDate(evt.createdAt)}</span>
+                            <span>·</span>
+                            <span>
+                              {evt.actorName}{" "}
+                              <span className="text-gray-400">
+                                ({formatRole(evt.actorRole)})
+                              </span>
+                            </span>
+                            <Badge
+                              className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${getActionStyle(evt.action)}`}
+                            >
+                              {formatAction(evt.action)}
+                            </Badge>
+                          </div>
+                          {evt.entityName && (
+                            <div className="text-sm text-gray-700">
+                              {evt.entityName}
+                            </div>
+                          )}
+                          {isExpanded && hasChanges && (
+                            <div className="mt-2 rounded-lg bg-gray-50 p-3">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-left text-gray-500">
+                                    <th className="pb-1 pr-2 font-medium">Field</th>
+                                    <th className="pb-1 pr-2 font-medium">Old</th>
+                                    <th className="pb-1 font-medium">New</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {Object.entries(evt.changes!).map(
+                                    ([field, diff]) => (
+                                      <tr
+                                        key={field}
+                                        className="border-t border-gray-200"
+                                      >
+                                        <td className="py-1 pr-2 font-medium text-gray-700">
+                                          {field}
+                                        </td>
+                                        <td className="py-1 pr-2 text-red-500">
+                                          {formatValue(diff.old)}
+                                        </td>
+                                        <td className="py-1 text-green-600 break-all">
+                                          {formatValue(diff.new)}
+                                        </td>
+                                      </tr>
+                                    )
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
+            )
+          })}
+
+        {/* Flat entries — every tab other than Bookings */}
+        {entityFilter !== "booking" && entries.length > 0 && (
           entries.map((entry) => {
             const isExpanded = expandedId === entry.id
             const hasChanges = entry.changes && Object.keys(entry.changes).length > 0

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
-import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { PAYMENT_AMOUNT } from "@/lib/payfast"
 import { recordBookingValidator } from "@/lib/booking-validator"
 
@@ -159,9 +159,9 @@ export async function POST(request: Request, context: RouteContext) {
     actorName: caller.name,
     actorRole: caller.role,
     action: "update",
-    entityType: "user",
+    entityType: "booking",
     entityId: id,
-    entityName: `Booking for ${patientName}`,
+    entityName: `[${bookingRef(id)}] Booking for ${patientName}`,
     changes: {
       "Payment Status": {
         old: booking.status,
