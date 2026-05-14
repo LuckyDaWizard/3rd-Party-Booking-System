@@ -167,6 +167,26 @@
   color: var(--r-mute);
 }
 
+.reports-root .page-header .meta {
+  max-width: var(--r-content-max);
+  margin: 12px auto 0;
+  font-size: 13px;
+  color: var(--r-mute);
+  font-family: "Mulish", sans-serif;
+}
+.reports-root .page-header .meta .meta-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--r-brand-dark);
+  margin-right: 4px;
+}
+.reports-root .page-header .meta .meta-sep {
+  margin: 0 10px;
+  color: var(--r-brand-border);
+}
+
 /* ---------------------------------------------------------------------- */
 /* Layout: sticky TOC + content                                              */
 /* ---------------------------------------------------------------------- */
@@ -530,6 +550,22 @@
   padding: 0;
   font-size: inherit;
 }
+
+/* Plain <pre> blocks (used by the auto-generated incident detail pages) */
+.reports-root main pre:not(.payload) {
+  background: var(--r-line-2);
+  color: var(--r-ink);
+  padding: 14px 16px;
+  border-radius: var(--r-radius);
+  font-size: 13px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  line-height: 1.55;
+  overflow-x: auto;
+  margin: 12px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--r-line);
+}
 .reports-root .payload .k { color: #93c5fd; }
 .reports-root .payload .s { color: #fde68a; }
 .reports-root .payload .c { color: #94a3b8; font-style: italic; }
@@ -834,3 +870,146 @@
   font-weight: 500;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
+
+/* ---------------------------------------------------------------------- */
+/* Incidents banner — auto-detected upstream failures on the index page    */
+/* ---------------------------------------------------------------------- */
+.reports-root .incidents-section {
+  max-width: var(--r-content-max);
+  margin: 32px auto 0;
+  padding: 0 24px;
+}
+.reports-root .incidents-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.reports-root .incidents-header .incidents-sub {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--r-mute);
+}
+.reports-root .incidents-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.reports-root .incidents-dot-open {
+  background: var(--r-err);
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
+  animation: incident-pulse 1.6s ease-in-out infinite;
+}
+.reports-root .incidents-dot-ok { background: var(--r-ok); }
+
+@keyframes incident-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15); }
+  50%      { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.05); }
+}
+
+.reports-root .incidents-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .reports-root .incidents-list { grid-template-columns: 1fr 1fr; }
+}
+
+.reports-root .incident-card {
+  display: block;
+  padding: 16px 18px;
+  border-radius: var(--r-radius-lg);
+  background: white;
+  border: 1px solid var(--r-line);
+  text-decoration: none !important;
+  color: inherit;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+.reports-root .incident-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--r-shadow-md);
+}
+.reports-root .incident-card-open {
+  border-left: 4px solid var(--r-err);
+}
+.reports-root .incident-card-resolved {
+  border-left: 4px solid var(--r-ok);
+  opacity: 0.85;
+}
+
+.reports-root .incident-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.reports-root .incident-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.reports-root .incident-status-open {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--r-err);
+}
+.reports-root .incident-status-resolved {
+  background: rgba(22, 163, 74, 0.1);
+  color: var(--r-ok);
+}
+.reports-root .incident-source {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--r-brand-dark);
+  font-weight: 700;
+}
+.reports-root .incident-http {
+  font-size: 11px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--r-line-2);
+  color: var(--r-mute);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.reports-root .incident-title {
+  font-size: 16px;
+  margin: 4px 0 6px;
+}
+.reports-root .incident-error {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--r-mute);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.reports-root .incident-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--r-mute);
+}
+.reports-root .incident-meta b { color: var(--r-ink-2); }
+
+.reports-root .incidents-resolved {
+  margin-top: 16px;
+}
+.reports-root .incidents-resolved summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--r-mute);
+  padding: 6px 0;
+  user-select: none;
+}
+.reports-root .incidents-resolved summary:hover { color: var(--r-brand-dark); }
+.reports-root .incidents-resolved[open] summary { margin-bottom: 10px; }

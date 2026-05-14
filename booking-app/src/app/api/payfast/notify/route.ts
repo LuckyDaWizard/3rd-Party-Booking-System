@@ -9,6 +9,7 @@ import {
 } from "@/lib/payfast"
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit"
 import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
+import { recordIncident, buildSignature } from "@/lib/incidents"
 
 // Per-IP rate limiter for the ITN endpoint. PayFast's legitimate retry
 // pattern is exponential backoff over minutes — nothing close to this
@@ -240,6 +241,21 @@ export async function POST(request: Request) {
       console.log(`[PayFast ITN] ${outcome.reason}`)
     } else if (outcome.status >= 500) {
       console.error(`[PayFast ITN] TRANSIENT (${outcome.status}): ${outcome.reason}`)
+      // Transient (5xx) ITN failures usually mean our DB or PayFast's confirm
+      // endpoint is down. Single rejections (4xx — bad signature, wrong IP) are
+      // noise and not incident-worthy; we ignore them here.
+      recordIncident({
+        signature: buildSignature({
+          source: "payfast",
+          endpoint: "notify",
+          statusOrClass: outcome.status,
+        }),
+        source: "payfast",
+        category: "payment",
+        title: `PayFast ITN failing (HTTP ${outcome.status} transient)`,
+        errorMsg: outcome.reason,
+        httpStatus: outcome.status,
+      })
     } else {
       console.error(`[PayFast ITN] REJECT (${outcome.status}): ${outcome.reason}`)
     }

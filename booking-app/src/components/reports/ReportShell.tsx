@@ -4,6 +4,18 @@ import type { ReactNode } from "react"
 import type { ReportFrontmatter } from "@/lib/reports"
 import { TocActiveHighlighter } from "./TocActiveHighlighter"
 
+// Format an ISO date (YYYY-MM-DD) as "13 May 2026" — readable for management.
+// Falls back to the raw string if Date parsing fails.
+function formatReportDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString("en-ZA", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
+}
+
 /**
  * Shell wrapping a single report — gradient header with logo lockup, sticky
  * TOC down the left, content column on the right. Matches the layout of the
@@ -52,6 +64,31 @@ export function ReportShell({
         </div>
         {frontmatter.subtitle ? (
           <p className="lede">{frontmatter.subtitle}</p>
+        ) : null}
+        {frontmatter.date || frontmatter.updated ? (
+          <p className="meta">
+            {frontmatter.date ? (
+              <>
+                <span className="meta-label">Published</span>{" "}
+                <time dateTime={frontmatter.date}>
+                  {formatReportDate(frontmatter.date)}
+                </time>
+              </>
+            ) : null}
+            {frontmatter.date && frontmatter.updated && frontmatter.updated !== frontmatter.date ? (
+              <span className="meta-sep" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {frontmatter.updated && frontmatter.updated !== frontmatter.date ? (
+              <>
+                <span className="meta-label">Updated</span>{" "}
+                <time dateTime={frontmatter.updated}>
+                  {formatReportDate(frontmatter.updated)}
+                </time>
+              </>
+            ) : null}
+          </p>
         ) : null}
       </header>
 

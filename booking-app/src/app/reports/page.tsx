@@ -1,6 +1,7 @@
 import Image from "next/image"
 import { listReports } from "@/lib/reports"
 import { ReportsIndex } from "@/components/reports/ReportsIndex"
+import { IncidentsBanner } from "@/components/reports/IncidentsBanner"
 
 export const dynamic = "force-dynamic"
 
@@ -31,6 +32,8 @@ export default async function ReportsIndexPage() {
           open integration question documented in one place.
         </p>
       </header>
+
+      <IncidentsBanner />
 
       <ReportsIndex reports={reports} />
     </div>

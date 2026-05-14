@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
+import { recordIncident, buildSignature } from "@/lib/incidents"
 import { recordBookingValidator } from "@/lib/booking-validator"
 import {
   buildSsoPayload,
@@ -262,6 +263,33 @@ export async function POST(request: Request, context: RouteContext) {
         "Attempt": { new: String(attemptCount) },
       },
       ipAddress: getCallerIp(request),
+    })
+
+    // Record / update incident so the /reports Incidents listing surfaces
+    // recurring upstream failures without anyone digging through audit log.
+    // Signature dedupes by HTTP status (or "network" for transport failures)
+    // so each distinct failure class gets its own incident.
+    const failureClass = result.statusCode ?? "network"
+    recordIncident({
+      signature: buildSignature({
+        source: "carefirst",
+        endpoint: "start-consultation",
+        statusOrClass: failureClass,
+      }),
+      source: "carefirst",
+      category: "handoff",
+      title:
+        typeof failureClass === "number"
+          ? `CareFirst Start Consult returning HTTP ${failureClass}`
+          : "CareFirst Start Consult — network failure",
+      errorMsg: result.error ?? "Unknown error",
+      httpStatus: result.statusCode,
+      rawSample: result.rawResponse
+        ? typeof result.rawResponse === "string"
+          ? result.rawResponse
+          : JSON.stringify(result.rawResponse)
+        : undefined,
+      bookingId: id,
     })
 
     return NextResponse.json(

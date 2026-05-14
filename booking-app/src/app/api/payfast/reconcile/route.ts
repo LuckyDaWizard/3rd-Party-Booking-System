@@ -7,6 +7,7 @@ import {
   validateItnAmount,
 } from "@/lib/payfast"
 import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
+import { recordIncident, buildSignature } from "@/lib/incidents"
 
 // =============================================================================
 // POST /api/payfast/reconcile
@@ -206,12 +207,25 @@ async function reconcileOne(
   try {
     match = await findCompletedPayfastTransaction(config, bookingId, 2)
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    // Repeated reconcile-query failures point at PayFast's Transaction History
+    // API being unreachable — surface as an incident.
+    recordIncident({
+      signature: buildSignature({
+        source: "payfast",
+        endpoint: "reconcile",
+        statusOrClass: "query-failed",
+      }),
+      source: "payfast",
+      category: "payment",
+      title: "PayFast reconcile — Transaction History API failing",
+      errorMsg: msg,
+      bookingId,
+    })
     return {
       bookingId,
       updated: false,
-      reason: `PayFast query failed: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
+      reason: `PayFast query failed: ${msg}`,
     }
   }
 
