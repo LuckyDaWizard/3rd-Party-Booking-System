@@ -41,13 +41,13 @@ All five are optional individually but the page expects most of them to be fille
 
 ```mermaid
 flowchart LR
-    A[Step 5: Payment Complete] --> B{skip_patient_metrics?}
-    B -->|FALSE| C[/patient-metrics/<br/>capture vitals]
-    B -->|TRUE| D[Skip — go to /creating]
-    C --> E[/creating/]
+    A["Step 5: Payment Complete"] --> B{skip_patient_metrics?}
+    B -->|FALSE| C["patient-metrics<br/>capture vitals"]
+    B -->|TRUE| D["Skip - go to creating"]
+    C --> E["creating"]
     D --> E
-    E --> F[/terms/]
-    F --> G[Start Consult — SSO handoff]
+    E --> F["terms"]
+    F --> G["Start Consult - SSO handoff"]
 
     classDef brand fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
     classDef ok    fill:#dcfce7,stroke:#166534,color:#0f172a;
