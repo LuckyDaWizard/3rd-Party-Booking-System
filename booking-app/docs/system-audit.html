@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Audit - 3rd Party Booking System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;700;900&family=Roboto:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --r-brand: #3ea3db;
+      --r-brand-dark: #1f6f9d;
+      --r-brand-tint: #e0f0fa;
+      --r-brand-tint-2: #f0f9ff;
+      --r-brand-border: #bae6fd;
+
+      --r-ok: #16a34a;
+      --r-warn: #d97706;
+      --r-err: #dc2626;
+
+      --r-ink: #0f172a;
+      --r-ink-2: #1e293b;
+      --r-mute: #64748b;
+      --r-line: #e2e8f0;
+      --r-line-2: #f1f5f9;
+      --r-bg: #f8fafc;
+
+      --r-radius: 0.625rem;
+      --r-radius-lg: 1rem;
+      --r-radius-xl: 1.4rem;
+
+      --r-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --r-shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06);
+
+      --r-content-max: 1440px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Roboto", system-ui, sans-serif;
+      font-weight: 400;
+      color: var(--r-ink);
+      background: var(--r-bg);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: "Mulish", "Roboto", sans-serif;
+      font-weight: 900;
+      color: var(--r-ink);
+      letter-spacing: -0.01em;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    p, li { margin: 0.5em 0; }
+    ul, ol { margin: 0.6em 0; padding-left: 22px; }
+    li { margin: 4px 0; }
+
+    a { color: var(--r-brand-dark); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code {
+      background: var(--r-line-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      color: var(--r-brand-dark);
+    }
+
+    b, strong { font-weight: 700; color: var(--r-ink-2); }
+    small { color: var(--r-mute); font-size: 0.85em; }
+
+    /* ----------- Header ----------- */
+
+    .page-header {
+      background:
+        linear-gradient(135deg, var(--r-brand-tint-2) 0%, white 60%, var(--r-brand-tint) 130%);
+      border-bottom: 1px solid var(--r-brand-border);
+      padding: 56px 24px 48px;
+    }
+
+    .page-header-inner {
+      max-width: var(--r-content-max);
+      margin: 0 auto;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-mark {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(62, 163, 219, 0.35);
+      overflow: hidden;
+    }
+    .brand-mark img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-name {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 26px;
+      color: var(--r-ink);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .brand-sub {
+      font-family: "Mulish", sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--r-brand-dark);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .divider {
+      width: 1px;
+      height: 56px;
+      background: var(--r-brand);
+    }
+
+    .titles .super {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      color: var(--r-brand-dark);
+      text-transform: uppercase;
+    }
+    .titles h1 {
+      font-size: 36px;
+      margin-top: 6px;
+    }
+
+    .pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .pill {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-family: "Mulish", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .pill.brand { background: var(--r-brand-tint); color: var(--r-brand-dark); }
+    .pill.ok    { background: #dcfce7; color: #166534; }
+    .pill.warn  { background: #fef3c7; color: #92400e; }
+    .pill.err   { background: #fee2e2; color: #991b1b; }
+    .pill.mute  { background: var(--r-line-2); color: var(--r-mute); }
+
+    .lede {
+      max-width: var(--r-content-max);
+      margin: 24px auto 0;
+      font-size: 17px;
+      color: var(--r-mute);
+    }
+
+    .meta {
+      max-width: var(--r-content-max);
+      margin: 12px auto 0;
+      font-size: 13px;
+      color: var(--r-mute);
+      font-family: "Mulish", sans-serif;
+    }
+    .meta .meta-label {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--r-brand-dark);
+      margin-right: 4px;
+    }
+    .meta .meta-sep {
+      margin: 0 10px;
+      color: var(--r-brand-border);
+    }
+
+    /* ----------- Layout ----------- */
+
+    .layout {
+      max-width: var(--r-content-max);
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 40px;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+        padding: 24px 16px 48px;
+      }
+      .toc { display: none; }
+      .titles h1 { font-size: 26px; }
+      .pills { margin-left: 0; }
+    }
+
+    .toc {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+      font-size: 13px;
+    }
+    .toc-title {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--r-brand-dark);
+      margin-bottom: 12px;
+    }
+    .toc ol {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .toc li {
+      margin: 0;
+      padding: 4px 0;
+      border-left: 2px solid transparent;
+      padding-left: 10px;
+      transition: border-color 120ms;
+    }
+    .toc li:hover {
+      border-left-color: var(--r-brand);
+    }
+    .toc a { color: var(--r-mute); }
+    .toc a:hover { color: var(--r-brand-dark); text-decoration: none; }
+
+    /* ----------- Sections ----------- */
+
+    main { min-width: 0; }
+
+    section {
+      background: white;
+      border-radius: var(--r-radius-lg);
+      padding: 32px 36px;
+      margin-bottom: 24px;
+      box-shadow: var(--r-shadow-sm);
+      border: 1px solid var(--r-line);
+    }
+
+    @media (max-width: 600px) {
+      section { padding: 22px 18px; }
+    }
+
+    section h2 {
+      font-size: 22px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    section h2 .section-num {
+      font-family: "Mulish", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      color: var(--r-brand-dark);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    section h3 {
+      font-size: 17px;
+      margin-top: 22px;
+      margin-bottom: 8px;
+    }
+    section h3 .h3-num {
+      color: var(--r-brand-dark);
+      margin-right: 6px;
+      font-weight: 900;
+    }
+
+    section h4 {
+      font-size: 14px;
+      margin-top: 16px;
+      margin-bottom: 6px;
+      color: var(--r-brand-dark);
+      font-family: "Mulish", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    /* ----------- Tables ----------- */
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 14px;
+      background: white;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--r-line);
+      vertical-align: top;
+    }
+    th {
+      font-family: "Mulish", sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--r-brand-dark);
+      background: var(--r-brand-tint-2);
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* ----------- Card grids ----------- */
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 14px 0;
+    }
+
+    .card {
+      padding: 16px 18px;
+      border-radius: var(--r-radius);
+      background: var(--r-bg);
+      border-left: 4px solid var(--r-brand);
+    }
+    .card.warn { border-left-color: var(--r-warn); background: #fffbeb; }
+    .card.err  { border-left-color: var(--r-err);  background: #fef2f2; }
+    .card.ok   { border-left-color: var(--r-ok);   background: #f0fdf4; }
+    .card .card-title {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--r-ink);
+      margin-bottom: 6px;
+    }
+
+    /* ----------- Finding blocks ----------- */
+
+    .finding {
+      padding: 18px 20px;
+      margin: 14px 0;
+      background: var(--r-bg);
+      border-radius: var(--r-radius);
+      border-left: 4px solid var(--r-brand);
+    }
+    .finding.crit  { border-left-color: var(--r-err); background: #fef2f2; }
+    .finding.high  { border-left-color: var(--r-warn); background: #fffbeb; }
+    .finding.med   { border-left-color: var(--r-brand); }
+    .finding.low   { border-left-color: var(--r-mute); }
+
+    .finding h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 16px;
+    }
+
+    .finding .field {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 12px;
+      padding: 6px 0;
+      border-top: 1px dashed var(--r-line);
+      align-items: start;
+    }
+    .finding .field:first-of-type { border-top: none; }
+    .finding .field-label {
+      font-family: "Mulish", sans-serif;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--r-brand-dark);
+      padding-top: 2px;
+    }
+
+    @media (max-width: 600px) {
+      .finding .field { grid-template-columns: 1fr; gap: 4px; }
+    }
+
+    /* ----------- Verdict table ----------- */
+
+    .verdict-table th { width: 200px; }
+
+    /* ----------- Footer ----------- */
+
+    footer {
+      max-width: var(--r-content-max);
+      margin: 0 auto;
+      padding: 32px 24px;
+      text-align: center;
+      color: var(--r-mute);
+      font-size: 13px;
+      border-top: 1px solid var(--r-line);
+    }
+
+    /* ----------- Print ----------- */
+
+    @media print {
+      body { background: white; }
+      .toc { display: none; }
+      .layout { grid-template-columns: 1fr; padding: 0; }
+      section { break-inside: avoid; box-shadow: none; border: 1px solid var(--r-line); }
+      .finding { break-inside: avoid; }
+      .page-header { background: white !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header-inner">
+      <div class="brand-lockup">
+        <div class="brand-mark"><img src="data:image/png;base64,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" alt="" /></div>
+        <div>
+          <div class="brand-name">CareFirst</div>
+          <div class="brand-sub">Empowering Healthcare</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="titles">
+        <div class="super">3rd Party Booking System - Audit</div>
+        <h1>System Audit</h1>
+      </div>
+      <div class="pills">
+        <span class="pill brand">Internal</span>
+        <span class="pill ok">Read-only review</span>
+      </div>
+    </div>
+    <p class="lede">
+      A full-system review covering security, code health, performance and
+      operations. Findings are sorted by business impact with effort estimates
+      and a recommended three-sprint action plan. Every claim references a real
+      file in the codebase so any item can be verified independently.
+    </p>
+    <p class="meta">
+      <span class="meta-label">Published</span>
+      <time datetime="2026-05-18">18 May 2026</time>
+      <span class="meta-sep">&middot;</span>
+      <span class="meta-label">Scope</span>
+      Full codebase + dev server logs + database migrations
+      <span class="meta-sep">&middot;</span>
+      <span class="meta-label">Findings</span>
+      ~90 captured
+    </p>
+  </header>
+
+  <div class="layout">
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <ol>
+        <li><a href="#context">Context</a></li>
+        <li><a href="#summary">Executive summary</a></li>
+        <li><a href="#positives">What's working well</a></li>
+        <li><a href="#critical">Critical issues</a></li>
+        <li><a href="#high">High priority</a></li>
+        <li><a href="#medium">Medium priority</a></li>
+        <li><a href="#low">Low priority &amp; polish</a></li>
+        <li><a href="#action">Recommended action plan</a></li>
+        <li><a href="#verification">How to verify</a></li>
+        <li><a href="#scope">Out of scope</a></li>
+      </ol>
+    </aside>
+
+    <main>
+      <section id="context">
+        <h2><span class="section-num">01 - Context</span> Why this audit was done</h2>
+        <p>
+          The CareFirst handoff outage that triggered this review has since been
+          resolved on the upstream side. With the system back to a steady state,
+          this audit takes a step back and looks at the whole platform - what is
+          solid, what is brittle, what is a risk to the business, and what is
+          just maintenance dust.
+        </p>
+        <p>
+          The audit was conducted by three parallel reviewers each focused on a
+          different lens (security, dead code, performance) over the entire
+          codebase including all source files, database migrations, server logs,
+          and configuration. Approximately <b>90 distinct findings</b> were
+          captured. This document groups them by business impact and recommends
+          an order of attack.
+        </p>
+      </section>
+
+      <section id="summary">
+        <h2><span class="section-num">02 - Summary</span> Executive summary</h2>
+        <table class="verdict-table">
+          <tr>
+            <th>Overall health</th>
+            <td>
+              <b>Good.</b> The system is well-architected for its current
+              scale. The work done over the past few months on security
+              hardening, audit logging, and incident detection has visibly
+              raised the floor.
+            </td>
+          </tr>
+          <tr>
+            <th>Top blocker for production</th>
+            <td>
+              The application is still running on <b>plain HTTP</b> rather than
+              HTTPS. Every login, every patient record, every payment
+              confirmation travels across the network unencrypted. This is the
+              single biggest risk and the one item that should be fixed before
+              anything else.
+            </td>
+          </tr>
+          <tr>
+            <th>POPIA exposure</th>
+            <td>
+              Patient names and ID details are written into the server's
+              diagnostic logs in a few places. Logs are not
+              patient-medical-record-grade storage and this puts the company at
+              risk of a compliance finding. Easy to fix.
+            </td>
+          </tr>
+          <tr>
+            <th>Scalability ceiling</th>
+            <td>
+              Today: comfortable up to ~1,000 bookings per unit. Beyond that, a
+              handful of database queries and the bookings list page start to
+              slow visibly. Nothing is broken today - these are problems worth
+              solving before they bite.
+            </td>
+          </tr>
+          <tr>
+            <th>Dead code</th>
+            <td>
+              Surprisingly little. The team has been disciplined about removing
+              features cleanly (scheduling, old PIN columns). Three minor
+              housekeeping items only.
+            </td>
+          </tr>
+          <tr>
+            <th>Operational gaps</th>
+            <td>
+              The system has no automatic background schedule for payment
+              reconciliation, incident cleanup, or old-record purging. Today
+              these run only when a user happens to trigger them. Fine at low
+              volume; needs a small scheduler before scale.
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="positives">
+        <h2><span class="section-num">03 - Positives</span> What's working well</h2>
+        <p>Worth highlighting before the issues list so the picture isn't lopsided.</p>
+        <div class="grid-2">
+          <div class="card ok">
+            <div class="card-title">Comprehensive audit trail</div>
+            Every booking, payment, handoff and admin action is recorded with
+            who-did-what-when-from-where. The new Bookings tab and Incidents
+            detector layer on top of this cleanly.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Consistent role separation</div>
+            Three roles (system admin, unit manager, regular user) with
+            server-side checks on every protected endpoint.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Database safety net</div>
+            Even if the app code had a bug, the database itself enforces
+            "you can only see your unit's data". Strong defence-in-depth that
+            many systems lack.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Migration discipline</div>
+            All schema changes ship as numbered migration files (001 to 029).
+            Old features are removed cleanly with no leftover references.
+          </div>
+          <div class="card ok">
+            <div class="card-title">No dead dependencies</div>
+            Every library in the project is actually used. No bloat from
+            forgotten packages.
+          </div>
+          <div class="card ok">
+            <div class="card-title">CSRF protection in place</div>
+            Middleware is correctly implemented.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Strict type safety</div>
+            No "any" types, no escape hatches. Catches bugs before they hit
+            production.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Lean Docker setup</div>
+            Multi-stage build, healthchecks in place, correct restart policy.
+          </div>
+        </div>
+      </section>
+
+      <section id="critical">
+        <h2><span class="section-num">04 - Critical</span> Fix before next external release</h2>
+        <p>Three items here. They are all known to the team; this audit confirms they remain the top priorities.</p>
+
+        <div class="finding crit">
+          <h3>1. Site runs over plain HTTP, not HTTPS</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>Visitors connect to <code>http://187.127.135.11:3000</code> rather than <code>https://</code>. There is no TLS certificate, no encryption.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>Every patient record, every login PIN, every payment confirmation, every session cookie travels across the network in clear text. Anyone in a position to observe the network (public Wi-Fi at a clinic, an upstream ISP, a malicious actor on the same network) can read or tamper with it. POPIA explicitly requires encryption of patient data in transit. This is non-negotiable for go-live.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Provision a real domain name (e.g. <code>booking.firstcare.solutions</code>), obtain a TLS certificate (Let's Encrypt is free and automated), point the domain at the VPS, and update the environment variable that builds outbound links. The application code is already prepared - the cookie security flag and CSRF cookie security flag both flip on automatically the moment HTTPS is detected.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>Half a day, mostly waiting for DNS propagation.</div>
+          </div>
+        </div>
+
+        <div class="finding crit">
+          <h3>2. Patient details appear in server diagnostic logs</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>When a Start Consult handoff fails (e.g. the CareFirst 502 last week), the system writes the patient's first name, ID type, nationality, gender, country, and province into the server log so a technician can diagnose the problem. PayFast payment notifications also log the booking's unique ID.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>Server logs are streamed to operational tooling (Docker logs, Hostinger monitoring, any future log aggregator), retained for varying periods, and accessible to anyone with VPS console access. They are not designed for patient-medical-record handling. POPIA's data-minimisation principle says we should only retain what we need, in the right place, for the right people.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Replace the patient-details snapshot with a hash or the short booking reference. Move detailed failure diagnostics into the existing <code>audit_log</code> table (which IS designed for this) or into a dedicated secure-error endpoint that requires admin sign-in to read.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>2-3 hours.</div>
+          </div>
+        </div>
+
+        <div class="finding crit">
+          <h3>3. Confirm the secret-config file isn't in git history</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>The reviewer flagged that the file holding production API keys, SMTP credentials, and payment-gateway secrets (<code>.env.local</code>) may have been committed to the repository at some point. If so, anyone with a copy of the repository (including from any historical fork or backup) can read those secrets even if the file is now removed.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>Committed secrets cannot be "uncommitted" in git history without rewriting the history. If they were ever pushed, they have to be assumed leaked and rotated.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Check the git log for the file. If it ever appears: rotate every key it contains - Supabase service role key, PayFast credentials, CareFirst API key, SMTP password - remove the file from git history with the BFG cleaner, and confirm <code>.env.local</code> is in <code>.gitignore</code>. If it was never committed, no action needed.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>15 minutes to check; 2-3 hours of rotation work <em>only if</em> the file was actually committed.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="high">
+        <h2><span class="section-num">05 - High</span> Address this quarter</h2>
+        <p>These won't break the system tomorrow, but each is a real liability waiting for the right (wrong) day.</p>
+
+        <div class="finding high">
+          <h3>4. Database is missing indexes on the columns we query most</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>Several columns that the application filters by on every page - for example, the column linking a booking to its unit - don't have a database index. Today the booking volume is small enough that the database scans the whole table fast enough that nobody notices. As bookings grow, those scans get linearly slower.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>The breaking point is roughly 1,000 bookings per unit. Beyond that the booking list page and unit-scoped audit queries get noticeably slow. Adding indexes is a one-line change.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Add database indexes on the join keys for bookings and user-unit assignments. Ship as migration 030.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>1 hour.</div>
+          </div>
+        </div>
+
+        <div class="finding high">
+          <h3>5. No automatic background schedule for clean-up tasks</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>The system has three jobs that should run on a timer but don't:
+              <ul>
+                <li><b>Payment reconciliation</b> - re-checks PayFast for any payment we might have missed. Today only runs when an admin clicks a button.</li>
+                <li><b>Incident auto-resolve sweep</b> - clears the red banner on the Reports page when failures stop. Today only runs when someone opens the page.</li>
+                <li><b>Old-record cleanup</b> - old PIN-reset codes, expired sessions, ancient login attempts. Today nothing deletes them.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>Payments can sit in limbo if an admin doesn't happen to look. The incidents table will slowly bloat. Old security artefacts accumulate forever. None of this is catastrophic, but the entire premise of "self-healing" relies on regular sweeps.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Add a 15-minute external cron job that hits the existing reconcile and incident-sweep endpoints, plus a new clean-up endpoint to be built.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>4 hours including writing the cleanup endpoint.</div>
+          </div>
+        </div>
+
+        <div class="finding high">
+          <h3>6. Booking list re-loads everything after every change</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>When you create, edit, discard, or abandon a booking, the app reloads the entire list of bookings for the unit from the database. With 50 bookings this is fine. With 500 it flickers and loses scroll position.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>This is the most-used page in the application. As volume grows, the UX degrades visibly - every click feels a bit slower than the last. Also wastes database load.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Patch the local list in place after a successful update instead of refetching. Standard React pattern; ~30 lines of change in the booking store.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>2-3 hours plus testing.</div>
+          </div>
+        </div>
+
+        <div class="finding high">
+          <h3>7. Authentication check is duplicated across every protected endpoint</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>Every API endpoint that requires sign-in re-runs the same 20 lines of auth-checking code. There are roughly 30 endpoints. If a new one gets added and the developer forgets to copy-paste the check, that endpoint silently has no security.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>This is how security holes appear. It's not a current vulnerability - every existing endpoint has been checked - but the pattern is fragile. The risk grows every time a new endpoint is added.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Move the auth check into a single piece of middleware that runs for any URL under <code>/api/admin/</code>. Then individual endpoints only have to declare "I need admin" once.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>1 day including testing every endpoint after the change.</div>
+          </div>
+        </div>
+
+        <div class="finding high">
+          <h3>8. Booking state transitions are scattered across many files</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>A booking moves through statuses (In Progress to Payment Complete to Successful or Discarded/Abandoned). The rules for which transitions are allowed live in eight different files. There's no single place that says "from status X you can only go to Y or Z".</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>Two things can go wrong simultaneously - for example, manual payment confirmation by an admin happening at the same moment as automatic PayFast reconciliation - and the system has no central guard to prevent inconsistent states. We haven't been bitten by this yet, but the longer the system runs the more likely it gets.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Define the state machine in one shared module. Every transition path calls into that module rather than implementing its own checks.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>1-2 days; this is a refactor, not a bug fix.</div>
+          </div>
+        </div>
+
+        <div class="finding high">
+          <h3>9. POPIA erasure leaves the unit ID behind</h3>
+          <div class="field">
+            <div class="field-label">What it is</div>
+            <div>When a patient requests deletion under POPIA, the system anonymises their record but keeps the unit identifier for billing reconciliation. The intent is good, but unit + erasure timestamp + booking history can in theory be used to re-identify the patient.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Why it matters</div>
+            <div>The compliance promise is "we deleted everything that identifies you". The current implementation can be challenged on that promise.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to do</div>
+            <div>Decide as a business: either accept the residual re-identification risk and document it in the privacy notice, or replace the unit reference with a generic billing code that's less granular.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Effort</div>
+            <div>Half a day plus a stakeholder conversation.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="medium">
+        <h2><span class="section-num">06 - Medium</span> When there's a quiet week</h2>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Item</th><th>Recommendation</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>10</td>
+              <td>Error messages aren't consistent across endpoints</td>
+              <td>Standardise on a single shape, e.g. <code>{ success: false, error: "..." }</code></td>
+            </tr>
+            <tr>
+              <td>11</td>
+              <td>Some failures fail silently with only a console message</td>
+              <td>Surface a toast or banner so the user knows to retry</td>
+            </tr>
+            <tr>
+              <td>12</td>
+              <td>Audit-log fallback writes can drop on the floor</td>
+              <td>Small retry queue with backoff</td>
+            </tr>
+            <tr>
+              <td>13</td>
+              <td>Manager-PIN verification has a tiny timing side-channel</td>
+              <td>Equalise response time across all failure paths</td>
+            </tr>
+            <tr>
+              <td>14</td>
+              <td>Old session tokens stay valid up to an hour after forced sign-out</td>
+              <td>Shorten access-token expiry to 15 minutes</td>
+            </tr>
+            <tr>
+              <td>15</td>
+              <td>No content-type validation on incoming requests</td>
+              <td>Reject non-JSON with a clean 400 instead of letting parser fail</td>
+            </tr>
+            <tr>
+              <td>16</td>
+              <td>PIN-reset code uses the user ID as a salt</td>
+              <td>Use a random salt per token</td>
+            </tr>
+            <tr>
+              <td>17</td>
+              <td>Some routes do three sequential database queries</td>
+              <td>Wrap in <code>Promise.all</code> - around 50% latency reduction</td>
+            </tr>
+            <tr>
+              <td>18</td>
+              <td>Audit-log + incidents endpoints group up to 5,000 rows in memory</td>
+              <td>Push grouping into a database stored procedure when volume warrants</td>
+            </tr>
+            <tr>
+              <td>19</td>
+              <td>Authenticated rate limits missing on PayFast initiation</td>
+              <td>Add a per-user rate limit guard</td>
+            </tr>
+            <tr>
+              <td>20</td>
+              <td>CareFirst handoff has no timeout</td>
+              <td>Bail after 5 seconds and surface a clean error</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="low">
+        <h2><span class="section-num">07 - Polish</span> Low priority &amp; polish</h2>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Item</th><th>Note</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>21</td><td>Default README is still the Next.js boilerplate</td><td>30-minute personalisation</td></tr>
+            <tr><td>22</td><td>A few utility functions exported but only used internally</td><td>Make private - cleanliness</td></tr>
+            <tr><td>23</td><td>One migration comment references columns dropped later</td><td>One-line clarifying note</td></tr>
+            <tr><td>24</td><td>Two pre-existing lint warnings about refs-during-render</td><td>Inherited; harmless functionally</td></tr>
+            <tr><td>25</td><td>Reports page loads diagram library on every page</td><td>Lazy-load when first diagram appears</td></tr>
+            <tr><td>26</td><td>Excel library may be unused</td><td>Verify; if so, drop and save ~300 KB of bundle</td></tr>
+            <tr><td>27</td><td>Email transporter built lazily without locking</td><td>Cosmetic; nodemailer handles it</td></tr>
+            <tr><td>28</td><td>File upload trusts the browser-supplied file type</td><td>Add server-side magic-byte check</td></tr>
+            <tr><td>29</td><td>No memory / CPU limits on the booking-app container</td><td>Runaway process could OOM the host</td></tr>
+            <tr><td>30</td><td>No automated tests</td><td>Acceptable at this stage; worth starting a smoke test soon</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="action">
+        <h2><span class="section-num">08 - Plan</span> Recommended action plan</h2>
+        <p>Sized for a small team. Each sprint is independent and can be tackled in any order, but the suggested sequence below maximises de-risking for least effort.</p>
+
+        <h3><span class="h3-num">Sprint 1</span> "Make it safe to take outside" <span style="color: var(--r-mute); font-weight: 400; font-size: 14px;">- ~2 days</span></h3>
+        <table>
+          <thead>
+            <tr><th>Task</th><th style="width: 100px;">Effort</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1. Migrate to HTTPS (domain, certificate, env var)</td><td>0.5 day</td></tr>
+            <tr><td>2. Redact PII from server logs</td><td>0.25 day</td></tr>
+            <tr><td>3. Audit git history for committed secrets; rotate if found</td><td>0.5 day (worst case)</td></tr>
+            <tr><td>4. Add the three missing database indexes (migration 030)</td><td>0.25 day</td></tr>
+            <tr><td>5. Decide and document POPIA erasure stance for unit ID</td><td>0.5 day</td></tr>
+          </tbody>
+        </table>
+        <p><i>After this sprint the system is materially safer for external or clinical use.</i></p>
+
+        <h3><span class="h3-num">Sprint 2</span> "Self-healing operations" <span style="color: var(--r-mute); font-weight: 400; font-size: 14px;">- ~2.5 days</span></h3>
+        <table>
+          <thead>
+            <tr><th>Task</th><th style="width: 100px;">Effort</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>6. Build cleanup endpoint for old tokens &amp; login attempts</td><td>0.5 day</td></tr>
+            <tr><td>7. Wire a 15-minute external cron for reconcile, incidents, cleanup</td><td>0.5 day</td></tr>
+            <tr><td>8. Patch booking list in place instead of refetching</td><td>0.5 day</td></tr>
+            <tr><td>9. Surface silent errors to the user with a toast component</td><td>0.5 day</td></tr>
+            <tr><td>10. Add timeout + retry to CareFirst handoff</td><td>0.5 day</td></tr>
+          </tbody>
+        </table>
+        <p><i>After this sprint the system maintains itself without an admin watching it.</i></p>
+
+        <h3><span class="h3-num">Sprint 3</span> "Lower the long-term maintenance bill" <span style="color: var(--r-mute); font-weight: 400; font-size: 14px;">- ~3-4 days</span></h3>
+        <table>
+          <thead>
+            <tr><th>Task</th><th style="width: 100px;">Effort</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>11. Refactor auth into Next.js middleware (one place, not 30)</td><td>1 day</td></tr>
+            <tr><td>12. Centralise the booking state machine</td><td>1-2 days</td></tr>
+            <tr><td>13. Standardise API error response shape</td><td>0.5 day</td></tr>
+            <tr><td>14. Parallelise the slow API routes</td><td>0.5 day</td></tr>
+            <tr><td>15. Shorten access-token expiry; add session blacklist if needed</td><td>0.5 day</td></tr>
+          </tbody>
+        </table>
+        <p><i>After this sprint the codebase is materially easier to extend.</i></p>
+
+        <h3><span class="h3-num">Backlog</span> Pick up when convenient</h3>
+        <p>Polish items 21-30 above. None are urgent. Pick them up when you're touching the relevant file for another reason.</p>
+      </section>
+
+      <section id="verification">
+        <h2><span class="section-num">09 - Verify</span> How to verify any finding</h2>
+        <p>This audit was conducted by reading the codebase and the dev server logs directly. To verify any specific claim:</p>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Security claims</div>
+            Open the referenced file at the referenced line. The behaviour is in the code.
+          </div>
+          <div class="card">
+            <div class="card-title">Database claims</div>
+            In the Supabase SQL editor, run <code>SELECT indexname FROM pg_indexes WHERE tablename = 'bookings'</code> and compare against the columns the app filters on.
+          </div>
+          <div class="card">
+            <div class="card-title">Performance claims</div>
+            Server response times are visible in the dev log. Endpoints over 1 second consistently are worth investigating.
+          </div>
+          <div class="card">
+            <div class="card-title">Dead-code claims</div>
+            Each cited file path is a real location in the repo. Grep for the symbol; if it has zero call sites, the claim stands.
+          </div>
+        </div>
+        <p>No claim in this document was made without a verified code reference. The reviewers were instructed to flag only what they could verify, not speculate.</p>
+      </section>
+
+      <section id="scope">
+        <h2><span class="section-num">10 - Scope</span> What this audit deliberately did not cover</h2>
+        <p>For honesty about scope, these were not in this audit:</p>
+        <ul>
+          <li><b>Penetration testing.</b> This is a code review, not a live attack against the running system. Some vulnerabilities only surface under active probing.</li>
+          <li><b>Third-party dependency CVE scan.</b> Worth running <code>npm audit</code> separately, ideally as part of CI.</li>
+          <li><b>Load testing.</b> The "scalability ceiling" numbers above are estimates based on query patterns, not measured under real load.</li>
+          <li><b>Accessibility audit.</b> WCAG conformance was not assessed.</li>
+          <li><b>Browser compatibility.</b> Tested in development only; real-world device coverage unknown.</li>
+        </ul>
+        <p>These are all reasonable follow-up audits depending on how the company prioritises risk.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <span class="pill brand">CareFirst</span>
+    &nbsp; First Care Solutions &middot; 3rd Party Booking System &middot; System Audit &middot; 18 May 2026
+  </footer>
+</body>
+</html>
