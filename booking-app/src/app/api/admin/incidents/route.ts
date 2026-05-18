@@ -23,6 +23,10 @@ export async function GET(request: Request) {
   // Auto-resolve anything stale before we read.
   await sweepStaleIncidents()
 
+  // Probe for the table once — if migration 029 hasn't been applied yet we
+  // want to fail gracefully (empty list) instead of returning 500 and making
+  // the IncidentsBanner look broken to admins.
+
   const url = new URL(request.url)
   const statusRaw = url.searchParams.get("status") ?? "all"
   const status =
@@ -57,6 +61,14 @@ export async function GET(request: Request) {
   const { data, error } = await query
 
   if (error) {
+    // Table missing (migration not applied) — degrade to empty list so the
+    // banner stays hidden rather than rendering a 500 to admins.
+    if (/relation .*incidents.* does not exist|Could not find the table/.test(error.message)) {
+      console.warn(
+        "[incidents] table missing — apply supabase/migrations/029_incidents.sql"
+      )
+      return NextResponse.json({ data: [], openCount: 0 })
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

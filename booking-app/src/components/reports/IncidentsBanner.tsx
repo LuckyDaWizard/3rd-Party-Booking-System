@@ -64,12 +64,11 @@ export function IncidentsBanner() {
       try {
         const res = await fetch("/api/admin/incidents?limit=20")
         if (!cancelled) {
-          if (res.status === 401 || res.status === 403) {
-            setAuthorised(false)
-            setLoaded(true)
-            return
-          }
+          // Any non-OK response (401/403 = not admin, 500 = endpoint
+          // misconfigured, etc.) → hide the banner silently. The page
+          // is otherwise fully functional.
           if (!res.ok) {
+            setAuthorised(false)
             setLoaded(true)
             return
           }
