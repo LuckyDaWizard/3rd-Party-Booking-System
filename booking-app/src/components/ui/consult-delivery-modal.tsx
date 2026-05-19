@@ -57,19 +57,22 @@ export function ConsultDeliveryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-2xl p-6 sm:max-w-xl">
-        <DialogHeader className="flex flex-col items-center gap-1 text-center">
-          <DialogTitle className="mx-4 text-xl font-bold text-gray-900">
+      <DialogContent
+        showCloseButton={false}
+        className="gap-6 rounded-2xl bg-[#FCFCFC] p-6 sm:max-w-[640px] sm:p-10"
+      >
+        <DialogHeader className="flex flex-col items-center gap-2 text-center">
+          <DialogTitle className="text-center font-heading text-[28px] font-black leading-none tracking-normal text-[#242424]">
             How should the consultation be delivered?
           </DialogTitle>
-          <p className="text-sm text-gray-500">
+          <p className="text-center text-base font-normal leading-6 text-[#242424]">
             Choose how to send the CareFirst consultation link to{" "}
-            <span className="font-semibold text-gray-700">{patientName}</span>.
+            <span className="font-semibold">{patientName}</span>.
             Either option records the consultation as started in the audit log.
           </p>
         </DialogHeader>
 
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           <DeliveryOptionCard
             icon={<Monitor className="size-5" />}
             title="Start on this device"
@@ -93,7 +96,7 @@ export function ConsultDeliveryModal({
         <button
           type="button"
           onClick={() => onOpenChange(false)}
-          className="mt-2 text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
+          className="w-full text-center text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80"
         >
           Cancel
         </button>

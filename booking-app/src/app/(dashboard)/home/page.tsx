@@ -23,21 +23,23 @@ export default function HomeDashboardPage() {
       className="flex flex-1 items-center justify-center"
     >
       <div className="flex w-full max-w-[560px] flex-col items-center gap-8">
-        {/* Heading */}
-        <h1
-          data-testid="dashboard-heading"
-          className="text-center text-2xl font-bold text-gray-900 sm:text-3xl"
-        >
-          VHC Third Party Booking
-        </h1>
-
-        {/* Subtitle */}
-        <p
-          data-testid="dashboard-subtitle"
-          className="text-base text-gray-500"
-        >
-          Please select an option below to proceed
-        </p>
+        {/* Heading + subtitle — paired as a single intro block so the
+            spacing between them is tighter than the gap to surrounding
+            content. */}
+        <div className="flex flex-col items-center gap-2">
+          <h1
+            data-testid="dashboard-heading"
+            className="text-center text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            VHC Third Party Booking
+          </h1>
+          <p
+            data-testid="dashboard-subtitle"
+            className="text-base text-gray-500"
+          >
+            Please select an option below to proceed
+          </p>
+        </div>
 
         {/* Current unit + Switch Unit button */}
         <div

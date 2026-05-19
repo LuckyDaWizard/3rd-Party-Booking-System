@@ -645,94 +645,34 @@ export default function PatientHistoryPage() {
           data-testid="filter-tabs"
           className="flex flex-wrap items-center gap-2"
         >
-          <button
-            type="button"
-            data-testid="filter-all"
-            onClick={() => router.push("/patient-history")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === "all"
-                ? "bg-[var(--client-primary)] text-white"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            All
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                activeFilter === "all"
-                  ? "bg-white text-gray-900"
-                  : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {allCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-in-progress"
-            onClick={() => router.push("/patient-history?tab=in-progress")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === "in-progress"
-                ? "bg-[var(--client-primary)] text-white"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            In Progress
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                activeFilter === "in-progress"
-                  ? "bg-white text-gray-900"
-                  : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {inProgressCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-incomplete"
-            onClick={() => router.push("/patient-history?tab=incomplete")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === "incomplete"
-                ? "bg-[var(--client-primary)] text-white"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Incomplete
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                activeFilter === "incomplete"
-                  ? "bg-white text-gray-900"
-                  : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {incompleteCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-completed"
-            onClick={() => router.push("/patient-history?tab=completed")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === "completed"
-                ? "bg-[var(--client-primary)] text-white"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Completed
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                activeFilter === "completed"
-                  ? "bg-white text-gray-900"
-                  : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {completedCount}
-            </span>
-          </button>
-
+          {([
+            { key: "all", label: "All", count: allCount, href: "/patient-history" },
+            { key: "in-progress", label: "In Progress", count: inProgressCount, href: "/patient-history?tab=in-progress" },
+            { key: "incomplete", label: "Incomplete", count: incompleteCount, href: "/patient-history?tab=incomplete" },
+            { key: "completed", label: "Completed", count: completedCount, href: "/patient-history?tab=completed" },
+          ] as const).map((tab) => {
+            const isActive = activeFilter === tab.key
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                data-testid={`filter-${tab.key}`}
+                onClick={() => router.push(tab.href)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#FCFAF9] px-4 py-2 text-sm font-medium transition-colors hover:bg-[#F4F0EE]"
+              >
+                <span
+                  className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? "bg-[var(--client-primary)] text-white"
+                      : "bg-gray-200 text-gray-700"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+                <span className="text-gray-900">{tab.label}</span>
+              </button>
+            )
+          })}
         </div>
 
         <div className="relative w-full sm:max-w-xs">
