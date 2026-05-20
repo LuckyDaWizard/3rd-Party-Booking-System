@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, FileText, CheckCircle, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, FileText, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SubNav } from "@/components/ui/sub-nav"
+import { Banner } from "@/components/ui/banner"
 import { supabase } from "@/lib/supabase"
 import { useBookingStore } from "@/lib/booking-store"
 import { useAuth } from "@/lib/auth-store"
@@ -205,42 +207,22 @@ export default function SelectPatientPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Top bar */}
-      <div className="flex items-center rounded-xl bg-white px-6 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (step === "contact") {
-              setStep("email")
-            } else {
-              router.push("/create-booking")
-            }
-          }}
-          className="gap-3 rounded-lg border-black px-6 py-2"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-      </div>
+      <SubNav
+        onBack={() => {
+          if (step === "contact") {
+            setStep("email")
+          } else {
+            router.push("/create-booking")
+          }
+        }}
+      />
 
-      {/* Banner */}
-      <div className="flex items-start justify-between rounded-xl bg-yellow-50 border border-yellow-200 px-6 py-5">
-        <div className="flex flex-col gap-1">
-          <span className="text-base font-bold text-gray-900">
-            Multiple Results Found
-          </span>
-          <p className="text-sm text-gray-600">
-            We found more than one result matching your search. To confirm that you are the correct patient, please select the valid information below
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => router.push("/create-booking")}
-          className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
+      <Banner
+        kind="warning"
+        title="Multiple Results Found"
+        description="We found more than one result matching your search. To confirm that you are the correct patient, please select the valid information below"
+        onDismiss={() => router.push("/create-booking")}
+      />
 
       {/* Step indicators */}
       <div className="flex items-center justify-center gap-4">
@@ -278,8 +260,8 @@ export default function SelectPatientPage() {
       <div className="flex flex-col items-center gap-6 py-4">
         {step === "email" ? (
           <>
-            <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Select your email address</h1>
-            <p className="text-gray-500">
+            <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">Select your email address</h1>
+            <p className="text-ink-muted">
               Select the email address associated with your account to verify your identity
             </p>
 
@@ -290,7 +272,7 @@ export default function SelectPatientPage() {
                   key={patient.id}
                   type="button"
                   onClick={() => setSelectedPatientId(patient.id)}
-                  className={`w-full rounded-xl border-2 px-6 py-5 text-left text-base font-medium text-gray-900 transition-colors ${
+                  className={`w-full rounded-xl border-2 px-6 py-5 text-left text-base font-medium text-ink transition-colors ${
                     selectedPatientId === patient.id
                       ? "border-[#CDE5F2] bg-[#CDE5F2]"
                       : "border-gray-200 bg-white hover:border-gray-300"
@@ -303,8 +285,8 @@ export default function SelectPatientPage() {
           </>
         ) : (
           <>
-            <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Select your contact number</h1>
-            <p className="text-gray-500">
+            <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">Select your contact number</h1>
+            <p className="text-ink-muted">
               Select your contact number below to continue
             </p>
 
@@ -315,7 +297,7 @@ export default function SelectPatientPage() {
                   key={patient.id}
                   type="button"
                   onClick={() => setSelectedContactId(patient.id)}
-                  className={`w-full rounded-xl border-2 px-6 py-5 text-left text-base font-medium text-gray-900 transition-colors ${
+                  className={`w-full rounded-xl border-2 px-6 py-5 text-left text-base font-medium text-ink transition-colors ${
                     selectedContactId === patient.id
                       ? "border-[#CDE5F2] bg-[#CDE5F2]"
                       : "border-gray-200 bg-white hover:border-gray-300"
@@ -336,7 +318,7 @@ export default function SelectPatientPage() {
             className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
               (step === "email" ? selectedPatientId : selectedContactId) && !submitting
                 ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-500 cursor-default"
+                : "bg-gray-300 text-ink-muted cursor-default"
             }`}
           >
             {submitting ? "Processing..." : "Next"}

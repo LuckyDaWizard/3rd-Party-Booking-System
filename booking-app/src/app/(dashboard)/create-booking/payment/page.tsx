@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ArrowRight, ShieldCheck, Mail, CheckCircle, Pencil, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SubNav } from "@/components/ui/sub-nav"
 import { Input } from "@/components/ui/input"
 import { useBookingStore } from "@/lib/booking-store"
 
@@ -288,34 +289,26 @@ export default function PaymentPage() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
+      <SubNav
+        onBack={() => {
+          const params = new URLSearchParams()
+          if (bookingId) params.set("bookingId", bookingId)
+          params.set("searchType", "id")
+          params.set("step", "5")
+          router.push(`/create-booking/patient-details?${params.toString()}`)
+        }}
+      >
         <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            const params = new URLSearchParams()
-            if (bookingId) params.set("bookingId", bookingId)
-            params.set("searchType", "id")
-            params.set("step", "5")
-            router.push(`/create-booking/patient-details?${params.toString()}`)
-          }}
-          className="gap-3 rounded-lg border-black px-6 py-2"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-        <Button
-          size="sm"
+          variant="danger"
+          size="cta"
           onClick={async () => {
             if (bookingId) await discardBooking(bookingId)
             router.push("/home")
           }}
-          className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
-          style={{ backgroundColor: "#FF3A69" }}
         >
           Discard Flow
         </Button>
-      </div>
+      </SubNav>
 
       {/* Content — checking / monthly_invoice spinner / self-collect panel / gateway UI */}
       {paymentMode === "checking" && (
@@ -336,7 +329,7 @@ export default function PaymentPage() {
             <circle cx="20" cy="20" r="15" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />
             <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
           </svg>
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-ink">
             This client is billed monthly — no payment needed. Continuing to the consultation...
           </span>
         </div>
@@ -348,20 +341,20 @@ export default function PaymentPage() {
           className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4"
         >
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+            <h1 className="text-2xl font-bold text-ink sm:text-3xl">
               Confirm payment collected at unit
             </h1>
-            <p className="text-base text-gray-500">
+            <p className="text-base text-ink-muted">
               This client collects the consultation fee directly. Confirm
               that the patient has paid before continuing.
             </p>
           </div>
 
           <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-6">
-            <span className="text-base font-bold text-gray-900">
+            <span className="text-base font-bold text-ink">
               Self-collect payment
             </span>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-ink">
               Clicking <strong>Confirm &amp; Continue</strong> marks this
               booking as Payment Complete and skips the payment gateway.
               Make sure the consultation fee has been collected before
@@ -381,7 +374,7 @@ export default function PaymentPage() {
               className={`mt-2 h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-fit sm:px-8 ${
                 !markingSelfCollect
                   ? "bg-gray-900 text-white hover:bg-gray-800"
-                  : "bg-gray-300 text-gray-500"
+                  : "bg-gray-300 text-ink-muted"
               }`}
             >
               {markingSelfCollect ? (
@@ -407,10 +400,10 @@ export default function PaymentPage() {
       {paymentMode === "gateway" && (
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+          <h1 className="text-2xl font-bold text-ink sm:text-3xl">
             {paymentType === "link" ? "Send Payment Link" : "Payment"}
           </h1>
-          <p className="text-base text-gray-500">
+          <p className="text-base text-ink-muted">
             {paymentType === "link"
               ? "Email the patient a secure PayFast payment link."
               : "Complete your booking payment securely via PayFast."}
@@ -427,14 +420,14 @@ export default function PaymentPage() {
                 ) : (
                   <ShieldCheck className="size-6 text-green-500" />
                 )}
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-lg font-bold text-ink">
                   {paymentType === "link" ? "Payment link by email" : "Secure Payment"}
                 </h2>
               </div>
 
               {paymentType === "link" ? (
                 <>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-muted">
                     We&apos;ll email the patient a secure PayFast payment link. They can pay from any device at their convenience. Once payment is received, the booking status updates automatically.
                   </p>
 
@@ -459,7 +452,7 @@ export default function PaymentPage() {
                     {editingEmail ? (
                       <div className="flex flex-col gap-2">
                         {patientName && (
-                          <span className="text-base font-medium text-gray-900">
+                          <span className="text-base font-medium text-ink">
                             {patientName}
                           </span>
                         )}
@@ -508,10 +501,10 @@ export default function PaymentPage() {
                       </div>
                     ) : patientEmail ? (
                       <>
-                        <span className="text-base font-medium text-gray-900">
+                        <span className="text-base font-medium text-ink">
                           {patientName || "Patient"}
                         </span>
-                        <span className="text-sm text-gray-600">{patientEmail}</span>
+                        <span className="text-sm text-ink-muted">{patientEmail}</span>
                       </>
                     ) : (
                       <span className="text-sm text-red-600">
@@ -522,11 +515,11 @@ export default function PaymentPage() {
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-muted">
                     You will be redirected to PayFast&apos;s secure payment page to complete your transaction.
                     PayFast supports credit/debit cards, EFT, and other payment methods.
                   </p>
-                  <ul className="flex flex-col gap-2 text-sm text-gray-600">
+                  <ul className="flex flex-col gap-2 text-sm text-ink-muted">
                     <li className="flex items-center gap-2">
                       <span className="size-1.5 rounded-full bg-green-500" />
                       256-bit SSL encrypted
@@ -554,10 +547,10 @@ export default function PaymentPage() {
               <div className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-4">
                 <CheckCircle className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-ink">
                     Payment link sent
                   </span>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-ink-muted">
                     Emailed to <strong>{patientEmail}</strong>. The booking will automatically update to &ldquo;Payment Complete&rdquo; once the patient pays.
                   </span>
                 </div>
@@ -568,17 +561,17 @@ export default function PaymentPage() {
           {/* Right — Payment summary */}
           <div className="w-full md:w-80 md:shrink-0">
             <div className="flex flex-col gap-6 rounded-xl bg-white p-6">
-              <h2 className="text-xl font-bold text-gray-900">Payment Summary</h2>
+              <h2 className="text-xl font-bold text-ink">Payment Summary</h2>
 
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Consultation Booking</span>
-                  <span className="text-gray-500">R325.00</span>
+                  <span className="text-ink-muted">Consultation Booking</span>
+                  <span className="text-ink-muted">R325.00</span>
                 </div>
                 <div className="border-t border-gray-100" />
                 <div className="flex items-center justify-between text-sm font-semibold">
-                  <span className="text-gray-900">Total</span>
-                  <span className="text-gray-900">R325.00</span>
+                  <span className="text-ink">Total</span>
+                  <span className="text-ink">R325.00</span>
                 </div>
               </div>
 
@@ -586,7 +579,9 @@ export default function PaymentPage() {
                 sent ? (
                   <Button
                     onClick={handleContinue}
-                    className="h-12 w-full gap-2 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
+                    variant="primary"
+                    size="cta-lg"
+                    className="w-full"
                   >
                     Continue
                     <ArrowRight className="size-4" />
@@ -598,7 +593,7 @@ export default function PaymentPage() {
                     className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
                       !sending && patientEmail
                         ? "bg-gray-900 text-white hover:bg-gray-800"
-                        : "bg-gray-300 text-gray-500"
+                        : "bg-gray-300 text-ink-muted"
                     }`}
                   >
                     {sending ? (
@@ -624,7 +619,7 @@ export default function PaymentPage() {
                   className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
                     !processing
                       ? "bg-gray-900 text-white hover:bg-gray-800"
-                      : "bg-gray-300 text-gray-500"
+                      : "bg-gray-300 text-ink-muted"
                   }`}
                 >
                   {processing ? (

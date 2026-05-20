@@ -284,13 +284,13 @@ export function FloatingSelect({
         tabIndex={readOnly ? -1 : 0}
         className={`flex h-14 w-full items-center rounded-lg border px-4 text-left text-sm outline-none transition-colors ${
           readOnly
-            ? "cursor-default border-gray-200 bg-gray-100 text-gray-500"
+            ? "cursor-default border-gray-200 bg-gray-100 text-ink-muted"
             : `bg-white focus:border-gray-900 focus-visible:ring-2 focus-visible:ring-[var(--client-primary)] ${
                 isOpen ? "border-gray-900" : "border-gray-300"
               }`
         }`}
       >
-        <span className={value ? "text-gray-900" : "text-transparent"}>
+        <span className={value ? "text-ink" : "text-transparent"}>
           {selectedLabel || label}
         </span>
       </button>
@@ -298,7 +298,7 @@ export function FloatingSelect({
         id={`${id}-label`}
         className={`pointer-events-none absolute left-3 bg-white px-1 text-sm transition-all ${
           value || isOpen
-            ? "top-0 -translate-y-1/2 text-xs text-gray-500"
+            ? "top-0 -translate-y-1/2 text-xs text-ink-muted"
             : "top-1/2 -translate-y-1/2 text-gray-400"
         }`}
       >
@@ -340,7 +340,7 @@ export function FloatingSelect({
                   // and mouse users in sync); click selects.
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => selectAtIndex(index)}
-                  className={`cursor-pointer rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors ${
+                  className={`cursor-pointer rounded-lg px-5 py-4 text-left text-base text-ink transition-colors ${
                     isActive ? "bg-[var(--client-primary-15)]" : ""
                   } ${isSelected && !isActive ? "bg-[var(--client-primary-10)] font-medium" : ""} ${
                     isSelected && isActive ? "font-medium" : ""

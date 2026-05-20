@@ -4,13 +4,8 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { SubNav } from "@/components/ui/sub-nav"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
@@ -76,7 +71,7 @@ export default function ManageUnitPage() {
   if (!unit) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-gray-500">Unit not found</p>
+        <p className="text-ink-muted">Unit not found</p>
       </div>
     )
   }
@@ -149,27 +144,19 @@ export default function ManageUnitPage() {
       className="flex flex-1 flex-col"
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Button
-          data-testid="top-back-button"
-          variant="outline"
-          size="sm"
-          onClick={() => router.push("/unit-management")}
-          className="rounded-lg border-black px-6 py-2 gap-3"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-
+      <SubNav
+        onBack={() => router.push("/unit-management")}
+        backTestId="top-back-button"
+      >
         <Button
           data-testid="delete-unit-button"
-          size="sm"
+          variant="danger"
+          size="cta"
           onClick={() => setIsDeleteOpen(true)}
-          className="rounded-lg bg-[#FF3A69] px-6 py-2 text-white hover:bg-[#FF3A69]/90"
         >
           Delete Unit
         </Button>
-      </div>
+      </SubNav>
 
       {/* Content area */}
       <div className="flex flex-1 flex-col items-center justify-center gap-8 py-8">
@@ -177,11 +164,11 @@ export default function ManageUnitPage() {
         <div className="flex flex-col items-center gap-1 text-center">
           <h1
             data-testid="page-heading"
-            className="text-3xl font-bold text-gray-900"
+            className="text-3xl font-bold text-ink"
           >
             Manage {unit.unitName}
           </h1>
-          <p className="text-base text-gray-500">
+          <p className="text-base text-ink-muted">
             Manage the unit&apos;s client and information below
           </p>
         </div>
@@ -258,11 +245,9 @@ export default function ManageUnitPage() {
             data-testid="update-button"
             onClick={handleUpdateInformation}
             disabled={!hasChanges || saving}
-            className={`h-11 w-full rounded-xl ${
-              hasChanges && !saving
-                ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-600 cursor-not-allowed"
-            }`}
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             {saving ? "Saving..." : "Update Information"}
             {saving ? (
@@ -277,10 +262,11 @@ export default function ManageUnitPage() {
 
           <Button
             data-testid="disable-unit-button"
-            variant="outline"
+            variant="primary-outline"
+            size="cta"
             onClick={() => setIsStatusOpen(true)}
             disabled={toggling}
-            className="h-11 w-full rounded-xl border border-black"
+              className="w-full"
           >
             {toggling
               ? (unit.status === "Active" ? "Disabling..." : "Activating...")
@@ -296,130 +282,65 @@ export default function ManageUnitPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="rounded-2xl p-6 sm:p-8">
-          <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              Are you sure you want to delete {unit.unitName}?
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              Deleting this unit will permanently remove all associated records.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <Button
-              data-testid="confirm-delete-button"
-              onClick={() => {
-                setIsDeleteOpen(false)
-                setPinOpen(true)
-              }}
-              disabled={deleting || toggling}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
-            >
-              {deleting ? "Deleting..." : "Yes, delete unit"}
-              {deleting ? (
-                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                </svg>
-              ) : (
-                <ArrowRight className="ml-1 size-4" />
-              )}
-            </Button>
-
-            <Button
-              data-testid="disable-instead-button"
-              variant="outline"
-              disabled={deleting || toggling}
-              onClick={async () => {
-                setToggling(true)
-                try {
-                  setIsDeleteOpen(false)
-                  const name = unit!.unitName
-                  await toggleUnitStatus(unitId)
-                  const params = new URLSearchParams({
-                    statusChanged: "disabled",
-                    unitName: name,
-                  })
-                  router.push(`/unit-management?${params.toString()}`)
-                } catch {
-                  setToggling(false)
-                }
-              }}
-              className="h-11 w-full rounded-xl border border-black"
-            >
-              {toggling ? "Disabling..." : "Disable unit instead"}
-              {toggling && (
-                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                  <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-                  <circle cx="20" cy="20" r="15" stroke="#111827" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                </svg>
-              )}
-            </Button>
-
-            <button
-              type="button"
-              data-testid="cancel-delete-button"
-              onClick={() => setIsDeleteOpen(false)}
-              disabled={deleting || toggling}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title={`Are you sure you want to delete ${unit.unitName}?`}
+        description="Deleting this unit will permanently remove all associated records."
+        confirmLabel="Yes, delete unit"
+        confirmLoadingLabel="Deleting..."
+        confirmPending={deleting}
+        confirmDisabled={toggling}
+        onConfirm={() => {
+          setIsDeleteOpen(false)
+          setPinOpen(true)
+        }}
+        secondaryLabel="Disable unit instead"
+        secondaryLoadingLabel="Disabling..."
+        secondaryPending={toggling}
+        secondaryDisabled={deleting}
+        onSecondary={async () => {
+          setToggling(true)
+          try {
+            setIsDeleteOpen(false)
+            const name = unit!.unitName
+            await toggleUnitStatus(unitId)
+            const params = new URLSearchParams({
+              statusChanged: "disabled",
+              unitName: name,
+            })
+            router.push(`/unit-management?${params.toString()}`)
+          } catch {
+            setToggling(false)
+          }
+        }}
+        cancelDisabled={deleting || toggling}
+        confirmTestId="confirm-delete-button"
+        secondaryTestId="disable-instead-button"
+        cancelTestId="cancel-delete-button"
+      />
 
       {/* Disable / Activate Confirmation Dialog */}
-      <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
-        <DialogContent className="rounded-2xl p-6 sm:p-8">
-          <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              {unit.status === "Active" ? "Disable" : "Activate"} {unit.unitName}?
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              {unit.status === "Active"
-                ? "Disabling this unit will restrict access for all associated users. This can be reversed."
-                : "Activating this unit will restore system access and permissions."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <Button
-              data-testid="confirm-status-button"
-              disabled={toggling}
-              onClick={async () => {
-                setIsStatusOpen(false)
-                await handleToggleStatus()
-              }}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
-            >
-              {toggling
-                ? (unit.status === "Active" ? "Disabling..." : "Activating...")
-                : `Yes, ${unit.status === "Active" ? "disable" : "activate"} unit`}
-              {toggling ? (
-                <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                  <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                  <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                </svg>
-              ) : (
-                <ArrowRight className="ml-1 size-4" />
-              )}
-            </Button>
-
-            <button
-              type="button"
-              data-testid="cancel-status-button"
-              onClick={() => setIsStatusOpen(false)}
-              disabled={toggling}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isStatusOpen}
+        onOpenChange={setIsStatusOpen}
+        title={`${unit.status === "Active" ? "Disable" : "Activate"} ${unit.unitName}?`}
+        description={
+          unit.status === "Active"
+            ? "Disabling this unit will restrict access for all associated users. This can be reversed."
+            : "Activating this unit will restore system access and permissions."
+        }
+        confirmLabel={`Yes, ${unit.status === "Active" ? "disable" : "activate"} unit`}
+        confirmLoadingLabel={unit.status === "Active" ? "Disabling..." : "Activating..."}
+        confirmPending={toggling}
+        onConfirm={async () => {
+          setIsStatusOpen(false)
+          await handleToggleStatus()
+        }}
+        cancelDisabled={toggling}
+        confirmTestId="confirm-status-button"
+        cancelTestId="cancel-status-button"
+      />
 
       {/* PIN verification — required before unit deletion */}
       <PinVerificationModal

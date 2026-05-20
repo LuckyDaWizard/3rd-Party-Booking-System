@@ -4,14 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-} from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useUnitStore } from "@/lib/unit-store"
 import { useAuth } from "@/lib/auth-store"
 
@@ -62,7 +55,7 @@ export default function SwitchUnitPage() {
         {/* Heading */}
         <h1
           data-testid="switch-unit-heading"
-          className="text-center text-2xl font-bold text-gray-900 sm:text-3xl"
+          className="text-center text-2xl font-bold text-ink sm:text-3xl"
         >
           Select Unit
         </h1>
@@ -70,7 +63,7 @@ export default function SwitchUnitPage() {
         {/* Subtitle */}
         <p
           data-testid="switch-unit-subtitle"
-          className="text-base text-gray-500"
+          className="text-base text-ink-muted"
         >
           Please select the unit that you are currently at
         </p>
@@ -87,7 +80,7 @@ export default function SwitchUnitPage() {
               <Loader2 className="size-6 animate-spin text-gray-400" />
             </div>
           ) : activeUnits.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-500">
+            <p className="py-8 text-center text-sm text-ink-muted">
               No active units available
             </p>
           ) : (
@@ -120,11 +113,11 @@ export default function SwitchUnitPage() {
                     )}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-base font-medium text-gray-900">
+                    <span className="truncate text-base font-medium text-ink">
                       {unit.unitName}
                     </span>
                     {unit.clientName && (
-                      <span className="truncate text-xs text-gray-500">
+                      <span className="truncate text-xs text-ink-muted">
                         {unit.clientName}
                       </span>
                     )}
@@ -135,69 +128,53 @@ export default function SwitchUnitPage() {
           )}
         </div>
 
-        {/* Continue button */}
-        <Button
-          data-testid="continue-button"
-          onClick={handleContinue}
-          className="h-11 w-full rounded-xl bg-black text-white hover:bg-gray-800"
-        >
-          Continue
-          <ArrowRight data-icon="inline-end" className="ml-1 size-4" />
-        </Button>
+        {/* Continue + Back pair — gap-3 matches the unit-list spacing
+            so the two buttons sit together as one action group rather
+            than drifting apart from the bigger gap-6 above. */}
+        <div className="flex w-full flex-col gap-3">
+          <Button
+            data-testid="continue-button"
+            onClick={handleContinue}
+            variant="primary"
+            size="cta-lg"
+            className="w-full"
+          >
+            Continue
+            <ArrowRight data-icon="inline-end" className="size-4" />
+          </Button>
 
-        {/* Back button */}
-        <Button
-          data-testid="back-button"
-          variant="outline"
-          onClick={handleBack}
-          className="h-11 w-full rounded-xl border border-black"
-        >
-          Back
-        </Button>
+          <Button
+            data-testid="back-button"
+            variant="primary-outline"
+            size="cta-lg"
+            onClick={handleBack}
+            className="w-full"
+          >
+            Back
+          </Button>
+        </div>
       </div>
 
       {/* Confirmation dialog */}
-      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent
-          data-testid="switch-unit-dialog"
-          showCloseButton={false}
-          className="border-none p-6 shadow-lg sm:p-8"
-        >
-          <DialogHeader>
-            <DialogTitle data-testid="dialog-title">
-              Switch to {selectedUnit?.unitName}?
-            </DialogTitle>
-            <DialogDescription data-testid="dialog-description">
-              You&apos;ve selected <strong>{selectedUnit?.unitName}</strong>
-              {selectedUnit?.clientName ? (
-                <> &mdash; <span className="text-gray-700">{selectedUnit.clientName}</span></>
-              ) : null}
-              . Please confirm if this is correct.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-3 pt-2">
-            <Button
-              data-testid="confirm-switch-button"
-              onClick={handleConfirmSwitch}
-              className="h-11 w-full rounded-xl bg-black text-white hover:bg-gray-800"
-            >
-              Yes, Switch Units
-            </Button>
-            <DialogClose
-              data-testid="cancel-switch-button"
-              render={
-                <button
-                  type="button"
-                  className="w-full text-center text-sm font-medium text-red-500 hover:text-red-600"
-                />
-              }
-            >
-              Cancel
-            </DialogClose>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isConfirmOpen}
+        onOpenChange={setIsConfirmOpen}
+        title={`Switch to ${selectedUnit?.unitName}?`}
+        description={
+          <>
+            You&apos;ve selected <strong>{selectedUnit?.unitName}</strong>
+            {selectedUnit?.clientName ? (
+              <> &mdash; <span className="text-ink">{selectedUnit.clientName}</span></>
+            ) : null}
+            . Please confirm if this is correct.
+          </>
+        }
+        confirmLabel="Yes, Switch Units"
+        onConfirm={handleConfirmSwitch}
+        testId="switch-unit-dialog"
+        confirmTestId="confirm-switch-button"
+        cancelTestId="cancel-switch-button"
+      />
     </div>
   )
 }

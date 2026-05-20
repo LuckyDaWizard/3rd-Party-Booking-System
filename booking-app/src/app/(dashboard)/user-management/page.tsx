@@ -5,9 +5,15 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Search, Plus, ChevronDown, X, User as UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { Input } from "@/components/ui/input"
-import { useUserStore, type UserStatus, type UserRecord } from "@/lib/user-store"
+import { SearchInput } from "@/components/ui/search-input"
+import { FilterPill } from "@/components/ui/filter-pill"
+import { DesktopRow } from "@/components/ui/desktop-row"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Banner } from "@/components/ui/banner"
+import { SubNav } from "@/components/ui/sub-nav"
+import { useUserStore, type UserRecord } from "@/lib/user-store"
 import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 import { ListPagination, usePagination } from "@/components/list-pagination"
@@ -16,15 +22,6 @@ import { DataCard } from "@/components/data-card"
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getStatusStyle(status: UserStatus): string {
-  switch (status) {
-    case "Active":
-      return "bg-green-100 text-green-600 border-transparent"
-    case "Disabled":
-      return "bg-yellow-100 text-yellow-800 border-transparent"
-  }
-}
 
 function countByFilter(
   users: UserRecord[],
@@ -154,96 +151,50 @@ export default function UserManagementPage() {
   return (
     <div data-testid="user-management-page" className="flex flex-col gap-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/home">
-          <Button
-            data-testid="back-button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-        </Link>
-      </div>
+      <SubNav backHref="/home" backTestId="back-button" />
 
       {/* User added banner */}
       {addedBanner && (
-        <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 px-6 py-5">
-          <div className="flex flex-col gap-1">
-            <span className="text-base font-bold text-gray-900">
-              User Successfully Added
-            </span>
-            <p className="text-sm text-gray-500">
-              {addedBanner.name} has been added to the system successfully.
+        <Banner
+          title="User Successfully Added"
+          description={`${addedBanner.name} has been added to the system successfully.`}
+          onDismiss={() => setAddedBanner(null)}
+        >
+          {addedBanner.pin && (
+            <p className="mt-1 text-sm font-medium text-ink">
+              Access PIN: <span className="font-bold tracking-wider">{addedBanner.pin}</span>
+              <span className="ml-2 text-xs text-gray-400">
+                (share this with the user securely — it won&apos;t be shown again)
+              </span>
             </p>
-            {addedBanner.pin && (
-              <p className="mt-1 text-sm font-medium text-gray-700">
-                Access PIN: <span className="font-bold tracking-wider">{addedBanner.pin}</span>
-                <span className="ml-2 text-xs text-gray-400">
-                  (share this with the user securely — it won&apos;t be shown again)
-                </span>
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setAddedBanner(null)}
-            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
-            aria-label="Dismiss"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+          )}
+        </Banner>
       )}
 
       {/* Delete success banner */}
       {deleteBanner && (
-        <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 px-6 py-5">
-          <div className="flex flex-col gap-2">
-            <span className="text-base font-bold text-gray-900">
-              {deleteBanner} Deleted
-            </span>
-            <p className="text-sm text-gray-500">
-              The user has been successfully removed from the system.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDeleteBanner(null)}
-            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
-            aria-label="Dismiss"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        <Banner
+          title={`${deleteBanner} Deleted`}
+          description="The user has been successfully removed from the system."
+          onDismiss={() => setDeleteBanner(null)}
+        />
       )}
 
       {/* Status change banner */}
       {statusBanner && (
-        <div className="flex items-start justify-between rounded-xl border border-green-200 bg-green-50 px-6 py-5">
-          <div className="flex flex-col gap-1">
-            <span className="text-base font-bold text-gray-900">
-              {statusBanner.type === "activated"
-                ? `${statusBanner.name} has been activated successfully`
-                : "User Disabled"}
-            </span>
-            <p className="text-sm text-gray-500">
-              {statusBanner.type === "activated"
-                ? "Access has been restored and the user is now active on the system."
-                : `${statusBanner.name}'s access has been paused.`}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setStatusBanner(null)}
-            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
-            aria-label="Dismiss"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        <Banner
+          title={
+            statusBanner.type === "activated"
+              ? `${statusBanner.name} has been activated successfully`
+              : "User Disabled"
+          }
+          description={
+            statusBanner.type === "activated"
+              ? "Access has been restored and the user is now active on the system."
+              : `${statusBanner.name}'s access has been paused.`
+          }
+          onDismiss={() => setStatusBanner(null)}
+        />
       )}
 
       {/* Heading — on desktop (sm+) the button sits on the right of the title;
@@ -251,14 +202,15 @@ export default function UserManagementPage() {
       <div className="flex items-center justify-between">
         <h1
           data-testid="page-heading"
-          className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          className="text-2xl font-bold text-ink sm:text-3xl"
         >
           User Management
         </h1>
         <Button
           data-testid="new-user-button"
-          className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
+          className="hidden sm:inline-flex"
           onClick={() => router.push("/user-management/add")}
         >
           New User
@@ -267,7 +219,7 @@ export default function UserManagementPage() {
       </div>
       <p
         data-testid="page-subtitle"
-        className="-mt-6 text-base text-gray-500"
+        className="-mt-6 text-base text-ink-muted"
       >
         Manage user access, reset PINs, and assign units
       </p>
@@ -275,8 +227,9 @@ export default function UserManagementPage() {
       {/* Mobile-only primary action */}
       <Button
         data-testid="new-user-button-mobile"
-        className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
-        size="lg"
+        variant="accent"
+        size="cta-lg"
+        className="w-full sm:hidden"
         onClick={() => router.push("/user-management/add")}
       >
         New User
@@ -289,71 +242,20 @@ export default function UserManagementPage() {
           data-testid="filter-tabs"
           className="flex items-center gap-2"
         >
-          <button
-            type="button"
-            data-testid="filter-all"
-            onClick={() => setActiveFilter("all")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === "all"
-                ? "bg-[var(--client-primary)] text-white"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            All
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                activeFilter === "all"
-                  ? "bg-white text-gray-900"
-                  : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {allCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-active"
-            onClick={() => setActiveFilter("active")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === "active"
-                ? "bg-[var(--client-primary)] text-white"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Active
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                activeFilter === "active"
-                  ? "bg-white text-gray-900"
-                  : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {activeCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            data-testid="filter-disabled"
-            onClick={() => setActiveFilter("disabled")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeFilter === "disabled"
-                ? "bg-[var(--client-primary)] text-white"
-                : "text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Disabled
-            <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold ${
-                activeFilter === "disabled"
-                  ? "bg-white text-gray-900"
-                  : "bg-gray-300 text-gray-700"
-              }`}
-            >
-              {disabledCount}
-            </span>
-          </button>
+          {([
+            { key: "all", label: "All", count: allCount },
+            { key: "active", label: "Active", count: activeCount },
+            { key: "disabled", label: "Disabled", count: disabledCount },
+          ] as const).map((tab) => (
+            <FilterPill
+              key={tab.key}
+              active={activeFilter === tab.key}
+              label={tab.label}
+              count={tab.count}
+              onClick={() => setActiveFilter(tab.key)}
+              testId={`filter-${tab.key}`}
+            />
+          ))}
         </div>
 
         <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
@@ -364,7 +266,7 @@ export default function UserManagementPage() {
               data-testid="select-client-dropdown"
               onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
               className={`flex h-8 w-full items-center justify-between rounded-lg border bg-white px-2.5 py-2 text-sm transition-colors hover:border-ring ${
-                selectedClient ? "text-gray-900 border-gray-900" : "text-muted-foreground border-input"
+                selectedClient ? "text-ink border-gray-900" : "text-muted-foreground border-input"
               }`}
             >
               <span className="truncate">{selectedClient || "Select Client"}</span>
@@ -380,7 +282,7 @@ export default function UserManagementPage() {
                       setSelectedClient("")
                       setIsClientDropdownOpen(false)
                     }}
-                    className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                    className={`w-full rounded-lg px-4 py-3 text-left text-sm text-ink transition-colors hover:bg-[var(--client-primary-15)] ${
                       selectedClient === "" ? "bg-[var(--client-primary-15)] font-medium" : ""
                     }`}
                   >
@@ -394,7 +296,7 @@ export default function UserManagementPage() {
                         setSelectedClient(name)
                         setIsClientDropdownOpen(false)
                       }}
-                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-ink transition-colors hover:bg-[var(--client-primary-15)] ${
                         selectedClient === name ? "bg-[var(--client-primary-15)] font-medium" : ""
                       }`}
                     >
@@ -407,18 +309,12 @@ export default function UserManagementPage() {
           </div>
 
           {/* Search */}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              data-testid="search-input"
-              type="text"
-              placeholder="Search user Name"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white py-2 pl-8"
-              aria-label="Search user Name"
-            />
-          </div>
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search user Name"
+            testId="search-input"
+          />
         </div>
       </div>
 
@@ -429,27 +325,21 @@ export default function UserManagementPage() {
             Loading users...
           </div>
         ) : visibleUsers.length === 0 ? (
-          <div
-            className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400"
-            data-testid="empty-state"
-          >
-            No users found
-          </div>
+          <EmptyState>No users found</EmptyState>
         ) : (
           pagedUsers.map((user) => {
             const statusBadge = (
-              <Badge
-                data-testid={`status-badge-${user.id}`}
-                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${getStatusStyle(user.status)}`}
-              >
-                {user.status}
-              </Badge>
+              <StatusBadge
+                status={user.status}
+                testId={`status-badge-${user.id}`}
+              />
             )
             const manageButton = (
               <Button
                 data-testid={`manage-button-${user.id}`}
-                className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                size="lg"
+                variant="primary"
+                size="cta"
+                className="w-full"
                 onClick={() => router.push(`/user-management/manage?id=${user.id}`)}
               >
                 Manage
@@ -488,10 +378,11 @@ export default function UserManagementPage() {
                   />
                 </div>
 
-                {/* Desktop row — md: and up. Existing layout, unchanged. */}
-                <div
-                  data-testid={`user-row-${user.id}`}
-                  className="hidden md:grid grid-cols-[120px_1fr_1fr_1fr_1fr_1fr_140px] items-center gap-6 rounded-xl bg-white px-6 py-5"
+                {/* Desktop row — md: and up. */}
+                <DesktopRow
+                  testId={`user-row-${user.id}`}
+                  gridTemplate="120px 1fr 1fr 1fr 1fr 1fr 140px"
+                  gap="gap-6"
                 >
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
@@ -511,38 +402,38 @@ export default function UserManagementPage() {
                       )}
                     </div>
                     <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-xs font-bold text-gray-900">First Names</span>
-                      <span className="truncate text-sm text-gray-600" title={user.firstNames}>{user.firstNames}</span>
+                      <span className="text-xs font-bold text-ink">First Names</span>
+                      <span className="truncate text-sm text-ink-muted" title={user.firstNames}>{user.firstNames}</span>
                     </div>
                   </div>
 
                   {/* Surname */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Surname</span>
-                    <span className="truncate text-sm text-gray-600" title={user.surname}>{user.surname}</span>
+                    <span className="text-xs font-bold text-ink">Surname</span>
+                    <span className="truncate text-sm text-ink-muted" title={user.surname}>{user.surname}</span>
                   </div>
 
                   {/* Unit */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Unit</span>
-                    <span className="truncate text-sm text-gray-600" title={user.unitName}>{user.unitName}</span>
+                    <span className="text-xs font-bold text-ink">Unit</span>
+                    <span className="truncate text-sm text-ink-muted" title={user.unitName}>{user.unitName}</span>
                   </div>
 
                   {/* Email */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Email</span>
-                    <span className="truncate text-sm text-gray-600" title={user.email}>{user.email}</span>
+                    <span className="text-xs font-bold text-ink">Email</span>
+                    <span className="truncate text-sm text-ink-muted" title={user.email}>{user.email}</span>
                   </div>
 
                   {/* Number */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Number</span>
-                    <span className="truncate text-sm text-gray-600" title={user.contactNumber}>{user.contactNumber}</span>
+                    <span className="text-xs font-bold text-ink">Number</span>
+                    <span className="truncate text-sm text-ink-muted" title={user.contactNumber}>{user.contactNumber}</span>
                   </div>
 
                   {/* Action */}
                   <div className="flex">{manageButton}</div>
-                </div>
+                </DesktopRow>
               </React.Fragment>
             )
           })

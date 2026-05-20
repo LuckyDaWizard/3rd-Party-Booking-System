@@ -56,9 +56,9 @@ export default function TermsAndConditionsPage() {
         VERSION 1.0.0
       </span>
 
-      <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Terms and Conditions</h1>
+      <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">Terms and Conditions</h1>
 
-      <p className="max-w-xl text-center text-base text-gray-500">
+      <p className="max-w-xl text-center text-base text-ink-muted">
         By accepting these Terms and Conditions, you agree to use this web application and platform as set out
         therein and you consent and agree that we can display the information you upload onto the platform.
       </p>
@@ -68,7 +68,9 @@ export default function TermsAndConditionsPage() {
           data-testid="accept-button"
           onClick={handleAccept}
           disabled={submitting}
-          className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
+          variant="primary"
+          size="cta-lg"
+          className="w-full"
         >
           {submitting ? "Working..." : "Accept"}
         </Button>

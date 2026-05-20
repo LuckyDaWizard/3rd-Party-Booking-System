@@ -11,6 +11,7 @@ import { useUnitStore } from "@/lib/unit-store"
 import { useUserStore } from "@/lib/user-store"
 import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
+import { SubNav } from "@/components/ui/sub-nav"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
 
 const AVATAR_MIN_WIDTH = 80
@@ -98,7 +99,7 @@ function UnitMultiSelect({
                 placeholder="Search units..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-gray-400"
                 autoFocus
               />
             </div>
@@ -116,7 +117,7 @@ function UnitMultiSelect({
                     onClick={() => {
                       handleSelect(unit.id)
                     }}
-                    className="w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)]"
+                    className="w-full rounded-lg px-5 py-4 text-left text-base text-ink transition-colors hover:bg-[var(--client-primary-15)]"
                   >
                     <span>{unit.unitName}</span>
                     <span className="ml-2 text-sm text-gray-400">
@@ -296,19 +297,7 @@ export default function AddUserPage() {
   return (
     <div data-testid="add-user-page" className="flex flex-col gap-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/user-management">
-          <Button
-            data-testid="back-button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-        </Link>
-      </div>
+      <SubNav backHref="/user-management" backTestId="back-button" />
 
       {/* Form card */}
       <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-4">
@@ -316,11 +305,11 @@ export default function AddUserPage() {
         <div className="flex flex-col items-center gap-2">
           <h1
             data-testid="page-heading"
-            className="text-3xl font-bold text-gray-900"
+            className="text-3xl font-bold text-ink"
           >
             Add new user
           </h1>
-          <p className="text-base text-gray-500">
+          <p className="text-base text-ink-muted">
             Please provide the User&apos;s details below
           </p>
         </div>
@@ -351,7 +340,7 @@ export default function AddUserPage() {
             <div className="flex items-center gap-3">
               <label
                 htmlFor="avatar-file"
-                className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-gray-100"
               >
                 {avatarFile ? "Replace photo" : "Upload photo (optional)"}
               </label>
@@ -398,7 +387,7 @@ export default function AddUserPage() {
                 </button>
               )}
             </div>
-            <span className="text-[11px] text-gray-500">
+            <span className="text-[11px] text-ink-muted">
               PNG, JPEG, or WEBP. Max 2 MB.
             </span>
           </div>
@@ -483,7 +472,9 @@ export default function AddUserPage() {
         {/* Submit button */}
         <Button
           data-testid="add-user-button"
-          className="mt-2 w-full rounded-xl bg-gray-900 py-7 text-base font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          variant="primary"
+          size="cta-lg"
+          className="mt-2 w-full"
           onClick={handleSubmit}
           disabled={!isFormComplete || submitting}
         >

@@ -56,7 +56,7 @@ function CalendarDropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex h-11 w-full items-center justify-between rounded-lg border bg-white px-4 text-sm font-semibold text-gray-900 outline-none transition-colors ${
+        className={`flex h-11 w-full items-center justify-between rounded-lg border bg-white px-4 text-sm font-semibold text-ink outline-none transition-colors ${
           isOpen ? "border-gray-900" : "border-gray-300"
         }`}
       >
@@ -77,7 +77,7 @@ function CalendarDropdown({
                   onChange(opt.value)
                   setIsOpen(false)
                 }}
-                className={`w-full px-4 py-2.5 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                className={`w-full px-4 py-2.5 text-left text-sm text-ink transition-colors hover:bg-[var(--client-primary-15)] ${
                   opt.value === value ? "bg-[var(--client-primary-15)] font-medium" : ""
                 }`}
               >
@@ -175,7 +175,7 @@ function InlineCalendar({
                   ? "bg-[var(--client-primary)] text-white"
                   : isToday(day)
                     ? "bg-[var(--client-primary-15)] text-[var(--client-primary)] hover:bg-[var(--client-primary-25)]"
-                    : "text-gray-900 hover:bg-gray-100"
+                    : "text-ink hover:bg-gray-100"
               }`}
             >
               {day}
@@ -254,18 +254,18 @@ export function DatePickerField({
           tabIndex={readOnly ? -1 : 0}
           className={`flex h-14 w-full items-center rounded-lg border px-4 text-left text-sm outline-none transition-colors ${
             readOnly
-              ? "cursor-default border-gray-200 bg-gray-100 text-gray-500"
+              ? "cursor-default border-gray-200 bg-gray-100 text-ink-muted"
               : "border-gray-300 bg-white hover:border-gray-900"
           }`}
         >
-          <span className={hasValue ? "text-gray-900" : "text-transparent"}>
+          <span className={hasValue ? "text-ink" : "text-transparent"}>
             {displayValue || label}
           </span>
         </button>
         <label
           className={`pointer-events-none absolute left-3 bg-white px-1 text-sm transition-all ${
             hasValue
-              ? "top-0 -translate-y-1/2 text-xs text-gray-500"
+              ? "top-0 -translate-y-1/2 text-xs text-ink-muted"
               : "top-1/2 -translate-y-1/2 text-gray-400"
           }`}
         >
@@ -281,7 +281,7 @@ export function DatePickerField({
               e.stopPropagation()
               onClear()
             }}
-            className="absolute right-9 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+            className="absolute right-9 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-ink-muted"
             aria-label={`Clear ${label}`}
           >
             <X className="size-4" />
@@ -293,13 +293,13 @@ export function DatePickerField({
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl bg-white p-6 sm:p-8">
-            <h2 className="text-center text-xl font-bold text-gray-900">
+            <h2 className="text-center font-heading text-[28px] font-black leading-none tracking-normal text-ink">
               Select {label}
             </h2>
 
             {/* Selected date display */}
             {tempDate && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-ink-muted">
                 {tempDate.split("-").reverse().join("/")}
               </p>
             )}
@@ -316,7 +316,7 @@ export function DatePickerField({
               className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
                 tempDate
                   ? "bg-gray-900 text-white hover:bg-gray-800"
-                  : "bg-gray-300 text-gray-500 cursor-default"
+                  : "bg-gray-300 text-ink-muted cursor-default"
               }`}
             >
               Confirm

@@ -5,15 +5,16 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   ArrowRight,
-  FileText,
   X,
-  CheckCircle,
   ChevronDown,
   User as UserIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { StepPill } from "@/components/ui/step-pill"
+import { SubNav } from "@/components/ui/sub-nav"
+import { Banner } from "@/components/ui/banner"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { useUserStore } from "@/lib/user-store"
@@ -21,43 +22,6 @@ import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
 import { checkAccentAgainstWhite } from "@/lib/color-contrast"
-
-// ---------------------------------------------------------------------------
-// Success Banner
-// ---------------------------------------------------------------------------
-
-function SuccessBanner({
-  clientName,
-  onDismiss,
-}: {
-  clientName: string
-  onDismiss: () => void
-}) {
-  return (
-    <div
-      data-testid="success-banner"
-      className="flex items-start justify-between rounded-xl bg-green-50 border border-green-200 px-6 py-4"
-    >
-      <div className="flex flex-col gap-1">
-        <span className="text-sm font-semibold text-gray-900">
-          Client Successfully Added
-        </span>
-        <span className="text-sm text-gray-600">
-          {clientName} has been added successfully. You can add a unit to this
-          client or skip this step for now.
-        </span>
-      </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="ml-4 shrink-0 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
-        aria-label="Dismiss"
-      >
-        <X className="size-4" />
-      </button>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -138,11 +102,11 @@ function StepClientDetails({
       <div className="flex flex-col items-center gap-1 text-center">
         <h1
           data-testid="step-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-3xl font-bold text-ink"
         >
           Add new client
         </h1>
-        <p className="text-base text-gray-500">
+        <p className="text-base text-ink-muted">
           Please provide the client&apos;s details below
         </p>
       </div>
@@ -221,11 +185,11 @@ function StepBranding({
       <div className="flex flex-col items-center gap-1 text-center">
         <h1
           data-testid="step-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-3xl font-bold text-ink"
         >
           Branding
         </h1>
-        <p className="text-base text-gray-500">
+        <p className="text-base text-ink-muted">
           Optional. Add a logo, favicon, and accent colour for this client.
         </p>
       </div>
@@ -346,7 +310,7 @@ function FilePickerRow({
         <div className="flex items-center gap-3">
           <label
             htmlFor={inputId}
-            className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+            className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-gray-100"
           >
             {file ? `Replace ${label}` : `Upload ${label}`}
           </label>
@@ -393,7 +357,7 @@ function FilePickerRow({
           )}
         </div>
       </div>
-      <span className="text-[11px] text-gray-500">{footnote}</span>
+      <span className="text-[11px] text-ink-muted">{footnote}</span>
     </div>
   )
 }
@@ -417,7 +381,7 @@ function AccentPickerRow({
   const isAtDefault = accent.toLowerCase() === defaultAccent.toLowerCase()
 
   let verdictLabel = ""
-  let verdictTone = "text-gray-500"
+  let verdictTone = "text-ink-muted"
   if (check) {
     if (check.verdict === "aa-normal") {
       verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — AA`
@@ -445,7 +409,7 @@ function AccentPickerRow({
               style={{ backgroundColor: accent }}
               aria-hidden="true"
             />
-            <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
+            <span className="font-mono text-xs uppercase text-ink">{accent}</span>
           </div>
           <input
             id="accent-color"
@@ -459,7 +423,7 @@ function AccentPickerRow({
         </div>
         <label
           htmlFor="accent-color"
-          className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-gray-100"
         >
           {isAtDefault ? "Pick accent" : "Change accent"}
         </label>
@@ -468,13 +432,13 @@ function AccentPickerRow({
             type="button"
             data-testid="accent-reset-button"
             onClick={() => onChange(defaultAccent)}
-            className="text-xs text-gray-600 hover:underline"
+            className="text-xs text-ink-muted hover:underline"
           >
             Reset
           </button>
         )}
       </div>
-      <span className="text-[11px] text-gray-500">
+      <span className="text-[11px] text-ink-muted">
         Optional. Brand accent used for active filters, primary buttons, and
         the sidebar.
       </span>
@@ -520,11 +484,11 @@ function StepUnitDetails({
       <div className="flex flex-col items-center gap-1 text-center">
         <h1
           data-testid="step-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-3xl font-bold text-ink"
         >
           Add unit
         </h1>
-        <p className="text-base text-gray-500">
+        <p className="text-base text-ink-muted">
           Please provide the unit&apos;s details below
         </p>
       </div>
@@ -665,7 +629,7 @@ function ClientScopedUnitMultiSelect({
               No units yet — add one in step 3 first
             </span>
           ) : selectedIds.length > 0 ? (
-            <span className="text-gray-700">
+            <span className="text-ink">
               {selectedIds.length} unit{selectedIds.length === 1 ? "" : "s"} selected
               <span className="ml-1 text-gray-400"> — add another</span>
             </span>
@@ -687,7 +651,7 @@ function ClientScopedUnitMultiSelect({
                 placeholder="Search units..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-gray-400"
                 autoFocus
               />
             </div>
@@ -705,7 +669,7 @@ function ClientScopedUnitMultiSelect({
                       onChange([...selectedIds, unit.id])
                       setSearch("")
                     }}
-                    className="w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)]"
+                    className="w-full rounded-lg px-5 py-4 text-left text-base text-ink transition-colors hover:bg-[var(--client-primary-15)]"
                   >
                     {unit.unitName}
                   </button>
@@ -769,11 +733,11 @@ function StepUserDetails({
       <div className="flex flex-col items-center gap-1 text-center">
         <h1
           data-testid="step-heading"
-          className="text-3xl font-bold text-gray-900"
+          className="text-3xl font-bold text-ink"
         >
           Add user
         </h1>
-        <p className="text-base text-gray-500">
+        <p className="text-base text-ink-muted">
           Optional. Create a user assigned to {clientName}&apos;s units.
         </p>
       </div>
@@ -796,7 +760,7 @@ function StepUserDetails({
           <div className="flex items-center gap-3">
             <label
               htmlFor="user-avatar-file"
-              className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+              className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-gray-100"
             >
               {data.avatarFile ? "Replace photo" : "Upload photo (optional)"}
             </label>
@@ -844,7 +808,7 @@ function StepUserDetails({
               </button>
             )}
           </div>
-          <span className="text-[11px] text-gray-500">
+          <span className="text-[11px] text-ink-muted">
             PNG, JPEG, or WEBP. Max 2 MB.
           </span>
         </div>
@@ -861,7 +825,7 @@ function StepUserDetails({
             data-testid="no-units-hint"
             className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
           >
-            <span className="font-semibold text-gray-900">
+            <span className="font-semibold text-ink">
               No units linked to this client yet
             </span>
             <span className="text-xs">
@@ -1270,23 +1234,15 @@ export default function AddNewClientPage() {
       className="flex flex-1 flex-col gap-4"
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Button
-          data-testid="top-back-button"
-          variant="outline"
-          size="sm"
-          onClick={handleTopBack}
-          className="rounded-lg border-black px-6 py-2 gap-3"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-      </div>
+      <SubNav onBack={handleTopBack} backTestId="top-back-button" />
 
       {/* Success banner */}
       {showBanner && currentStep === 3 && (
-        <SuccessBanner
-          clientName={clientDetails.clientName}
+        <Banner
+          kind="success"
+          testId="success-banner"
+          title="Client Successfully Added"
+          description={`${clientDetails.clientName} has been added successfully. You can add a unit to this client or skip this step for now.`}
           onDismiss={() => setShowBanner(false)}
         />
       )}
@@ -1295,93 +1251,39 @@ export default function AddNewClientPage() {
           throws. Replaces the silent console-error that previously left
           the admin guessing whether their data was saved. */}
       {stepError && (
-        <div
-          data-testid="step-error-banner"
-          className="flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-6 py-4"
-        >
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-gray-900">
-              Save failed
-            </span>
-            <span className="text-sm text-gray-700">{stepError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setStepError("")}
-            className="shrink-0 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
-            aria-label="Dismiss"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        <Banner
+          kind="danger"
+          testId="step-error-banner"
+          title="Save failed"
+          description={stepError}
+          onDismiss={() => setStepError("")}
+        />
       )}
 
       {/* Content area */}
       <div className="flex flex-1 flex-col items-center justify-center gap-8 py-8">
         {/* Step indicators */}
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
-          <div
-            data-testid="step-indicator-1"
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-              currentStep === 1
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : currentStep > 1
-                  ? "bg-green-100 text-green-500"
-                  : "text-gray-400"
-            }`}
-          >
-            {currentStep > 1 ? (
-              <CheckCircle className="size-4" />
-            ) : (
-              <FileText className="size-4" />
-            )}
-            Client Details
-          </div>
-          <div
-            data-testid="step-indicator-2"
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-              currentStep === 2
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : currentStep > 2
-                  ? "bg-green-100 text-green-500"
-                  : "text-gray-400"
-            }`}
-          >
-            {currentStep > 2 ? (
-              <CheckCircle className="size-4" />
-            ) : (
-              <FileText className="size-4" />
-            )}
-            Branding
-          </div>
-          <div
-            data-testid="step-indicator-3"
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-              currentStep === 3
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : currentStep > 3
-                  ? "bg-green-100 text-green-500"
-                  : "text-gray-400"
-            }`}
-          >
-            {currentStep > 3 ? (
-              <CheckCircle className="size-4" />
-            ) : (
-              <FileText className="size-4" />
-            )}
-            Unit Details
-          </div>
-          <div
-            data-testid="step-indicator-4"
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
-              currentStep === 4
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : "text-gray-400"
-            }`}
-          >
-            <FileText className="size-4" />
-            Users
-          </div>
+          {["Client Details", "Branding", "Unit Details", "Users"].map(
+            (label, index) => {
+              const stepNumber = index + 1
+              const state =
+                currentStep === stepNumber
+                  ? "active"
+                  : currentStep > stepNumber
+                    ? "completed"
+                    : "inactive"
+              return (
+                <StepPill
+                  key={label}
+                  state={state}
+                  testId={`step-indicator-${stepNumber}`}
+                >
+                  {label}
+                </StepPill>
+              )
+            }
+          )}
         </div>
 
         {/* Step content */}
@@ -1426,11 +1328,9 @@ export default function AddNewClientPage() {
             data-testid="next-button"
             onClick={handleNext}
             disabled={!isNextEnabled || submitting}
-            className={`h-11 w-full rounded-xl ${
-              isNextEnabled && !submitting
-                ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-600"
-            }`}
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             {submitting ? (
               <>
@@ -1464,7 +1364,7 @@ export default function AddNewClientPage() {
               type="button"
               data-testid="skip-button"
               onClick={handleSkip}
-              className="text-sm font-semibold text-gray-900 hover:underline"
+              className="text-sm font-semibold text-ink hover:underline"
             >
               Skip this step for now
             </button>

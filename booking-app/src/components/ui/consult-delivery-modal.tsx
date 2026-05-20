@@ -62,10 +62,10 @@ export function ConsultDeliveryModal({
         className="gap-6 rounded-2xl bg-[#FCFCFC] p-6 sm:max-w-[640px] sm:p-10"
       >
         <DialogHeader className="flex flex-col items-center gap-2 text-center">
-          <DialogTitle className="text-center font-heading text-[28px] font-black leading-none tracking-normal text-[#242424]">
+          <DialogTitle>
             How should the consultation be delivered?
           </DialogTitle>
-          <p className="text-center text-base font-normal leading-6 text-[#242424]">
+          <p className="text-center text-base font-normal leading-6 text-ink">
             Choose how to send the CareFirst consultation link to{" "}
             <span className="font-semibold">{patientName}</span>.
             Either option records the consultation as started in the audit log.
@@ -145,12 +145,12 @@ function DeliveryOptionCard({
       </span>
       <span className="flex flex-1 flex-col gap-1">
         <span className="flex items-center justify-between gap-3">
-          <span className="text-base font-bold text-gray-900">{title}</span>
+          <span className="text-base font-bold text-ink">{title}</span>
           {!disabled && (
             <ArrowRight className="size-4 shrink-0 text-gray-400 transition-colors group-hover:text-[var(--client-primary)]" />
           )}
         </span>
-        <span className="text-sm leading-relaxed text-gray-500">
+        <span className="text-sm leading-relaxed text-ink-muted">
           {description}
         </span>
       </span>

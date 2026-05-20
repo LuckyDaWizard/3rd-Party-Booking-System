@@ -21,15 +21,17 @@ export default function PaymentFailedPage() {
       <div className="flex w-full max-w-md flex-col items-center gap-6">
         <XCircle className="size-16 text-[#FF3A69]" strokeWidth={1.5} />
 
-        <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Payment Unsuccessful</h1>
+        <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">Payment Unsuccessful</h1>
 
-        <p className="text-center text-base text-gray-500">
+        <p className="text-center text-base text-ink-muted">
           The payment was unsuccessful. Please try again.
         </p>
 
         <Button
           onClick={() => router.push(`/create-booking/payment?bookingId=${bookingId}&type=device`)}
-          className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800 sm:w-64"
+          variant="primary"
+          size="cta-lg"
+          className="w-full sm:w-64"
         >
           Try Again
         </Button>
@@ -37,7 +39,7 @@ export default function PaymentFailedPage() {
         <button
           type="button"
           onClick={() => router.push("/home")}
-          className="text-sm font-semibold text-gray-700 hover:text-gray-900"
+          className="text-sm font-semibold text-ink hover:text-ink"
         >
           Back Home
         </button>

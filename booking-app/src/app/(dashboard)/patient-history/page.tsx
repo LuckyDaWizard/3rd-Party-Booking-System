@@ -5,8 +5,13 @@ import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { ArrowLeft, Search, Plus, ArrowRight, MoreVertical, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/ui/status-badge"
 import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
+import { FilterPill } from "@/components/ui/filter-pill"
+import { DesktopRow } from "@/components/ui/desktop-row"
+import { EmptyState } from "@/components/ui/empty-state"
+import { SubNav } from "@/components/ui/sub-nav"
 import {
   Dialog,
   DialogContent,
@@ -73,27 +78,6 @@ function maskIdNumber(id: string | null): string {
   const last2 = id.slice(-2)
   const masked = "X".repeat(id.length - 4)
   return `${first2}${masked}${last2}`
-}
-
-function getStatusStyle(status: PatientStatus): string {
-  switch (status) {
-    case "Payment Complete":
-      return "bg-yellow-100 text-yellow-800 border-transparent"
-    case "In Progress":
-      // Status badges stay on the system blue regardless of client theme,
-      // so a status meaning is visually identical across every client.
-      // (The #CDE5F2 / #3ea3db pair is the only brand-coloured status; the
-      // rest are semantic — green / yellow / red / black.)
-      return "bg-[#CDE5F2] text-[#3ea3db] border-transparent"
-    case "Abandoned":
-      return "bg-[#FF3A69] text-white border-transparent"
-    case "Successful":
-      return "bg-green-100 text-green-600 border-transparent"
-    case "Discarded":
-      return "bg-gray-900 text-white border-transparent"
-    default:
-      return "bg-gray-100 text-gray-600 border-transparent"
-  }
 }
 
 type FilterType = "all" | "in-progress" | "incomplete" | "completed"
@@ -219,7 +203,7 @@ function OptionsModal({
         showCloseButton={false}
       >
         <DialogHeader>
-          <DialogTitle data-testid="options-modal-title" className="text-center text-xl font-bold text-gray-900 sm:text-3xl">
+          <DialogTitle data-testid="options-modal-title">
             Please select an option to continue
           </DialogTitle>
         </DialogHeader>
@@ -251,10 +235,10 @@ function OptionsModal({
                 : "border-gray-200 bg-white hover:bg-gray-50"
             }`}
           >
-            <span className="block text-sm font-semibold text-gray-900">
+            <span className="block text-sm font-semibold text-ink">
               Process Payment on Device
             </span>
-            <span className="block text-xs text-gray-500 mt-1">
+            <span className="block text-xs text-ink-muted mt-1">
               Proceed with the payment on this device
             </span>
           </button>
@@ -271,10 +255,10 @@ function OptionsModal({
                   : "border-amber-200 bg-amber-50 hover:bg-amber-100"
               }`}
             >
-              <span className="block text-sm font-semibold text-gray-900">
+              <span className="block text-sm font-semibold text-ink">
                 Mark Payment as Confirmed
               </span>
-              <span className="mt-1 block text-xs text-gray-600">
+              <span className="mt-1 block text-xs text-ink-muted">
                 Supervisor override. Use only if you&apos;ve verified the payment on PayFast&apos;s dashboard. Logged to audit trail.
               </span>
             </button>
@@ -285,13 +269,14 @@ function OptionsModal({
         <div className="flex flex-col gap-2">
           <Button
             data-testid="options-continue-button"
-            className="w-full bg-gray-900 text-white hover:bg-gray-800"
-            size="lg"
+            variant="primary"
+            size="cta"
+            className="w-full"
             disabled={!selected}
             onClick={handleContinue}
           >
             Continue
-            <ArrowRight className="ml-1 size-4" />
+            <ArrowRight className="size-4" />
           </Button>
 
           <Button
@@ -549,44 +534,31 @@ export default function PatientHistoryPage() {
   return (
     <div data-testid="patient-history-page" className="flex flex-col gap-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/home">
-          <Button
-            data-testid="back-button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-        </Link>
-
-      </div>
+      <SubNav backHref="/home" backTestId="back-button" />
 
       {/* Heading — on desktop (sm+) the button sits on the right of the title;
           on mobile the button is rendered separately below the subtitle. */}
       <div className="flex items-center justify-between">
         <h1
           data-testid="page-heading"
-          className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          className="text-2xl font-bold text-ink sm:text-3xl"
         >
           Patient History
         </h1>
         <Link href="/create-booking" className="hidden sm:inline-flex">
           <Button
             data-testid="new-patient-button"
-            className="justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)]"
-            size="lg"
+            variant="accent"
+            size="cta-lg"
           >
             New Patient
-            <Plus className="ml-3 size-4" />
+            <Plus className="size-4" />
           </Button>
         </Link>
       </div>
       <p
         data-testid="page-subtitle"
-        className="-mt-6 text-base text-gray-500"
+        className="-mt-6 text-base text-ink-muted"
       >
         Please provide the patient&apos;s identification details
       </p>
@@ -619,7 +591,7 @@ export default function PatientHistoryPage() {
           {reconcileMessage && (
             <span
               data-testid="reconcile-message"
-              className="text-xs text-gray-600"
+              className="text-xs text-ink-muted"
             >
               {reconcileMessage}
             </span>
@@ -631,11 +603,12 @@ export default function PatientHistoryPage() {
       <Link href="/create-booking" className="sm:hidden">
         <Button
           data-testid="new-patient-button-mobile"
-          className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)]"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
+          className="w-full"
         >
           New Patient
-          <Plus className="ml-3 size-4" />
+          <Plus className="size-4" />
         </Button>
       </Link>
 
@@ -650,43 +623,25 @@ export default function PatientHistoryPage() {
             { key: "in-progress", label: "In Progress", count: inProgressCount, href: "/patient-history?tab=in-progress" },
             { key: "incomplete", label: "Incomplete", count: incompleteCount, href: "/patient-history?tab=incomplete" },
             { key: "completed", label: "Completed", count: completedCount, href: "/patient-history?tab=completed" },
-          ] as const).map((tab) => {
-            const isActive = activeFilter === tab.key
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                data-testid={`filter-${tab.key}`}
-                onClick={() => router.push(tab.href)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#FCFAF9] px-4 py-2 text-sm font-medium transition-colors hover:bg-[#F4F0EE]"
-              >
-                <span
-                  className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-semibold transition-colors ${
-                    isActive
-                      ? "bg-[var(--client-primary)] text-white"
-                      : "bg-gray-200 text-gray-700"
-                  }`}
-                >
-                  {tab.count}
-                </span>
-                <span className="text-gray-900">{tab.label}</span>
-              </button>
-            )
-          })}
+          ] as const).map((tab) => (
+            <FilterPill
+              key={tab.key}
+              active={activeFilter === tab.key}
+              label={tab.label}
+              count={tab.count}
+              onClick={() => router.push(tab.href)}
+              testId={`filter-${tab.key}`}
+            />
+          ))}
         </div>
 
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            data-testid="search-input"
-            type="text"
-            placeholder="Search Patient Name or ID Number"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-white py-2 pl-8"
-            aria-label="Search Patient Name or ID Number"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search Patient Name or ID Number"
+          testId="search-input"
+          className="w-full sm:max-w-xs"
+        />
       </div>
 
       {/* Patient Cards */}
@@ -696,57 +651,33 @@ export default function PatientHistoryPage() {
             Loading bookings...
           </div>
         ) : visiblePatients.length === 0 ? (
-          <div
-            className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400"
-            data-testid="empty-state"
-          >
-            No patients found
-          </div>
+          <EmptyState>No patients found</EmptyState>
         ) : (
           visiblePatients.map((patient) => {
             // For non-gateway "Payment Complete" bookings the pill is
-            // recoloured + relabelled so operators see at a glance how the
-            // booking was paid. Other statuses are unchanged.
+            // recoloured + relabelled by StatusBadge so operators see at
+            // a glance how the booking was paid:
             //   - self_collect    → amber "Self-Collect"
             //   - monthly_invoice → blue  "Monthly Invoice"
             // The amber and blue pairs both contrast cleanly against the
             // green-100 "Successful" pill so a row's full lifecycle stays
             // scannable.
-            const isSelfCollectComplete =
-              patient.selfCollect && patient.status === "Payment Complete"
-            const isMonthlyInvoiceComplete =
-              patient.monthlyInvoice && patient.status === "Payment Complete"
-            const statusLabel = isSelfCollectComplete
-              ? "Self-Collect"
-              : isMonthlyInvoiceComplete
-                ? "Monthly Invoice"
-                : patient.status === "Abandoned"
-                  ? "Incomplete Booking"
-                  : patient.status === "Successful"
-                    ? "Booking Successful"
-                    : patient.status
-            const statusStyle = isSelfCollectComplete
-              ? "bg-amber-100 text-amber-800 border-transparent"
-              : isMonthlyInvoiceComplete
-                ? "bg-blue-100 text-blue-800 border-transparent"
-                : getStatusStyle(patient.status)
             const statusBadge = (
-              <Badge
-                data-testid={`status-badge-${patient.id}`}
-                data-self-collect={isSelfCollectComplete ? "true" : undefined}
-                data-monthly-invoice={isMonthlyInvoiceComplete ? "true" : undefined}
-                className={`w-full rounded-full border px-4 py-5 text-center text-xs font-medium ${statusStyle}`}
-              >
-                {statusLabel}
-              </Badge>
+              <StatusBadge
+                status={patient.status}
+                selfCollect={patient.selfCollect}
+                monthlyInvoice={patient.monthlyInvoice}
+                testId={`status-badge-${patient.id}`}
+              />
             )
 
             const actionButton =
               patient.status === "Payment Complete" ? (
                 <Button
                   data-testid={`start-consult-${patient.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                  size="lg"
+                  variant="primary"
+                  size="cta"
+                  className="w-full"
                   disabled={startConsultBusyId === patient.id}
                   onClick={() => {
                     setStartConsultError(null)
@@ -794,8 +725,9 @@ export default function PatientHistoryPage() {
                     return (
                       <Button
                         data-testid={`options-button-${patient.id}`}
-                        className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                        size="lg"
+                        variant="primary"
+                        size="cta"
+                        className="w-full"
                         onClick={() => {
                           setSelectedBookingId(patient.id)
                           setOptionsModalOpen(true)
@@ -810,8 +742,9 @@ export default function PatientHistoryPage() {
                   return (
                     <Button
                       data-testid={`continue-button-${patient.id}`}
-                      className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                      size="lg"
+                      variant="primary"
+                      size="cta"
+                      className="w-full"
                       onClick={() => {
                         // Resume booking from the start with pre-filled data
                         const params = new URLSearchParams()
@@ -837,8 +770,9 @@ export default function PatientHistoryPage() {
               ) : patient.status === "In Progress" ? (
                 <Button
                   data-testid={`options-button-${patient.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-                  size="lg"
+                  variant="primary"
+                  size="cta"
+                  className="w-full"
                   onClick={() => {
                     setSelectedBookingId(patient.id)
                     setOptionsModalOpen(true)
@@ -866,10 +800,10 @@ export default function PatientHistoryPage() {
                   />
                 </div>
 
-                {/* Desktop row — md: and up. Existing layout, unchanged. */}
-                <div
-                  data-testid={`patient-row-${patient.id}`}
-                  className="hidden md:grid grid-cols-[160px_1fr_1fr_1fr_1fr_140px] items-center gap-8 rounded-xl bg-white px-6 py-5"
+                {/* Desktop row — md: and up. */}
+                <DesktopRow
+                  testId={`patient-row-${patient.id}`}
+                  gridTemplate="160px 1fr 1fr 1fr 1fr 140px"
                 >
                   {/* Status badge */}
                   <div className="flex items-center">{statusBadge}</div>
@@ -897,8 +831,8 @@ export default function PatientHistoryPage() {
                       )
                     })()}
                     <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="text-xs font-bold text-gray-900">Unit Name</span>
-                      <span className="truncate text-sm text-gray-600" title={patient.unitName || undefined}>
+                      <span className="text-xs font-bold text-ink">Unit Name</span>
+                      <span className="truncate text-sm text-ink-muted" title={patient.unitName || undefined}>
                         {patient.unitName || "-"}
                       </span>
                     </div>
@@ -906,25 +840,25 @@ export default function PatientHistoryPage() {
 
                   {/* Patient Name */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Patient Name</span>
-                    <span className="truncate text-sm text-gray-600" title={patient.patientName}>{patient.patientName}</span>
+                    <span className="text-xs font-bold text-ink">Patient Name</span>
+                    <span className="truncate text-sm text-ink-muted" title={patient.patientName}>{patient.patientName}</span>
                   </div>
 
                   {/* Patient ID Number */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Patient ID Number</span>
-                    <span className="truncate text-sm text-gray-600" title={patient.patientIdNumber}>{patient.patientIdNumber}</span>
+                    <span className="text-xs font-bold text-ink">Patient ID Number</span>
+                    <span className="truncate text-sm text-ink-muted" title={patient.patientIdNumber}>{patient.patientIdNumber}</span>
                   </div>
 
                   {/* Date */}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-gray-900">Date</span>
-                    <span className="truncate text-sm text-gray-600" title={patient.date}>{patient.date}</span>
+                    <span className="text-xs font-bold text-ink">Date</span>
+                    <span className="truncate text-sm text-ink-muted" title={patient.date}>{patient.date}</span>
                   </div>
 
                   {/* Action */}
                   <div className="flex">{actionButton}</div>
-                </div>
+                </DesktopRow>
               </React.Fragment>
             )
           })
@@ -934,7 +868,7 @@ export default function PatientHistoryPage() {
       {/* Pagination */}
       {filteredPatients.length > ITEMS_PER_PAGE && (
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-muted">
             Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredPatients.length)} of {filteredPatients.length}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -945,7 +879,7 @@ export default function PatientHistoryPage() {
               className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
                 currentPage === 1
                   ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  : "border-gray-300 text-ink-muted hover:bg-gray-100"
               }`}
             >
               <ChevronLeft className="size-4" />
@@ -959,7 +893,7 @@ export default function PatientHistoryPage() {
                 className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                   page === currentPage
                     ? "bg-[var(--client-primary)] text-white"
-                    : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+                    : "border border-gray-300 text-ink-muted hover:bg-gray-100"
                 }`}
               >
                 {page}
@@ -973,7 +907,7 @@ export default function PatientHistoryPage() {
               className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
                 currentPage === totalPages
                   ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  : "border-gray-300 text-ink-muted hover:bg-gray-100"
               }`}
             >
               <ChevronRight className="size-4" />

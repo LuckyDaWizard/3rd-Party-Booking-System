@@ -77,10 +77,8 @@ export function SessionIdleWarningModal({
       >
         <DialogHeader className="flex flex-col items-center gap-3 text-center">
           <Clock className="size-12 text-amber-500" strokeWidth={1.5} />
-          <DialogTitle className="text-xl font-bold text-gray-900">
-            You&apos;ll be signed out soon
-          </DialogTitle>
-          <p className="text-sm text-gray-500">
+          <DialogTitle>You&apos;ll be signed out soon</DialogTitle>
+          <p className="text-sm text-ink-muted">
             You&apos;ve been inactive for a while. For your security, we&apos;ll sign
             you out automatically.
           </p>
@@ -91,7 +89,7 @@ export function SessionIdleWarningModal({
             Time remaining
           </p>
           <p
-            className="font-mono text-3xl font-bold text-gray-900"
+            className="font-mono text-3xl font-bold text-ink"
             data-testid="session-idle-countdown"
           >
             {formatCountdown(remainingMs)}
@@ -103,16 +101,19 @@ export function SessionIdleWarningModal({
             onClick={onStaySignedIn}
             disabled={signingOut}
             data-testid="session-idle-stay-signed-in"
-            className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             Stay signed in
           </Button>
           <Button
-            variant="outline"
+            variant="primary-outline"
+            size="cta"
             onClick={handleSignOut}
             disabled={signingOut}
             data-testid="session-idle-sign-out"
-            className="h-11 w-full rounded-xl border border-black"
+            className="w-full"
           >
             {signingOut ? "Signing out..." : "Sign out now"}
           </Button>

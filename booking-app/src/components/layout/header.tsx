@@ -37,7 +37,7 @@ export function Header({
         data-testid="header-menu-button"
         onClick={openMobile}
         aria-label="Open navigation menu"
-        className="flex size-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 lg:hidden"
+        className="flex size-10 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-gray-100 lg:hidden"
       >
         <Menu className="size-5" />
       </button>
@@ -59,13 +59,13 @@ export function Header({
           <div className="flex min-w-0 flex-col">
             <span
               data-testid="header-user-name"
-              className="truncate text-sm font-medium leading-tight text-gray-900"
+              className="truncate text-sm font-medium leading-tight text-ink"
             >
               {userName}
             </span>
             <span
               data-testid="header-company-name"
-              className="truncate text-xs leading-tight text-gray-500"
+              className="truncate text-xs leading-tight text-ink-muted"
             >
               {companyName}
             </span>

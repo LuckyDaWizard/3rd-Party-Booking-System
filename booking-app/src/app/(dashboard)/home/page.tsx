@@ -29,13 +29,13 @@ export default function HomeDashboardPage() {
         <div className="flex flex-col items-center gap-2">
           <h1
             data-testid="dashboard-heading"
-            className="text-center text-2xl font-bold text-gray-900 sm:text-3xl"
+            className="text-center text-2xl font-bold text-ink sm:text-3xl"
           >
             VHC Third Party Booking
           </h1>
           <p
             data-testid="dashboard-subtitle"
-            className="text-base text-gray-500"
+            className="text-base text-ink-muted"
           >
             Please select an option below to proceed
           </p>
@@ -48,7 +48,7 @@ export default function HomeDashboardPage() {
         >
           <span
             data-testid="current-unit-name"
-            className="text-xl font-bold text-gray-900"
+            className="text-xl font-bold text-ink"
           >
             {unitDisplay}
           </span>
@@ -74,10 +74,10 @@ export default function HomeDashboardPage() {
             data-testid="create-booking-card"
             className="flex w-full flex-col gap-2 rounded-lg bg-white px-6 py-5 shadow-sm transition-shadow hover:shadow-md"
           >
-            <span className="text-base font-bold text-gray-900">
+            <span className="text-base font-bold text-ink">
               Create a booking
             </span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-ink-muted">
               Make a booking on behalf of the patient.
             </span>
           </Link>
@@ -90,7 +90,7 @@ export default function HomeDashboardPage() {
           >
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-gray-900">
+                <span className="text-base font-bold text-ink">
                   Patient History
                 </span>
                 {pendingCount > 0 && (
@@ -102,7 +102,7 @@ export default function HomeDashboardPage() {
                   </Badge>
                 )}
               </div>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-ink-muted">
                 {bookings.length === 0
                   ? "No patient bookings yet."
                   : `View ${bookings.length} booking${bookings.length === 1 ? "" : "s"} for your unit.`}

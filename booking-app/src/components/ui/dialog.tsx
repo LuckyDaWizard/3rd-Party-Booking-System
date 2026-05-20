@@ -121,7 +121,13 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-base leading-none font-medium", className)}
+      className={cn(
+        // Modal H4 spec (Figma): Mulish 28px font-black leading-none.
+        // Centered by default — most modal titles in the app are centered.
+        // Override via className for the rare un-centered case.
+        "text-center font-heading text-[28px] font-black leading-none tracking-normal text-ink",
+        className
+      )}
       {...props}
     />
   )

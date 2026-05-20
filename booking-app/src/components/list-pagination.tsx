@@ -92,7 +92,7 @@ export function ListPagination({
 
   return (
     <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-ink-muted">
         Showing {start}–{end} of {totalItems}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -103,7 +103,7 @@ export function ListPagination({
           className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
             currentPage === 1
               ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              : "border-gray-300 text-ink-muted hover:bg-gray-100"
           }`}
         >
           <ChevronLeft className="size-4" />
@@ -117,7 +117,7 @@ export function ListPagination({
             className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
               page === currentPage
                 ? "bg-[var(--client-primary)] text-white"
-                : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+                : "border border-gray-300 text-ink-muted hover:bg-gray-100"
             }`}
           >
             {page}
@@ -131,7 +131,7 @@ export function ListPagination({
           className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
             currentPage === totalPages
               ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              : "border-gray-300 text-ink-muted hover:bg-gray-100"
           }`}
         >
           <ChevronRight className="size-4" />

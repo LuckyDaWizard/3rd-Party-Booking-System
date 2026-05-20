@@ -2,15 +2,19 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, FileText, X, ChevronDown, CheckCircle } from "lucide-react"
+import { ArrowLeft, ArrowRight, X, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
+import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
+import { SubNav } from "@/components/ui/sub-nav"
+import { StepPill } from "@/components/ui/step-pill"
 import { useBookingStore } from "@/lib/booking-store"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-store"
 import { DatePickerField } from "@/components/ui/date-picker-dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
+import { YesNoToggle } from "@/components/ui/yes-no-toggle"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { Banner } from "@/components/ui/banner"
 import { PIN_LENGTH } from "@/lib/constants"
 
 // ---------------------------------------------------------------------------
@@ -122,10 +126,10 @@ function CountryCodeSelect({
         onClick={() => setIsOpen(!isOpen)}
         className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3"
       >
-        <span className="text-sm font-medium text-gray-900">{selected.code}</span>
+        <span className="text-sm font-medium text-ink">{selected.code}</span>
         <ChevronDown className={`size-3 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
-      <label className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-white px-1 text-xs text-gray-500">
+      <label className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-white px-1 text-xs text-ink-muted">
         Country
       </label>
       {isOpen && (
@@ -140,11 +144,11 @@ function CountryCodeSelect({
                   setIsOpen(false)
                 }}
                 className={`flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-[var(--client-primary-15)] ${
-                  value === country.code ? "bg-[var(--client-primary-15)] font-medium" : "text-gray-700"
+                  value === country.code ? "bg-[var(--client-primary-15)] font-medium" : "text-ink"
                 }`}
               >
                 <span className="font-medium">{country.code}</span>
-                <span className="text-gray-500">{country.dial}</span>
+                <span className="text-ink-muted">{country.dial}</span>
               </button>
             ))}
           </div>
@@ -377,11 +381,11 @@ function StepBasicInfo({
         </span>
         <h1
           data-testid="step-heading"
-          className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          className="text-2xl font-bold text-ink sm:text-3xl"
         >
           Patient Details
         </h1>
-        <p className="text-base text-gray-500">
+        <p className="text-base text-ink-muted">
           Please provide the patient&apos;s details
         </p>
       </div>
@@ -397,7 +401,7 @@ function StepBasicInfo({
             data-testid="identity-locked-banner"
             className="flex flex-col gap-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm"
           >
-            <span className="font-semibold text-gray-900">
+            <span className="font-semibold text-ink">
               Existing patient record loaded
             </span>
             <span className="text-xs text-amber-900">
@@ -538,7 +542,7 @@ function StepBasicInfo({
           onChange={(e) => onConsentChange(e.target.checked)}
           className="mt-0.5 size-4 shrink-0 cursor-pointer rounded border-gray-300 text-[var(--client-primary)] focus:ring-2 focus:ring-[var(--client-primary)]"
         />
-        <span className="text-sm text-gray-700">
+        <span className="text-sm text-ink">
           I have read and agree to the{" "}
           <a
             href="https://carefirst.co.za/terms-and-conditions/"
@@ -885,13 +889,12 @@ export default function PatientDetailsPage() {
     return () => window.clearTimeout(handle)
   }, [bookingId, basicInfo, addressInfo, contactInfo, updateBooking])
 
-  // Verification dialog
+  // Verification dialog — PIN state, pending + error are managed inside
+  // PinVerificationModal so we only track whether the dialog is open and
+  // whether to show the success banner once the booking is created.
   const [showVerification, setShowVerification] = useState(false)
-  const [bookingVerificationCode, setBookingVerificationCode] = useState("")
   const [showSuccessBanner, setShowSuccessBanner] = useState(false)
   const [selectedPaymentType, setSelectedPaymentType] = useState("")
-  const [verificationError, setVerificationError] = useState("")
-  const [verifying, setVerifying] = useState(false)
   const [emailError, setEmailError] = useState("")
   const [contactError, setContactError] = useState("")
   // Soft warning when the entered ID number is already on file under a
@@ -1169,49 +1172,27 @@ export default function PatientDetailsPage() {
       className="flex flex-1 flex-col gap-4"
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 sm:px-6 sm:py-4">
-        <Button
-          data-testid="top-back-button"
-          variant="outline"
-          size="sm"
-          onClick={handleBack}
-          className="rounded-lg border-black px-6 py-2 gap-3"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
+      <SubNav onBack={handleBack} backTestId="top-back-button">
         <Button
           data-testid="discard-flow-button"
-          size="sm"
+          variant="danger"
+          size="cta"
           onClick={handleDiscardFlow}
-          className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
-          style={{ backgroundColor: "#FF3A69" }}
         >
           Discard Flow
         </Button>
-      </div>
+      </SubNav>
 
       {/* Content area */}
       <div className="flex flex-1 flex-col items-center gap-8 py-8">
         {/* Success banner */}
         {showSuccessBanner && (
-          <div className="flex w-full max-w-4xl items-start justify-between rounded-xl bg-green-100 px-6 py-5">
-            <div className="flex flex-col gap-1">
-              <span className="text-base font-bold text-gray-900">
-                Patient Profile Created Successfully
-              </span>
-              <p className="text-sm text-gray-500">
-                The patient&apos;s profile has been created successfully
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowSuccessBanner(false)}
-              className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
+          <Banner
+            title="Patient Profile Created Successfully"
+            description="The patient's profile has been created successfully"
+            onDismiss={() => setShowSuccessBanner(false)}
+            className="w-full max-w-4xl"
+          />
         )}
 
         {/* Step indicators */}
@@ -1233,26 +1214,16 @@ export default function PatientDetailsPage() {
             const isCompleted =
               stepNumber < displayStep ||
               (currentStep === 5 && stepNumber < 5)
+            const state = isActive ? "active" : isCompleted ? "completed" : "inactive"
 
             return (
-              <div
+              <StepPill
                 key={label}
-                data-testid={`step-indicator-${stepNumber}`}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                    : isCompleted
-                    ? "bg-green-100 text-green-500"
-                    : "text-gray-400"
-                }`}
+                state={state}
+                testId={`step-indicator-${stepNumber}`}
               >
-                {isCompleted ? (
-                  <CheckCircle className="size-4 text-green-500" />
-                ) : (
-                  <FileText className="size-4" />
-                )}
                 {label}
-              </div>
+              </StepPill>
             )
           })}
         </nav>
@@ -1280,10 +1251,10 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 2 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              <h1 className="text-2xl font-bold text-ink sm:text-3xl">
                 Address Details
               </h1>
-              <p className="text-base text-gray-500">
+              <p className="text-base text-ink-muted">
                 Please provide the patient&apos;s physical address below
               </p>
             </div>
@@ -1346,10 +1317,10 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 3 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              <h1 className="text-2xl font-bold text-ink sm:text-3xl">
                 Contact Details
               </h1>
-              <p className="text-base text-gray-500">
+              <p className="text-base text-ink-muted">
                 Please provide the patient&apos;s contact details
               </p>
             </div>
@@ -1364,7 +1335,7 @@ export default function PatientDetailsPage() {
                 </svg>
                 Warning
               </span>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-semibold text-ink">
                 Please ensure that the contact information is correct before proceeding to the next step
               </p>
             </div>
@@ -1422,41 +1393,20 @@ export default function PatientDetailsPage() {
 
             {/* Script to another email */}
             <div className="flex flex-col items-start gap-3 rounded-xl bg-[#CDE5F2] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-ink">
                 Would you like to script this to another email address
               </p>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: true })}
-                  className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
-                >
-                  Yes
-                  <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
-                    {contactInfo.scriptToAnotherEmail && (
-                      <span className="size-3 rounded-full bg-[var(--client-primary)]" />
-                    )}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: false })}
-                  className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
-                >
-                  No
-                  <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
-                    {!contactInfo.scriptToAnotherEmail && (
-                      <span className="size-3 rounded-full bg-[var(--client-primary)]" />
-                    )}
-                  </span>
-                </button>
-              </div>
+              <YesNoToggle
+                value={contactInfo.scriptToAnotherEmail}
+                onChange={(v) => setContactInfo({ ...contactInfo, scriptToAnotherEmail: v })}
+                testIdPrefix="script-to-another-email"
+              />
             </div>
 
             {/* Additional email section */}
             {contactInfo.scriptToAnotherEmail && (
               <div className="flex flex-col gap-3">
-                <p className="text-base text-gray-700">
+                <p className="text-base text-ink">
                   Please provide the additional email address
                 </p>
                 <FloatingInput
@@ -1482,17 +1432,17 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 4 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              <h1 className="text-2xl font-bold text-ink sm:text-3xl">
                 Verify your Details
               </h1>
-              <p className="text-base text-gray-500">
+              <p className="text-base text-ink-muted">
                 Please make sure you have provided the correct details
               </p>
             </div>
 
             {/* Patient Details */}
             <div className="flex flex-col gap-4">
-              <h2 className="text-xl font-bold text-gray-900">Patient Details</h2>
+              <h2 className="text-xl font-bold text-ink">Patient Details</h2>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <FloatingInput
                   id="verify-firstNames"
@@ -1558,7 +1508,7 @@ export default function PatientDetailsPage() {
 
             {/* Address Details */}
             <div className="flex flex-col gap-4">
-              <h2 className="text-xl font-bold text-gray-900">Address Details</h2>
+              <h2 className="text-xl font-bold text-ink">Address Details</h2>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <FloatingInput
                   id="verify-address"
@@ -1607,7 +1557,7 @@ export default function PatientDetailsPage() {
 
             {/* Contact Details */}
             <div className="flex flex-col gap-4">
-              <h2 className="text-xl font-bold text-gray-900">Contact Details</h2>
+              <h2 className="text-xl font-bold text-ink">Contact Details</h2>
 
               {/* Last Chance warning */}
               <div className="flex flex-col items-start gap-3 rounded-xl bg-pink-100 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
@@ -1619,7 +1569,7 @@ export default function PatientDetailsPage() {
                   </svg>
                   Last Chance
                 </span>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-ink">
                   Please ensure that the contact information is correct before proceeding to the next step
                 </p>
               </div>
@@ -1671,41 +1621,20 @@ export default function PatientDetailsPage() {
 
               {/* Script to another email */}
               <div className="flex flex-col items-start gap-3 rounded-xl bg-[#CDE5F2] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-ink">
                   Would you like to script this to another email address
                 </p>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: true })}
-                    className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
-                  >
-                    Yes
-                    <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
-                      {contactInfo.scriptToAnotherEmail && (
-                        <span className="size-3 rounded-full bg-[var(--client-primary)]" />
-                      )}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setContactInfo({ ...contactInfo, scriptToAnotherEmail: false })}
-                    className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
-                  >
-                    No
-                    <span className="flex size-5 items-center justify-center rounded-full border-2 border-gray-300">
-                      {!contactInfo.scriptToAnotherEmail && (
-                        <span className="size-3 rounded-full bg-[var(--client-primary)]" />
-                      )}
-                    </span>
-                  </button>
-                </div>
+                <YesNoToggle
+                  value={contactInfo.scriptToAnotherEmail}
+                  onChange={(v) => setContactInfo({ ...contactInfo, scriptToAnotherEmail: v })}
+                  testIdPrefix="verify-script-to-another-email"
+                />
               </div>
 
               {/* Additional email */}
               {contactInfo.scriptToAnotherEmail && (
                 <div className="flex flex-col gap-3">
-                  <p className="text-base text-gray-700">
+                  <p className="text-base text-ink">
                     Please provide the additional email address
                   </p>
                   <FloatingInput
@@ -1738,7 +1667,7 @@ export default function PatientDetailsPage() {
               <circle cx="20" cy="20" r="15" stroke="#e5e7eb" strokeWidth="5" strokeLinecap="round" />
               <circle cx="20" cy="20" r="15" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-ink">
               This client is billed monthly — no payment needed. Continuing to the consultation...
             </span>
             {monthlyAutoSkipError && (
@@ -1770,20 +1699,20 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 4 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              <h1 className="text-2xl font-bold text-ink sm:text-3xl">
                 Confirm payment collected at unit
               </h1>
-              <p className="text-base text-gray-500">
+              <p className="text-base text-ink-muted">
                 This client collects the consultation fee directly. Confirm
                 that the patient has paid before continuing.
               </p>
             </div>
 
             <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-5">
-              <span className="text-sm font-semibold text-gray-900">
+              <span className="text-sm font-semibold text-ink">
                 Self-collect payment
               </span>
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-ink">
                 Clicking <strong>Next</strong> marks this booking as
                 Payment Complete and skips the payment gateway. Make sure
                 the consultation fee has been collected before proceeding.
@@ -1807,10 +1736,10 @@ export default function PatientDetailsPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Step 4 of {TOTAL_STEPS}
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              <h1 className="text-2xl font-bold text-ink sm:text-3xl">
                 Select a payment type
               </h1>
-              <p className="text-base text-gray-500">
+              <p className="text-base text-ink-muted">
                 Please select the patient&apos;s payment type
               </p>
             </div>
@@ -1833,7 +1762,7 @@ export default function PatientDetailsPage() {
                     <span className="size-3 rounded-full bg-white" />
                   )}
                 </span>
-                <span className="text-sm font-medium text-gray-900">Pay on device</span>
+                <span className="text-sm font-medium text-ink">Pay on device</span>
               </button>
 
               {/* Send a payment link - Coming Soon */}
@@ -1871,7 +1800,7 @@ export default function PatientDetailsPage() {
             className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-[38%] ${
               isNextEnabled
                 ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-500 cursor-default"
+                : "bg-gray-300 text-ink-muted cursor-default"
             }`}
             disabled={!isNextEnabled}
           >
@@ -1881,95 +1810,20 @@ export default function PatientDetailsPage() {
         </div>
       </div>
 
-      {/* Nurse Verification Dialog */}
-      {showVerification && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl bg-white p-6 sm:p-8">
-            <h2 className="text-center text-xl font-bold text-gray-900">
-              Enter your nurse verification
-              <br />
-              code to create booking
-            </h2>
-
-            <InputOTP
-              maxLength={PIN_LENGTH}
-              value={bookingVerificationCode}
-              onChange={setBookingVerificationCode}
-            >
-              <InputOTPGroup className="gap-2 sm:gap-3">
-                {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                  <InputOTPSlot
-                    key={i}
-                    index={i}
-                    className="!size-10 !rounded-lg !border border-input !bg-white text-lg font-semibold sm:!size-12"
-                  />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
-
-            {verificationError && (
-              <p className="text-center text-sm font-medium text-[#FF3A69]">
-                {verificationError}
-              </p>
-            )}
-
-            <Button
-              onClick={async () => {
-                setVerificationError("")
-                setVerifying(true)
-
-                // Two-person sign-off via /api/verify/manager-pin (Phase 5
-                // RLS forbids reading other users' PINs directly).
-                const verifyRes = await fetch("/api/verify/manager-pin", {
-                  method: "POST",
-                  headers: { "content-type": "application/json" },
-                  body: JSON.stringify({
-                    pin: bookingVerificationCode,
-                    unitId: activeUnitId,
-                  }),
-                })
-                const verifyData = (await verifyRes.json().catch(() => ({}))) as {
-                  valid?: boolean
-                }
-                if (!verifyRes.ok || !verifyData.valid) {
-                  setVerificationError("Invalid verification code")
-                  setVerifying(false)
-                  return
-                }
-
-                setVerifying(false)
-                setShowVerification(false)
-                setBookingVerificationCode("")
-                setVerificationError("")
-                setShowSuccessBanner(true)
-                // Verification dialog success → advance to step 5
-                // (payment).
-                setCurrentStep(5)
-              }}
-              disabled={bookingVerificationCode.length < PIN_LENGTH || verifying}
-              className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
-                bookingVerificationCode.length === PIN_LENGTH && !verifying
-                  ? "bg-gray-900 text-white hover:bg-gray-800"
-                  : "bg-gray-300 text-gray-500 cursor-default"
-              }`}
-            >
-              {verifying ? "Verifying..." : "Continue"}
-              {!verifying && <ArrowRight className="size-4" />}
-            </Button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowVerification(false)
-                setBookingVerificationCode("")
-              }}
-              className="text-sm font-semibold text-[#FF3A69] hover:opacity-80"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Nurse Verification Dialog — two-person sign-off via the shared
+          PinVerificationModal. On verified, we advance to step 5
+          (payment) and surface the success banner. */}
+      <PinVerificationModal
+        open={showVerification}
+        onOpenChange={setShowVerification}
+        activeUnitId={activeUnitId}
+        heading="Enter your nurse verification code to create booking"
+        onVerified={() => {
+          setShowVerification(false)
+          setShowSuccessBanner(true)
+          setCurrentStep(5)
+        }}
+      />
     </div>
   )
 }

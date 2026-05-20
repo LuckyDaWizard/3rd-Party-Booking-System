@@ -4,7 +4,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
+import { OtpInput } from "@/components/ui/otp-input"
+import { SubNav } from "@/components/ui/sub-nav"
 import { useBookingStore } from "@/lib/booking-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { useClientStore } from "@/lib/client-store"
@@ -117,22 +118,12 @@ export default function CreateBookingPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Top bar */}
-      <div className="flex items-center rounded-xl bg-white px-6 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push("/home")}
-          className="gap-3 rounded-lg border-black px-6 py-2"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-      </div>
+      <SubNav onBack={() => router.push("/home")} />
 
       {/* Main content */}
       <div className="flex flex-col items-center py-8">
-        <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Search Patient Details</h1>
-        <p className="mt-2 text-gray-500">Please provide the patient&apos;s identification details</p>
+        <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">Search Patient Details</h1>
+        <p className="mt-2 text-ink-muted">Please provide the patient&apos;s identification details</p>
 
         {/* Tab toggle */}
         <div className="mt-8 flex rounded-full border border-gray-200 bg-white p-1">
@@ -143,8 +134,8 @@ export default function CreateBookingPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`rounded-full px-6 py-2.5 text-sm font-medium transition-all ${
                 activeTab === tab.key
-                  ? "bg-[#f4f4f4] text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-[#f4f4f4] text-ink"
+                  : "text-ink-muted hover:text-ink"
               }`}
             >
               {tab.label}
@@ -216,22 +207,13 @@ export default function CreateBookingPage() {
             the two-person sign-off via clients.nurse_verification. */}
         {nurseVerificationRequired && (
           <div className="mt-8 flex w-full max-w-sm flex-col items-center gap-4">
-            <p className="text-base text-gray-700">Enter nurse verification code to start journey</p>
-            <InputOTP
-              maxLength={PIN_LENGTH}
+            <p className="text-base text-ink">Enter nurse verification code to start journey</p>
+            <OtpInput
               value={verificationCode}
               onChange={setVerificationCode}
-            >
-              <InputOTPGroup className="gap-2 sm:gap-6">
-                {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                  <InputOTPSlot
-                    key={i}
-                    index={i}
-                    className="!size-10 !rounded-lg !border border-input !bg-white text-lg font-semibold sm:!size-12"
-                  />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
+              whiteFill
+              groupClassName="gap-2 sm:gap-6"
+            />
           </div>
         )}
 
@@ -370,7 +352,7 @@ export default function CreateBookingPage() {
             className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
               isFormValid && !submitting
                 ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gray-300 text-ink-muted cursor-not-allowed"
             }`}
             disabled={!isFormValid || submitting}
           >
