@@ -285,13 +285,14 @@ function OptionsModal({
         <div className="flex flex-col gap-2">
           <Button
             data-testid="options-continue-button"
-            className="w-full bg-gray-900 text-white hover:bg-gray-800"
-            size="lg"
+            variant="primary"
+            size="cta"
+            className="w-full"
             disabled={!selected}
             onClick={handleContinue}
           >
             Continue
-            <ArrowRight className="ml-1 size-4" />
+            <ArrowRight className="size-4" />
           </Button>
 
           <Button
@@ -553,9 +554,8 @@ export default function PatientHistoryPage() {
         <Link href="/home">
           <Button
             data-testid="back-button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
+            variant="primary-outline"
+            size="nav"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -576,11 +576,11 @@ export default function PatientHistoryPage() {
         <Link href="/create-booking" className="hidden sm:inline-flex">
           <Button
             data-testid="new-patient-button"
-            className="justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)]"
-            size="lg"
+            variant="accent"
+            size="cta-lg"
           >
             New Patient
-            <Plus className="ml-3 size-4" />
+            <Plus className="size-4" />
           </Button>
         </Link>
       </div>
@@ -631,11 +631,12 @@ export default function PatientHistoryPage() {
       <Link href="/create-booking" className="sm:hidden">
         <Button
           data-testid="new-patient-button-mobile"
-          className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)]"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
+          className="w-full"
         >
           New Patient
-          <Plus className="ml-3 size-4" />
+          <Plus className="size-4" />
         </Button>
       </Link>
 
@@ -745,8 +746,9 @@ export default function PatientHistoryPage() {
               patient.status === "Payment Complete" ? (
                 <Button
                   data-testid={`start-consult-${patient.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                  variant="primary"
                   size="lg"
+                  className="w-full"
                   disabled={startConsultBusyId === patient.id}
                   onClick={() => {
                     setStartConsultError(null)
@@ -794,8 +796,9 @@ export default function PatientHistoryPage() {
                     return (
                       <Button
                         data-testid={`options-button-${patient.id}`}
-                        className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                        variant="primary"
                         size="lg"
+                        className="w-full"
                         onClick={() => {
                           setSelectedBookingId(patient.id)
                           setOptionsModalOpen(true)
@@ -810,8 +813,9 @@ export default function PatientHistoryPage() {
                   return (
                     <Button
                       data-testid={`continue-button-${patient.id}`}
-                      className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                      variant="primary"
                       size="lg"
+                      className="w-full"
                       onClick={() => {
                         // Resume booking from the start with pre-filled data
                         const params = new URLSearchParams()
@@ -837,8 +841,9 @@ export default function PatientHistoryPage() {
               ) : patient.status === "In Progress" ? (
                 <Button
                   data-testid={`options-button-${patient.id}`}
-                  className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                  variant="primary"
                   size="lg"
+                  className="w-full"
                   onClick={() => {
                     setSelectedBookingId(patient.id)
                     setOptionsModalOpen(true)

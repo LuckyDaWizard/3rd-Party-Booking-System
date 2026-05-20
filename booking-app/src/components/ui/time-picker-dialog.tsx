@@ -247,7 +247,9 @@ export function TimePickerField({
 
             <Button
               onClick={handleConfirm}
-              className="h-12 w-full gap-2 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
+              variant="primary"
+              size="cta-lg"
+              className="w-full"
             >
               Confirm
             </Button>

@@ -52,7 +52,9 @@ export default function GlobalError({
         <div className="flex w-full flex-col gap-3">
           <Button
             onClick={reset}
-            className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
+            variant="primary"
+            size="cta-lg"
+            className="w-full"
           >
             Try again
           </Button>

@@ -190,9 +190,8 @@ export default function AddUnitPage() {
         <Link href="/unit-management">
           <Button
             data-testid="back-button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
+            variant="primary-outline"
+            size="nav"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -279,7 +278,9 @@ export default function AddUnitPage() {
         {/* Submit button */}
         <Button
           data-testid="add-unit-button"
-          className="mt-2 w-full rounded-xl bg-gray-900 py-7 text-base font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          variant="primary"
+          size="cta-lg"
+          className="mt-2 w-full"
           onClick={handleSubmit}
           disabled={!isFormComplete || submitting}
         >

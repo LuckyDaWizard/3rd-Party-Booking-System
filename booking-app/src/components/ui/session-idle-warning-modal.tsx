@@ -103,16 +103,19 @@ export function SessionIdleWarningModal({
             onClick={onStaySignedIn}
             disabled={signingOut}
             data-testid="session-idle-stay-signed-in"
-            className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             Stay signed in
           </Button>
           <Button
-            variant="outline"
+            variant="primary-outline"
+            size="cta"
             onClick={handleSignOut}
             disabled={signingOut}
             data-testid="session-idle-sign-out"
-            className="h-11 w-full rounded-xl border border-black"
+            className="w-full"
           >
             {signingOut ? "Signing out..." : "Sign out now"}
           </Button>

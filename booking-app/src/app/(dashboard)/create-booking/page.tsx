@@ -119,10 +119,9 @@ export default function CreateBookingPage() {
       {/* Top bar */}
       <div className="flex items-center rounded-xl bg-white px-6 py-4">
         <Button
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={() => router.push("/home")}
-          className="gap-3 rounded-lg border-black px-6 py-2"
         >
           <ArrowLeft className="size-4" />
           Back

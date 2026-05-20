@@ -29,7 +29,9 @@ export default function PaymentFailedPage() {
 
         <Button
           onClick={() => router.push(`/create-booking/payment?bookingId=${bookingId}&type=device`)}
-          className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800 sm:w-64"
+          variant="primary"
+          size="cta-lg"
+          className="w-full sm:w-64"
         >
           Try Again
         </Button>

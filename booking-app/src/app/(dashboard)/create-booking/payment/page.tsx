@@ -290,8 +290,8 @@ export default function PaymentPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Button
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={() => {
             const params = new URLSearchParams()
             if (bookingId) params.set("bookingId", bookingId)
@@ -299,19 +299,17 @@ export default function PaymentPage() {
             params.set("step", "5")
             router.push(`/create-booking/patient-details?${params.toString()}`)
           }}
-          className="gap-3 rounded-lg border-black px-6 py-2"
         >
           <ArrowLeft className="size-4" />
           Back
         </Button>
         <Button
+          variant="danger"
           size="sm"
           onClick={async () => {
             if (bookingId) await discardBooking(bookingId)
             router.push("/home")
           }}
-          className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
-          style={{ backgroundColor: "#FF3A69" }}
         >
           Discard Flow
         </Button>
@@ -586,7 +584,9 @@ export default function PaymentPage() {
                 sent ? (
                   <Button
                     onClick={handleContinue}
-                    className="h-12 w-full gap-2 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
+                    variant="primary"
+                    size="cta-lg"
+                    className="w-full"
                   >
                     Continue
                     <ArrowRight className="size-4" />

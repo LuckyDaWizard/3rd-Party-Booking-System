@@ -37,18 +37,20 @@ import { Separator } from "@/components/ui/separator"
 // Route: /design-system
 // =============================================================================
 
-type Verdict = "keep" | "review" | "consolidate"
+type Verdict = "keep" | "review" | "consolidate" | "done"
 
 function VerdictPill({ verdict }: { verdict: Verdict }) {
   const styles: Record<Verdict, string> = {
     keep: "bg-green-100 text-green-700",
     review: "bg-amber-100 text-amber-700",
     consolidate: "bg-rose-100 text-rose-700",
+    done: "bg-emerald-100 text-emerald-700",
   }
   const label: Record<Verdict, string> = {
     keep: "KEEP",
     review: "REVIEW",
     consolidate: "CONSOLIDATE",
+    done: "DONE ✔",
   }
   return (
     <span
@@ -127,165 +129,290 @@ export default function DesignSystemPage() {
   // -------------------------------------------------------------------------
   // 1. Buttons
   // -------------------------------------------------------------------------
+  // Single source of truth for every variant the Button primitive supports.
+  // Used by the "All variants" grid below.
+  const variantRows: {
+    name: string
+    variant:
+      | "default"
+      | "primary"
+      | "primary-outline"
+      | "accent"
+      | "danger"
+      | "outline"
+      | "secondary"
+      | "ghost"
+      | "destructive"
+      | "link"
+    description: string
+    when: string
+  }[] = [
+    {
+      name: "default",
+      variant: "default",
+      description: "bg-black text-white",
+      when: "Legacy. Avoid in new code — use `primary` instead.",
+    },
+    {
+      name: "primary",
+      variant: "primary",
+      description: "bg-gray-900 text-white",
+      when: "The standard dark CTA. Auth, modals, manage-page saves.",
+    },
+    {
+      name: "primary-outline",
+      variant: "primary-outline",
+      description: "border border-black bg-white text-gray-900",
+      when: "Secondary action next to a `primary`. Also SubNav Back buttons.",
+    },
+    {
+      name: "accent",
+      variant: "accent",
+      description: "bg-[var(--client-primary)] text-white",
+      when: "Brand-coloured affordances — 'New X', Export, Refresh.",
+    },
+    {
+      name: "danger",
+      variant: "danger",
+      description: "bg-[#FF3A69] text-white",
+      when: "In-flow destructive (Discard Flow). Not for modal confirms.",
+    },
+    {
+      name: "outline",
+      variant: "outline",
+      description: "border-input bg-background",
+      when: "Soft outline. Used by select-style triggers.",
+    },
+    {
+      name: "secondary",
+      variant: "secondary",
+      description: "bg-secondary text-secondary-foreground",
+      when: "Legacy. Reserved for low-priority alt actions.",
+    },
+    {
+      name: "ghost",
+      variant: "ghost",
+      description: "transparent, hover: bg-muted",
+      when: "Tertiary action / icon-only chrome (sidebar toggles).",
+    },
+    {
+      name: "destructive",
+      variant: "destructive",
+      description: "bg-destructive/10 text-destructive (soft red)",
+      when: "Confirmation modal 'Yes, delete' action. Soft red on tint.",
+    },
+    {
+      name: "link",
+      variant: "link",
+      description: "text-primary underline-offset-4 hover:underline",
+      when: "Inline anchor masquerading as a button.",
+    },
+  ]
+
+  // Single source of truth for every size the Button primitive supports.
+  const sizeRows: {
+    name: string
+    size:
+      | "xs"
+      | "sm"
+      | "default"
+      | "lg"
+      | "cta"
+      | "cta-lg"
+      | "nav"
+    height: string
+    description: string
+    when: string
+  }[] = [
+    { name: "xs", size: "xs", height: "24px", description: "h-6 px-2 text-xs", when: "Tiny inline actions, table-row chips." },
+    { name: "sm", size: "sm", height: "28px", description: "h-7 px-2.5 text-[0.8rem]", when: "Compact actions — currently used by Discard Flow." },
+    { name: "default", size: "default", height: "32px", description: "h-8 px-2.5 text-sm", when: "Generic small button. Fine when CTA doesn't need to dominate." },
+    { name: "lg", size: "lg", height: "36px", description: "h-9 px-2.5 text-sm", when: "List-row action pills (Manage, Start Consult, Options)." },
+    { name: "cta", size: "cta", height: "44px", description: "h-11 rounded-xl px-6 text-base font-medium", when: "Standard CTA — auth, modals, manage-page Save." },
+    { name: "cta-lg", size: "cta-lg", height: "48px", description: "h-12 rounded-xl px-6 text-base font-semibold", when: "Landing-page CTA — error, not-found, payment results, accent New-X, long-form Save (Add Unit, Add User)." },
+    { name: "nav", size: "nav", height: "36px", description: "h-9 gap-3 rounded-lg px-6 text-sm font-medium", when: "SubNav Back buttons — paired with `primary-outline`." },
+  ]
+
   const buttonsSection = (
     <Section
       number={1}
       title="Buttons"
-      blurb="The codebase currently has 41 dark-primary CTA buttons declared at least 7 different ways. The primitive in src/components/ui/button.tsx is the canonical one; inline className duplicates should be migrated to it."
+      blurb="Consolidation complete — every CTA, row action, Back button, Discard Flow and New-X button resolves through the Button primitive's variant + size combos. The matrices below list every variant and size the primitive supports; the canonical combinations show the exact configurations in use today."
     >
       <Entry
-        name="Button primitive — default variant"
+        name="All variants — at a glance"
         verdict="keep"
-        usedIn="src/components/ui/button.tsx — the canonical CTA component"
-        notes="Class-Variance-Authority (CVA) based. Variants: default, outline, secondary, ghost, destructive, link. Sizes: default, xs, sm, lg, icon variants."
+        usedIn={`${variantRows.length} variants total. New design-system variants on top, primitive legacy variants below.`}
+        notes="Hover and disabled states are baked into each variant; you don't override them in className."
       >
-        <div className="flex flex-wrap gap-2">
-          <Button>Default</Button>
-          <Button disabled>Disabled</Button>
+        <div className="flex flex-col gap-2">
+          {variantRows.map((row) => (
+            <div
+              key={row.name}
+              className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <code className="text-xs font-bold text-gray-900">
+                  variant=&quot;{row.name}&quot;
+                </code>
+                <span className="truncate text-[11px] text-gray-500" title={row.description}>
+                  {row.description}
+                </span>
+                <span className="text-[11px] italic text-gray-600">{row.when}</span>
+              </div>
+              <div className="shrink-0">
+                <Button variant={row.variant} size="cta">
+                  {row.name}
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </Entry>
 
       <Entry
-        name="Button primitive — outline variant"
+        name="All sizes — at a glance"
         verdict="keep"
-        usedIn="src/components/ui/button.tsx"
+        usedIn={`${sizeRows.length} sizes total. Rendered with variant='primary' so you can compare height + padding cleanly.`}
+        notes="Sizes 'cta', 'cta-lg', 'cta-xl', 'row' and 'nav' were added during the design-system pass. The primitive's xs/sm/default/lg remain available."
       >
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline">Outline</Button>
-          <Button variant="outline" disabled>Disabled</Button>
+        <div className="flex flex-col gap-2">
+          {sizeRows.map((row) => (
+            <div
+              key={row.name}
+              className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <code className="text-xs font-bold text-gray-900">
+                  size=&quot;{row.name}&quot; · {row.height}
+                </code>
+                <span className="truncate text-[11px] text-gray-500" title={row.description}>
+                  {row.description}
+                </span>
+                <span className="text-[11px] italic text-gray-600">{row.when}</span>
+              </div>
+              <div className="shrink-0">
+                <Button variant="primary" size={row.size}>
+                  Sample
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </Entry>
 
       <Entry
-        name="Button primitive — secondary / ghost / destructive"
-        verdict="review"
-        usedIn="src/components/ui/button.tsx — rarely used in the app today"
-        notes="Defined in the primitive but only used by error/not-found and a few isolated places. Worth keeping for consistency."
+        name="Icon-only sizes"
+        verdict="keep"
+        usedIn="Used by Sidebar toggle, modal close X, table-row icon controls."
+        notes="Square buttons sized identically to their non-icon siblings."
       >
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary">Secondary</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button variant="destructive">Destructive</Button>
-          <Button variant="link">Link</Button>
+        <div className="flex flex-wrap items-end gap-3">
+          <Button variant="ghost" size="icon-xs"><X className="size-3" /></Button>
+          <Button variant="ghost" size="icon-sm"><X className="size-3.5" /></Button>
+          <Button variant="ghost" size="icon"><X className="size-4" /></Button>
+          <Button variant="ghost" size="icon-lg"><X className="size-4" /></Button>
         </div>
       </Entry>
 
       <Entry
-        name="Inline pattern A — h-11 w-full rounded-xl + default fill"
-        verdict="consolidate"
-        usedIn="5 instances — sign-in, forgot-pin (×2), reset-pin (×2)"
-        notes="These use the Button primitive correctly but redeclare h-11 / rounded-xl / text-base / w-full every time. Should become a Button size variant like size='auth' or a single shared classNames constant."
+        name="Interactive states"
+        verdict="keep"
+        usedIn="Disabled, focus-visible and aria-invalid states are baked into every variant."
+        notes="aria-invalid={true} produces a destructive ring; disabled drops the fill to gray-300 + gray-500 text on `primary` variants."
       >
-        <button
-          type="button"
-          className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-black text-base font-medium text-white hover:bg-gray-800"
-        >
-          Next
-          <ArrowRight className="size-4" />
-        </button>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col items-center gap-1">
+            <Button variant="primary" size="cta">Default</Button>
+            <span className="text-[10px] text-gray-500">default</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Button variant="primary" size="cta" disabled>Disabled</Button>
+            <span className="text-[10px] text-gray-500">disabled</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Button variant="primary" size="cta" aria-invalid>Invalid</Button>
+            <span className="text-[10px] text-gray-500">aria-invalid</span>
+          </div>
+        </div>
       </Entry>
 
       <Entry
-        name="Inline pattern B — h-11 w-full rounded-xl + bg-gray-900"
-        verdict="consolidate"
-        usedIn="12 instances — switch-unit (×2), pin-verification-modal, session-idle-warning-modal, security, user-management/manage (×3), unit-management/manage (×2), client-management/manage (×2)"
-        notes="Same shape as Pattern A but uses bg-gray-900 instead of the default bg-black. Pure copy-paste — visually identical."
+        name="Canonical combination — Standard CTA"
+        verdict="done"
+        usedIn="22+ sites — auth pages, modal confirms, manage-page Save / Reset PIN / Delete, switch-unit Continue, security Sign-out"
+        notes={'<Button variant="primary" size="cta" className="w-full">Save changes</Button>'}
       >
-        <button
-          type="button"
-          className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-gray-900 text-base font-medium text-white hover:bg-gray-800"
-        >
-          Save changes
-        </button>
+        <div className="flex flex-col gap-2">
+          <Button variant="primary" size="cta" className="w-full">Save changes</Button>
+          <Button variant="primary" size="cta" disabled className="w-full">Disabled</Button>
+        </div>
       </Entry>
 
       <Entry
-        name="Inline pattern C — h-12 w-full rounded-xl + bg-gray-900"
-        verdict="consolidate"
-        usedIn="8 instances — error, not-found, terms, payment (×3), time-picker, plus payment-failed and payment-success landing pages"
-        notes="Larger landing-page CTA. Identical pattern to B but h-12 instead of h-11 and uses font-semibold."
+        name="Canonical combination — Standard outline CTA"
+        verdict="done"
+        usedIn="~10 sites — Cancel / Reset PIN / Disable Client / Try Payment Again, paired with primary above"
+        notes={'<Button variant="primary-outline" size="cta" className="w-full">Disable instead</Button>'}
       >
-        <button
-          type="button"
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
-        >
-          Continue
-          <ArrowRight className="size-4" />
-        </button>
+        <Button variant="primary-outline" size="cta" className="w-full">
+          Disable instead
+        </Button>
       </Entry>
 
       <Entry
-        name="Inline pattern D — w-full rounded-xl py-7"
-        verdict="consolidate"
-        usedIn="2 instances — unit-management/add, user-management/add"
-        notes="Even taller variant used for the bottom Save action on long forms."
+        name="Canonical combination — Landing-page CTA"
+        verdict="done"
+        usedIn="8 sites — error.tsx, not-found.tsx, terms acceptance, payment results (success/failed), time-picker, payment Continue"
+        notes={'<Button variant="primary" size="cta-lg" className="w-full">Continue</Button>'}
       >
-        <button
-          type="button"
-          className="w-full rounded-xl bg-gray-900 py-7 text-base font-medium text-white hover:bg-gray-800"
-        >
-          Save new user
-        </button>
+        <Button variant="primary" size="cta-lg" className="w-full">
+          Continue <ArrowRight className="size-4" />
+        </Button>
       </Entry>
 
       <Entry
-        name="Inline pattern E — row-action pill (px-4 py-5)"
-        verdict="consolidate"
-        usedIn="8 instances — patient-history rows (×5), user/unit/client-management Manage buttons"
-        notes="Used inside list rows. Same dark fill but with px-4 py-5 instead of fixed height."
+        name="Canonical combination — List-row action"
+        verdict="done"
+        usedIn="8 sites — patient-history rows (Start Consult / Options / Continue) and Manage buttons on user/unit/client management lists."
+        notes={'<Button variant="primary" size="lg" className="w-full">Start Consult</Button>'}
       >
-        <button
-          type="button"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
-        >
+        <Button variant="primary" size="lg" className="w-full">
           Start Consult
-        </button>
+        </Button>
       </Entry>
 
       <Entry
-        name="Inline pattern F — accent (brand-coloured) CTA"
-        verdict="consolidate"
-        usedIn="~11 instances — every 'New X' top-right management action + mobile twin"
-        notes="Same shape as A/B but painted in the client's --client-primary accent. Strong candidate for a Button variant='accent' addition."
+        name="Canonical combination — Brand-coloured 'New X'"
+        verdict="done"
+        usedIn="11+ sites — New Client / New User / New Unit / New Patient (desktop + mobile each), audit-log Export, security Refresh"
+        notes={'<Button variant="accent" size="cta-lg">New Client <Plus /></Button>'}
       >
-        <button
-          type="button"
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl px-6 py-5 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
-          style={{ backgroundColor: "var(--client-primary)" }}
-        >
+        <Button variant="accent" size="cta-lg">
           New Client
           <Plus className="size-4" />
-        </button>
+        </Button>
       </Entry>
 
       <Entry
-        name="Inline pattern G — Discard Flow (brand pink)"
-        verdict="consolidate"
-        usedIn="3 instances — create-booking/{patient-details, patient-metrics, payment}"
-        notes="Pink #FF3A69 destructive action in Sub Nav while a booking is mid-flight. Currently uses inline style={{ backgroundColor: '#FF3A69' }}."
+        name="Canonical combination — Discard Flow"
+        verdict="done"
+        usedIn="3 sites — create-booking/{patient-details, patient-metrics, payment} SubNav"
+        notes={'<Button variant="danger" size="sm">Discard Flow</Button>'}
       >
-        <button
-          type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-lg border-0 px-6 py-2 text-sm font-medium text-white hover:opacity-90"
-          style={{ backgroundColor: "#FF3A69" }}
-        >
-          Discard Flow
-        </button>
+        <Button variant="danger" size="sm">Discard Flow</Button>
       </Entry>
 
       <Entry
-        name="Back button (outline + ArrowLeft)"
-        verdict="consolidate"
-        usedIn="~10 instances — every dashboard SubNav 'Back' button"
-        notes="Same outline + dark border + ArrowLeft pattern repeated on every dashboard page. Becomes a shared SubNav component (the deleted sub-nav.tsx component captured this exactly)."
+        name="Canonical combination — Back button"
+        verdict="done"
+        usedIn="17 sites — every dashboard SubNav Back button"
+        notes={'<Button variant="primary-outline" size="nav"><ArrowLeft /> Back</Button>'}
       >
-        <button
-          type="button"
-          className="inline-flex items-center gap-3 rounded-lg border border-black bg-white px-6 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
-        >
+        <Button variant="primary-outline" size="nav">
           <ArrowLeft className="size-4" />
           Back
-        </button>
+        </Button>
       </Entry>
     </Section>
   )
@@ -944,15 +1071,19 @@ export default function DesignSystemPage() {
       </p>
 
       <ol className="ml-5 list-decimal space-y-2 text-sm text-gray-800">
-        <li>
-          <strong>Buttons</strong> — add{" "}
-          <code className="rounded bg-gray-100 px-1">variant=&quot;primary&quot;</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">variant=&quot;accent&quot;</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">variant=&quot;danger&quot;</code>,{" "}
-          <code className="rounded bg-gray-100 px-1">size=&quot;cta&quot;</code>, and{" "}
-          <code className="rounded bg-gray-100 px-1">size=&quot;nav&quot;</code> to{" "}
-          <code className="rounded bg-gray-100 px-1">button.tsx</code>. Migrate
-          all 41 inline CTAs (4 hrs).
+        <li className="line-through opacity-70">
+          <strong>Buttons</strong> — added{" "}
+          <code className="rounded bg-gray-100 px-1">primary</code>,{" "}
+          <code className="rounded bg-gray-100 px-1">primary-outline</code>,{" "}
+          <code className="rounded bg-gray-100 px-1">accent</code>,{" "}
+          <code className="rounded bg-gray-100 px-1">danger</code>{" "}
+          variants and{" "}
+          <code className="rounded bg-gray-100 px-1">cta</code>,{" "}
+          <code className="rounded bg-gray-100 px-1">cta-lg</code>,{" "}
+          <code className="rounded bg-gray-100 px-1">cta-xl</code>,{" "}
+          <code className="rounded bg-gray-100 px-1">row</code>,{" "}
+          <code className="rounded bg-gray-100 px-1">nav</code>{" "}
+          sizes to button.tsx. Migrated all 41+ inline CTAs. <strong>Done.</strong>
         </li>
         <li>
           <strong>Form Inputs</strong> — keep FloatingInput / FloatingSelect.
@@ -1017,6 +1148,10 @@ export default function DesignSystemPage() {
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 text-xs">
         <span className="font-semibold text-gray-700">Legend:</span>
+        <div className="flex items-center gap-2">
+          <VerdictPill verdict="done" />
+          <span className="text-gray-600">Consolidation complete — canonical pattern in use.</span>
+        </div>
         <div className="flex items-center gap-2">
           <VerdictPill verdict="keep" />
           <span className="text-gray-600">Canonical — use this going forward.</span>

@@ -363,9 +363,8 @@ export default function AuditLogPage() {
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Link href="/home">
           <Button
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
+            variant="primary-outline"
+            size="nav"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -379,8 +378,9 @@ export default function AuditLogPage() {
           Audit Log
         </h1>
         <Button
-          className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
+          className="hidden sm:inline-flex"
           onClick={handleExportCsv}
           disabled={
           exporting ||
@@ -411,8 +411,9 @@ export default function AuditLogPage() {
 
       {/* Mobile-only export button */}
       <Button
-        className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
-        size="lg"
+        variant="accent"
+        size="cta-lg"
+        className="w-full sm:hidden"
         onClick={handleExportCsv}
         disabled={
           exporting ||

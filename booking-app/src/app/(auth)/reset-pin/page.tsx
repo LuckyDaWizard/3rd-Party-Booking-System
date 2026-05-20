@@ -159,10 +159,12 @@ function ResetPinForm() {
         </div>
         <Button
           onClick={() => router.push("/sign-in")}
-          className="h-11 w-full rounded-xl text-base font-medium"
+          variant="primary"
+          size="cta"
+          className="w-full"
         >
           Go to sign in
-          <ArrowRight className="ml-1 size-4" />
+          <ArrowRight className="size-4" />
         </Button>
       </div>
     )
@@ -306,7 +308,9 @@ function ResetPinForm() {
         <Button
           type="submit"
           disabled={!canSubmit}
-          className="h-11 w-full rounded-xl text-base font-medium"
+          variant="primary"
+          size="cta"
+          className="w-full"
           data-testid="reset-pin-submit"
         >
           {state === "loading" ? (
@@ -314,7 +318,7 @@ function ResetPinForm() {
           ) : (
             <>
               Reset PIN
-              <ArrowRight className="ml-1 size-4" />
+              <ArrowRight className="size-4" />
             </>
           )}
         </Button>

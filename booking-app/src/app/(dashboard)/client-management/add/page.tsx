@@ -1273,10 +1273,9 @@ export default function AddNewClientPage() {
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Button
           data-testid="top-back-button"
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={handleTopBack}
-          className="rounded-lg border-black px-6 py-2 gap-3"
         >
           <ArrowLeft className="size-4" />
           Back
@@ -1426,11 +1425,9 @@ export default function AddNewClientPage() {
             data-testid="next-button"
             onClick={handleNext}
             disabled={!isNextEnabled || submitting}
-            className={`h-11 w-full rounded-xl ${
-              isNextEnabled && !submitting
-                ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-600"
-            }`}
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             {submitting ? (
               <>

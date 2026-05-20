@@ -226,9 +226,8 @@ export default function SecurityPage() {
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Link href="/home">
           <Button
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
+            variant="primary-outline"
+            size="nav"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -381,8 +380,8 @@ function FailedAttemptsTab() {
         <Button
           onClick={() => load(true)}
           disabled={refreshing}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
         >
           {refreshing ? "Refreshing..." : "Refresh"}
           <RefreshCw className="size-4" />
@@ -605,7 +604,9 @@ function FailedAttemptsTab() {
             <Button
               onClick={handleUnlock}
               disabled={unlocking}
-              className="h-11 w-full gap-2 rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {unlocking ? (
                 <>
@@ -735,8 +736,8 @@ function ActiveSessionsTab() {
         <Button
           onClick={() => load(true)}
           disabled={refreshing}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
         >
           {refreshing ? "Refreshing..." : "Refresh"}
           <RefreshCw className="size-4" />
@@ -1148,8 +1149,8 @@ function SuspiciousActivityTab() {
         <Button
           onClick={() => loadFlags(true)}
           disabled={refreshing}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
         >
           {refreshing ? "Refreshing..." : "Refresh"}
           <RefreshCw className="size-4" />
@@ -1470,8 +1471,8 @@ function SignInHistoryTab() {
         <Button
           onClick={handleExportCsv}
           disabled={exporting || rows.length === 0}
-          className="inline-flex justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] disabled:opacity-50"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
         >
           {exporting ? (
             <>

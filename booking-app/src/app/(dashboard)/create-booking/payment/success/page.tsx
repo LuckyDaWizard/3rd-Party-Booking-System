@@ -194,7 +194,9 @@ export default function PaymentSuccessPage() {
             </p>
             <Button
               onClick={() => router.push(nextStepHref)}
-              className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800 sm:w-64"
+              variant="primary"
+              size="cta-lg"
+              className="w-full sm:w-64"
             >
               Continue ({formatted})
             </Button>
@@ -251,14 +253,17 @@ export default function PaymentSuccessPage() {
             <div className="flex w-full flex-col gap-3">
               <Button
                 onClick={() => router.push("/patient-history")}
-                className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800"
+                variant="primary"
+                size="cta-lg"
+                className="w-full"
               >
                 Go to Patient History
               </Button>
               <Button
-                variant="outline"
+                variant="primary-outline"
+                size="cta-lg"
                 onClick={() => router.push(`/create-booking/payment?bookingId=${bookingId}`)}
-                className="h-12 w-full rounded-xl border border-black text-base font-semibold"
+                className="w-full"
               >
                 Try Payment Again
               </Button>

@@ -219,7 +219,9 @@ export default function SignInPage() {
         <Button
           type="submit"
           disabled={isButtonDisabled || pin.length !== PIN_LENGTH}
-          className="h-11 w-full rounded-xl text-base font-medium"
+          variant="primary"
+          size="cta"
+          className="w-full"
           data-testid="sign-in-submit"
         >
           {state === "loading" ? (
@@ -227,7 +229,7 @@ export default function SignInPage() {
           ) : (
             <>
               Next
-              <ArrowRight className="ml-1 size-4" data-icon="inline-end" />
+              <ArrowRight className="size-4" data-icon="inline-end" />
             </>
           )}
         </Button>

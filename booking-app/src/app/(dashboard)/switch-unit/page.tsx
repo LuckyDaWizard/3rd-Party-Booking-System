@@ -139,7 +139,9 @@ export default function SwitchUnitPage() {
         <Button
           data-testid="continue-button"
           onClick={handleContinue}
-          className="h-11 w-full rounded-xl bg-black text-white hover:bg-gray-800"
+          variant="primary"
+          size="cta"
+          className="w-full"
         >
           Continue
           <ArrowRight data-icon="inline-end" className="ml-1 size-4" />
@@ -148,9 +150,10 @@ export default function SwitchUnitPage() {
         {/* Back button */}
         <Button
           data-testid="back-button"
-          variant="outline"
+          variant="primary-outline"
+          size="cta"
           onClick={handleBack}
-          className="h-11 w-full rounded-xl border border-black"
+          className="w-full"
         >
           Back
         </Button>
@@ -180,7 +183,9 @@ export default function SwitchUnitPage() {
             <Button
               data-testid="confirm-switch-button"
               onClick={handleConfirmSwitch}
-              className="h-11 w-full rounded-xl bg-black text-white hover:bg-gray-800"
+              variant="primary"
+          size="cta"
+          className="w-full"
             >
               Yes, Switch Units
             </Button>

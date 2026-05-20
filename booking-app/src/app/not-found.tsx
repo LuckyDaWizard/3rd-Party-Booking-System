@@ -27,7 +27,7 @@ export default function NotFound() {
 
         <div className="flex w-full flex-col gap-3">
           <Link href="/home">
-            <Button className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800">
+            <Button variant="primary" size="cta-lg" className="w-full">
               Back to home
             </Button>
           </Link>

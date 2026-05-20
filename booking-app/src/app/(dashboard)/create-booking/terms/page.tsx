@@ -68,7 +68,9 @@ export default function TermsAndConditionsPage() {
           data-testid="accept-button"
           onClick={handleAccept}
           disabled={submitting}
-          className="h-12 w-full rounded-xl bg-gray-900 text-base font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
+          variant="primary"
+          size="cta-lg"
+          className="w-full"
         >
           {submitting ? "Working..." : "Accept"}
         </Button>

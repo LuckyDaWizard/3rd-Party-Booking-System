@@ -168,7 +168,9 @@ export function PinVerificationModal({
           <Button
             disabled={code.some((d) => !d) || verifying}
             onClick={handleVerify}
-            className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             {verifying ? (
               <>

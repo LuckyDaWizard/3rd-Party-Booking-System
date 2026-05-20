@@ -152,10 +152,9 @@ export default function ManageUnitPage() {
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Button
           data-testid="top-back-button"
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={() => router.push("/unit-management")}
-          className="rounded-lg border-black px-6 py-2 gap-3"
         >
           <ArrowLeft className="size-4" />
           Back
@@ -258,11 +257,9 @@ export default function ManageUnitPage() {
             data-testid="update-button"
             onClick={handleUpdateInformation}
             disabled={!hasChanges || saving}
-            className={`h-11 w-full rounded-xl ${
-              hasChanges && !saving
-                ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-600 cursor-not-allowed"
-            }`}
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             {saving ? "Saving..." : "Update Information"}
             {saving ? (
@@ -277,10 +274,11 @@ export default function ManageUnitPage() {
 
           <Button
             data-testid="disable-unit-button"
-            variant="outline"
+            variant="primary-outline"
+            size="cta"
             onClick={() => setIsStatusOpen(true)}
             disabled={toggling}
-            className="h-11 w-full rounded-xl border border-black"
+              className="w-full"
           >
             {toggling
               ? (unit.status === "Active" ? "Disabling..." : "Activating...")
@@ -315,7 +313,9 @@ export default function ManageUnitPage() {
                 setPinOpen(true)
               }}
               disabled={deleting || toggling}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {deleting ? "Deleting..." : "Yes, delete unit"}
               {deleting ? (
@@ -330,7 +330,7 @@ export default function ManageUnitPage() {
 
             <Button
               data-testid="disable-instead-button"
-              variant="outline"
+              variant="primary-outline"
               disabled={deleting || toggling}
               onClick={async () => {
                 setToggling(true)
@@ -347,7 +347,8 @@ export default function ManageUnitPage() {
                   setToggling(false)
                 }
               }}
-              className="h-11 w-full rounded-xl border border-black"
+              size="cta"
+              className="w-full"
             >
               {toggling ? "Disabling..." : "Disable unit instead"}
               {toggling && (
@@ -393,7 +394,9 @@ export default function ManageUnitPage() {
                 setIsStatusOpen(false)
                 await handleToggleStatus()
               }}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {toggling
                 ? (unit.status === "Active" ? "Disabling..." : "Activating...")

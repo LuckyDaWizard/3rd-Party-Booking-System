@@ -436,10 +436,9 @@ export default function ManageUserPage() {
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Button
           data-testid="top-back-button"
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={() => router.push("/user-management")}
-          className="rounded-lg border-black px-6 py-2 gap-3"
         >
           <ArrowLeft className="size-4" />
           Back
@@ -684,11 +683,9 @@ export default function ManageUserPage() {
             data-testid="update-button"
             onClick={handleUpdateInformation}
             disabled={!hasChanges || saving}
-            className={`h-11 w-full rounded-xl ${
-              hasChanges && !saving
-                ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-600 cursor-not-allowed"
-            }`}
+            variant="primary"
+            size="cta"
+            className="w-full"
           >
             {saving ? (
               <>
@@ -708,9 +705,10 @@ export default function ManageUserPage() {
 
           <Button
             data-testid="reset-pin-button"
-            variant="outline"
+            variant="primary-outline"
+            size="cta"
             onClick={() => setIsResetPinOpen(true)}
-            className="h-11 w-full rounded-xl border border-black"
+            className="w-full"
           >
             Reset Pin
           </Button>
@@ -746,7 +744,9 @@ export default function ManageUserPage() {
                 setPinAction("delete")
               }}
               disabled={deleting || toggling}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {deleting ? (
                 <>
@@ -766,13 +766,14 @@ export default function ManageUserPage() {
 
             <Button
               data-testid="disable-instead-button"
-              variant="outline"
+              variant="primary-outline"
+              size="cta"
               disabled={deleting || toggling}
               onClick={() => {
                 setIsDeleteOpen(false)
                 setPinAction("toggle")
               }}
-              className="h-11 w-full rounded-xl border border-black disabled:opacity-50"
+              className="w-full"
             >
               {toggling ? (
                 <>
@@ -821,7 +822,9 @@ export default function ManageUserPage() {
                 setIsVerificationOpen(true)
                 setTimeout(() => verificationRefs.current[0]?.focus(), 100)
               }}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               Yes, send pin
               <ArrowRight className="ml-1 size-4" />
@@ -915,11 +918,9 @@ export default function ManageUserPage() {
                 setVerificationError("")
                 await handleResetPin()
               }}
-              className={`h-11 w-full rounded-xl transition-colors ${
-                verificationCode.every((d) => d) && !verifying
-                  ? "bg-gray-900 text-white hover:bg-gray-800"
-                  : "bg-gray-300 text-gray-600"
-              }`}
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {verifying ? (
                 <>
@@ -974,7 +975,9 @@ export default function ManageUserPage() {
                 setIsStatusOpen(false)
                 setPinAction("toggle")
               }}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {toggling ? (
                 <>

@@ -1172,20 +1172,18 @@ export default function PatientDetailsPage() {
       <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 sm:px-6 sm:py-4">
         <Button
           data-testid="top-back-button"
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={handleBack}
-          className="rounded-lg border-black px-6 py-2 gap-3"
         >
           <ArrowLeft className="size-4" />
           Back
         </Button>
         <Button
           data-testid="discard-flow-button"
+          variant="danger"
           size="sm"
           onClick={handleDiscardFlow}
-          className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
-          style={{ backgroundColor: "#FF3A69" }}
         >
           Discard Flow
         </Button>

@@ -80,11 +80,13 @@ export default function ForgotPinPage() {
             className="w-full"
           >
             <Button
-              className="h-11 w-full rounded-xl text-base font-medium"
+              variant="primary"
+              size="cta"
+              className="w-full"
               data-testid="continue-to-reset"
             >
               Enter the code
-              <ArrowRight className="ml-1 size-4" />
+              <ArrowRight className="size-4" />
             </Button>
           </Link>
 
@@ -138,7 +140,9 @@ export default function ForgotPinPage() {
             <Button
               type="submit"
               disabled={state === "loading" || !email.trim()}
-              className="h-11 w-full rounded-xl text-base font-medium"
+              variant="primary"
+              size="cta"
+              className="w-full"
               data-testid="forgot-pin-submit"
             >
               {state === "loading" ? (
@@ -146,7 +150,7 @@ export default function ForgotPinPage() {
               ) : (
                 <>
                   Send reset code
-                  <ArrowRight className="ml-1 size-4" />
+                  <ArrowRight className="size-4" />
                 </>
               )}
             </Button>

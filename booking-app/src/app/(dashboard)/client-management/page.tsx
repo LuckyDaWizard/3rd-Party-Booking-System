@@ -134,9 +134,8 @@ export default function ClientManagementPage() {
         <Link href="/home">
           <Button
             data-testid="back-button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
+            variant="primary-outline"
+            size="nav"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -237,8 +236,9 @@ export default function ClientManagementPage() {
         </h1>
         <Button
           data-testid="new-client-button"
-          className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
+          className="hidden sm:inline-flex"
           onClick={() => router.push("/client-management/add")}
         >
           New Client
@@ -256,8 +256,9 @@ export default function ClientManagementPage() {
           phones/small screens, where the desktop-placed button is hidden. */}
       <Button
         data-testid="new-client-button-mobile"
-        className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
-        size="lg"
+        variant="accent"
+        size="cta-lg"
+        className="w-full sm:hidden"
         onClick={() => router.push("/client-management/add")}
       >
         New Client
@@ -426,8 +427,9 @@ export default function ClientManagementPage() {
             const manageButton = (
               <Button
                 data-testid={`manage-button-${client.id}`}
-                className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                variant="primary"
                 size="lg"
+                className="w-full"
                 onClick={() => router.push(`/client-management/manage?id=${client.id}`)}
               >
                 Manage

@@ -207,8 +207,8 @@ export default function SelectPatientPage() {
       {/* Top bar */}
       <div className="flex items-center rounded-xl bg-white px-6 py-4">
         <Button
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={() => {
             if (step === "contact") {
               setStep("email")
@@ -216,7 +216,6 @@ export default function SelectPatientPage() {
               router.push("/create-booking")
             }
           }}
-          className="gap-3 rounded-lg border-black px-6 py-2"
         >
           <ArrowLeft className="size-4" />
           Back

@@ -321,10 +321,9 @@ export default function ManageClientPage() {
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Button
           data-testid="top-back-button"
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={() => router.push("/client-management")}
-          className="rounded-lg border-black px-6 py-2 gap-3"
         >
           <ArrowLeft className="size-4" />
           Back
@@ -1032,10 +1031,11 @@ export default function ManageClientPage() {
 
           <Button
             data-testid="disable-client-button"
-            variant="outline"
+            variant="primary-outline"
+            size="cta"
             disabled={saving}
             onClick={() => setIsStatusOpen(true)}
-            className={`h-11 w-full rounded-xl border border-black ${saving ? "disabled:opacity-50" : ""}`}
+            className="w-full"
           >
             {client.status === "Active" ? "Disable Client" : "Activate Client"}
           </Button>
@@ -1062,7 +1062,9 @@ export default function ManageClientPage() {
                 setIsDeleteOpen(false)
                 setPinOpen(true)
               }}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {deleting ? (
                 <>
@@ -1082,7 +1084,8 @@ export default function ManageClientPage() {
 
             <Button
               data-testid="disable-instead-button"
-              variant="outline"
+              variant="primary-outline"
+              size="cta"
               disabled={deleting || toggling}
               onClick={async () => {
                 setToggling(true)
@@ -1099,7 +1102,7 @@ export default function ManageClientPage() {
                   setToggling(false)
                 }
               }}
-              className="h-11 w-full rounded-xl border border-black"
+              className="w-full"
             >
               {toggling ? (
                 <>
@@ -1149,7 +1152,9 @@ export default function ManageClientPage() {
                 setIsStatusOpen(false)
                 await handleDisableClient()
               }}
-              className="h-11 w-full rounded-xl bg-gray-900 text-white hover:bg-gray-800"
+              variant="primary"
+              size="cta"
+              className="w-full"
             >
               {toggling ? (
                 <>

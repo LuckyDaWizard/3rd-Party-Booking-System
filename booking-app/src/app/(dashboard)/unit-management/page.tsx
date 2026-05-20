@@ -166,9 +166,8 @@ export default function UnitManagementPage() {
         <Link href="/home">
           <Button
             data-testid="back-button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-black px-6 py-2 gap-3"
+            variant="primary-outline"
+            size="nav"
           >
             <ArrowLeft className="size-4" />
             Back
@@ -258,8 +257,9 @@ export default function UnitManagementPage() {
         {isSystemAdmin && (
           <Button
             data-testid="new-unit-button"
-            className="hidden justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-8 py-6 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:inline-flex"
-            size="lg"
+            variant="accent"
+            size="cta-lg"
+            className="hidden sm:inline-flex"
             onClick={() => router.push("/unit-management/add")}
           >
             New Unit
@@ -278,8 +278,9 @@ export default function UnitManagementPage() {
       {isSystemAdmin && (
         <Button
           data-testid="new-unit-button-mobile"
-          className="w-full justify-center gap-2 rounded-xl bg-[var(--client-primary)] px-6 py-5 text-sm font-medium text-white hover:bg-[var(--client-primary-90)] sm:hidden"
-          size="lg"
+          variant="accent"
+          size="cta-lg"
+          className="w-full sm:hidden"
           onClick={() => router.push("/unit-management/add")}
         >
           New Unit
@@ -453,8 +454,9 @@ export default function UnitManagementPage() {
             const manageButton = (
               <Button
                 data-testid={`manage-button-${unit.id}`}
-                className="w-full justify-center gap-2 rounded-xl bg-gray-900 px-4 py-5 text-sm font-medium text-white hover:bg-gray-800"
+                variant="primary"
                 size="lg"
+                className="w-full"
                 onClick={() => router.push(`/unit-management/manage?id=${unit.id}`)}
               >
                 Manage

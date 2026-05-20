@@ -163,22 +163,20 @@ export default function PatientMetricsPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
         <Button
-          variant="outline"
-          size="sm"
+          variant="primary-outline"
+          size="nav"
           onClick={() => router.back()}
-          className="gap-3 rounded-lg border-black px-6 py-2"
         >
           <ArrowLeft className="size-4" />
           Back
         </Button>
         <Button
+          variant="danger"
           size="sm"
           onClick={async () => {
             if (bookingId) await discardBooking(bookingId)
             router.push("/home")
           }}
-          className="rounded-lg border-0 px-6 py-2 text-white hover:opacity-90"
-          style={{ backgroundColor: "#FF3A69" }}
         >
           Discard Flow
         </Button>
