@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, Building2, FileText, Palette, Settings, Users, User as UserIcon, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2, FileText, Palette, Settings, Users, User as UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { TabStrip } from "@/components/ui/tab-strip"
+import { SubNav } from "@/components/ui/sub-nav"
+import { Banner } from "@/components/ui/banner"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { useUserStore } from "@/lib/user-store"
@@ -234,7 +238,7 @@ export default function ManageClientPage() {
   if (!client) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-gray-500">Client not found</p>
+        <p className="text-ink-muted">Client not found</p>
       </div>
     )
   }
@@ -318,73 +322,44 @@ export default function ManageClientPage() {
       className="flex flex-1 flex-col"
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Button
-          data-testid="top-back-button"
-          variant="primary-outline"
-          size="nav"
-          onClick={() => router.push("/client-management")}
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-
+      <SubNav
+        onBack={() => router.push("/client-management")}
+        backTestId="top-back-button"
+      >
         <Button
           data-testid="delete-client-button"
-          size="sm"
+          variant="danger"
+          size="cta"
           onClick={() => setIsDeleteOpen(true)}
-          className="rounded-lg bg-[#FF3A69] px-6 py-2 text-white hover:bg-[#FF3A69]/90"
         >
           Delete Client
         </Button>
-      </div>
+      </SubNav>
 
       {/* Delete-failure banner — only shown after a 500 from the API.
           Replaces the misleading "test Deleted" success banner that
           previously rendered regardless of outcome. */}
       {deleteError && (
-        <div
-          data-testid="delete-error-banner"
-          className="mx-4 mt-2 flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-6 py-4"
-        >
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-gray-900">
-              Failed to delete client
-            </span>
-            <span className="text-sm text-gray-700">{deleteError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDeleteError("")}
-            className="shrink-0 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
-            aria-label="Dismiss"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        <Banner
+          kind="danger"
+          testId="delete-error-banner"
+          title="Failed to delete client"
+          description={deleteError}
+          onDismiss={() => setDeleteError("")}
+          className="mx-4 mt-2"
+        />
       )}
 
       {/* Save-failure banner — Update Information errors. */}
       {saveError && (
-        <div
-          data-testid="save-error-banner"
-          className="mx-4 mt-2 flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-6 py-4"
-        >
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-gray-900">
-              Failed to save changes
-            </span>
-            <span className="text-sm text-gray-700">{saveError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSaveError("")}
-            className="shrink-0 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
-            aria-label="Dismiss"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        <Banner
+          kind="danger"
+          testId="save-error-banner"
+          title="Failed to save changes"
+          description={saveError}
+          onDismiss={() => setSaveError("")}
+          className="mx-4 mt-2"
+        />
       )}
 
       {/* Content area */}
@@ -393,11 +368,11 @@ export default function ManageClientPage() {
         <div className="flex flex-col items-center gap-1 text-center">
           <h1
             data-testid="page-heading"
-            className="text-3xl font-bold text-gray-900"
+            className="text-3xl font-bold text-ink"
           >
             Manage {client.clientName}
           </h1>
-          <p className="text-base text-gray-500">
+          <p className="text-base text-ink-muted">
             Update client information and status below
           </p>
         </div>
@@ -405,114 +380,22 @@ export default function ManageClientPage() {
         {/* Tab pills — same visual language as the step indicators on the
             Add Client page (FileText icon + accent-tinted bg when active),
             but toggleable rather than step-gated. */}
-        <div
-          data-testid="tabs"
-          role="tablist"
-          aria-label="Client sections"
-          className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2"
-        >
-          <button
-            type="button"
-            role="tab"
-            data-testid="tab-details"
-            aria-selected={activeTab === "details"}
-            onClick={() => setActiveTab("details")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === "details"
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <FileText className="size-4" />
-            Client Details
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-testid="tab-branding"
-            aria-selected={activeTab === "branding"}
-            onClick={() => setActiveTab("branding")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === "branding"
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Palette className="size-4" />
-            Branding
-          </button>
-          {isSystemAdmin && (
-            <button
-              type="button"
-              role="tab"
-              data-testid="tab-settings"
-              aria-selected={activeTab === "settings"}
-              onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === "settings"
-                  ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              <Settings className="size-4" />
-              Settings
-            </button>
-          )}
-          <button
-            type="button"
-            role="tab"
-            data-testid="tab-units"
-            aria-selected={activeTab === "units"}
-            onClick={() => setActiveTab("units")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === "units"
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Building2 className="size-4" />
-            Units
-            {clientUnits.length > 0 && (
-              <span
-                data-testid="tab-units-count"
-                className={`ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-                  activeTab === "units"
-                    ? "bg-[var(--client-primary)] text-white"
-                    : "bg-gray-200 text-gray-600"
-                }`}
-              >
-                {clientUnits.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-testid="tab-users"
-            aria-selected={activeTab === "users"}
-            onClick={() => setActiveTab("users")}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === "users"
-                ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                : "text-gray-400 hover:text-gray-600"
-            }`}
-          >
-            <Users className="size-4" />
-            Users
-            {clientUsers.length > 0 && (
-              <span
-                data-testid="tab-users-count"
-                className={`ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-                  activeTab === "users"
-                    ? "bg-[var(--client-primary)] text-white"
-                    : "bg-gray-200 text-gray-600"
-                }`}
-              >
-                {clientUsers.length}
-              </span>
-            )}
-          </button>
-        </div>
+        <TabStrip
+          variant="pill"
+          value={activeTab}
+          onChange={setActiveTab}
+          testId="tabs"
+          ariaLabel="Client sections"
+          tabs={[
+            { value: "details", label: "Client Details", icon: FileText, testId: "tab-details" },
+            { value: "branding", label: "Branding", icon: Palette, testId: "tab-branding" },
+            ...(isSystemAdmin
+              ? [{ value: "settings" as const, label: "Settings", icon: Settings, testId: "tab-settings" }]
+              : []),
+            { value: "units", label: "Units", icon: Building2, count: clientUnits.length, testId: "tab-units" },
+            { value: "users", label: "Users", icon: Users, count: clientUsers.length, testId: "tab-users" },
+          ]}
+        />
 
         {/* Form — only the active tab's fields are mounted. Both share the
             "Update Information" button below; logo + favicon save
@@ -587,10 +470,10 @@ export default function ManageClientPage() {
               >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-sm font-semibold text-ink">
                         Collect payment at unit
                       </span>
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-ink-muted">
                         When ON, every unit under this client skips the
                         payment gateway. Each unit is responsible for
                         collecting the consultation fee directly from the
@@ -642,10 +525,10 @@ export default function ManageClientPage() {
                       className="ml-4 flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-white px-4 py-3"
                     >
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-semibold text-ink">
                           Skip patient metrics
                         </span>
-                        <span className="text-xs text-gray-600">
+                        <span className="text-xs text-ink-muted">
                           When ON, bookings also skip the
                           &ldquo;Enter patient metrics&rdquo; step.
                           Operators go from the booking flow directly
@@ -681,10 +564,10 @@ export default function ManageClientPage() {
               >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col gap-1">
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-sm font-semibold text-ink">
                         Bill at end of month
                       </span>
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-ink-muted">
                         When ON, bookings under this client skip the
                         payment step entirely and auto-complete. The
                         client is invoiced separately at month-end.
@@ -731,10 +614,10 @@ export default function ManageClientPage() {
                       className="ml-4 flex items-start justify-between gap-4 rounded-lg border border-blue-200 bg-white px-4 py-3"
                     >
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-semibold text-ink">
                           Skip patient metrics
                         </span>
-                        <span className="text-xs text-gray-600">
+                        <span className="text-xs text-ink-muted">
                           When ON, bookings also skip the
                           &ldquo;Enter patient metrics&rdquo; step.
                           Operators go from the booking flow directly
@@ -771,10 +654,10 @@ export default function ManageClientPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-semibold text-ink">
                       Nurse verification
                     </span>
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-ink-muted">
                       When ON, bookings under this client require a
                       nurse-verification step.
                     </span>
@@ -807,8 +690,8 @@ export default function ManageClientPage() {
               className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4"
             >
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Branding</h3>
-                <p className="text-xs text-gray-500">
+                <h3 className="text-sm font-semibold text-ink">Branding</h3>
+                <p className="text-xs text-ink-muted">
                   Logo for headers / printouts; favicon for tight icon spaces.
                 </p>
               </div>
@@ -862,10 +745,10 @@ export default function ManageClientPage() {
               {clientUnits.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white px-6 py-10 text-center">
                   <Building2 className="size-6 text-gray-300" strokeWidth={1.5} />
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-ink">
                     No units yet
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-ink-muted">
                     This client doesn&apos;t have any units linked yet. Add
                     one from Unit Management.
                   </span>
@@ -882,10 +765,10 @@ export default function ManageClientPage() {
                     className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-gray-300 hover:bg-gray-50"
                   >
                     <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="truncate text-sm font-semibold text-gray-900">
+                      <span className="truncate text-sm font-semibold text-ink">
                         {unit.unitName}
                       </span>
-                      <span className="truncate text-xs text-gray-500">
+                      <span className="truncate text-xs text-ink-muted">
                         {unit.province || "—"}
                       </span>
                     </div>
@@ -893,7 +776,7 @@ export default function ManageClientPage() {
                       className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-medium ${
                         unit.status === "Active"
                           ? "bg-green-100 text-green-700 border-transparent"
-                          : "bg-gray-100 text-gray-600 border-transparent"
+                          : "bg-gray-100 text-ink-muted border-transparent"
                       }`}
                     >
                       {unit.status}
@@ -912,10 +795,10 @@ export default function ManageClientPage() {
               {clientUsers.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white px-6 py-10 text-center">
                   <Users className="size-6 text-gray-300" strokeWidth={1.5} />
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-ink">
                     No users yet
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-ink-muted">
                     No users are assigned to any unit of this client. Add
                     one from User Management.
                   </span>
@@ -955,10 +838,10 @@ export default function ManageClientPage() {
                           )}
                         </div>
                         <div className="flex min-w-0 flex-col gap-0.5">
-                          <span className="truncate text-sm font-semibold text-gray-900">
+                          <span className="truncate text-sm font-semibold text-ink">
                             {`${u.firstNames} ${u.surname}`.trim() || "Unnamed user"}
                           </span>
-                          <span className="truncate text-xs text-gray-500">
+                          <span className="truncate text-xs text-ink-muted">
                             {u.email || u.contactNumber || "—"}
                           </span>
                           {visibleUnits.length > 0 && (
@@ -980,7 +863,7 @@ export default function ManageClientPage() {
                           className={`rounded-full border px-3 py-1 text-[11px] font-medium ${
                             u.status === "Active"
                               ? "bg-green-100 text-green-700 border-transparent"
-                              : "bg-gray-100 text-gray-600 border-transparent"
+                              : "bg-gray-100 text-ink-muted border-transparent"
                           }`}
                         >
                           {u.status}
@@ -1010,7 +893,7 @@ export default function ManageClientPage() {
               data-testid="update-button"
               disabled={saving}
               onClick={handleUpdateInformation}
-              className="h-11 w-full rounded-xl bg-gray-300 text-gray-600 hover:bg-gray-900 hover:text-white"
+              className="h-11 w-full rounded-xl bg-gray-300 text-ink-muted hover:bg-gray-900 hover:text-white"
             >
               {saving ? (
                 <>
@@ -1043,147 +926,67 @@ export default function ManageClientPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteOpen} onOpenChange={(v) => { if (!deleting && !toggling) setIsDeleteOpen(v) }}>
-        <DialogContent className="rounded-2xl p-6 sm:p-8">
-          <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              Are you sure you want to delete {client.clientName}
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              Deleting this client will permanently remove all associated records.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <Button
-              data-testid="confirm-delete-button"
-              disabled={deleting || toggling}
-              onClick={() => {
-                setIsDeleteOpen(false)
-                setPinOpen(true)
-              }}
-              variant="primary"
-              size="cta"
-              className="w-full"
-            >
-              {deleting ? (
-                <>
-                  Deleting...
-                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  Yes, delete client
-                  <ArrowRight className="ml-1 size-4" />
-                </>
-              )}
-            </Button>
-
-            <Button
-              data-testid="disable-instead-button"
-              variant="primary-outline"
-              size="cta"
-              disabled={deleting || toggling}
-              onClick={async () => {
-                setToggling(true)
-                try {
-                  setIsDeleteOpen(false)
-                  const name = client!.clientName
-                  await toggleClientStatus(clientId)
-                  const params = new URLSearchParams({
-                    statusChanged: "disabled",
-                    clientName: name,
-                  })
-                  router.push(`/client-management?${params.toString()}`)
-                } catch {
-                  setToggling(false)
-                }
-              }}
-              className="w-full"
-            >
-              {toggling ? (
-                <>
-                  Disabling...
-                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                    <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-                    <circle cx="20" cy="20" r="15" stroke="#111827" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                  </svg>
-                </>
-              ) : (
-                "Disable client instead"
-              )}
-            </Button>
-
-            <button
-              type="button"
-              data-testid="cancel-delete-button"
-              disabled={deleting || toggling}
-              onClick={() => setIsDeleteOpen(false)}
-              className={`text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 ${deleting || toggling ? "disabled:opacity-50" : ""}`}
-            >
-              Cancel
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title={`Are you sure you want to delete ${client.clientName}`}
+        description="Deleting this client will permanently remove all associated records."
+        confirmLabel="Yes, delete client"
+        confirmLoadingLabel="Deleting..."
+        confirmPending={deleting}
+        confirmDisabled={toggling}
+        onConfirm={() => {
+          setIsDeleteOpen(false)
+          setPinOpen(true)
+        }}
+        secondaryLabel="Disable client instead"
+        secondaryLoadingLabel="Disabling..."
+        secondaryPending={toggling}
+        secondaryDisabled={deleting}
+        onSecondary={async () => {
+          setToggling(true)
+          try {
+            setIsDeleteOpen(false)
+            const name = client!.clientName
+            await toggleClientStatus(clientId)
+            const params = new URLSearchParams({
+              statusChanged: "disabled",
+              clientName: name,
+            })
+            router.push(`/client-management?${params.toString()}`)
+          } catch {
+            setToggling(false)
+          }
+        }}
+        cancelDisabled={deleting || toggling}
+        preventCloseWhilePending={deleting || toggling}
+        confirmTestId="confirm-delete-button"
+        secondaryTestId="disable-instead-button"
+        cancelTestId="cancel-delete-button"
+      />
 
       {/* Disable / Activate Confirmation Dialog */}
-      <Dialog open={isStatusOpen} onOpenChange={(v) => { if (!toggling) setIsStatusOpen(v) }}>
-        <DialogContent className="rounded-2xl p-6 sm:p-8">
-          <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              {client.status === "Active" ? "Disable" : "Activate"} {client.clientName}?
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              {client.status === "Active"
-                ? "Disabling this client will restrict access to all associated units and users. This can be reversed"
-                : "Activating this client will restore system access and permissions."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <Button
-              data-testid="confirm-status-button"
-              disabled={toggling}
-              onClick={async () => {
-                setIsStatusOpen(false)
-                await handleDisableClient()
-              }}
-              variant="primary"
-              size="cta"
-              className="w-full"
-            >
-              {toggling ? (
-                <>
-                  {client.status === "Active" ? "Disabling..." : "Activating..."}
-                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  Yes, {client.status === "Active" ? "disable" : "activate"} client
-                  <ArrowRight className="ml-1 size-4" />
-                </>
-              )}
-            </Button>
-
-            <button
-              type="button"
-              data-testid="cancel-status-button"
-              disabled={toggling}
-              onClick={() => setIsStatusOpen(false)}
-              className={`text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 ${toggling ? "disabled:opacity-50" : ""}`}
-            >
-              Cancel
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isStatusOpen}
+        onOpenChange={setIsStatusOpen}
+        title={`${client.status === "Active" ? "Disable" : "Activate"} ${client.clientName}?`}
+        description={
+          client.status === "Active"
+            ? "Disabling this client will restrict access to all associated units and users. This can be reversed"
+            : "Activating this client will restore system access and permissions."
+        }
+        confirmLabel={`Yes, ${client.status === "Active" ? "disable" : "activate"} client`}
+        confirmLoadingLabel={client.status === "Active" ? "Disabling..." : "Activating..."}
+        confirmPending={toggling}
+        onConfirm={async () => {
+          setIsStatusOpen(false)
+          await handleDisableClient()
+        }}
+        cancelDisabled={toggling}
+        preventCloseWhilePending={toggling}
+        confirmTestId="confirm-status-button"
+        cancelTestId="cancel-status-button"
+      />
 
       {/* PIN verification — required before client deletion */}
       <PinVerificationModal
@@ -1255,7 +1058,7 @@ function ImmediateUploadRow({
         <div className="flex items-center gap-3">
           <label
             htmlFor={inputId}
-            className={`inline-flex w-fit items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ${
+            className={`inline-flex w-fit items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-ink ${
               busy ? "cursor-wait opacity-60" : "cursor-pointer hover:bg-gray-100"
             }`}
           >
@@ -1287,7 +1090,7 @@ function ImmediateUploadRow({
           )}
         </div>
       </div>
-      <span className="text-[11px] text-gray-500">{footnote}</span>
+      <span className="text-[11px] text-ink-muted">{footnote}</span>
       {error && <span className="text-[11px] text-red-600">{error}</span>}
     </div>
   )
@@ -1318,7 +1121,7 @@ function AccentColorRow({
   const isAtDefault = accent.toLowerCase() === defaultAccent.toLowerCase()
 
   let verdictLabel = ""
-  let verdictTone = "text-gray-500"
+  let verdictTone = "text-ink-muted"
   if (check) {
     if (check.verdict === "aa-normal") {
       verdictLabel = `Contrast ${check.ratio.toFixed(2)}:1 — AA (text + UI)`
@@ -1348,7 +1151,7 @@ function AccentColorRow({
               style={{ backgroundColor: accent }}
               aria-hidden="true"
             />
-            <span className="font-mono text-xs uppercase text-gray-700">{accent}</span>
+            <span className="font-mono text-xs uppercase text-ink">{accent}</span>
           </div>
           <input
             id="accent-color"
@@ -1362,7 +1165,7 @@ function AccentColorRow({
         </div>
         <label
           htmlFor="accent-color"
-          className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+          className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-gray-100"
         >
           {isAtDefault ? "Pick a colour" : "Change colour"}
         </label>
@@ -1371,13 +1174,13 @@ function AccentColorRow({
             type="button"
             data-testid="accent-reset-button"
             onClick={() => onChange(defaultAccent)}
-            className="text-xs text-gray-600 hover:underline"
+            className="text-xs text-ink-muted hover:underline"
           >
             Reset to default
           </button>
         )}
       </div>
-      <span className="text-[11px] text-gray-500">
+      <span className="text-[11px] text-ink-muted">
         Brand accent used for active filters, primary buttons, links, and the
         sidebar. Saved when you click Update Information.
       </span>

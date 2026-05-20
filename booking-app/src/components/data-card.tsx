@@ -85,10 +85,10 @@ export function DataCard({
       <div className="flex flex-col gap-3">
         {fields.map((field, i) => (
           <div key={`${field.label}-${i}`} className="flex flex-col gap-0.5">
-            <span className="text-xs font-bold text-gray-900">
+            <span className="text-xs font-bold text-ink">
               {field.label}
             </span>
-            <span className="break-words text-sm text-gray-600">
+            <span className="break-words text-sm text-ink-muted">
               {field.value || "-"}
             </span>
           </div>

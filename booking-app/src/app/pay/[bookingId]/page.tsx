@@ -44,8 +44,8 @@ export default async function PayPage({ params }: PageProps) {
   } catch (err) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 text-center">
-        <h1 className="text-xl font-bold text-gray-900">Payment unavailable</h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <h1 className="text-xl font-bold text-ink">Payment unavailable</h1>
+        <p className="mt-2 text-sm text-ink-muted">
           {err instanceof Error ? err.message : "Server misconfigured"}
         </p>
       </div>
@@ -62,8 +62,8 @@ export default async function PayPage({ params }: PageProps) {
   if (error || !booking) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 text-center">
-        <h1 className="text-xl font-bold text-gray-900">Booking not found</h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <h1 className="text-xl font-bold text-ink">Booking not found</h1>
+        <p className="mt-2 text-sm text-ink-muted">
           This payment link may be invalid or expired.
         </p>
       </div>
@@ -73,8 +73,8 @@ export default async function PayPage({ params }: PageProps) {
   if (booking.status === "Payment Complete" || booking.status === "Successful") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 text-center">
-        <h1 className="text-xl font-bold text-gray-900">Already paid</h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <h1 className="text-xl font-bold text-ink">Already paid</h1>
+        <p className="mt-2 text-sm text-ink-muted">
           This booking has already been paid for.
           {" "}Thank you!
         </p>
@@ -85,8 +85,8 @@ export default async function PayPage({ params }: PageProps) {
   if (booking.status !== "In Progress") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 text-center">
-        <h1 className="text-xl font-bold text-gray-900">Booking unavailable</h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <h1 className="text-xl font-bold text-ink">Booking unavailable</h1>
+        <p className="mt-2 text-sm text-ink-muted">
           This booking&apos;s status is &ldquo;{booking.status}&rdquo; and cannot be paid online.
         </p>
       </div>
@@ -114,8 +114,8 @@ export default async function PayPage({ params }: PageProps) {
           <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
           <circle cx="20" cy="20" r="15" stroke="#3ea3db" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
         </svg>
-        <h1 className="text-xl font-bold text-gray-900">Redirecting to PayFast...</h1>
-        <p className="text-sm text-gray-500">
+        <h1 className="text-xl font-bold text-ink">Redirecting to PayFast...</h1>
+        <p className="text-sm text-ink-muted">
           If nothing happens in a few seconds, click the button below.
         </p>
 

@@ -417,6 +417,51 @@
       .finding .field { grid-template-columns: 1fr; gap: 4px; }
     }
 
+    /* ----------- Reasoning expanders (effort / sprint task) ----------- */
+
+    .reasoning {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--r-ink-2);
+    }
+    .reasoning > summary {
+      cursor: pointer;
+      font-family: "Mulish", sans-serif;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--r-brand-dark);
+      user-select: none;
+      list-style: none;
+      display: inline-block;
+      padding: 2px 0;
+    }
+    .reasoning > summary::-webkit-details-marker { display: none; }
+    .reasoning > summary::before {
+      content: "▸";
+      display: inline-block;
+      margin-right: 6px;
+      transition: transform 0.15s;
+      color: var(--r-brand-dark);
+    }
+    .reasoning[open] > summary::before {
+      transform: rotate(90deg);
+    }
+    .reasoning > summary:hover { color: var(--r-brand); }
+    .reasoning > summary:hover::before { color: var(--r-brand); }
+    .reasoning .reasoning-body {
+      margin-top: 6px;
+      padding: 8px 12px;
+      background: rgba(62, 163, 219, 0.06);
+      border-left: 2px solid var(--r-brand-border);
+      border-radius: 4px;
+    }
+    .reasoning ul { margin: 0; padding-left: 18px; }
+    .reasoning li { margin: 3px 0; }
+    .reasoning .reasoning-body p { margin: 0 0 6px 0; }
+    .reasoning .reasoning-body p:last-child { margin-bottom: 0; }
+
     /* ----------- Verdict table ----------- */
 
     .verdict-table th { width: 200px; }
@@ -647,7 +692,23 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>Half a day, mostly waiting for DNS propagation.</div>
+            <div>
+              Half a day, mostly waiting for DNS propagation.
+              <details class="reasoning">
+                <summary>Why half a day</summary>
+                <div class="reasoning-body">
+                  <p>Tech work is trivial (~30 minutes): provision domain, run certbot for Let's Encrypt, update Traefik. The day is consumed by:</p>
+                  <ul>
+                    <li>DNS propagation wait (15 minutes - 2 hours depending on the TTL).</li>
+                    <li>Updating <code>NEXT_PUBLIC_APP_URL</code> and re-deploying.</li>
+                    <li>Updating Supabase allowed redirect URIs.</li>
+                    <li>Testing the full PayFast callback round-trip - their notify URL must be HTTPS.</li>
+                    <li>Verifying email links (sign-in magic link, PIN reset) still resolve correctly.</li>
+                    <li>Smoke-testing sign-in across 2-3 devices.</li>
+                  </ul>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -667,7 +728,22 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>2-3 hours.</div>
+            <div>
+              2-3 hours.
+              <details class="reasoning">
+                <summary>Why 2-3 hours</summary>
+                <div class="reasoning-body">
+                  <p>The code change itself is ~15 minutes per site, and there are only 2 sites. The rest of the time covers:</p>
+                  <ul>
+                    <li>Triggering a fake handoff failure locally to confirm what gets redacted (~20 min).</li>
+                    <li>Deciding the redacted format - hash vs short reference ID vs booking ID only (~15 min).</li>
+                    <li>Confirming the equivalent detail is still recoverable from the <code>audit_log</code> table (where patient detail belongs) (~30 min).</li>
+                    <li>Spot-checking past log retention to confirm the leak window closes once redacted (~30 min).</li>
+                    <li>Buffer for deploy + sanity check in production logs (~30 min).</li>
+                  </ul>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -687,7 +763,23 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>15 minutes to check; 2-3 hours of rotation work <em>only if</em> the file was actually committed.</div>
+            <div>
+              15 minutes to check; 2-3 hours of rotation work <em>only if</em> the file was actually committed.
+              <details class="reasoning">
+                <summary>Why this range</summary>
+                <div class="reasoning-body">
+                  <p><b>15 minutes</b> if the file is clean - one <code>git log --all --full-history -- .env.local</code> command tells you definitively.</p>
+                  <p><b>2-3 hours worst case</b> if the file is dirty:</p>
+                  <ul>
+                    <li>Rotate 4 secrets - Supabase service role, PayFast credentials, CareFirst key, SMTP password. Each provider has a 10-15 min rotation flow.</li>
+                    <li>Run BFG cleaner or git-filter-repo to scrub the file from git history (~30 min).</li>
+                    <li>Force-push to remote and coordinate with anyone holding clones (~30 min).</li>
+                    <li>Re-deploy with new secrets (~15 min).</li>
+                    <li>Verify sign-in, payment notify, CareFirst handoff and email all still work after the rotation (~45 min).</li>
+                  </ul>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
       </section>
@@ -712,7 +804,21 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>1 hour.</div>
+            <div>
+              1 hour.
+              <details class="reasoning">
+                <summary>Why 1 hour</summary>
+                <div class="reasoning-body">
+                  <p>The migration SQL is 3 lines (one <code>CREATE INDEX</code> per column). The hour covers the surrounding ceremony:</p>
+                  <ul>
+                    <li>Write migration 030 in the existing migration format (~10 min).</li>
+                    <li>Apply locally and run <code>EXPLAIN ANALYZE</code> on representative queries to confirm Postgres picks up the index (~15 min).</li>
+                    <li>Apply to staging and smoke-test the booking list + audit query paths (~15 min).</li>
+                    <li>Apply to production - this is trivial since indexes are additive and cause no lock contention at this scale (~20 min including the verification window).</li>
+                  </ul>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -738,7 +844,21 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>4 hours including writing the cleanup endpoint.</div>
+            <div>
+              4 hours including writing the cleanup endpoint.
+              <details class="reasoning">
+                <summary>Why 4 hours</summary>
+                <div class="reasoning-body">
+                  <p>Three discrete pieces of work bundled together:</p>
+                  <ul>
+                    <li><b>Build the cleanup endpoint</b> <code>POST /api/admin/cleanup/sweep</code> - service-role auth gate, three DELETE queries (expired pin_reset_tokens, old sessions, ancient login_attempts), log row counts for observability (~1.5 hr).</li>
+                    <li><b>Choose and configure the cron runner</b> - cron-job.org, GitHub Actions schedule, or Hostinger-native cron. Three sequential HTTP POSTs with proper auth headers (~1 hr).</li>
+                    <li><b>Verify the schedule fires</b> - watch the first few 15-minute ticks land, confirm reconcile + incidents + cleanup all complete (~1 hr).</li>
+                    <li><b>Add alerting</b> if the cron stops firing - silent failures are the worst kind (~30 min).</li>
+                  </ul>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -758,7 +878,20 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>2-3 hours plus testing.</div>
+            <div>
+              2-3 hours plus testing.
+              <details class="reasoning">
+                <summary>Why 2-3 hours</summary>
+                <div class="reasoning-body">
+                  <p>The code change is small but verification is the heavy bit:</p>
+                  <ul>
+                    <li>Update 4 mutation points in <code>booking-store.tsx</code> to patch local state instead of triggering a refetch (~1 hr code).</li>
+                    <li>Manually test each of the 4 paths - create, edit, discard, abandon - verifying scroll position is preserved and no flicker (~1 hr).</li>
+                    <li>Edge case thinking: what if another tab is open? Stale data risk - acceptable for this volume but documented (~30 min).</li>
+                  </ul>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -778,7 +911,21 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>1 day including testing every endpoint after the change.</div>
+            <div>
+              1 day including testing every endpoint after the change.
+              <details class="reasoning">
+                <summary>Why 1 day</summary>
+                <div class="reasoning-body">
+                  <p>The change itself is small but the coverage matrix is large:</p>
+                  <ul>
+                    <li>Write the middleware that runs on the <code>/api/admin/*</code> matcher with role-based checks (~2 hr).</li>
+                    <li>Remove the redundant auth blocks from ~30 endpoints (~1 hr - mechanical).</li>
+                    <li>Re-test all 30 endpoints. Each one needs three checks: signed-out returns 401, wrong role returns 403, correct role returns 200. Don't skip - auth was previously per-endpoint so any regression is silent (~5 hr).</li>
+                  </ul>
+                  <p>The day reflects the testing matrix, not the typing.</p>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -798,7 +945,22 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>1-2 days; this is a refactor, not a bug fix.</div>
+            <div>
+              1-2 days; this is a refactor, not a bug fix.
+              <details class="reasoning">
+                <summary>Why 1-2 days</summary>
+                <div class="reasoning-body">
+                  <p>The risk profile is the driver, not the keystroke count:</p>
+                  <ul>
+                    <li>Map all transition logic currently scattered across <code>booking-store.tsx</code> and 8 API routes (~2 hr).</li>
+                    <li>Define the state machine in one module - states + the allowed transitions between them (~3 hr).</li>
+                    <li>Replace inline checks with calls to the shared module (~3 hr).</li>
+                    <li><b>Race-condition testing</b> - this is the big chunk. Admin manual-confirm racing with PayFast auto-reconcile, abandoned-flow racing with continue, payment-failed racing with success. Each race needs reasoning + reproduction (~4-8 hr).</li>
+                  </ul>
+                  <p>It's marked 1-2 days because the lower bound assumes no surprising race interactions and the upper bound assumes one or two pieces of logic that turn out to depend on timing in subtle ways.</p>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
 
@@ -818,7 +980,22 @@
           </div>
           <div class="field">
             <div class="field-label">Effort</div>
-            <div>Half a day plus a stakeholder conversation.</div>
+            <div>
+              Half a day plus a stakeholder conversation.
+              <details class="reasoning">
+                <summary>Why half a day</summary>
+                <div class="reasoning-body">
+                  <p>The work is mostly the conversation, not the code:</p>
+                  <ul>
+                    <li>Read the current implementation of <code>/api/admin/privacy/erase</code> to understand exactly what's anonymised and what's retained (~30 min).</li>
+                    <li>Stakeholder conversation - legal/compliance officer + business owner. Decide whether to accept the residual re-identification risk OR replace <code>unit_id</code> with a generic billing code (~1-2 hr).</li>
+                    <li>If "accept the risk" path: update the privacy notice + document the decision (~1 hr).</li>
+                    <li>If "replace" path: update the erase route to swap <code>unit_id</code> for a client-level billing code, test the run end-to-end (~2 hr).</li>
+                  </ul>
+                  <p>Half a day is the conversation + decision + write-up combined. The code is the small part.</p>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
       </section>
@@ -915,16 +1092,72 @@
         <p>Sized for a small team. Each sprint is independent and can be tackled in any order, but the suggested sequence below maximises de-risking for least effort.</p>
 
         <h3><span class="h3-num">Sprint 1</span> "Make it safe to take outside" <span style="color: var(--r-mute); font-weight: 400; font-size: 14px;">- ~2 days</span></h3>
+        <p style="font-size: 13px; color: var(--r-mute);">Click any task to see the breakdown of where its hours go.</p>
         <table>
           <thead>
             <tr><th>Task</th><th style="width: 100px;">Effort</th></tr>
           </thead>
           <tbody>
-            <tr><td>1. Migrate to HTTPS (domain, certificate, env var)</td><td>0.5 day</td></tr>
-            <tr><td>2. Redact PII from server logs</td><td>0.25 day</td></tr>
-            <tr><td>3. Audit git history for committed secrets; rotate if found</td><td>0.5 day (worst case)</td></tr>
-            <tr><td>4. Add the three missing database indexes (migration 030)</td><td>0.25 day</td></tr>
-            <tr><td>5. Decide and document POPIA erasure stance for unit ID</td><td>0.5 day</td></tr>
+            <tr>
+              <td>
+                1. Migrate to HTTPS (domain, certificate, env var)
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Tech is ~30 min: domain, Let's Encrypt cert, Traefik update. Rest is DNS propagation wait + verifying PayFast notify URL still resolves over HTTPS + Supabase redirect URI update + cross-device sign-in smoke test.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
+            <tr>
+              <td>
+                2. Redact PII from server logs
+                <details class="reasoning">
+                  <summary>Why 0.25 day</summary>
+                  <div class="reasoning-body">
+                    <p>Two sites to update at ~15 min each. The rest is triggering a fake failure to confirm what's now logged + confirming equivalent detail is still recoverable from <code>audit_log</code>.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.25 day</td>
+            </tr>
+            <tr>
+              <td>
+                3. Audit git history for committed secrets; rotate if found
+                <details class="reasoning">
+                  <summary>Why 0.5 day worst case</summary>
+                  <div class="reasoning-body">
+                    <p>15 min to check (one git log command). If found: rotate 4 secrets (Supabase, PayFast, CareFirst, SMTP) at ~15 min each + BFG history scrub + force-push + re-deploy + verify everything still works = ~2-3 hr.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day (worst case)</td>
+            </tr>
+            <tr>
+              <td>
+                4. Add the three missing database indexes (migration 030)
+                <details class="reasoning">
+                  <summary>Why 0.25 day</summary>
+                  <div class="reasoning-body">
+                    <p>The SQL is 3 lines. The hour covers writing migration in the existing format + EXPLAIN ANALYZE locally to confirm the index is picked up + staging smoke test + production apply (additive, no lock contention).</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.25 day</td>
+            </tr>
+            <tr>
+              <td>
+                5. Decide and document POPIA erasure stance for unit ID
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Half a day is mostly the stakeholder conversation - legal + business owner deciding whether to accept residual risk OR replace <code>unit_id</code> with a coarser billing code. Then a short write-up in the privacy notice. The code is the small part.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
           </tbody>
         </table>
         <p><i>After this sprint the system is materially safer for external or clinical use.</i></p>
@@ -935,11 +1168,66 @@
             <tr><th>Task</th><th style="width: 100px;">Effort</th></tr>
           </thead>
           <tbody>
-            <tr><td>6. Build cleanup endpoint for old tokens &amp; login attempts</td><td>0.5 day</td></tr>
-            <tr><td>7. Wire a 15-minute external cron for reconcile, incidents, cleanup</td><td>0.5 day</td></tr>
-            <tr><td>8. Patch booking list in place instead of refetching</td><td>0.5 day</td></tr>
-            <tr><td>9. Surface silent errors to the user with a toast component</td><td>0.5 day</td></tr>
-            <tr><td>10. Add timeout + retry to CareFirst handoff</td><td>0.5 day</td></tr>
+            <tr>
+              <td>
+                6. Build cleanup endpoint for old tokens &amp; login attempts
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>New <code>POST /api/admin/cleanup/sweep</code> route - service-role auth, three DELETE queries (expired pin_reset_tokens, old sessions, ancient login_attempts) with row-count logging. ~3 hr code + ~1 hr test.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
+            <tr>
+              <td>
+                7. Wire a 15-minute external cron for reconcile, incidents, cleanup
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Choose the runner (cron-job.org, GitHub Actions schedule, or Hostinger native) and configure 3 sequential HTTP POSTs. The half-day is mostly verifying the first few 15-min ticks fire correctly and adding alerting if they stop.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
+            <tr>
+              <td>
+                8. Patch booking list in place instead of refetching
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>~30 lines of code change in <code>booking-store.tsx</code> across 4 mutation paths (create / edit / discard / abandon). The other half is manually testing each path - scroll-position preservation, no flicker, no double-update.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
+            <tr>
+              <td>
+                9. Surface silent errors to the user with a toast component
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Build (or borrow from shadcn) a Toast primitive (~2 hr). Wire it to the 5 error-only-in-console sites in <code>booking-store.tsx</code> (~1 hr). Test each path by killing the network mid-action (~1 hr).</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
+            <tr>
+              <td>
+                10. Add timeout + retry to CareFirst handoff
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Wrap the existing fetch in an AbortController + 5-second timeout, retry once on 502/503. Update <code>audit_log</code> to distinguish timeout from outright failure. The half-day covers manual verification against a deliberately slow endpoint.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
           </tbody>
         </table>
         <p><i>After this sprint the system maintains itself without an admin watching it.</i></p>
@@ -950,11 +1238,66 @@
             <tr><th>Task</th><th style="width: 100px;">Effort</th></tr>
           </thead>
           <tbody>
-            <tr><td>11. Refactor auth into Next.js middleware (one place, not 30)</td><td>1 day</td></tr>
-            <tr><td>12. Centralise the booking state machine</td><td>1-2 days</td></tr>
-            <tr><td>13. Standardise API error response shape</td><td>0.5 day</td></tr>
-            <tr><td>14. Parallelise the slow API routes</td><td>0.5 day</td></tr>
-            <tr><td>15. Shorten access-token expiry; add session blacklist if needed</td><td>0.5 day</td></tr>
+            <tr>
+              <td>
+                11. Refactor auth into Next.js middleware (one place, not 30)
+                <details class="reasoning">
+                  <summary>Why 1 day</summary>
+                  <div class="reasoning-body">
+                    <p>The day reflects the testing matrix, not the keystrokes. ~2 hr writing the middleware + ~1 hr removing redundant auth blocks from 30 endpoints + ~5 hr re-testing all 30 endpoints against three checks each (signed-out → 401, wrong role → 403, correct role → 200). Auth regressions are silent so the coverage matters.</p>
+                  </div>
+                </details>
+              </td>
+              <td>1 day</td>
+            </tr>
+            <tr>
+              <td>
+                12. Centralise the booking state machine
+                <details class="reasoning">
+                  <summary>Why 1-2 days</summary>
+                  <div class="reasoning-body">
+                    <p>Map all transition logic (~2 hr), define the state machine module (~3 hr), replace inline checks with module calls (~3 hr). The big chunk is race-condition testing: admin manual-confirm racing with auto-reconcile, abandoned-flow racing with continue, etc. Each race needs reasoning + reproduction (~4-8 hr). The range covers whether subtle timing dependencies surface.</p>
+                  </div>
+                </details>
+              </td>
+              <td>1-2 days</td>
+            </tr>
+            <tr>
+              <td>
+                13. Standardise API error response shape
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Mechanical sweep of ~30 routes to return <code>{ success: false, error: string }</code>. Update client-side fetch handlers to read from <code>.error</code> consistently. The half-day is mostly the per-endpoint verification.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
+            <tr>
+              <td>
+                14. Parallelise the slow API routes
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Two routes - PayFast initiate and payment-mode - have 3 sequential queries that could be parallel. ~30 min code (wrap in <code>Promise.all</code>) + verify no implicit ordering dependency + add timing logs to confirm the ~50% latency reduction is real.</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
+            <tr>
+              <td>
+                15. Shorten access-token expiry; add session blacklist if needed
+                <details class="reasoning">
+                  <summary>Why 0.5 day</summary>
+                  <div class="reasoning-body">
+                    <p>Configure Supabase to issue 15-min tokens instead of 60-min (~15 min). Verify the refresh-token flow still works smoothly at the shorter interval (~1.5 hr). Test that forced sign-out propagates within the 15-min window instead of the old 60-min (~1.5 hr).</p>
+                  </div>
+                </details>
+              </td>
+              <td>0.5 day</td>
+            </tr>
           </tbody>
         </table>
         <p><i>After this sprint the codebase is materially easier to extend.</i></p>

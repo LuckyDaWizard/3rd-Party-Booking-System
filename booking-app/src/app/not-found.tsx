@@ -16,11 +16,11 @@ export default function NotFound() {
       <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
         <SearchX className="size-16 text-gray-400" strokeWidth={1.5} />
 
-        <h1 className="text-2xl font-extrabold text-gray-900 sm:text-3xl">
+        <h1 className="text-2xl font-extrabold text-ink sm:text-3xl">
           Page not found
         </h1>
 
-        <p className="text-base text-gray-500">
+        <p className="text-base text-ink-muted">
           The page you were looking for doesn&apos;t exist — it may have been
           moved or the link you followed is out of date.
         </p>

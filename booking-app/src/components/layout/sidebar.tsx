@@ -162,7 +162,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
           data-testid="sidebar-toggle"
           onClick={toggle}
           className={cn(
-            "mt-3 mb-0 flex items-center rounded-lg px-3 py-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600",
+            "mt-3 mb-0 flex items-center rounded-lg px-3 py-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-ink-muted",
             collapsed ? "mx-3 justify-center" : "ml-auto mr-3 w-fit"
           )}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -271,7 +271,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                       "flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-colors",
                       isActive
                         ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        : "text-ink-muted hover:bg-gray-50 hover:text-ink"
                     )}
                     title={item.label}
                   >
@@ -301,7 +301,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                                 "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
                                 isChildActive
                                   ? "text-[var(--client-primary)] font-medium bg-[var(--client-primary-10)]"
-                                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                  : "text-ink-muted hover:bg-gray-50 hover:text-ink"
                               )}
                             >
                               {child.label}
@@ -328,7 +328,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                     "flex items-center justify-between rounded-lg text-sm font-medium transition-colors gap-3 px-3 py-2.5",
                     isActive
                       ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      : "text-ink-muted hover:bg-gray-50 hover:text-ink"
                   )}
                 >
                   <span className="flex items-center gap-3">
@@ -363,7 +363,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                             "rounded-lg px-3 py-2 text-sm transition-colors",
                             isChildActive
                               ? "text-[var(--client-primary)] font-medium"
-                              : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                              : "text-ink-muted hover:bg-gray-50 hover:text-ink"
                           )}
                         >
                           {child.label}
@@ -391,7 +391,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                   : "gap-3 px-3 py-2.5",
                 isActive
                   ? "bg-[var(--client-primary-10)] text-[var(--client-primary)]"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  : "text-ink-muted hover:bg-gray-50 hover:text-ink"
               )}
               aria-current={isActive ? "page" : undefined}
               title={collapsed ? item.label : undefined}

@@ -7,11 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowRight, ArrowLeft, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp"
+import { OtpInput } from "@/components/ui/otp-input"
 import { PIN_LENGTH } from "@/lib/constants"
 
 // =============================================================================
@@ -152,7 +148,7 @@ function ResetPinForm() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             PIN reset
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-muted">
             Your PIN has been updated and any existing sessions have been
             signed out. Sign in with your new PIN to continue.
           </p>
@@ -187,7 +183,7 @@ function ResetPinForm() {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Set a new PIN
         </h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-ink-muted">
           Enter the 6-digit code we sent to your email, then choose a new PIN.
         </p>
       </div>
@@ -201,7 +197,7 @@ function ResetPinForm() {
       >
         {/* Email */}
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="reset-email" className="text-xs font-medium text-gray-700">
+          <label htmlFor="reset-email" className="text-xs font-medium text-ink">
             Email
           </label>
           <Input
@@ -219,74 +215,41 @@ function ResetPinForm() {
 
         {/* 6-digit code */}
         <div className="flex flex-col items-center gap-1.5">
-          <label className="self-start text-xs font-medium text-gray-700">
+          <label className="self-start text-xs font-medium text-ink">
             Reset code
           </label>
-          <InputOTP
-            maxLength={PIN_LENGTH}
+          <OtpInput
             value={code}
-            onChange={(v) => setCode(v.replace(/\D/g, ""))}
+            onChange={setCode}
             disabled={state === "loading"}
-            aria-label="6-digit reset code"
-          >
-            <InputOTPGroup className="gap-2 sm:gap-3">
-              {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                <InputOTPSlot
-                  key={i}
-                  index={i}
-                  className="!size-10 !rounded-lg !border text-lg font-semibold sm:!size-12"
-                />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
+            ariaLabel="6-digit reset code"
+          />
         </div>
 
         {/* New PIN */}
         <div className="flex flex-col items-center gap-1.5">
-          <label className="self-start text-xs font-medium text-gray-700">
+          <label className="self-start text-xs font-medium text-ink">
             New PIN
           </label>
-          <InputOTP
-            maxLength={PIN_LENGTH}
+          <OtpInput
             value={newPin}
-            onChange={(v) => setNewPin(v.replace(/\D/g, ""))}
+            onChange={setNewPin}
             disabled={state === "loading"}
-            aria-label="New 6-digit PIN"
-          >
-            <InputOTPGroup className="gap-2 sm:gap-3">
-              {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                <InputOTPSlot
-                  key={i}
-                  index={i}
-                  className="!size-10 !rounded-lg !border text-lg font-semibold sm:!size-12"
-                />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
+            ariaLabel="New 6-digit PIN"
+          />
         </div>
 
         {/* Confirm PIN */}
         <div className="flex flex-col items-center gap-1.5">
-          <label className="self-start text-xs font-medium text-gray-700">
+          <label className="self-start text-xs font-medium text-ink">
             Confirm new PIN
           </label>
-          <InputOTP
-            maxLength={PIN_LENGTH}
+          <OtpInput
             value={confirmPin}
-            onChange={(v) => setConfirmPin(v.replace(/\D/g, ""))}
+            onChange={setConfirmPin}
             disabled={state === "loading"}
-            aria-label="Confirm new 6-digit PIN"
-          >
-            <InputOTPGroup className="gap-2 sm:gap-3">
-              {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                <InputOTPSlot
-                  key={i}
-                  index={i}
-                  className="!size-10 !rounded-lg !border text-lg font-semibold sm:!size-12"
-                />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
+            ariaLabel="Confirm new 6-digit PIN"
+          />
         </div>
 
         {showError && (
@@ -332,7 +295,7 @@ function ResetPinForm() {
         Back to sign in
       </Link>
 
-      <p className="text-center text-xs text-gray-500">
+      <p className="text-center text-xs text-ink-muted">
         Didn&apos;t receive a code?{" "}
         <Link
           href="/forgot-pin"

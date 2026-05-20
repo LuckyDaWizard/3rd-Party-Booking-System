@@ -56,9 +56,9 @@ export default function TermsAndConditionsPage() {
         VERSION 1.0.0
       </span>
 
-      <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">Terms and Conditions</h1>
+      <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">Terms and Conditions</h1>
 
-      <p className="max-w-xl text-center text-base text-gray-500">
+      <p className="max-w-xl text-center text-base text-ink-muted">
         By accepting these Terms and Conditions, you agree to use this web application and platform as set out
         therein and you consent and agree that we can display the information you upload onto the platform.
       </p>

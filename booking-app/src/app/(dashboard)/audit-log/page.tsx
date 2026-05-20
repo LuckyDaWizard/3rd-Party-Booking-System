@@ -6,6 +6,9 @@ import { ArrowLeft, Search, ChevronDown, ChevronLeft, ChevronRight, Download } f
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
+import { EmptyState } from "@/components/ui/empty-state"
+import { SubNav } from "@/components/ui/sub-nav"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,7 +70,7 @@ function getActionStyle(action: string): string {
     case "toggle_status":
       return "bg-purple-100 text-purple-600 border-transparent"
     default:
-      return "bg-gray-100 text-gray-600 border-transparent"
+      return "bg-gray-100 text-ink-muted border-transparent"
   }
 }
 
@@ -82,7 +85,7 @@ function getEntityStyle(entityType: string): string {
     case "booking":
       return "bg-purple-50 text-purple-600 border-transparent"
     default:
-      return "bg-gray-50 text-gray-600 border-transparent"
+      return "bg-gray-50 text-ink-muted border-transparent"
   }
 }
 
@@ -97,9 +100,9 @@ function getBookingStatusStyle(status: string): string {
     case "Discarded":
       return "bg-pink-100 text-pink-700 border-transparent"
     case "Abandoned":
-      return "bg-gray-200 text-gray-700 border-transparent"
+      return "bg-gray-200 text-ink border-transparent"
     default:
-      return "bg-gray-100 text-gray-600 border-transparent"
+      return "bg-gray-100 text-ink-muted border-transparent"
   }
 }
 
@@ -360,21 +363,11 @@ export default function AuditLogPage() {
   return (
     <div className="flex flex-col gap-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/home">
-          <Button
-            variant="primary-outline"
-            size="nav"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-        </Link>
-      </div>
+      <SubNav backHref="/home" />
 
       {/* Heading */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
           Audit Log
         </h1>
         <Button
@@ -405,7 +398,7 @@ export default function AuditLogPage() {
           )}
         </Button>
       </div>
-      <p className="-mt-6 text-base text-gray-500">
+      <p className="-mt-6 text-base text-ink-muted">
         View a record of all administrative actions
       </p>
 
@@ -438,7 +431,7 @@ export default function AuditLogPage() {
               className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 entityFilter === tab.value
                   ? "bg-[var(--client-primary)] text-white"
-                  : "text-gray-600 hover:bg-gray-200"
+                  : "text-ink-muted hover:bg-gray-200"
               }`}
             >
               {tab.label}
@@ -454,7 +447,7 @@ export default function AuditLogPage() {
               type="button"
               onClick={() => setActionDropdownOpen(!actionDropdownOpen)}
               className={`flex h-8 w-full items-center justify-between rounded-lg border bg-white px-2.5 py-2 text-sm transition-colors hover:border-ring ${
-                actionFilter ? "text-gray-900 border-gray-900" : "text-muted-foreground border-input"
+                actionFilter ? "text-ink border-gray-900" : "text-muted-foreground border-input"
               }`}
             >
               <span className="truncate">
@@ -474,7 +467,7 @@ export default function AuditLogPage() {
                         setActionFilter(opt.value)
                         setActionDropdownOpen(false)
                       }}
-                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                      className={`w-full rounded-lg px-4 py-3 text-left text-sm text-ink transition-colors hover:bg-[var(--client-primary-15)] ${
                         actionFilter === opt.value ? "bg-[var(--client-primary-15)] font-medium" : ""
                       }`}
                     >
@@ -488,17 +481,12 @@ export default function AuditLogPage() {
           )}
 
           {/* Search */}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search by name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-white py-2 pl-8"
-              aria-label="Search audit log"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by name..."
+            ariaLabel="Search audit log"
+          />
         </div>
       </div>
 
@@ -521,9 +509,7 @@ export default function AuditLogPage() {
           }
           if (!loading && items === 0) {
             return (
-              <div className="flex h-24 items-center justify-center rounded-xl bg-white text-gray-400">
-                No entries found
-              </div>
+              <EmptyState>No entries found</EmptyState>
             )
           }
           return null
@@ -555,10 +541,10 @@ export default function AuditLogPage() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-sm font-semibold text-gray-700">
+                      <span className="font-mono text-sm font-semibold text-ink">
                         [{group.ref}]
                       </span>
-                      <span className="text-base font-semibold text-gray-900">
+                      <span className="text-base font-semibold text-ink">
                         {group.patientName}
                       </span>
                       <Badge
@@ -567,17 +553,17 @@ export default function AuditLogPage() {
                         {group.currentStatus}
                       </Badge>
                     </div>
-                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500">
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-muted">
                       <span>
-                        <span className="font-medium text-gray-700">Client: </span>
+                        <span className="font-medium text-ink">Client: </span>
                         {group.clientName ?? "—"}
                       </span>
                       <span>
-                        <span className="font-medium text-gray-700">Unit: </span>
+                        <span className="font-medium text-ink">Unit: </span>
                         {group.unitName ?? "—"}
                       </span>
                       <span>
-                        <span className="font-medium text-gray-700">Events: </span>
+                        <span className="font-medium text-ink">Events: </span>
                         {group.eventCount}
                       </span>
                     </div>
@@ -605,7 +591,7 @@ export default function AuditLogPage() {
                           aria-hidden
                         />
                         <div className="flex flex-col gap-1">
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                             <span>{formatDate(evt.createdAt)}</span>
                             <span>·</span>
                             <span>
@@ -621,7 +607,7 @@ export default function AuditLogPage() {
                             </Badge>
                           </div>
                           {evt.entityName && (
-                            <div className="text-sm text-gray-700">
+                            <div className="text-sm text-ink">
                               {evt.entityName}
                             </div>
                           )}
@@ -629,7 +615,7 @@ export default function AuditLogPage() {
                             <div className="mt-2 rounded-lg bg-gray-50 p-3">
                               <table className="w-full text-xs">
                                 <thead>
-                                  <tr className="text-left text-gray-500">
+                                  <tr className="text-left text-ink-muted">
                                     <th className="pb-1 pr-2 font-medium">Field</th>
                                     <th className="pb-1 pr-2 font-medium">Old</th>
                                     <th className="pb-1 font-medium">New</th>
@@ -642,7 +628,7 @@ export default function AuditLogPage() {
                                         key={field}
                                         className="border-t border-gray-200"
                                       >
-                                        <td className="py-1 pr-2 font-medium text-gray-700">
+                                        <td className="py-1 pr-2 font-medium text-ink">
                                           {field}
                                         </td>
                                         <td className="py-1 pr-2 text-red-500">
@@ -690,17 +676,17 @@ export default function AuditLogPage() {
                   {/* Fields */}
                   <div className="flex flex-col gap-2">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-gray-900">When</span>
-                      <span className="text-sm text-gray-600">{formatDate(entry.createdAt)}</span>
+                      <span className="text-xs font-bold text-ink">When</span>
+                      <span className="text-sm text-ink-muted">{formatDate(entry.createdAt)}</span>
                     </div>
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-gray-900">Who</span>
-                      <span className="text-sm text-gray-600">{entry.actorName} ({formatRole(entry.actorRole)})</span>
+                      <span className="text-xs font-bold text-ink">Who</span>
+                      <span className="text-sm text-ink-muted">{entry.actorName} ({formatRole(entry.actorRole)})</span>
                     </div>
                     {entry.entityName && (
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-bold text-gray-900">Target</span>
-                        <span className="text-sm text-gray-600">{entry.entityName}</span>
+                        <span className="text-xs font-bold text-ink">Target</span>
+                        <span className="text-sm text-ink-muted">{entry.entityName}</span>
                       </div>
                     )}
                   </div>
@@ -719,7 +705,7 @@ export default function AuditLogPage() {
                         <div className="rounded-lg bg-gray-50 p-3">
                           <table className="w-full text-xs">
                             <thead>
-                              <tr className="text-left text-gray-500">
+                              <tr className="text-left text-ink-muted">
                                 <th className="pb-1 pr-2 font-medium">Field</th>
                                 <th className="pb-1 pr-2 font-medium">Old</th>
                                 <th className="pb-1 font-medium">New</th>
@@ -728,7 +714,7 @@ export default function AuditLogPage() {
                             <tbody>
                               {Object.entries(entry.changes!).map(([field, diff]) => (
                                 <tr key={field} className="border-t border-gray-200">
-                                  <td className="py-1 pr-2 font-medium text-gray-700">{field}</td>
+                                  <td className="py-1 pr-2 font-medium text-ink">{field}</td>
                                   <td className="py-1 pr-2 text-red-500">{formatValue(diff.old)}</td>
                                   <td className="py-1 text-green-600">{formatValue(diff.new)}</td>
                                 </tr>
@@ -749,14 +735,14 @@ export default function AuditLogPage() {
                   >
                     {/* Timestamp */}
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-gray-900">When</span>
-                      <span className="text-xs text-gray-600">{formatDate(entry.createdAt)}</span>
+                      <span className="text-xs font-bold text-ink">When</span>
+                      <span className="text-xs text-ink-muted">{formatDate(entry.createdAt)}</span>
                     </div>
 
                     {/* Actor */}
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-gray-900">Who</span>
-                      <span className="truncate text-sm text-gray-600">
+                      <span className="text-xs font-bold text-ink">Who</span>
+                      <span className="truncate text-sm text-ink-muted">
                         {entry.actorName}
                         <span className="ml-1 text-xs text-gray-400">({entry.actorRole.replace(/_/g, " ")})</span>
                       </span>
@@ -778,8 +764,8 @@ export default function AuditLogPage() {
 
                     {/* Entity name */}
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-gray-900">Target</span>
-                      <span className="truncate text-sm text-gray-600">{entry.entityName ?? "-"}</span>
+                      <span className="text-xs font-bold text-ink">Target</span>
+                      <span className="truncate text-sm text-ink-muted">{entry.entityName ?? "-"}</span>
                     </div>
 
                     {/* Expand indicator */}
@@ -797,7 +783,7 @@ export default function AuditLogPage() {
                     <div className="mt-3 rounded-lg bg-gray-50 p-4">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-left text-gray-500">
+                          <tr className="text-left text-ink-muted">
                             <th className="pb-2 pr-4 font-medium">Field</th>
                             <th className="pb-2 pr-4 font-medium">Old Value</th>
                             <th className="pb-2 font-medium">New Value</th>
@@ -806,7 +792,7 @@ export default function AuditLogPage() {
                         <tbody>
                           {Object.entries(entry.changes!).map(([field, diff]) => (
                             <tr key={field} className="border-t border-gray-200">
-                              <td className="py-2 pr-4 font-medium text-gray-700">{field}</td>
+                              <td className="py-2 pr-4 font-medium text-ink">{field}</td>
                               <td className="py-2 pr-4 text-red-500">{formatValue(diff.old)}</td>
                               <td className="py-2 text-green-600">{formatValue(diff.new)}</td>
                             </tr>
@@ -825,7 +811,7 @@ export default function AuditLogPage() {
       {/* Pagination */}
       {total > PAGE_SIZE && (
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-muted">
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -836,7 +822,7 @@ export default function AuditLogPage() {
               className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
                 page === 1
                   ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  : "border-gray-300 text-ink-muted hover:bg-gray-100"
               }`}
             >
               <ChevronLeft className="size-4" />
@@ -873,7 +859,7 @@ export default function AuditLogPage() {
                     className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
                       p === page
                         ? "bg-[var(--client-primary)] text-white"
-                        : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+                        : "border border-gray-300 text-ink-muted hover:bg-gray-100"
                     }`}
                   >
                     {p}
@@ -889,7 +875,7 @@ export default function AuditLogPage() {
               className={`flex size-9 items-center justify-center rounded-lg border transition-colors ${
                 page === totalPages
                   ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  : "border-gray-300 text-ink-muted hover:bg-gray-100"
               }`}
             >
               <ChevronRight className="size-4" />

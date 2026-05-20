@@ -69,7 +69,7 @@ export default function ForgotPinPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Check your email
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-muted">
               If an active account matches that email, we&apos;ve sent a 6-digit
               reset code to it. The code expires in 15 minutes.
             </p>
@@ -103,7 +103,7 @@ export default function ForgotPinPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               Reset your PIN
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-muted">
               Enter the email address on your CareFirst account. We&apos;ll email
               you a 6-digit code to reset your PIN.
             </p>
@@ -166,7 +166,7 @@ export default function ForgotPinPage() {
         </>
       )}
 
-      <p className="text-center text-xs text-gray-500">
+      <p className="text-center text-xs text-ink-muted">
         Having trouble?{" "}
         <a
           href="mailto:lehlohonolom@firstcare.solutions?subject=CareFirst%20Booking%20-%20PIN%20reset%20help"

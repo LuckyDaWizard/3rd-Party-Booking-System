@@ -14,6 +14,9 @@ import {
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { OtpInput } from "@/components/ui/otp-input"
+import { SubNav } from "@/components/ui/sub-nav"
 import { useUserStore } from "@/lib/user-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { PIN_LENGTH } from "@/lib/constants"
@@ -104,7 +107,7 @@ function UnitMultiSelect({
                 placeholder="Search units..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+                className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-gray-400"
                 autoFocus
               />
             </div>
@@ -119,7 +122,7 @@ function UnitMultiSelect({
                     key={unit.id}
                     type="button"
                     onClick={() => handleSelect(unit.id)}
-                    className="w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)]"
+                    className="w-full rounded-lg px-5 py-4 text-left text-base text-ink transition-colors hover:bg-[var(--client-primary-15)]"
                   >
                     <span>{unit.unitName}</span>
                     <span className="ml-2 text-sm text-gray-400">
@@ -175,7 +178,7 @@ export default function ManageUserPage() {
   const [isStatusOpen, setIsStatusOpen] = useState(false)
   const [isResetPinOpen, setIsResetPinOpen] = useState(false)
   const [isVerificationOpen, setIsVerificationOpen] = useState(false)
-  const [verificationCode, setVerificationCode] = useState<string[]>(Array.from({ length: PIN_LENGTH }, () => ""))
+  const [verificationCode, setVerificationCode] = useState("")
   const [verificationError, setVerificationError] = useState("")
   const [verifying, setVerifying] = useState(false)
   const [resetPinResult, setResetPinResult] = useState<{
@@ -184,7 +187,6 @@ export default function ManageUserPage() {
     pin?: string
     emailError?: string
   } | null>(null)
-  const verificationRefs = useRef<(HTMLInputElement | null)[]>([])
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toggling, setToggling] = useState(false)
@@ -309,7 +311,7 @@ export default function ManageUserPage() {
   if (!user) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-gray-500">User not found</p>
+        <p className="text-ink-muted">User not found</p>
       </div>
     )
   }
@@ -433,26 +435,19 @@ export default function ManageUserPage() {
       className="flex flex-1 flex-col"
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Button
-          data-testid="top-back-button"
-          variant="primary-outline"
-          size="nav"
-          onClick={() => router.push("/user-management")}
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-
+      <SubNav
+        onBack={() => router.push("/user-management")}
+        backTestId="top-back-button"
+      >
         <Button
           data-testid="delete-user-button"
-          size="sm"
+          variant="danger"
+          size="cta"
           onClick={() => setIsDeleteOpen(true)}
-          className="rounded-lg bg-[#FF3A69] px-6 py-2 text-white hover:bg-[#FF3A69]/90"
         >
           Delete User
         </Button>
-      </div>
+      </SubNav>
 
       {/* PIN Reset Result Banner */}
       {resetPinResult && (
@@ -469,24 +464,24 @@ export default function ManageUserPage() {
             {resetPinResult.success ? (
               resetPinResult.emailSent ? (
                 <>
-                  <span className="text-base font-bold text-gray-900">
+                  <span className="text-base font-bold text-ink">
                     PIN Reset Successfully
                   </span>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-muted">
                     A new access PIN has been sent to the user&apos;s email address.
                   </p>
                 </>
               ) : (
                 <>
-                  <span className="text-base font-bold text-gray-900">
+                  <span className="text-base font-bold text-ink">
                     PIN Reset — Email Failed
                   </span>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-muted">
                     The PIN was reset but the email could not be delivered.
                     Please share the new PIN with the user securely.
                   </p>
                   {resetPinResult.pin && (
-                    <p className="mt-1 text-sm font-medium text-gray-700">
+                    <p className="mt-1 text-sm font-medium text-ink">
                       New PIN: <span className="font-bold tracking-wider">{resetPinResult.pin}</span>
                     </p>
                   )}
@@ -499,10 +494,10 @@ export default function ManageUserPage() {
               )
             ) : (
               <>
-                <span className="text-base font-bold text-gray-900">
+                <span className="text-base font-bold text-ink">
                   PIN Reset Failed
                 </span>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-ink-muted">
                   {resetPinResult.emailError || "An unknown error occurred."}
                 </p>
               </>
@@ -511,7 +506,7 @@ export default function ManageUserPage() {
           <button
             type="button"
             onClick={() => setResetPinResult(null)}
-            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-gray-600"
+            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-ink-muted"
             aria-label="Dismiss"
           >
             <X className="size-4" />
@@ -525,11 +520,11 @@ export default function ManageUserPage() {
         <div className="flex flex-col items-center gap-1 text-center">
           <h1
             data-testid="page-heading"
-            className="text-3xl font-bold text-gray-900"
+            className="text-3xl font-bold text-ink"
           >
             Manage {user.firstNames} {user.surname}
           </h1>
-          <p className="text-base text-gray-500">
+          <p className="text-base text-ink-muted">
             Manage the user&apos;s units and personal information below
           </p>
         </div>
@@ -560,7 +555,7 @@ export default function ManageUserPage() {
               <div className="flex items-center gap-3">
                 <label
                   htmlFor="avatar-file"
-                  className={`inline-flex w-fit items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ${
+                  className={`inline-flex w-fit items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-ink ${
                     avatarBusy
                       ? "cursor-wait opacity-60"
                       : "cursor-pointer hover:bg-gray-100"
@@ -597,7 +592,7 @@ export default function ManageUserPage() {
                   </button>
                 )}
               </div>
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-ink-muted">
                 PNG, JPEG, or WEBP. Max 2 MB.
               </span>
               {avatarError && (
@@ -717,7 +712,7 @@ export default function ManageUserPage() {
             type="button"
             data-testid="disable-user-button"
             onClick={() => setIsStatusOpen(true)}
-            className="mt-1 text-sm font-bold text-gray-900 hover:text-gray-600"
+            className="mt-1 text-sm font-bold text-ink hover:text-ink-muted"
           >
             {user.status === "Active" ? "Disable User" : "Activate User"}
           </button>
@@ -725,90 +720,41 @@ export default function ManageUserPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="rounded-2xl p-6 sm:p-8">
-          <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              Are you sure you want to delete {user.firstNames} {user.surname}?
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              Deleting this user will permanently remove all associated records.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <Button
-              data-testid="confirm-delete-button"
-              onClick={() => {
-                setIsDeleteOpen(false)
-                setPinAction("delete")
-              }}
-              disabled={deleting || toggling}
-              variant="primary"
-              size="cta"
-              className="w-full"
-            >
-              {deleting ? (
-                <>
-                  Deleting...
-                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  Yes, delete user
-                  <ArrowRight className="ml-1 size-4" />
-                </>
-              )}
-            </Button>
-
-            <Button
-              data-testid="disable-instead-button"
-              variant="primary-outline"
-              size="cta"
-              disabled={deleting || toggling}
-              onClick={() => {
-                setIsDeleteOpen(false)
-                setPinAction("toggle")
-              }}
-              className="w-full"
-            >
-              {toggling ? (
-                <>
-                  Disabling...
-                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                    <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
-                    <circle cx="20" cy="20" r="15" stroke="#111827" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                  </svg>
-                </>
-              ) : (
-                "Disable user instead"
-              )}
-            </Button>
-
-            <button
-              type="button"
-              data-testid="cancel-delete-button"
-              onClick={() => setIsDeleteOpen(false)}
-              disabled={deleting || toggling}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title={`Are you sure you want to delete ${user.firstNames} ${user.surname}?`}
+        description="Deleting this user will permanently remove all associated records."
+        confirmLabel="Yes, delete user"
+        confirmLoadingLabel="Deleting..."
+        confirmPending={deleting}
+        confirmDisabled={toggling}
+        onConfirm={() => {
+          setIsDeleteOpen(false)
+          setPinAction("delete")
+        }}
+        secondaryLabel="Disable user instead"
+        secondaryLoadingLabel="Disabling..."
+        secondaryPending={toggling}
+        secondaryDisabled={deleting}
+        onSecondary={() => {
+          setIsDeleteOpen(false)
+          setPinAction("toggle")
+        }}
+        cancelDisabled={deleting || toggling}
+        confirmTestId="confirm-delete-button"
+        secondaryTestId="disable-instead-button"
+        cancelTestId="cancel-delete-button"
+      />
 
       {/* Reset Pin Confirmation Dialog */}
       <Dialog open={isResetPinOpen} onOpenChange={setIsResetPinOpen}>
         <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
+            <DialogTitle>
               Are you sure you want to reset access pin?
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
+            <DialogDescription className="text-sm text-ink-muted">
               You&apos;re about to reset this user&apos;s access pin, do you want to proceed?
             </DialogDescription>
           </DialogHeader>
@@ -818,9 +764,8 @@ export default function ManageUserPage() {
               data-testid="confirm-reset-pin-button"
               onClick={() => {
                 setIsResetPinOpen(false)
-                setVerificationCode(Array.from({ length: PIN_LENGTH }, () => ""))
+                setVerificationCode("")
                 setIsVerificationOpen(true)
-                setTimeout(() => verificationRefs.current[0]?.focus(), 100)
               }}
               variant="primary"
               size="cta"
@@ -846,41 +791,19 @@ export default function ManageUserPage() {
       <Dialog open={isVerificationOpen} onOpenChange={setIsVerificationOpen}>
         <DialogContent className="max-w-sm rounded-2xl p-6">
           <DialogHeader className="flex flex-col items-center gap-1 text-center">
-            <DialogTitle className="mx-4 text-xl font-bold text-gray-900">
+            <DialogTitle className="mx-4">
               Enter your nurse verification code to reset access pin
             </DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col items-center gap-4 pt-3">
-            {/* 6-digit code inputs */}
-            <div className="flex w-full items-center justify-between">
-              {verificationCode.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={(el) => { verificationRefs.current[index] = el }}
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  data-testid={`verification-digit-${index}`}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "")
-                    const newCode = [...verificationCode]
-                    newCode[index] = val
-                    setVerificationCode(newCode)
-                    if (val && index < PIN_LENGTH - 1) {
-                      verificationRefs.current[index + 1]?.focus()
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Backspace" && !digit && index > 0) {
-                      verificationRefs.current[index - 1]?.focus()
-                    }
-                  }}
-                  className="size-10 rounded-lg border border-gray-300 bg-gray-100 text-center text-base font-medium text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white sm:size-11"
-                />
-              ))}
-            </div>
+            <OtpInput
+              value={verificationCode}
+              onChange={setVerificationCode}
+              error={!!verificationError}
+              ariaLabel="Verification code"
+              testId="verification-otp"
+            />
 
             {verificationError && (
               <p className="text-center text-sm font-medium text-[#FF3A69]">
@@ -890,12 +813,12 @@ export default function ManageUserPage() {
 
             <Button
               data-testid="confirm-verification-button"
-              disabled={verificationCode.some((d) => !d) || verifying}
+              disabled={verificationCode.length < PIN_LENGTH || verifying}
               onClick={async () => {
                 setVerificationError("")
                 setVerifying(true)
 
-                const pin = verificationCode.join("")
+                const pin = verificationCode
 
                 // Two-person sign-off via /api/verify/manager-pin (Phase 5
                 // RLS forbids reading other users' PINs directly).
@@ -954,59 +877,26 @@ export default function ManageUserPage() {
       </Dialog>
 
       {/* Disable / Activate Confirmation Dialog */}
-      <Dialog open={isStatusOpen} onOpenChange={setIsStatusOpen}>
-        <DialogContent className="rounded-2xl p-6 sm:p-8">
-          <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              {user.status === "Active" ? "Disable" : "Activate"} {user.firstNames} {user.surname}?
-            </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
-              {user.status === "Active"
-                ? "Disabling this user will restrict their access to the system. This can be reversed."
-                : "Activating this user will restore their system access and permissions."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <Button
-              data-testid="confirm-status-button"
-              disabled={toggling}
-              onClick={() => {
-                setIsStatusOpen(false)
-                setPinAction("toggle")
-              }}
-              variant="primary"
-              size="cta"
-              className="w-full"
-            >
-              {toggling ? (
-                <>
-                  {user.status === "Active" ? "Disabling..." : "Activating..."}
-                  <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
-                    <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
-                    <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  Yes, {user.status === "Active" ? "disable" : "activate"} user
-                  <ArrowRight className="ml-1 size-4" />
-                </>
-              )}
-            </Button>
-
-            <button
-              type="button"
-              data-testid="cancel-status-button"
-              onClick={() => setIsStatusOpen(false)}
-              disabled={toggling}
-              className="text-sm font-medium text-[#FF3A69] hover:text-[#FF3A69]/80 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isStatusOpen}
+        onOpenChange={setIsStatusOpen}
+        title={`${user.status === "Active" ? "Disable" : "Activate"} ${user.firstNames} ${user.surname}?`}
+        description={
+          user.status === "Active"
+            ? "Disabling this user will restrict their access to the system. This can be reversed."
+            : "Activating this user will restore their system access and permissions."
+        }
+        confirmLabel={`Yes, ${user.status === "Active" ? "disable" : "activate"} user`}
+        confirmLoadingLabel={user.status === "Active" ? "Disabling..." : "Activating..."}
+        confirmPending={toggling}
+        onConfirm={() => {
+          setIsStatusOpen(false)
+          setPinAction("toggle")
+        }}
+        cancelDisabled={toggling}
+        confirmTestId="confirm-status-button"
+        cancelTestId="cancel-status-button"
+      />
 
       {/* PIN verification modal — gates destructive + privilege-change actions */}
       <PinVerificationModal

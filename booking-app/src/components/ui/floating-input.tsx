@@ -66,7 +66,7 @@ export function FloatingInput({
           onBlur={onBlur}
           readOnly={readOnly}
           placeholder=" "
-          className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-gray-900 outline-none transition-colors focus:bg-white active:bg-white autofill:bg-white ${
+          className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-ink outline-none transition-colors focus:bg-white active:bg-white autofill:bg-white ${
             hasError
               ? "border-[#FF3A69] focus:border-[#FF3A69]"
               : readOnly
@@ -79,7 +79,7 @@ export function FloatingInput({
           className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 bg-white px-1 text-sm transition-all peer-focus:top-0 peer-focus:-translate-y-1/2 peer-focus:text-xs peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:-translate-y-1/2 peer-[:not(:placeholder-shown)]:text-xs ${
             hasError
               ? "text-[#FF3A69] peer-focus:text-[#FF3A69] peer-[:not(:placeholder-shown)]:text-[#FF3A69]"
-              : "text-gray-400 peer-focus:text-gray-500 peer-[:not(:placeholder-shown)]:text-gray-500"
+              : "text-gray-400 peer-focus:text-ink-muted peer-[:not(:placeholder-shown)]:text-ink-muted"
           }`}
         >
           {label}
@@ -88,7 +88,7 @@ export function FloatingInput({
           <button
             type="button"
             onClick={onClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:text-ink-muted"
             aria-label={`Clear ${label}`}
           >
             <X className="size-4" />

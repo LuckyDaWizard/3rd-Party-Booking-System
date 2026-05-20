@@ -186,10 +186,10 @@ export default function PaymentSuccessPage() {
         {state === "confirmed" && (
           <>
             <CheckCircle className="size-16 text-green-500" strokeWidth={1.5} />
-            <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">
+            <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">
               Payment Successful
             </h1>
-            <p className="text-center text-base text-gray-500">
+            <p className="text-center text-base text-ink-muted">
               Your payment has been confirmed. Redirecting to the next step.
             </p>
             <Button
@@ -209,14 +209,14 @@ export default function PaymentSuccessPage() {
               <circle cx="20" cy="20" r="15" stroke="#d1d5db" strokeWidth="5" strokeLinecap="round" />
               <circle cx="20" cy="20" r="15" stroke="var(--client-primary)" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
             </svg>
-            <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">
+            <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">
               {isMonthlyInvoiceBooking
                 ? "Continuing to Consultation..."
                 : isSelfCollectBooking
                   ? "Recording Payment..."
                   : "Confirming Payment..."}
             </h1>
-            <p className="text-center text-base text-gray-500">
+            <p className="text-center text-base text-ink-muted">
               {isMonthlyInvoiceBooking
                 ? "This client is billed monthly — no payment needed."
                 : isSelfCollectBooking
@@ -229,18 +229,18 @@ export default function PaymentSuccessPage() {
         {state === "stalled" && (
           <>
             <Clock className="size-16 text-amber-500" strokeWidth={1.5} />
-            <h1 className="text-center text-2xl font-extrabold text-gray-900 sm:text-3xl">
+            <h1 className="text-center text-2xl font-extrabold text-ink sm:text-3xl">
               Awaiting Confirmation
             </h1>
-            <p className="text-center text-base text-gray-500">
+            <p className="text-center text-base text-ink-muted">
               Your payment may have been successful, but we haven&apos;t received confirmation from PayFast yet.
             </p>
 
             <div className="flex w-full flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
               <div className="flex items-start gap-2">
                 <Info className="mt-0.5 size-5 shrink-0 text-blue-500" />
-                <div className="text-sm text-gray-700">
-                  <p className="font-medium text-gray-900">What to do next:</p>
+                <div className="text-sm text-ink">
+                  <p className="font-medium text-ink">What to do next:</p>
                   <ul className="mt-2 flex list-disc flex-col gap-1 pl-5">
                     <li>Check your email for a PayFast receipt</li>
                     <li>If payment was successful, contact an administrator to confirm it manually</li>

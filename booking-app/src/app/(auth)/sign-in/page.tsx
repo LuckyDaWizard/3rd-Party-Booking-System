@@ -6,11 +6,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp"
+import { OtpInput } from "@/components/ui/otp-input"
 import { useAuth } from "@/lib/auth-store"
 
 import { PIN_LENGTH } from "@/lib/constants"
@@ -191,28 +187,14 @@ export default function SignInPage() {
             </svg>
           </div>
         ) : (
-          <InputOTP
-            maxLength={PIN_LENGTH}
+          <OtpInput
             value={pin}
             onChange={handlePinChange}
             disabled={isInputDisabled}
-            aria-label="Access pin"
-            data-testid="sign-in-pin-input"
-          >
-            <InputOTPGroup className="gap-2 sm:gap-3">
-              {Array.from({ length: PIN_LENGTH }, (_, i) => (
-                <InputOTPSlot
-                  key={i}
-                  index={i}
-                  className={`!size-10 !rounded-lg !border text-lg font-semibold sm:!size-12 ${
-                    hasError
-                      ? "!border-destructive bg-destructive/5"
-                      : "border-input"
-                  }`}
-                />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
+            error={hasError}
+            ariaLabel="Access pin"
+            testId="sign-in-pin-input"
+          />
         )}
 
         {/* Submit button */}
@@ -251,7 +233,7 @@ export default function SignInPage() {
           or a user seeing an unexpected error has a path to help without
           needing to find the admin. */}
       <p
-        className="text-center text-xs text-gray-500"
+        className="text-center text-xs text-ink-muted"
         data-testid="sign-in-support"
       >
         Having trouble?{" "}

@@ -10,6 +10,7 @@ import { FloatingSelect } from "@/components/ui/floating-select"
 import { useClientStore } from "@/lib/client-store"
 import { useUnitStore } from "@/lib/unit-store"
 import { useAuth } from "@/lib/auth-store"
+import { SubNav } from "@/components/ui/sub-nav"
 
 // ---------------------------------------------------------------------------
 // Searchable Client Select
@@ -57,7 +58,7 @@ function ClientSearchSelect({
           isOpen ? "border-gray-900" : "border-gray-300"
         }`}
       >
-        <span className={selectedClient ? "text-gray-900" : "text-gray-400"}>
+        <span className={selectedClient ? "text-ink" : "text-gray-400"}>
           {selectedClient?.clientName || "Search client to assign this unit to"}
         </span>
       </button>
@@ -76,7 +77,7 @@ function ClientSearchSelect({
               placeholder="Search clients..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-gray-400"
               autoFocus
             />
           </div>
@@ -96,7 +97,7 @@ function ClientSearchSelect({
                     setSearch("")
                     setIsOpen(false)
                   }}
-                  className={`w-full rounded-lg px-5 py-4 text-left text-base text-gray-900 transition-colors hover:bg-[var(--client-primary-15)] ${
+                  className={`w-full rounded-lg px-5 py-4 text-left text-base text-ink transition-colors hover:bg-[var(--client-primary-15)] ${
                     value === client.id ? "bg-[var(--client-primary-15)] font-medium" : ""
                   }`}
                 >
@@ -186,18 +187,7 @@ export default function AddUnitPage() {
   return (
     <div data-testid="add-unit-page" className="flex flex-col gap-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/unit-management">
-          <Button
-            data-testid="back-button"
-            variant="primary-outline"
-            size="nav"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-        </Link>
-      </div>
+      <SubNav backHref="/unit-management" backTestId="back-button" />
 
       {/* Form card */}
       <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-4">
@@ -205,11 +195,11 @@ export default function AddUnitPage() {
         <div className="flex flex-col items-center gap-2">
           <h1
             data-testid="page-heading"
-            className="text-3xl font-bold text-gray-900"
+            className="text-3xl font-bold text-ink"
           >
             Add new unit
           </h1>
-          <p className="text-base text-gray-500">
+          <p className="text-base text-ink-muted">
             Please provide the unit&apos;s details below
           </p>
         </div>

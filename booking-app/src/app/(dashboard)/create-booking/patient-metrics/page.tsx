@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SubNav } from "@/components/ui/sub-nav"
 import { useBookingStore } from "@/lib/booking-store"
 
 type MetricFormat = "integer" | "decimal" | "blood-pressure"
@@ -63,7 +64,7 @@ function MetricCard({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm font-semibold text-gray-900">
+      <span className="text-sm font-semibold text-ink">
         {label}
         {optional && <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>}
       </span>
@@ -76,9 +77,9 @@ function MetricCard({
               value={value}
               onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
-              className="w-16 bg-transparent text-center text-3xl font-bold text-gray-900 placeholder:text-gray-300 outline-none"
+              className="w-16 bg-transparent text-center text-3xl font-bold text-ink placeholder:text-gray-300 outline-none"
             />
-            <span className="text-2xl font-bold text-gray-900">{unit}</span>
+            <span className="text-2xl font-bold text-ink">{unit}</span>
           </div>
         ) : (
           <>
@@ -88,7 +89,7 @@ function MetricCard({
               value={value}
               onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
-              className="w-full bg-transparent text-center text-3xl font-bold text-gray-900 placeholder:text-gray-300 outline-none"
+              className="w-full bg-transparent text-center text-3xl font-bold text-ink placeholder:text-gray-300 outline-none"
             />
             <span className="mt-1 text-xs text-gray-400">{unit}</span>
           </>
@@ -161,18 +162,10 @@ export default function PatientMetricsPage() {
   return (
     <div className="flex flex-1 flex-col gap-4">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Button
-          variant="primary-outline"
-          size="nav"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
+      <SubNav onBack={() => router.back()}>
         <Button
           variant="danger"
-          size="sm"
+          size="cta"
           onClick={async () => {
             if (bookingId) await discardBooking(bookingId)
             router.push("/home")
@@ -180,13 +173,13 @@ export default function PatientMetricsPage() {
         >
           Discard Flow
         </Button>
-      </div>
+      </SubNav>
 
       {/* Content */}
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Enter patient metrics</h1>
-          <p className="text-base text-gray-500">Please</p>
+          <h1 className="text-2xl font-bold text-ink sm:text-3xl">Enter patient metrics</h1>
+          <p className="text-base text-ink-muted">Please</p>
         </div>
 
         {/* Row 1 - 4 metrics */}
@@ -245,12 +238,12 @@ export default function PatientMetricsPage() {
             format="integer"
           />
           <div className="col-span-2 flex flex-col gap-2">
-            <span className="text-sm font-semibold text-gray-900">Additional Comments</span>
+            <span className="text-sm font-semibold text-ink">Additional Comments</span>
             <textarea
               value={comments}
               onChange={(e) => setComments(e.target.value)}
               placeholder="Comments"
-              className="h-full min-h-[120px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-900"
+              className="h-full min-h-[120px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-ink outline-none focus:border-gray-900"
             />
           </div>
         </div>
@@ -288,7 +281,7 @@ export default function PatientMetricsPage() {
             className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-[38%] ${
               isFormValid
                 ? "bg-gray-900 text-white hover:bg-gray-800"
-                : "bg-gray-300 text-gray-500 cursor-default"
+                : "bg-gray-300 text-ink-muted cursor-default"
             }`}
           >
             Next

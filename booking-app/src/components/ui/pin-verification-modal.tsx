@@ -120,10 +120,8 @@ export function PinVerificationModal({
     >
       <DialogContent className="max-w-sm rounded-2xl p-6">
         <DialogHeader className="flex flex-col items-center gap-1 text-center">
-          <DialogTitle className="mx-4 text-xl font-bold text-gray-900">
-            {heading}
-          </DialogTitle>
-          {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+          <DialogTitle className="mx-4">{heading}</DialogTitle>
+          {subtitle && <p className="text-sm text-ink-muted">{subtitle}</p>}
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4 pt-3">
@@ -154,7 +152,7 @@ export function PinVerificationModal({
                     refs.current[index - 1]?.focus()
                   }
                 }}
-                className="size-10 rounded-lg border border-gray-300 bg-gray-100 text-center text-base font-medium text-gray-900 outline-none transition-colors focus:border-gray-900 focus:bg-white disabled:opacity-50 sm:size-11"
+                className="size-10 rounded-lg border border-gray-300 bg-gray-100 text-center text-base font-medium text-ink outline-none transition-colors focus:border-gray-900 focus:bg-white disabled:opacity-50 sm:size-11"
               />
             ))}
           </div>

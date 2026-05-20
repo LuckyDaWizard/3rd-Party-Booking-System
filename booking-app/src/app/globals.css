@@ -5,6 +5,23 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* ---------------------------------------------------------------------
+   * Body text tokens (Phase: text-colour consolidation).
+   *
+   * Three semantic shades replace the six grey utilities that drifted
+   * across the app (gray-400/500/600/700/900 plus the Figma #242424
+   * literal). Mapping:
+   *
+   *   text-ink              → primary body text  (#242424)
+   *   text-ink-muted        → labels, descriptions, secondary text  (gray-500)
+   *
+   * Placeholder text (gray-400) is unchanged — it's semantic for
+   * "not yet entered" hints and already used via the placeholder:
+   * pseudo-state in most cases.
+   * ------------------------------------------------------------------- */
+  --color-ink: var(--text-ink);
+  --color-ink-muted: var(--text-ink-muted);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -64,6 +81,11 @@
    * the stores hydrate).
    * ------------------------------------------------------------------- */
   --client-primary: #3ea3db;
+
+  /* Body text — see @theme block at the top of this file for usage. */
+  --text-ink: #242424;
+  --text-ink-muted: #6b7280;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

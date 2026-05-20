@@ -20,8 +20,12 @@ import {
   Search,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
+import { TabStrip } from "@/components/ui/tab-strip"
+import { SubNav } from "@/components/ui/sub-nav"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Banner } from "@/components/ui/banner"
 import {
   Dialog,
   DialogContent,
@@ -223,77 +227,29 @@ export default function SecurityPage() {
   return (
     <div className="flex flex-col gap-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-6 py-4">
-        <Link href="/home">
-          <Button
-            variant="primary-outline"
-            size="nav"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-        </Link>
-      </div>
+      <SubNav backHref="/home" />
 
       {/* Heading */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">Security</h1>
+        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Security</h1>
       </div>
-      <p className="-mt-6 text-base text-gray-500">
+      <p className="-mt-6 text-base text-ink-muted">
         Monitor failed sign-in attempts, active sessions, and suspicious activity
       </p>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
-        <button
-          type="button"
-          onClick={() => setTab("attempts")}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-            tab === "attempts"
-              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
-              : "text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          <ShieldAlert className="size-4" />
-          Failed Attempts
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("sessions")}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-            tab === "sessions"
-              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
-              : "text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          <Monitor className="size-4" />
-          Active Sessions
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("suspicious")}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-            tab === "suspicious"
-              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
-              : "text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          <Activity className="size-4" />
-          Suspicious Activity
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("history")}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
-            tab === "history"
-              ? "border-b-2 border-[var(--client-primary)] text-[var(--client-primary)] -mb-px"
-              : "text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          <History className="size-4" />
-          Sign-in History
-        </button>
-      </div>
+      <TabStrip
+        variant="underline"
+        value={tab}
+        onChange={setTab}
+        ariaLabel="Security sections"
+        tabs={[
+          { value: "attempts", label: "Failed Attempts", icon: ShieldAlert },
+          { value: "sessions", label: "Active Sessions", icon: Monitor },
+          { value: "suspicious", label: "Suspicious Activity", icon: Activity },
+          { value: "history", label: "Sign-in History", icon: History },
+        ]}
+      />
 
       {tab === "attempts" && <FailedAttemptsTab />}
       {tab === "sessions" && <ActiveSessionsTab />}
@@ -389,10 +345,11 @@ function FailedAttemptsTab() {
       </div>
 
       {loadError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="font-semibold">Failed to load failed attempts</div>
-          <div className="mt-1 text-xs">{loadError}</div>
-        </div>
+        <Banner
+          kind="danger"
+          title="Failed to load failed attempts"
+          description={loadError}
+        />
       )}
 
       {summary && (
@@ -402,8 +359,8 @@ function FailedAttemptsTab() {
               <ShieldAlert className="size-6 text-red-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.totalLocked}</div>
-              <div className="text-xs text-gray-500">Currently Locked</div>
+              <div className="text-2xl font-bold text-ink">{summary.totalLocked}</div>
+              <div className="text-xs text-ink-muted">Currently Locked</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
@@ -411,8 +368,8 @@ function FailedAttemptsTab() {
               <AlertTriangle className="size-6 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.totalFailures24h}</div>
-              <div className="text-xs text-gray-500">Failed Attempts (24h)</div>
+              <div className="text-2xl font-bold text-ink">{summary.totalFailures24h}</div>
+              <div className="text-xs text-ink-muted">Failed Attempts (24h)</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
@@ -420,10 +377,10 @@ function FailedAttemptsTab() {
               <Shield className="size-6 text-blue-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-bold text-ink">
                 {summary.maxAttempts}/{summary.windowMinutes}m
               </div>
-              <div className="text-xs text-gray-500">Lockout Threshold</div>
+              <div className="text-xs text-ink-muted">Lockout Threshold</div>
             </div>
           </div>
         </div>
@@ -441,7 +398,7 @@ function FailedAttemptsTab() {
         ) : entries.length === 0 ? (
           <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
             <Shield className="size-10 text-green-500" />
-            <span className="text-base font-medium text-gray-900">All clear</span>
+            <span className="text-base font-medium text-ink">All clear</span>
             <span className="text-sm text-gray-400">No failed sign-in attempts on record.</span>
           </div>
         ) : (
@@ -468,7 +425,7 @@ function FailedAttemptsTab() {
                           At Risk ({entry.failuresInWindow}/{summary?.maxAttempts ?? 5})
                         </Badge>
                       ) : (
-                        <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                        <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-ink-muted">
                           Normal
                         </Badge>
                       )}
@@ -478,9 +435,9 @@ function FailedAttemptsTab() {
                         </Badge>
                       )}
                     </div>
-                    <div className="text-base font-bold text-gray-900">{displayName}</div>
+                    <div className="text-base font-bold text-ink">{displayName}</div>
                     {entry.email && (
-                      <div className="truncate text-sm text-gray-500">{entry.email}</div>
+                      <div className="truncate text-sm text-ink-muted">{entry.email}</div>
                     )}
                     <div className="text-xs text-gray-400">
                       PIN: <span className="font-mono">{maskPin(entry.pin)}</span>
@@ -517,25 +474,25 @@ function FailedAttemptsTab() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                <div className="flex flex-wrap gap-4 text-xs text-ink-muted">
                   <div>
-                    <span className="font-medium text-gray-900">{entry.failuresInWindow}</span>{" "}
+                    <span className="font-medium text-ink">{entry.failuresInWindow}</span>{" "}
                     failures in last {summary?.windowMinutes ?? 15}m
                   </div>
                   <div>
-                    <span className="font-medium text-gray-900">{entry.totalAttempts}</span>{" "}
+                    <span className="font-medium text-ink">{entry.totalAttempts}</span>{" "}
                     total recent attempts
                   </div>
                 </div>
 
                 {isExpanded && (
                   <div className="mt-2 rounded-lg bg-gray-50 p-4">
-                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
                       Recent attempts
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       <table className="w-full text-sm">
-                        <thead className="text-left text-xs text-gray-500">
+                        <thead className="text-left text-xs text-ink-muted">
                           <tr>
                             <th className="pb-2 pr-4 font-medium">Time</th>
                             <th className="pb-2 pr-4 font-medium">Result</th>
@@ -545,7 +502,7 @@ function FailedAttemptsTab() {
                         <tbody>
                           {entry.recentAttempts.map((a) => (
                             <tr key={a.id} className="border-t border-gray-200">
-                              <td className="py-2 pr-4 text-gray-700">
+                              <td className="py-2 pr-4 text-ink">
                                 {formatDate(a.attemptedAt)}
                               </td>
                               <td className="py-2 pr-4">
@@ -555,7 +512,7 @@ function FailedAttemptsTab() {
                                   <span className="text-red-500">✗ Failed</span>
                                 )}
                               </td>
-                              <td className="py-2 font-mono text-xs text-gray-500">
+                              <td className="py-2 font-mono text-xs text-ink-muted">
                                 {a.ipAddress ?? "—"}
                               </td>
                             </tr>
@@ -575,10 +532,10 @@ function FailedAttemptsTab() {
       <Dialog open={!!unlockTarget} onOpenChange={(open) => !open && !unlocking && setUnlockTarget(null)}>
         <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
+            <DialogTitle>
               Unlock this account?
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
+            <DialogDescription className="text-sm text-ink-muted">
               {unlockTarget?.userExists ? (
                 <>
                   This will clear all failed sign-in attempts for{" "}
@@ -650,7 +607,7 @@ function getStatusBadgeStyle(status: SessionStatus): string {
     case "idle":
       return "bg-amber-100 text-amber-800"
     case "ended":
-      return "bg-gray-200 text-gray-600"
+      return "bg-gray-200 text-ink-muted"
   }
 }
 
@@ -745,10 +702,11 @@ function ActiveSessionsTab() {
       </div>
 
       {loadError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="font-semibold">Failed to load sessions</div>
-          <div className="mt-1 text-xs">{loadError}</div>
-        </div>
+        <Banner
+          kind="danger"
+          title="Failed to load sessions"
+          description={loadError}
+        />
       )}
 
       {/* Summary cards: Active / Idle / Ended */}
@@ -759,8 +717,8 @@ function ActiveSessionsTab() {
               <Monitor className="size-6 text-green-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.active}</div>
-              <div className="text-xs text-gray-500">Active (last 30 min)</div>
+              <div className="text-2xl font-bold text-ink">{summary.active}</div>
+              <div className="text-xs text-ink-muted">Active (last 30 min)</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
@@ -768,17 +726,17 @@ function ActiveSessionsTab() {
               <UserCircle className="size-6 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.idle}</div>
-              <div className="text-xs text-gray-500">Idle (under 24h)</div>
+              <div className="text-2xl font-bold text-ink">{summary.idle}</div>
+              <div className="text-xs text-ink-muted">Idle (under 24h)</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gray-100">
-              <LogOut className="size-6 text-gray-500" />
+              <LogOut className="size-6 text-ink-muted" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.ended}</div>
-              <div className="text-xs text-gray-500">Ended</div>
+              <div className="text-2xl font-bold text-ink">{summary.ended}</div>
+              <div className="text-xs text-ink-muted">Ended</div>
             </div>
           </div>
         </div>
@@ -793,7 +751,7 @@ function ActiveSessionsTab() {
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               showEnded
                 ? "bg-[var(--client-primary)] text-white"
-                : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+                : "bg-white text-ink-muted border border-gray-300 hover:bg-gray-50"
             }`}
           >
             {showEnded ? "Hide ended sessions" : `Show ended sessions (${summary.ended})`}
@@ -824,7 +782,7 @@ function ActiveSessionsTab() {
             return (
               <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
                 <Monitor className="size-10 text-gray-400" />
-                <span className="text-base font-medium text-gray-900">
+                <span className="text-base font-medium text-ink">
                   {showEnded ? "No sessions" : "No active or idle sessions"}
                 </span>
                 <span className="text-sm text-gray-400">
@@ -870,14 +828,14 @@ function ActiveSessionsTab() {
                         </Badge>
                       )}
                       {session.userRole && (
-                        <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                        <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-ink-muted">
                           {session.userRole.replace(/_/g, " ")}
                         </Badge>
                       )}
                     </div>
-                    <div className="text-base font-bold text-gray-900">{displayName}</div>
+                    <div className="text-base font-bold text-ink">{displayName}</div>
                     {session.userEmail && (
-                      <div className="truncate text-sm text-gray-500">{session.userEmail}</div>
+                      <div className="truncate text-sm text-ink-muted">{session.userEmail}</div>
                     )}
                     <div className="text-xs text-gray-400">
                       {deviceLabel}
@@ -908,13 +866,13 @@ function ActiveSessionsTab() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                <div className="flex flex-wrap gap-4 text-xs text-ink-muted">
                   <div>
-                    <span className="font-medium text-gray-900">Signed in:</span>{" "}
+                    <span className="font-medium text-ink">Signed in:</span>{" "}
                     {formatDate(session.createdAt)}
                   </div>
                   <div>
-                    <span className="font-medium text-gray-900">Last active:</span>{" "}
+                    <span className="font-medium text-ink">Last active:</span>{" "}
                     {formatRelative(session.updatedAt)}
                   </div>
                 </div>
@@ -931,10 +889,10 @@ function ActiveSessionsTab() {
       >
         <DialogContent className="rounded-2xl p-6 sm:p-8">
           <DialogHeader className="flex flex-col items-center gap-2 text-center">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
+            <DialogTitle>
               {revokeTarget?.status === "ended" ? "Remove ended session?" : "Force sign-out?"}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-500">
+            <DialogDescription className="text-sm text-ink-muted">
               {revokeTarget && (
                 <>
                   {revokeTarget.status === "ended" ? (
@@ -1004,7 +962,7 @@ function ActiveSessionsTab() {
               type="button"
               onClick={() => setRevokeTarget(null)}
               disabled={revoking}
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50"
+              className="text-sm font-medium text-ink-muted hover:text-ink disabled:opacity-50"
             >
               Cancel
             </button>
@@ -1158,17 +1116,19 @@ function SuspiciousActivityTab() {
       </div>
 
       {loadError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="font-semibold">Failed to load suspicious activity</div>
-          <div className="mt-1 text-xs">{loadError}</div>
-        </div>
+        <Banner
+          kind="danger"
+          title="Failed to load suspicious activity"
+          description={loadError}
+        />
       )}
 
       {trustedLoadError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="font-semibold">Failed to load trusted IPs</div>
-          <div className="mt-1 text-xs">{trustedLoadError}</div>
-        </div>
+        <Banner
+          kind="danger"
+          title="Failed to load trusted IPs"
+          description={trustedLoadError}
+        />
       )}
 
       {/* Summary */}
@@ -1179,8 +1139,8 @@ function SuspiciousActivityTab() {
               <ShieldAlert className="size-6 text-red-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.critical}</div>
-              <div className="text-xs text-gray-500">Critical alerts</div>
+              <div className="text-2xl font-bold text-ink">{summary.critical}</div>
+              <div className="text-xs text-ink-muted">Critical alerts</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
@@ -1188,8 +1148,8 @@ function SuspiciousActivityTab() {
               <AlertTriangle className="size-6 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.warning}</div>
-              <div className="text-xs text-gray-500">Warnings</div>
+              <div className="text-2xl font-bold text-ink">{summary.warning}</div>
+              <div className="text-xs text-ink-muted">Warnings</div>
             </div>
           </div>
         </div>
@@ -1208,7 +1168,7 @@ function SuspiciousActivityTab() {
         ) : flags.length === 0 ? (
           <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
             <Shield className="size-10 text-green-500" />
-            <span className="text-base font-medium text-gray-900">No suspicious activity</span>
+            <span className="text-base font-medium text-ink">No suspicious activity</span>
             <span className="text-sm text-gray-400">
               Nothing unusual detected in recent sign-in attempts.
             </span>
@@ -1228,8 +1188,8 @@ function SuspiciousActivityTab() {
                       {flag.severity === "critical" ? "🚨 Critical" : "⚠️ Warning"}
                     </Badge>
                   </div>
-                  <div className="text-base font-bold text-gray-900">{flag.title}</div>
-                  <p className="text-sm text-gray-600">{flag.description}</p>
+                  <div className="text-base font-bold text-ink">{flag.title}</div>
+                  <p className="text-sm text-ink-muted">{flag.description}</p>
                   <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-400">
                     {flag.ipAddress && (
                       <span>
@@ -1259,8 +1219,8 @@ function SuspiciousActivityTab() {
       <div className="mt-4 flex flex-col gap-3 rounded-xl bg-white p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
-            <h2 className="text-lg font-bold text-gray-900">Trusted IPs</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-lg font-bold text-ink">Trusted IPs</h2>
+            <p className="text-sm text-ink-muted">
               IPs listed here are exempt from rapid-probing and password-spraying
               alerts. Add your dev machine or office network to silence false
               positives while testing. Cracked-password and unknown-PIN alerts
@@ -1272,7 +1232,7 @@ function SuspiciousActivityTab() {
         {/* Add form */}
         <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-start">
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-gray-700">
+            <label className="mb-1 block text-xs font-medium text-ink">
               IP Address
             </label>
             <Input
@@ -1285,7 +1245,7 @@ function SuspiciousActivityTab() {
             />
           </div>
           <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-gray-700">
+            <label className="mb-1 block text-xs font-medium text-ink">
               Label (optional)
             </label>
             <Input
@@ -1327,11 +1287,11 @@ function SuspiciousActivityTab() {
               >
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-sm font-medium text-gray-900">
+                    <span className="font-mono text-sm font-medium text-ink">
                       {ip.ipAddress}
                     </span>
                     {ip.label && (
-                      <span className="text-sm text-gray-500">— {ip.label}</span>
+                      <span className="text-sm text-ink-muted">— {ip.label}</span>
                     )}
                   </div>
                   <div className="text-xs text-gray-400">
@@ -1492,10 +1452,11 @@ function SignInHistoryTab() {
       </div>
 
       {loadError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="font-semibold">Failed to load sign-in history</div>
-          <div className="mt-1 text-xs">{loadError}</div>
-        </div>
+        <Banner
+          kind="danger"
+          title="Failed to load sign-in history"
+          description={loadError}
+        />
       )}
 
       {summary && (
@@ -1505,8 +1466,8 @@ function SignInHistoryTab() {
               <History className="size-6 text-blue-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.last24h}</div>
-              <div className="text-xs text-gray-500">Sign-ins (24h)</div>
+              <div className="text-2xl font-bold text-ink">{summary.last24h}</div>
+              <div className="text-xs text-ink-muted">Sign-ins (24h)</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
@@ -1514,17 +1475,17 @@ function SignInHistoryTab() {
               <UserCircle className="size-6 text-green-500" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.uniqueUsers24h}</div>
-              <div className="text-xs text-gray-500">Unique users (24h)</div>
+              <div className="text-2xl font-bold text-ink">{summary.uniqueUsers24h}</div>
+              <div className="text-xs text-ink-muted">Unique users (24h)</div>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-xl bg-white p-5">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-gray-100">
-              <History className="size-6 text-gray-500" />
+              <History className="size-6 text-ink-muted" />
             </div>
             <div className="min-w-0">
-              <div className="text-2xl font-bold text-gray-900">{summary.last7d}</div>
-              <div className="text-xs text-gray-500">Sign-ins (7 days)</div>
+              <div className="text-2xl font-bold text-ink">{summary.last7d}</div>
+              <div className="text-xs text-ink-muted">Sign-ins (7 days)</div>
             </div>
           </div>
         </div>
@@ -1544,7 +1505,7 @@ function SignInHistoryTab() {
               className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 windowFilter === w
                   ? "bg-[var(--client-primary)] text-white"
-                  : "text-gray-600 hover:bg-gray-200"
+                  : "text-ink-muted hover:bg-gray-200"
               }`}
             >
               {windowLabels[w]}
@@ -1552,17 +1513,12 @@ function SignInHistoryTab() {
           ))}
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            type="text"
-            placeholder="Search by user name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-white py-2 pl-8"
-            aria-label="Search sign-in history"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by user name..."
+          ariaLabel="Search sign-in history"
+        />
       </div>
 
       {/* List */}
@@ -1578,7 +1534,7 @@ function SignInHistoryTab() {
         ) : rows.length === 0 ? (
           <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-white">
             <History className="size-10 text-gray-400" />
-            <span className="text-base font-medium text-gray-900">No sign-ins in this period</span>
+            <span className="text-base font-medium text-ink">No sign-ins in this period</span>
             <span className="text-sm text-gray-400">
               Try expanding the time window or clearing the search.
             </span>
@@ -1591,17 +1547,17 @@ function SignInHistoryTab() {
             >
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-base font-bold text-gray-900">
+                  <span className="text-base font-bold text-ink">
                     {row.userName ?? "Unknown user"}
                   </span>
                   {row.userRole && (
-                    <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                    <Badge className="rounded-full border-transparent bg-gray-100 px-3 py-1 text-xs font-medium text-ink-muted">
                       {row.userRole.replace(/_/g, " ")}
                     </Badge>
                   )}
                 </div>
                 {row.userEmail && (
-                  <div className="truncate text-sm text-gray-500">{row.userEmail}</div>
+                  <div className="truncate text-sm text-ink-muted">{row.userEmail}</div>
                 )}
                 <div className="text-xs text-gray-400">
                   {formatDate(row.attemptedAt)}
@@ -1621,7 +1577,7 @@ function SignInHistoryTab() {
       {/* Pagination */}
       {total > pageSize && (
         <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-muted">
             Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -1632,12 +1588,12 @@ function SignInHistoryTab() {
               className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 page === 1
                   ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  : "border-gray-300 text-ink-muted hover:bg-gray-100"
               }`}
             >
               Previous
             </button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-ink-muted">
               Page {page} of {totalPages}
             </span>
             <button
@@ -1647,7 +1603,7 @@ function SignInHistoryTab() {
               className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 page === totalPages
                   ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  : "border-gray-300 text-ink-muted hover:bg-gray-100"
               }`}
             >
               Next

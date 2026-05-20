@@ -34,11 +34,11 @@ export default function GlobalError({
       <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
         <AlertTriangle className="size-16 text-[#FF3A69]" strokeWidth={1.5} />
 
-        <h1 className="text-2xl font-extrabold text-gray-900 sm:text-3xl">
+        <h1 className="text-2xl font-extrabold text-ink sm:text-3xl">
           Something went wrong
         </h1>
 
-        <p className="text-base text-gray-500">
+        <p className="text-base text-ink-muted">
           An unexpected error occurred. Try again — if the problem
           continues, contact support and share the reference below.
         </p>
