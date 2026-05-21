@@ -1042,6 +1042,15 @@
             writers (e.g. ITN arriving mid-reconcile) settle cleanly at the
             DB level — the loser gets a "conflict" result instead of
             double-writing the row + audit log.
+            <br><br>
+            <strong>Follow-up (also 2026-05-21):</strong> a race-test on
+            Start Consult revealed that while the DB transition was protected,
+            both racing requests still called CareFirst (which is not
+            idempotent on <code>uniqueReference</code>), creating duplicate
+            SSO sessions. Added a <em>handoff lock</em> pattern: a conditional
+            UPDATE acquires <code>handoff_status = "in_progress"</code> before
+            the CareFirst call, returning 409 to the loser. Only one window
+            reaches the external API.
           </div>
           <div class="field">
             <div class="field-label">What it is</div>

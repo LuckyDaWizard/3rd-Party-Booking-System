@@ -180,7 +180,44 @@ export async function POST(request: Request, context: RouteContext) {
   const attemptCount = (booking.handoff_attempt_count ?? 0) + 1
   const attemptTime = new Date().toISOString()
 
-  // Build payload + call CareFirst.
+  // Acquire the handoff lock BEFORE calling CareFirst (audit #8 follow-up:
+  // prevents concurrent Start Consult clicks from each calling CareFirst
+  // and creating duplicate SSO sessions on their side). The conditional
+  // UPDATE matches only when the booking is still "Payment Complete" AND
+  // no other request has handoff_status = "in_progress". A "failed" or
+  // NULL value is fine — legitimate retries are still allowed. A "sent"
+  // value would mean status is "Successful" which the .eq() also filters
+  // out, so we don't have to spell it out.
+  const { data: lockRows, error: lockErr } = await admin
+    .from("bookings")
+    .update({
+      handoff_status: "in_progress",
+      handoff_attempt_count: attemptCount,
+      last_handoff_attempt_at: attemptTime,
+    })
+    .eq("id", id)
+    .eq("status", "Payment Complete")
+    .or("handoff_status.is.null,handoff_status.eq.failed")
+    .select("id")
+
+  if (lockErr) {
+    return apiError(
+      `Failed to acquire handoff lock: ${lockErr.message}`,
+      500
+    )
+  }
+  if (!lockRows || lockRows.length === 0) {
+    // Either: (a) another Start Consult click for this booking is already
+    // in flight, or (b) the booking has moved past Payment Complete since
+    // the read above. Both are race conditions; the 409 tells the operator
+    // to refresh and re-check.
+    return apiError(
+      "Another start-consult attempt is already in progress for this booking, or its status has changed. Please refresh and retry.",
+      409
+    )
+  }
+
+  // Build payload + call CareFirst — we now hold the lock.
   const payload = buildSsoPayload(config, booking)
   const result = await callSsoAutoRegister(config, payload)
 
