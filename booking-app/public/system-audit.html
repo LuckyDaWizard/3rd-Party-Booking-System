@@ -223,6 +223,46 @@
       vertical-align: middle;
     }
 
+    /* Completed finding card (Critical / High priority sections). Adds a
+       green left border + Complete pill before the heading. Used to mark
+       the items 1-9 findings as they get worked through. */
+    .finding.done {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(to right, #f0fdf4, #ffffff 25%);
+    }
+    .finding.done h3 .done-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+    .finding.done h3 { color: var(--r-mute); }
+    .finding.done .resolution {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #ecfdf5;
+      border-left: 3px solid #10b981;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .finding.done .resolution-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #047857;
+      margin-bottom: 4px;
+    }
+
     .lede {
       max-width: var(--r-content-max);
       margin: 24px auto 0;
@@ -936,8 +976,22 @@
           </div>
         </div>
 
-        <div class="finding high">
-          <h3>7. Authentication check is duplicated across every protected endpoint</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Complete</span>7. Authentication check is duplicated across every protected endpoint</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-21</span>
+            Added a default-deny check to <code>src/middleware.ts</code>: any
+            <code>/api/admin/*</code> request without a Supabase auth cookie
+            now gets a 401 before reaching the handler. The existing in-handler
+            <code>requireSystemAdminWithCaller()</code> guards stay in place
+            as defence-in-depth. Belt + braces: even if a future admin endpoint
+            forgets the role check, unauthenticated traffic is blocked.
+            Coverage enforced by a new Playwright test
+            (<code>tests/admin-auth-coverage.spec.ts</code>) that walks every
+            <code>route.ts</code> under <code>src/app/api/admin/</code> and
+            asserts each rejects unauthenticated requests with 401/403/405.
+            All 23 endpoints currently pass.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>Every API endpoint that requires sign-in re-runs the same 20 lines of auth-checking code. There are roughly 30 endpoints. If a new one gets added and the developer forgets to copy-paste the check, that endpoint silently has no security.</div>
@@ -970,8 +1024,25 @@
           </div>
         </div>
 
-        <div class="finding high">
-          <h3>8. Booking state transitions are scattered across many files</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Complete</span>8. Booking state transitions are scattered across many files</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-21</span>
+            New <code>src/lib/booking-state-machine.ts</code> defines the
+            canonical model: a <code>TRANSITIONS</code> map of allowed
+            target statuses per source, plus <code>canTransition()</code> /
+            <code>assertTransition()</code> validators and a
+            <code>transitionStatus(client, id, from, to, extras)</code>
+            helper that combines validation with a conditional UPDATE.
+            Five server-side transition sites migrated: PayFast ITN webhook,
+            PayFast reconcile sweep, admin <code>complete-payment</code>,
+            <code>mark-monthly-invoice</code>, <code>mark-self-collect</code>,
+            and Start Consult (Payment Complete → Successful). Each now
+            filters its UPDATE by the expected current status, so concurrent
+            writers (e.g. ITN arriving mid-reconcile) settle cleanly at the
+            DB level — the loser gets a "conflict" result instead of
+            double-writing the row + audit log.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>A booking moves through statuses (In Progress to Payment Complete to Successful or Discarded/Abandoned). The rules for which transitions are allowed live in eight different files. There's no single place that says "from status X you can only go to Y or Z".</div>
@@ -1245,29 +1316,17 @@
               </td>
               <td>0.5 day</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                9. Surface silent errors to the user with a toast component
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>Build (or borrow from shadcn) a Toast primitive (~2 hr). Wire it to the 5 error-only-in-console sites in <code>booking-store.tsx</code> (~1 hr). Test each path by killing the network mid-action (~1 hr).</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>9. Surface silent errors to the user with a toast component
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-21 (audit #11)</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                10. Add timeout + retry to CareFirst handoff
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>Wrap the existing fetch in an AbortController + 5-second timeout, retry once on 502/503. Update <code>audit_log</code> to distinguish timeout from outright failure. The half-day covers manual verification against a deliberately slow endpoint.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>10. Add timeout + retry to CareFirst handoff
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-21 (audit #20)</td>
             </tr>
           </tbody>
         </table>
@@ -1279,65 +1338,35 @@
             <tr><th>Task</th><th style="width: 100px;">Effort</th></tr>
           </thead>
           <tbody>
-            <tr>
+            <tr class="done">
               <td>
-                11. Refactor auth into Next.js middleware (one place, not 30)
-                <details class="reasoning">
-                  <summary>Why 1 day</summary>
-                  <div class="reasoning-body">
-                    <p>The day reflects the testing matrix, not the keystrokes. ~2 hr writing the middleware + ~1 hr removing redundant auth blocks from 30 endpoints + ~5 hr re-testing all 30 endpoints against three checks each (signed-out → 401, wrong role → 403, correct role → 200). Auth regressions are silent so the coverage matters.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>11. Refactor auth into Next.js middleware (one place, not 30)
               </td>
-              <td>1 day</td>
+              <td>Done 2026-05-21</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                12. Centralise the booking state machine
-                <details class="reasoning">
-                  <summary>Why 1-2 days</summary>
-                  <div class="reasoning-body">
-                    <p>Map all transition logic (~2 hr), define the state machine module (~3 hr), replace inline checks with module calls (~3 hr). The big chunk is race-condition testing: admin manual-confirm racing with auto-reconcile, abandoned-flow racing with continue, etc. Each race needs reasoning + reproduction (~4-8 hr). The range covers whether subtle timing dependencies surface.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>12. Centralise the booking state machine
               </td>
-              <td>1-2 days</td>
+              <td>Done 2026-05-21 (audit #8)</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                13. Standardise API error response shape
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>Mechanical sweep of ~30 routes to return <code>{ success: false, error: string }</code>. Update client-side fetch handlers to read from <code>.error</code> consistently. The half-day is mostly the per-endpoint verification.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>13. Standardise API error response shape
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-21 (audit #10)</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                14. Parallelise the slow API routes
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>Two routes - PayFast initiate and payment-mode - have 3 sequential queries that could be parallel. ~30 min code (wrap in <code>Promise.all</code>) + verify no implicit ordering dependency + add timing logs to confirm the ~50% latency reduction is real.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>14. Parallelise the slow API routes
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-21 (audit #17)</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                15. Shorten access-token expiry; add session blacklist if needed
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>Configure Supabase to issue 15-min tokens instead of 60-min (~15 min). Verify the refresh-token flow still works smoothly at the shorter interval (~1.5 hr). Test that forced sign-out propagates within the 15-min window instead of the old 60-min (~1.5 hr).</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>15. Shorten access-token expiry; add session blacklist if needed
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-21 (audit #14)</td>
             </tr>
           </tbody>
         </table>

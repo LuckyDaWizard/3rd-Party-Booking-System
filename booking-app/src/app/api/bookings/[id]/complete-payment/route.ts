@@ -4,6 +4,10 @@ import { requireAdminOrManager } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { recordBookingValidator } from "@/lib/booking-validator"
 import { apiError } from "@/lib/api-response"
+import {
+  transitionStatus,
+  type BookingStatus,
+} from "@/lib/booking-state-machine"
 
 // =============================================================================
 // POST /api/bookings/[id]/complete-payment
@@ -94,17 +98,29 @@ export async function POST(request: Request, context: RouteContext) {
     return apiError(`Cannot complete payment for booking with status "${booking.status}"`, 409)
   }
 
-  // Update via service role.
-  const { error: updErr } = await admin
-    .from("bookings")
-    .update({
-      status: "Payment Complete",
-      payment_confirmed_at: new Date().toISOString(),
-    })
-    .eq("id", id)
+  // Conditional update via the canonical state machine (audit #8). Filters
+  // on the current status so a concurrent writer (PayFast ITN / reconcile
+  // sweep) can't double-process the same booking.
+  const fromStatus = booking.status as BookingStatus
+  const result = await transitionStatus(
+    admin,
+    id,
+    fromStatus,
+    "Payment Complete",
+    { payment_confirmed_at: new Date().toISOString() }
+  )
 
-  if (updErr) {
-    return apiError(updErr.message, 500)
+  if (!result.ok) {
+    if (result.reason === "conflict") {
+      return apiError(
+        "Booking status changed while completing payment — please refresh and retry.",
+        409
+      )
+    }
+    return apiError(
+      `Failed to update booking: ${result.error instanceof Error ? result.error.message : "DB error"}`,
+      500
+    )
   }
 
   // Snapshot the supervisor who manually confirmed payment — best-effort.

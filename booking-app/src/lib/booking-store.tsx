@@ -121,12 +121,13 @@ function postBookingAudit(payload: AuditPayload): void {
 // Types
 // ---------------------------------------------------------------------------
 
-export type BookingStatus =
-  | "In Progress"
-  | "Payment Complete"
-  | "Successful"
-  | "Discarded"
-  | "Abandoned"
+// Re-export the canonical BookingStatus from the state-machine module so
+// existing consumers of `import { BookingStatus } from "@/lib/booking-store"`
+// don't have to change. The single source of truth is now booking-state-machine.ts
+// (audit #8 / Sprint 3 #12) — both the type and the allowed-transition rules
+// live there.
+export type { BookingStatus } from "./booking-state-machine"
+import type { BookingStatus } from "./booking-state-machine"
 
 export interface BookingRecord {
   id: string

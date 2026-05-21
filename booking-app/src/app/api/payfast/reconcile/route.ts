@@ -9,6 +9,10 @@ import {
 import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
 import { recordIncident, buildSignature } from "@/lib/incidents"
 import { apiError } from "@/lib/api-response"
+import {
+  transitionStatus,
+  type BookingStatus,
+} from "@/lib/booking-state-machine"
 
 // =============================================================================
 // POST /api/payfast/reconcile
@@ -240,20 +244,37 @@ async function reconcileOne(
 
   const pfPaymentId = String(match.pf_payment_id ?? "").trim() || null
 
-  const { error: updErr } = await admin
-    .from("bookings")
-    .update({
-      status: "Payment Complete",
+  // Conditional update via the state machine — filters on the current
+  // status so a concurrent writer (ITN webhook arriving mid-reconcile, or
+  // an admin manual confirm) doesn't double-update.
+  const fromStatus = booking.status as BookingStatus
+  const result = await transitionStatus(
+    admin,
+    bookingId,
+    fromStatus,
+    "Payment Complete",
+    {
       pf_payment_id: pfPaymentId,
       payment_confirmed_at: new Date().toISOString(),
-    })
-    .eq("id", bookingId)
+    }
+  )
 
-  if (updErr) {
+  if (!result.ok) {
+    if (result.reason === "conflict") {
+      // Another writer beat us to it. Not an error from reconcile's POV —
+      // the booking IS now Payment Complete, just not via this sweep.
+      return {
+        bookingId,
+        updated: false,
+        reason: "Concurrent writer transitioned this booking first",
+      }
+    }
     return {
       bookingId,
       updated: false,
-      reason: `DB update failed: ${updErr.message}`,
+      reason: `DB update failed: ${
+        result.error instanceof Error ? result.error.message : "unknown"
+      }`,
     }
   }
 

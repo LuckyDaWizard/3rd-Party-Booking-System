@@ -12,6 +12,7 @@ import {
 } from "@/lib/carefirst"
 import { sendConsultLinkEmail } from "@/lib/email"
 import { apiError } from "@/lib/api-response"
+import { transitionStatus } from "@/lib/booking-state-machine"
 
 type DeliveryMode = "device" | "email"
 
@@ -282,10 +283,16 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   // Success — mark the booking handed off and status "Successful".
-  const { error: updErr } = await admin
-    .from("bookings")
-    .update({
-      status: "Successful",
+  // Conditional transition from Payment Complete (audit #8). If a stale /
+  // concurrent writer changed the status while we were calling CareFirst,
+  // the UPDATE matches 0 rows and we log loudly — the nurse can still use
+  // the redirect URL we received, so this isn't user-fatal.
+  const transitionResult = await transitionStatus(
+    admin,
+    id,
+    "Payment Complete",
+    "Successful",
+    {
       handoff_status: "sent",
       handed_off_at: attemptTime,
       last_handoff_attempt_at: attemptTime,
@@ -293,16 +300,17 @@ export async function POST(request: Request, context: RouteContext) {
       handoff_error_reason: null,
       handoff_redirect_url: result.redirectUrl ?? null,
       external_reference_id: result.externalReferenceId ?? null,
-    })
-    .eq("id", id)
+    }
+  )
 
-  if (updErr) {
+  if (!transitionResult.ok) {
     // Bad edge case: CareFirst registered the patient but our DB update
-    // failed. Don't show an error to the nurse (they can still start the
-    // consult via the redirect URL) but log loudly.
+    // failed or got out-of-order. Don't show an error to the nurse (they
+    // can still start the consult via the redirect URL) but log loudly.
     console.error(
-      "[start-consultation] CareFirst succeeded but DB update failed:",
-      updErr
+      "[start-consultation] CareFirst succeeded but state transition failed:",
+      transitionResult.reason,
+      transitionResult.reason === "db-error" ? transitionResult.error : undefined
     )
   }
 

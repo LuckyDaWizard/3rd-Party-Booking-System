@@ -94,6 +94,27 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const method = request.method.toUpperCase()
 
+  // Default-deny for /api/admin/* without an auth cookie (audit #7 /
+  // Sprint 3 #11). The in-handler `requireSystemAdminWithCaller()` checks
+  // still verify role + status downstream; this is the belt + braces layer
+  // that ensures a new admin route which forgets the in-handler check is
+  // STILL blocked for unauthenticated callers. Supabase sets the access
+  // token under cookie name `sb-<project-ref>-auth-token`.
+  if (pathname.startsWith("/api/admin/")) {
+    const hasSupabaseAuthCookie = request.cookies
+      .getAll()
+      .some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"))
+    if (!hasSupabaseAuthCookie) {
+      return new NextResponse(
+        JSON.stringify({ ok: false, error: "Unauthenticated" }),
+        {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        }
+      )
+    }
+  }
+
   // Read the existing cookie (may be undefined on a fresh browser).
   const existing = request.cookies.get(CSRF_COOKIE_NAME)?.value
 

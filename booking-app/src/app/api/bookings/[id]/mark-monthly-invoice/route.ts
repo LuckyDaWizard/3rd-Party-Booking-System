@@ -5,6 +5,10 @@ import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { PAYMENT_AMOUNT } from "@/lib/payfast"
 import { recordBookingValidator } from "@/lib/booking-validator"
 import { apiError } from "@/lib/api-response"
+import {
+  transitionStatus,
+  type BookingStatus,
+} from "@/lib/booking-state-machine"
 
 // =============================================================================
 // POST /api/bookings/[id]/mark-monthly-invoice
@@ -110,18 +114,31 @@ export async function POST(request: Request, context: RouteContext) {
     return apiError(`Cannot complete payment for booking with status "${booking.status}"`, 409)
   }
 
-  const { error: updErr } = await admin
-    .from("bookings")
-    .update({
-      status: "Payment Complete",
+  // Conditional update via the canonical state machine (audit #8).
+  const fromStatus = booking.status as BookingStatus
+  const result = await transitionStatus(
+    admin,
+    id,
+    fromStatus,
+    "Payment Complete",
+    {
       payment_type: "monthly_invoice",
       payment_amount: parseFloat(PAYMENT_AMOUNT),
       payment_confirmed_at: new Date().toISOString(),
-    })
-    .eq("id", id)
+    }
+  )
 
-  if (updErr) {
-    return apiError(updErr.message, 500)
+  if (!result.ok) {
+    if (result.reason === "conflict") {
+      return apiError(
+        "Booking status changed while marking monthly invoice — please refresh.",
+        409
+      )
+    }
+    return apiError(
+      `Failed to update booking: ${result.error instanceof Error ? result.error.message : "DB error"}`,
+      500
+    )
   }
 
   // Snapshot the operator who triggered the auto-skip — best-effort.

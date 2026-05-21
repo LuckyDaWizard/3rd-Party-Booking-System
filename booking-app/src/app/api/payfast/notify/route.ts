@@ -10,6 +10,10 @@ import {
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit"
 import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
 import { recordIncident, buildSignature } from "@/lib/incidents"
+import {
+  transitionStatus,
+  type BookingStatus,
+} from "@/lib/booking-state-machine"
 
 // Per-IP rate limiter for the ITN endpoint. PayFast's legitimate retry
 // pattern is exponential backoff over minutes — nothing close to this
@@ -189,20 +193,48 @@ async function processItn(request: Request): Promise<ItnOutcome> {
     return transientFailure("Server confirmation failed or returned non-VALID", 502)
   }
 
-  // All validations passed — apply the update.
+  // All validations passed — apply the update via the canonical state
+  // machine (audit #8). transitionStatus does a conditional UPDATE filtered
+  // by `status = "In Progress"`, so a concurrent admin manual-confirm or
+  // a reconcile sweep that races us produces a clean "conflict" result
+  // instead of double-updating the row + double-writing the audit log.
   if (paymentStatus === "COMPLETE") {
-    const { error: updErr } = await admin
-      .from("bookings")
-      .update({
-        status: "Payment Complete",
+    const fromStatus = booking.status as BookingStatus
+    if (fromStatus !== "In Progress") {
+      // Already past In Progress — either another writer beat us to it
+      // (concurrent manual confirm / reconcile), or the booking has already
+      // been completed and we're seeing a duplicate ITN. Treat as accept
+      // (idempotent) — the alternative is asking PayFast to keep retrying
+      // a webhook we'll never honour.
+      return accept(
+        `Booking ${bookingId} already past In Progress (status=${fromStatus}); ITN ignored`
+      )
+    }
+
+    const result = await transitionStatus(
+      admin,
+      bookingId,
+      "In Progress",
+      "Payment Complete",
+      {
         pf_payment_id: pfPaymentId,
         payment_confirmed_at: new Date().toISOString(),
-      })
-      .eq("id", bookingId)
+      }
+    )
 
-    if (updErr) {
-      console.error(`[PayFast ITN] Failed to update booking ${bookingId}:`, updErr.message)
-      // DB write failure is transient — let PayFast retry.
+    if (!result.ok) {
+      if (result.reason === "conflict") {
+        // Another writer (manual confirm / reconcile) committed a
+        // transition between our read above and this update. Their write
+        // wins; we ack the ITN so PayFast stops retrying.
+        return accept(
+          `Booking ${bookingId} transitioned by a concurrent writer; ITN ignored`
+        )
+      }
+      console.error(
+        `[PayFast ITN] Failed to update booking ${bookingId}:`,
+        result.error
+      )
       return transientFailure("Failed to update booking", 503)
     }
 
