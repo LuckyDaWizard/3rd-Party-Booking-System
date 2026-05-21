@@ -12,6 +12,22 @@ services:
     image: booking-app:${IMAGE_TAG:-latest}
     container_name: booking-app
     restart: unless-stopped
+    # Container resource caps — guards against a runaway Node process
+    # OOM-killing the host. Sized for the Hostinger KVM 1 plan (4 GB RAM
+    # / 2 vCPU); leaves ~3 GB and ~0.5 CPU for Traefik + system.
+    # `mem_limit` is the hard cap (container killed if exceeded);
+    # `mem_reservation` is the soft target the scheduler tries to honour.
+    mem_limit: 1g
+    mem_reservation: 256m
+    cpus: 1.5
+    # Cap container log file size so docker logs can't fill the disk on
+    # a long-running deploy. Three 10 MB files = 30 MB ceiling per
+    # container; older entries roll off automatically.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "3000:3000"
     environment:

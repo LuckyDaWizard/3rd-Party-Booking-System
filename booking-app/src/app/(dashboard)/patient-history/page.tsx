@@ -28,7 +28,24 @@ import {
   ConsultDeliveryModal,
   type ConsultDeliveryMode,
 } from "@/components/ui/consult-delivery-modal"
-import * as XLSX from "xlsx"
+// CSV export helper. RFC 4180 quoting: wrap any field containing a
+// comma, double-quote, CR or LF in double-quotes; escape internal
+// double-quotes by doubling them.
+function toCsv(rows: Record<string, string>[]): string {
+  if (rows.length === 0) return ""
+  const headers = Object.keys(rows[0])
+  const escape = (val: string) => {
+    if (/[",\r\n]/.test(val)) return `"${val.replace(/"/g, '""')}"`
+    return val
+  }
+  const lines = [headers.map(escape).join(",")]
+  for (const row of rows) {
+    lines.push(headers.map((h) => escape(row[h] ?? "")).join(","))
+  }
+  // Prepend the UTF-8 BOM so Excel auto-detects encoding for ZA
+  // accented characters and emoji-free patient names.
+  return "﻿" + lines.join("\r\n")
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1074,7 +1091,7 @@ export default function PatientHistoryPage() {
         </div>
       )}
 
-      {/* Export to Excel - System Admin only */}
+      {/* Export to CSV - System Admin only. Excel opens .csv natively. */}
       {isSystemAdmin && (
         <button
           type="button"
@@ -1107,15 +1124,21 @@ export default function PatientHistoryPage() {
               })
             })
 
-            const ws = XLSX.utils.json_to_sheet(exportData)
-            const wb = XLSX.utils.book_new()
-            XLSX.utils.book_append_sheet(wb, ws, "Patient History")
-            XLSX.writeFile(wb, `patient-history-${new Date().toISOString().slice(0, 10)}.xlsx`)
+            const csv = toCsv(exportData)
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = `patient-history-${new Date().toISOString().slice(0, 10)}.csv`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
           }}
           className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-[var(--client-primary)] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-[var(--client-primary-90)] hover:shadow-xl"
         >
           <Download className="size-4" />
-          Export to Excel
+          Export to CSV
         </button>
       )}
     </div>

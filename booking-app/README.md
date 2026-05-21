@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CareFirst Third Party Booking System
 
-## Getting Started
+Web app for clinic operators to capture a patient's details, take payment, and
+hand off to the CareFirst Patient app for the actual consultation. This repo
+is the intake / payment gateway only — the consultation itself lives in a
+separate product.
 
-First, run the development server:
+Live at **http://187.127.135.11:3000** (HTTPS migration pending).
+
+## Stack
+
+- **Next.js 16** (App Router, React Server Components, `output: "standalone"`)
+- **Supabase** (Postgres + Auth + Storage, real RLS, numbered migrations under `supabase/migrations/`)
+- **Tailwind v4** with `@theme inline` tokens in `src/app/globals.css`
+- **PayFast** for card payments (sandbox + production, ITN webhook + pull reconciliation)
+- **Docker** multi-stage build, deployed on a Hostinger VPS behind Traefik
+- **Nodemailer** + SMTP for transactional email
+
+## Local dev
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Hot-reload on save.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Required env vars (create `.env.local` from the keys in
+[`docker-compose.yml`](./docker-compose.yml) — never commit this file):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Var | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (public) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (public) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key — server-side only, never exposed to the browser |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Outbound email (mail.carefirst.co.za:465) |
+| `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY` / `PAYFAST_PASSPHRASE` / `PAYFAST_TEST_MODE` | PayFast credentials (sandbox or production) |
+| `NEXT_PUBLIC_APP_URL` | Used to build outbound links + the PayFast notify URL |
 
-## Learn More
+## Useful routes
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Purpose |
+|---|---|
+| `/home` | Operator dashboard — start a booking, view patient history |
+| `/create-booking/…` | The 4-step booking flow (search → patient details → payment → handoff) |
+| `/security` | 4-tab security dashboard (failed attempts, sessions, suspicious activity, sign-in history) |
+| `/audit-log` | Full audit trail (Admin + Bookings tabs) |
+| `/reports` | Architecture diagrams + incident reports (`system_admin` only) |
+| `/design-system` | Component primitives catalogue + consolidation outcome |
+| `/system-audit.html` | Management-facing audit document with progress tracker |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roles
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Three roles, server-side enforced on every protected route:
 
-## Deploy on Vercel
+- **`system_admin`** — full access across all units, branding, reports
+- **`unit_manager`** — manage their unit's users + bookings
+- **`user`** — capture bookings for their assigned unit
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+RLS policies in Postgres back this up; even a broken auth check on the server
+cannot leak another unit's data.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploying
+
+The VPS pulls from `main` and rebuilds the Docker image:
+
+```bash
+ssh root@187.127.135.11
+cd /opt/3rd-Party-Booking-System/booking-app && git pull && docker compose up -d --build
+```
+
+Build takes 5–10 min. Rollback by `git reset --hard <previous-sha>` and
+re-running the same one-liner.
+
+## Docs in this repo
+
+- [`OPERATIONS.md`](./OPERATIONS.md) — runbook: backups, refunds, deploys, rollbacks, common incidents
+- [`public/system-audit.html`](./public/system-audit.html) — full system audit with completion tracker
+- [`supabase/migrations/`](./supabase/migrations) — numbered, forward-only SQL migrations (001 → 029)
+
+## Repo layout
+
+```
+booking-app/
+├── src/
+│   ├── app/                  Next.js App Router pages + API routes
+│   │   ├── (auth)/           Sign-in, forgot-pin, reset-pin
+│   │   ├── (dashboard)/      Authenticated app (operator + admin pages)
+│   │   ├── api/              Server routes (admin/, bookings/, payfast/, …)
+│   │   └── pay/[bookingId]/  Public PayFast handoff page
+│   ├── components/ui/        Shared primitives (Button, Banner, Dialog, …)
+│   └── lib/                  Stores (auth, booking, unit, user, client),
+│                             helpers, Supabase clients
+├── supabase/migrations/      Numbered SQL migrations
+├── docs/                     Source copies of HTML docs
+├── public/                   Static assets + the served audit page
+├── Dockerfile                Multi-stage build (deps → builder → runner)
+└── docker-compose.yml        Single service, Traefik labels
+```

@@ -16,13 +16,13 @@
 // <input accept=...> filter, so a decode failure here is rare.
 // =============================================================================
 
-export interface ImageDimensions {
+interface ImageDimensions {
   width: number
   height: number
 }
 
 /** Read pixel dimensions of an image File, or null if it can't be decoded. */
-export async function readImageDimensions(file: File): Promise<ImageDimensions | null> {
+async function readImageDimensions(file: File): Promise<ImageDimensions | null> {
   // SVG: vector — no pixel dimensions to enforce.
   if (file.type === "image/svg+xml") return null
   // ICO: browsers often can't decode via <img>; skip pixel check.

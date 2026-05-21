@@ -1,6 +1,11 @@
 -- =============================================================================
 -- Migration 027 — Grant UPDATE on booking_type + scheduled_at to authenticated
 --
+-- NOTE (2026-05-11): The two columns this grant targets were dropped in
+-- migration 028 when scheduling was removed. The GRANT below is a no-op
+-- against the live schema (Postgres drops column-level grants with the
+-- columns themselves), but the file is kept for historical reproducibility.
+--
 -- Background: migration 011 revoked blanket UPDATE on public.bookings and
 -- re-granted UPDATE column-by-column to the `authenticated` role. New
 -- columns added later must be explicitly added to that grant — otherwise

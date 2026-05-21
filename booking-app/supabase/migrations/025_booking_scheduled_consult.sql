@@ -1,6 +1,11 @@
 -- =============================================================================
 -- Migration 025 — Scheduled consultations
 --
+-- NOTE (2026-05-11): The booking_type + scheduled_at columns added by this
+-- migration were dropped in migration 028 when scheduling was removed as a
+-- product decision. The DDL below remains for historical reproducibility but
+-- is a no-op against the live schema.
+--
 -- Adds booking_type + scheduled_at to support a per-booking choice
 -- between "instant consult" (the standard flow since launch) and
 -- "scheduled consult" (operator captures the patient now, the

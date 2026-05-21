@@ -182,6 +182,27 @@
     .pill.err   { background: #fee2e2; color: #991b1b; }
     .pill.mute  { background: var(--r-line-2); color: var(--r-mute); }
 
+    /* Completed audit-row treatment — green left border, muted text,
+       strikethrough on the item description so the row reads as
+       "done" at a glance. */
+    tr.done > td { color: var(--r-mute); background: #f0fdf4; }
+    tr.done > td:first-child { border-left: 3px solid #16a34a; }
+    tr.done .done-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    tr.done .done-item { text-decoration: line-through; }
+
     .lede {
       max-width: var(--r-content-max);
       margin: 24px auto 0;
@@ -1073,15 +1094,15 @@
             <tr><th>#</th><th>Item</th><th>Note</th></tr>
           </thead>
           <tbody>
-            <tr><td>21</td><td>Default README is still the Next.js boilerplate</td><td>30-minute personalisation</td></tr>
-            <tr><td>22</td><td>A few utility functions exported but only used internally</td><td>Make private - cleanliness</td></tr>
-            <tr><td>23</td><td>One migration comment references columns dropped later</td><td>One-line clarifying note</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>21</td><td><span class="done-item">Default README is still the Next.js boilerplate</span></td><td>Done 2026-05-21 — replaced with a project intro: stack, local dev, env vars, useful routes, roles, deploy one-liner, repo layout. Pointers to <code>OPERATIONS.md</code> + <code>/system-audit.html</code>.</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>22</td><td><span class="done-item">A few utility functions exported but only used internally</span></td><td>Done 2026-05-21 — dropped <code>export</code> from <code>hexToRgb</code>, <code>relativeLuminance</code>, <code>contrastRatio</code>, <code>ContrastVerdict</code>, <code>ContrastCheck</code> (color-contrast.ts) and <code>readImageDimensions</code>, <code>ImageDimensions</code> (image-dimensions.ts).</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>23</td><td><span class="done-item">One migration comment references columns dropped later</span></td><td>Done 2026-05-21 — forward-pointing notes added to migration 025 and 027 headers.</td></tr>
             <tr><td>24</td><td>Two pre-existing lint warnings about refs-during-render</td><td>Inherited; harmless functionally</td></tr>
-            <tr><td>25</td><td>Reports page loads diagram library on every page</td><td>Lazy-load when first diagram appears</td></tr>
-            <tr><td>26</td><td>Excel library may be unused</td><td>Verify; if so, drop and save ~300 KB of bundle</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>25</td><td><span class="done-item">Reports page loads diagram library on every page</span></td><td>Done 2026-05-21 — wrapped <code>Mermaid</code> in <code>next/dynamic</code> with <code>ssr: false</code>. The component's real implementation (renamed to <code>MermaidClient.tsx</code>) and its ~80 KB <code>mermaid</code> dep are now in a deferred chunk that only downloads when a diagram actually mounts. Call sites unchanged — they still <code>import { Mermaid } from "./Mermaid"</code>.</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>26</td><td><span class="done-item">Excel library may be unused</span></td><td>Done 2026-05-21 — <code>xlsx</code> had one call site (system-admin Export button on /patient-history producing an .xlsx file). Replaced with a hand-rolled RFC 4180 CSV writer (~17 lines, UTF-8 BOM so Excel auto-detects encoding) and removed the dependency. Excel opens .csv natively, so the operator UX is unchanged.</td></tr>
             <tr><td>27</td><td>Email transporter built lazily without locking</td><td>Cosmetic; nodemailer handles it</td></tr>
             <tr><td>28</td><td>File upload trusts the browser-supplied file type</td><td>Add server-side magic-byte check</td></tr>
-            <tr><td>29</td><td>No memory / CPU limits on the booking-app container</td><td>Runaway process could OOM the host</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>29</td><td><span class="done-item">No memory / CPU limits on the booking-app container</span></td><td>Done 2026-05-21 — added <code>mem_limit: 1g</code>, <code>mem_reservation: 256m</code>, <code>cpus: 1.5</code> to docker-compose.yml. Also capped json-file logs at 3 &times; 10 MB so docker logs can't fill the disk.</td></tr>
             <tr><td>30</td><td>No automated tests</td><td>Acceptable at this stage; worth starting a smoke test soon</td></tr>
           </tbody>
         </table>
