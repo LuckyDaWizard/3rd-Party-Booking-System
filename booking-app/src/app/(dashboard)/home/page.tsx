@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-store"
 import { useBookingStore } from "@/lib/booking-store"
 
@@ -88,24 +87,22 @@ export default function HomeDashboardPage() {
             data-testid="patient-history-card"
             className="flex w-full items-center justify-between rounded-lg bg-white px-6 py-5 shadow-sm transition-shadow hover:shadow-md"
           >
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-1 flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-base font-bold text-ink">
                   Patient History
                 </span>
                 {pendingCount > 0 && (
-                  <Badge
+                  <span
                     data-testid="patient-history-badge"
-                    className="size-5 items-center justify-center rounded-full bg-red-400 text-[10px] text-white border-transparent p-0"
+                    className="inline-flex h-7 items-center justify-center rounded-full bg-[#FF3A69] px-4 text-sm font-semibold text-white"
                   >
                     {pendingCount}
-                  </Badge>
+                  </span>
                 )}
               </div>
               <span className="text-sm text-ink-muted">
-                {bookings.length === 0
-                  ? "No patient bookings yet."
-                  : `View ${bookings.length} booking${bookings.length === 1 ? "" : "s"} for your unit.`}
+                View the patients of the last 24 hours.
               </span>
             </div>
           </Link>
