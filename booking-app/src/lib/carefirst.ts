@@ -229,6 +229,21 @@ export interface SsoAutoRegisterResult {
   statusCode?: number
 }
 
+// Upper bound for a single CareFirst auto-register call. If CareFirst hangs
+// (rather than failing fast with a 5xx), the nurse otherwise waits up to
+// Node's default ~30s before seeing any feedback. Five seconds is well above
+// CareFirst's normal response time (~300-800ms in staging) and still inside
+// the operator's patience window.
+const CAREFIRST_TIMEOUT_MS = 5000
+
+function isAbortOrTimeout(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false
+  const e = err as { name?: string; cause?: { name?: string } }
+  if (e.name === "TimeoutError" || e.name === "AbortError") return true
+  if (e.cause?.name === "TimeoutError" || e.cause?.name === "AbortError") return true
+  return false
+}
+
 export async function callSsoAutoRegister(
   config: CareFirstConfig,
   payload: SsoAutoRegisterPayload
@@ -244,8 +259,21 @@ export async function callSsoAutoRegister(
         "x-api-key": config.apiKey,
       },
       body: JSON.stringify(payload),
+      // AbortSignal.timeout fires a DOMException with name "TimeoutError"
+      // (Node 18.16+) or "AbortError" on older runtimes. isAbortOrTimeout
+      // below handles both shapes so the operator sees a specific
+      // "didn't respond in time" message instead of a generic network error.
+      signal: AbortSignal.timeout(CAREFIRST_TIMEOUT_MS),
     })
   } catch (err) {
+    if (isAbortOrTimeout(err)) {
+      return {
+        ok: false,
+        error: `CareFirst did not respond within ${
+          CAREFIRST_TIMEOUT_MS / 1000
+        } seconds. Please try again — if this persists, the service may be experiencing issues.`,
+      }
+    }
     return {
       ok: false,
       error: `Network error calling CareFirst: ${

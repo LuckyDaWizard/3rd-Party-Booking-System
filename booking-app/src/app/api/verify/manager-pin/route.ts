@@ -83,9 +83,31 @@ async function verifyPinAgainstAuth(pin: string): Promise<string | null> {
   }
 }
 
+// Constant-time floor for the PIN-verification response (audit #13).
+// Every code path below — wrong PIN, wrong role, wrong unit, success — is
+// padded out to MIN_RESPONSE_MS before returning, so an attacker measuring
+// response time can't distinguish "PIN matches no account" (skips the
+// DB role / user_units lookups) from "PIN matches an account but with the
+// wrong role" (runs the lookups before failing). 300ms is comfortably
+// above the slowest legitimate path even on a cold connection.
+const MIN_RESPONSE_MS = 300
+
+async function padResponse(start: number): Promise<void> {
+  const elapsed = Date.now() - start
+  const remaining = MIN_RESPONSE_MS - elapsed
+  if (remaining > 0) {
+    await new Promise((r) => setTimeout(r, remaining))
+  }
+}
+
 export async function POST(request: Request) {
+  const start = Date.now()
+
   // Require any signed-in caller. Without this, an unauthenticated attacker
-  // could brute-force PINs by spamming this endpoint.
+  // could brute-force PINs by spamming this endpoint. The 401 / 429 / 400
+  // status-code paths are NOT padded — they're distinct outcomes the
+  // legitimate client needs to react to (e.g. retry-after on throttle),
+  // and they don't leak account existence the way the role/unit branches do.
   const sb = await getSupabaseServer()
   const {
     data: { user: caller },
@@ -106,6 +128,7 @@ export async function POST(request: Request) {
   const unitId = body.unitId ?? null
 
   if (!pin || !PIN_REGEX.test(pin)) {
+    await padResponse(start)
     return NextResponse.json({ valid: false })
   }
 
@@ -135,6 +158,7 @@ export async function POST(request: Request) {
   const matchedAuthId = await verifyPinAgainstAuth(pin)
   if (!matchedAuthId) {
     await recordPinAttempt(admin, pin, false, ipAddress)
+    await padResponse(start)
     return NextResponse.json({ valid: false })
   }
 
@@ -148,6 +172,7 @@ export async function POST(request: Request) {
 
   if (lookupErr || !matched) {
     await recordPinAttempt(admin, pin, false, ipAddress)
+    await padResponse(start)
     return NextResponse.json({ valid: false })
   }
 
@@ -156,18 +181,21 @@ export async function POST(request: Request) {
   // shouldn't ever be entered here (still records against both counters).
   if (matched.role !== "unit_manager" && matched.role !== "system_admin") {
     await recordPinAttempt(admin, pin, false, ipAddress)
+    await padResponse(start)
     return NextResponse.json({ valid: false })
   }
 
   // Must be Active.
   if (matched.status !== "Active") {
     await recordPinAttempt(admin, pin, false, ipAddress)
+    await padResponse(start)
     return NextResponse.json({ valid: false })
   }
 
   // system_admin authorises anything anywhere.
   if (matched.role === "system_admin") {
     await recordPinAttempt(admin, pin, true, ipAddress)
+    await padResponse(start)
     return NextResponse.json({
       valid: true,
       role: matched.role,
@@ -186,11 +214,13 @@ export async function POST(request: Request) {
 
     if (linkErr || !link || link.length === 0) {
       await recordPinAttempt(admin, pin, false, ipAddress)
+      await padResponse(start)
       return NextResponse.json({ valid: false })
     }
   }
 
   await recordPinAttempt(admin, pin, true, ipAddress)
+  await padResponse(start)
   return NextResponse.json({
     valid: true,
     role: matched.role,

@@ -13,23 +13,108 @@ import { usePathname } from "next/navigation"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
-// Fire-and-forget audit-log write. Best-effort: an audit failure must never
-// break the booking flow, so we swallow errors after logging to the console.
-async function postBookingAudit(payload: {
+// =============================================================================
+// Booking audit write — retry queue (audit #12)
+//
+// The /api/bookings/audit endpoint is fire-and-forget from the UI's point of
+// view: callers never await the result and a failure must never break the
+// booking flow. Previously a network blip or a transient 5xx silently dropped
+// the audit row — acceptable for most cases but a POPIA-compliance gap on
+// busy days.
+//
+// We now maintain a single in-memory FIFO queue with a serialised processor:
+//   - Up to MAX_AUDIT_RETRIES attempts per payload
+//   - Exponential backoff (500ms, 1500ms, 4500ms)
+//   - Also retries on non-OK HTTP responses (the previous code only caught
+//     network errors and missed 5xx)
+//   - 401/403 short-circuits the retry chain — no point retrying after the
+//     user's session has gone
+//
+// All retries exhausted → console.error with the full payload so the row is
+// still recoverable from log inspection. Persistent (localStorage) replay was
+// considered and deferred — the in-memory queue handles transient issues
+// which is what the audit flagged.
+// =============================================================================
+
+interface AuditPayload {
   bookingId: string
   action: "create" | "update" | "delete"
   entityName?: string
   changes?: Record<string, { old?: unknown; new?: unknown }>
-}): Promise<void> {
+}
+
+interface QueuedAudit {
+  payload: AuditPayload
+  attempts: number
+}
+
+const MAX_AUDIT_RETRIES = 3
+const RETRY_BASE_MS = 500
+
+const auditQueue: QueuedAudit[] = []
+let auditProcessing = false
+
+async function processAuditQueue(): Promise<void> {
+  if (auditProcessing) return
+  auditProcessing = true
   try {
-    await fetch("/api/bookings/audit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-  } catch (err) {
-    console.warn("Booking audit write failed:", err)
+    while (auditQueue.length > 0) {
+      const item = auditQueue[0]
+      let succeeded = false
+      let lastErr: unknown = null
+      try {
+        const res = await fetch("/api/bookings/audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.payload),
+        })
+        if (res.ok) {
+          succeeded = true
+        } else if (res.status === 401 || res.status === 403) {
+          // Session lost — there's no point retrying this or any later items
+          // since they'd all 401 too. Drop the queue.
+          console.warn(
+            "Booking audit dropped — session expired (HTTP " + res.status + ")"
+          )
+          auditQueue.length = 0
+          break
+        } else {
+          lastErr = new Error(`HTTP ${res.status}`)
+        }
+      } catch (err) {
+        lastErr = err
+      }
+
+      if (succeeded) {
+        auditQueue.shift()
+        continue
+      }
+
+      item.attempts++
+      if (item.attempts >= MAX_AUDIT_RETRIES) {
+        console.error(
+          `Booking audit dropped after ${MAX_AUDIT_RETRIES} attempts:`,
+          lastErr,
+          item.payload
+        )
+        auditQueue.shift()
+      } else {
+        // Backoff before the next attempt: 500ms, 1500ms, 4500ms.
+        const delay = RETRY_BASE_MS * Math.pow(3, item.attempts - 1)
+        await new Promise((r) => setTimeout(r, delay))
+      }
+    }
+  } finally {
+    auditProcessing = false
   }
+}
+
+function postBookingAudit(payload: AuditPayload): void {
+  auditQueue.push({ payload, attempts: 0 })
+  // Fire-and-forget — the queue processor runs in the background. We
+  // deliberately don't return its promise so callers can't accidentally
+  // block the booking flow waiting for the audit row.
+  void processAuditQueue()
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +330,14 @@ interface BookingStoreContextValue {
   setActiveBookingId: (id: string | null) => void
   getBooking: (id: string) => BookingRecord | undefined
   refreshBookings: () => Promise<void>
+  /**
+   * Last user-visible error from a failed booking save/load (audit #11).
+   * Set by the store when a Supabase operation returns an error so the
+   * dashboard layout can render a toast instead of the error vanishing
+   * into the browser console. `null` when there's nothing to show.
+   */
+  lastError: string | null
+  clearLastError: () => void
 }
 
 const BookingStoreContext = createContext<BookingStoreContextValue | null>(null)
@@ -257,6 +350,11 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookings] = useState<BookingRecord[]>([])
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // User-visible error toast trigger. The dashboard layout renders a
+  // Banner when this is non-null (audit #11). Operator action: dismiss
+  // via the banner's X, or re-trigger the failed operation.
+  const [lastError, setLastError] = useState<string | null>(null)
+  const clearLastError = useCallback(() => setLastError(null), [])
   const pathname = usePathname()
   const { user, activeUnitId: authActiveUnitId } = useAuth()
 
@@ -282,6 +380,7 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       console.error("Error fetching bookings:", error)
+      setLastError("Couldn't load bookings. Please refresh the page or try again in a moment.")
       setLoading(false)
       return
     }
@@ -321,6 +420,7 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("Error creating booking:", error)
+        setLastError("Couldn't start a new booking. Please try again — if it keeps failing, sign out and back in.")
         throw error
       }
 
@@ -357,6 +457,7 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("Error updating booking:", error)
+        setLastError("Couldn't save your changes. Please retry — if it keeps failing the data may be out of date; refresh the page.")
       }
 
       await fetchBookings()
@@ -372,8 +473,10 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         .update({ status: "Discarded" })
         .eq("id", id)
 
-      if (error) console.error("Error discarding booking:", error)
-      else {
+      if (error) {
+        console.error("Error discarding booking:", error)
+        setLastError("Couldn't discard this booking. Please retry.")
+      } else {
         postBookingAudit({
           bookingId: id,
           action: "update",
@@ -397,8 +500,10 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         .eq("id", id)
         .eq("status", "In Progress")
 
-      if (error) console.error("Error abandoning booking:", error)
-      else {
+      if (error) {
+        console.error("Error abandoning booking:", error)
+        setLastError("Couldn't abandon this booking. Please retry.")
+      } else {
         postBookingAudit({
           bookingId: id,
           action: "update",
@@ -482,6 +587,8 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         setActiveBookingId,
         getBooking,
         refreshBookings: fetchBookings,
+        lastError,
+        clearLastError,
       }}
     >
       {children}

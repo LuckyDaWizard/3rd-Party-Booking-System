@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
+import { createRateLimiter } from "@/lib/rate-limit"
 import {
   getPayfastConfig,
   getProcessUrl,
@@ -10,6 +11,15 @@ import {
   PAYMENT_ITEM_NAME,
 } from "@/lib/payfast"
 import { recordBookingValidator } from "@/lib/booking-validator"
+
+// Per-user rate limit on PayFast initiation (audit #19). A legitimate
+// operator hits this once per booking — 10 per minute leaves plenty of
+// headroom for honest retries on flaky networks but stops a compromised
+// session from spamming the gateway.
+const initiateRateLimiter = createRateLimiter({
+  max: 10,
+  windowMs: 60 * 1000,
+})
 
 // =============================================================================
 // POST /api/payfast/initiate
@@ -35,6 +45,23 @@ import { recordBookingValidator } from "@/lib/booking-validator"
 export async function POST(request: Request) {
   const { caller, denied } = await requireAuthenticated()
   if (denied) return denied
+
+  // Keyed by user id so the limit is per-account, not per-IP — multiple
+  // operators behind a single NAT shouldn't share a bucket.
+  const limit = initiateRateLimiter(caller.id)
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        error: `Too many payment initiations. Please retry in ${limit.retryAfterSeconds}s.`,
+      },
+      {
+        status: 429,
+        headers: {
+          "retry-after": String(limit.retryAfterSeconds),
+        },
+      }
+    )
+  }
 
   let body: { bookingId?: string }
   try {
@@ -69,9 +96,12 @@ export async function POST(request: Request) {
     )
   }
 
+  // Embed the booking's unit row (FK: bookings.unit_id → units.id) so we
+  // resolve booking + client_id in a single round-trip instead of two
+  // sequential reads (audit #17).
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
-    .select("id, status, first_names, surname, email_address, unit_id")
+    .select("id, status, first_names, surname, email_address, unit_id, units(client_id)")
     .eq("id", bookingId)
     .single()
 
@@ -103,54 +133,56 @@ export async function POST(request: Request) {
   // for any non-gateway billing mode. The patient-details + /payment pages
   // already route self-collect / monthly-invoice bookings to their own
   // mark-* endpoints, but this guards against any caller that tries to
-  // push them through the gateway anyway. Resolved via
-  // units.client_id → clients.{collect_payment_at_unit, bill_monthly}.
-  if (booking.unit_id) {
-    const { data: unit } = await admin
-      .from("units")
-      .select("client_id")
-      .eq("id", booking.unit_id)
+  // push them through the gateway anyway. The units row was embedded in
+  // the bookings query above; only the clients lookup is a separate hop.
+  const unitEmbed = booking.units as
+    | { client_id: string | null }
+    | { client_id: string | null }[]
+    | null
+  const unitRow = Array.isArray(unitEmbed) ? unitEmbed[0] ?? null : unitEmbed
+  const clientId = unitRow?.client_id ?? null
+  if (clientId) {
+    const { data: client } = await admin
+      .from("clients")
+      .select("collect_payment_at_unit, bill_monthly")
+      .eq("id", clientId)
       .single()
-    const clientId = (unit as { client_id: string | null } | null)?.client_id
-    if (clientId) {
-      const { data: client } = await admin
-        .from("clients")
-        .select("collect_payment_at_unit, bill_monthly")
-        .eq("id", clientId)
-        .single()
-      const c = client as {
-        collect_payment_at_unit: boolean | null
-        bill_monthly: boolean | null
-      } | null
-      if (c?.bill_monthly) {
-        return NextResponse.json(
-          {
-            error:
-              "This client is billed monthly. Bookings auto-complete without going through the gateway.",
-          },
-          { status: 400 }
-        )
-      }
-      if (c?.collect_payment_at_unit) {
-        return NextResponse.json(
-          {
-            error:
-              "This client collects payment directly. Use the in-unit payment confirmation flow instead.",
-          },
-          { status: 400 }
-        )
-      }
+    const c = client as {
+      collect_payment_at_unit: boolean | null
+      bill_monthly: boolean | null
+    } | null
+    if (c?.bill_monthly) {
+      return NextResponse.json(
+        {
+          error:
+            "This client is billed monthly. Bookings auto-complete without going through the gateway.",
+        },
+        { status: 400 }
+      )
+    }
+    if (c?.collect_payment_at_unit) {
+      return NextResponse.json(
+        {
+          error:
+            "This client collects payment directly. Use the in-unit payment confirmation flow instead.",
+        },
+        { status: 400 }
+      )
     }
   }
 
-  // Store the payment amount on the booking for ITN validation later
-  await admin
-    .from("bookings")
-    .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
-    .eq("id", bookingId)
-
-  // Snapshot the operator who initiated the gateway payment — best-effort.
-  await recordBookingValidator(admin, bookingId, caller)
+  // Two independent post-check writes — UPDATE payment_amount and the
+  // booking-validator snapshot — run in parallel (audit #17). Both are
+  // best-effort with respect to user-facing flow; the validator helper
+  // already swallows its own errors, and a failed UPDATE here would
+  // surface at ITN-validation time.
+  await Promise.all([
+    admin
+      .from("bookings")
+      .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
+      .eq("id", bookingId),
+    recordBookingValidator(admin, bookingId, caller),
+  ])
 
   // Build the form data in PayFast's required field order
   const formData = buildPaymentData(config, {

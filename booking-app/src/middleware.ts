@@ -69,6 +69,27 @@ function constantTimeEqual(a: string, b: string): boolean {
   return mismatch === 0
 }
 
+// Content-type prefixes we accept on `/api/*` POST/PUT/PATCH bodies.
+// Anything else is rejected with 415 before the route handler runs, so we
+// never even attempt to JSON-parse text/plain or application/octet-stream
+// pretending to be JSON. Defence-in-depth — handlers already try/catch
+// request.json(), but this stops the attempt at the door (audit #15).
+const ALLOWED_BODY_CONTENT_TYPES = [
+  "application/json",
+  "multipart/form-data", // avatar / logo uploads
+  "application/x-www-form-urlencoded", // PayFast notify (also CSRF-exempt)
+]
+
+const BODY_METHODS = new Set(["POST", "PUT", "PATCH"])
+
+function requestHasBody(request: NextRequest): boolean {
+  const len = request.headers.get("content-length")
+  if (len !== null && len !== "0") return true
+  const enc = request.headers.get("transfer-encoding")
+  if (enc && enc.toLowerCase().includes("chunked")) return true
+  return false
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const method = request.method.toUpperCase()
@@ -89,6 +110,30 @@ export function middleware(request: NextRequest) {
         JSON.stringify({ error: "CSRF validation failed" }),
         {
           status: 403,
+          headers: { "content-type": "application/json" },
+        }
+      )
+    }
+  }
+
+  // Content-Type guard for API bodies (audit #15). Only enforced when a
+  // body is actually declared — bodiless POSTs (e.g. /reset-pin trigger)
+  // are left alone. /api/payfast/notify uses urlencoded which is in the
+  // allowed list anyway.
+  if (
+    pathname.startsWith("/api/") &&
+    BODY_METHODS.has(method) &&
+    requestHasBody(request)
+  ) {
+    const ct = (request.headers.get("content-type") ?? "").toLowerCase()
+    const ctType = ct.split(";")[0].trim()
+    if (!ALLOWED_BODY_CONTENT_TYPES.some((allowed) => ctType === allowed)) {
+      return new NextResponse(
+        JSON.stringify({
+          error: "Unsupported Media Type — expected application/json",
+        }),
+        {
+          status: 415,
           headers: { "content-type": "application/json" },
         }
       )

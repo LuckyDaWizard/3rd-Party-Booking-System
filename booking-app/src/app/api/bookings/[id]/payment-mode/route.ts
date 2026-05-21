@@ -53,9 +53,12 @@ export async function GET(_request: Request, context: RouteContext) {
     )
   }
 
+  // Embed the booking's unit row (FK: bookings.unit_id → units.id) so we
+  // resolve booking + client_id in a single round-trip instead of two
+  // sequential reads (audit #17).
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
-    .select("id, unit_id")
+    .select("id, unit_id, units(client_id)")
     .eq("id", id)
     .single()
 
@@ -69,8 +72,8 @@ export async function GET(_request: Request, context: RouteContext) {
     }
   }
 
-  // All three flags live on the parent client. Resolve unit → client_id →
-  // clients.{collect_payment_at_unit, bill_monthly, skip_patient_metrics}.
+  // All three flags live on the parent client. units row was embedded above;
+  // only the clients lookup remains as a separate query.
   let collectAtUnit = false
   let billMonthly = false
   let skipPatientMetrics = false
@@ -78,37 +81,37 @@ export async function GET(_request: Request, context: RouteContext) {
   // missing row), keep the verification step. Only flip to FALSE when
   // the parent client has explicitly opted out.
   let nurseVerification = true
-  if (booking.unit_id) {
-    const { data: unit } = await admin
-      .from("units")
-      .select("client_id")
-      .eq("id", booking.unit_id)
+  // Supabase returns the embedded row as either an object or array
+  // depending on relationship cardinality — normalise to a scalar.
+  const unitEmbed = booking.units as
+    | { client_id: string | null }
+    | { client_id: string | null }[]
+    | null
+  const unitRow = Array.isArray(unitEmbed) ? unitEmbed[0] ?? null : unitEmbed
+  const clientId = unitRow?.client_id ?? null
+  if (clientId) {
+    const { data: client } = await admin
+      .from("clients")
+      .select("collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification")
+      .eq("id", clientId)
       .single()
-    const clientId = (unit as { client_id: string | null } | null)?.client_id
-    if (clientId) {
-      const { data: client } = await admin
-        .from("clients")
-        .select("collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification")
-        .eq("id", clientId)
-        .single()
-      const c = client as {
-        collect_payment_at_unit: boolean | null
-        bill_monthly: boolean | null
-        skip_patient_metrics: boolean | null
-        nurse_verification: boolean | null
-      } | null
-      collectAtUnit = c?.collect_payment_at_unit ?? false
-      billMonthly = c?.bill_monthly ?? false
-      // Sub-flag is effective when EITHER non-gateway billing mode is
-      // ON (bill_monthly OR collect_payment_at_unit). If the DB ever
-      // has skip_patient_metrics=true with both billing flags off (it
-      // shouldn't — server PATCH clamps that), still suppress here so
-      // the booking flow doesn't accidentally skip metrics for a
-      // gateway client.
-      skipPatientMetrics =
-        (billMonthly || collectAtUnit) && (c?.skip_patient_metrics ?? false)
-      nurseVerification = c?.nurse_verification ?? false
-    }
+    const c = client as {
+      collect_payment_at_unit: boolean | null
+      bill_monthly: boolean | null
+      skip_patient_metrics: boolean | null
+      nurse_verification: boolean | null
+    } | null
+    collectAtUnit = c?.collect_payment_at_unit ?? false
+    billMonthly = c?.bill_monthly ?? false
+    // Sub-flag is effective when EITHER non-gateway billing mode is
+    // ON (bill_monthly OR collect_payment_at_unit). If the DB ever
+    // has skip_patient_metrics=true with both billing flags off (it
+    // shouldn't — server PATCH clamps that), still suppress here so
+    // the booking flow doesn't accidentally skip metrics for a
+    // gateway client.
+    skipPatientMetrics =
+      (billMonthly || collectAtUnit) && (c?.skip_patient_metrics ?? false)
+    nurseVerification = c?.nurse_verification ?? false
   }
 
   // Resolution: monthly_invoice wins if both ever end up TRUE (defensive

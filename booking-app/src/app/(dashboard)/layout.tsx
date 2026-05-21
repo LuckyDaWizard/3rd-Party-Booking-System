@@ -9,10 +9,11 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ClientStoreProvider } from "@/lib/client-store"
 import { UnitStoreProvider } from "@/lib/unit-store"
 import { UserStoreProvider } from "@/lib/user-store"
-import { BookingStoreProvider } from "@/lib/booking-store"
+import { BookingStoreProvider, useBookingStore } from "@/lib/booking-store"
 import { SidebarProvider, useSidebar } from "@/lib/sidebar-store"
 import { useAuth } from "@/lib/auth-store"
 import { useActiveClientBranding } from "@/lib/use-active-client-branding"
+import { Banner } from "@/components/ui/banner"
 
 // ---------------------------------------------------------------------------
 // Route access by role
@@ -53,6 +54,31 @@ function useRouteGuard() {
   }, [user, loading, pathname, router])
 
   return { user, loading }
+}
+
+// ---------------------------------------------------------------------------
+// Booking-error toast — listens to the booking store's lastError state and
+// renders a dismissible Banner at the bottom-right of the viewport (audit
+// #11). Replaces the prior behaviour of swallowing save failures into a
+// console.error nobody sees.
+// ---------------------------------------------------------------------------
+
+function BookingErrorToast() {
+  const { lastError, clearLastError } = useBookingStore()
+  if (!lastError) return null
+  return (
+    <div className="pointer-events-none fixed bottom-6 right-6 z-50 w-[min(90vw,32rem)]">
+      <div className="pointer-events-auto shadow-lg">
+        <Banner
+          kind="danger"
+          title="Something went wrong"
+          description={lastError}
+          onDismiss={clearLastError}
+          testId="booking-error-toast"
+        />
+      </div>
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +164,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           routes by virtue of living in this layout. Unauthenticated
           routes (/sign-in, /forgot-pin, /reset-pin) don't need it. */}
       <SessionIdleMonitor />
+
+      {/* Booking save/load failure toast (audit #11). */}
+      <BookingErrorToast />
     </div>
   )
 }

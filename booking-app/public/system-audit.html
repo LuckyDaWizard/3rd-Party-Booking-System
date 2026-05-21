@@ -1033,55 +1033,55 @@
               <td>Error messages aren't consistent across endpoints</td>
               <td>Standardise on a single shape, e.g. <code>{ success: false, error: "..." }</code></td>
             </tr>
-            <tr>
-              <td>11</td>
-              <td>Some failures fail silently with only a console message</td>
-              <td>Surface a toast or banner so the user knows to retry</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>11</td>
+              <td><span class="done-item">Some failures fail silently with only a console message</span></td>
+              <td>Done 2026-05-21 — booking store now exposes <code>lastError</code> + <code>clearLastError</code>. Five fail-paths (fetch / create / update / discard / abandon) set a user-readable message that the dashboard layout renders as a dismissible bottom-right toast via the existing <code>&lt;Banner kind="danger"&gt;</code> component. console.error calls retained for dev debugging.</td>
             </tr>
-            <tr>
-              <td>12</td>
-              <td>Audit-log fallback writes can drop on the floor</td>
-              <td>Small retry queue with backoff</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>12</td>
+              <td><span class="done-item">Audit-log fallback writes can drop on the floor</span></td>
+              <td>Done 2026-05-21 — replaced the fire-and-forget <code>postBookingAudit()</code> in booking-store.tsx with a serialised in-memory FIFO retry queue. Up to 3 attempts per payload, exponential backoff (500ms / 1500ms / 4500ms). Now also retries on non-OK HTTP responses (previous code only caught network errors and silently dropped 5xx). 401/403 short-circuits the chain (no point retrying after session loss); other terminal failures log the full payload via <code>console.error</code> for recovery.</td>
             </tr>
-            <tr>
-              <td>13</td>
-              <td>Manager-PIN verification has a tiny timing side-channel</td>
-              <td>Equalise response time across all failure paths</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>13</td>
+              <td><span class="done-item">Manager-PIN verification has a tiny timing side-channel</span></td>
+              <td>Done 2026-05-21 — added a 300ms constant-time floor to <code>/api/verify/manager-pin</code>. Every <code>valid: false</code> / <code>valid: true</code> path now calls <code>padResponse(start)</code> before returning, masking the difference between "PIN doesn't exist" (skips DB lookups) and "PIN matches but wrong role / unit" (does the lookups). Status-code paths (401 / 429 / 400) deliberately stay unpadded — they're distinct outcomes the client needs to react to.</td>
             </tr>
             <tr>
               <td>14</td>
               <td>Old session tokens stay valid up to an hour after forced sign-out</td>
               <td>Shorten access-token expiry to 15 minutes</td>
             </tr>
-            <tr>
-              <td>15</td>
-              <td>No content-type validation on incoming requests</td>
-              <td>Reject non-JSON with a clean 400 instead of letting parser fail</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>15</td>
+              <td><span class="done-item">No content-type validation on incoming requests</span></td>
+              <td>Done 2026-05-21 — middleware now rejects <code>/api/*</code> POST/PUT/PATCH requests with a body whose Content-Type is anything other than <code>application/json</code>, <code>multipart/form-data</code> (avatar uploads), or <code>application/x-www-form-urlencoded</code> (PayFast notify). Returns 415 before the handler ever calls <code>request.json()</code>. Bodiless POSTs (e.g. /reset-pin trigger) are skipped.</td>
             </tr>
             <tr>
               <td>16</td>
               <td>PIN-reset code uses the user ID as a salt</td>
               <td>Use a random salt per token</td>
             </tr>
-            <tr>
-              <td>17</td>
-              <td>Some routes do three sequential database queries</td>
-              <td>Wrap in <code>Promise.all</code> - around 50% latency reduction</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>17</td>
+              <td><span class="done-item">Some routes do three sequential database queries</span></td>
+              <td>Done 2026-05-21 — collapsed the bookings + units lookup into a single Supabase nested-select using the existing <code>bookings.unit_id → units.id</code> FK in both <code>/api/bookings/[id]/payment-mode</code> and <code>/api/payfast/initiate</code>. Initiate additionally <code>Promise.all</code>s the final write pair (UPDATE payment_amount + recordBookingValidator). Reads on payment-mode go 3 → 2 round-trips; writes on initiate go from sequential to parallel.</td>
             </tr>
             <tr>
               <td>18</td>
               <td>Audit-log + incidents endpoints group up to 5,000 rows in memory</td>
               <td>Push grouping into a database stored procedure when volume warrants</td>
             </tr>
-            <tr>
-              <td>19</td>
-              <td>Authenticated rate limits missing on PayFast initiation</td>
-              <td>Add a per-user rate limit guard</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>19</td>
+              <td><span class="done-item">Authenticated rate limits missing on PayFast initiation</span></td>
+              <td>Done 2026-05-21 — added a per-user rate limiter (10 requests / 60s, keyed by <code>caller.id</code>) to <code>/api/payfast/initiate</code>. Returns 429 with <code>Retry-After</code> header. Used the existing <code>createRateLimiter</code> helper from <code>src/lib/rate-limit.ts</code>.</td>
             </tr>
-            <tr>
-              <td>20</td>
-              <td>CareFirst handoff has no timeout</td>
-              <td>Bail after 5 seconds and surface a clean error</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>20</td>
+              <td><span class="done-item">CareFirst handoff has no timeout</span></td>
+              <td>Done 2026-05-21 — added <code>AbortSignal.timeout(5000)</code> to the fetch in <code>src/lib/carefirst.ts</code>. New <code>isAbortOrTimeout()</code> helper distinguishes timeout from other network errors so the operator sees "CareFirst did not respond within 5 seconds" instead of waiting ~30s for the default fetch timeout.</td>
             </tr>
           </tbody>
         </table>
