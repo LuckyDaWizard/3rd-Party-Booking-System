@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/admin/audit-log/bookings
@@ -73,10 +74,7 @@ export async function GET(request: Request) {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Step 1: pull every booking audit row up to the scan cap, newest first.
@@ -88,7 +86,7 @@ export async function GET(request: Request) {
     .limit(MAX_AUDIT_ROWS_SCANNED)
 
   if (auditErr) {
-    return NextResponse.json({ error: auditErr.message }, { status: 500 })
+    return apiError(auditErr.message, 500)
   }
 
   const rows = (auditData ?? []) as AuditRow[]

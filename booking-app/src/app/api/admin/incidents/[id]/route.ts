@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/admin/incidents/[id]
@@ -22,17 +23,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing incident id" }, { status: 400 })
+    return apiError("Missing incident id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const { data: incident, error } = await admin
@@ -42,7 +40,7 @@ export async function GET(_request: Request, context: RouteContext) {
     .single()
 
   if (error || !incident) {
-    return NextResponse.json({ error: "Incident not found" }, { status: 404 })
+    return apiError("Incident not found", 404)
   }
 
   // Fetch the affected bookings for context — patient names + current status.

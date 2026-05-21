@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/admin/privacy/erase
@@ -77,27 +78,21 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as Body
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   const idNumber = body.idNumber?.trim()
   const reason = body.reason?.trim() || "POPIA §24 erasure request"
 
   if (!idNumber) {
-    return NextResponse.json(
-      { error: "idNumber is required" },
-      { status: 400 }
-    )
+    return apiError("idNumber is required", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Find the matching bookings first. Skip any already-erased rows
@@ -109,10 +104,7 @@ export async function POST(request: Request) {
     .is("erased_at", null)
 
   if (findErr) {
-    return NextResponse.json(
-      { error: `Database error: ${findErr.message}` },
-      { status: 500 }
-    )
+    return apiError(`Database error: ${findErr.message}`, 500)
   }
 
   const matchCount = matches?.length ?? 0
@@ -158,10 +150,7 @@ export async function POST(request: Request) {
     .is("erased_at", null)
 
   if (updErr) {
-    return NextResponse.json(
-      { error: `Database error during erasure: ${updErr.message}` },
-      { status: 500 }
-    )
+    return apiError(`Database error during erasure: ${updErr.message}`, 500)
   }
 
   writeAuditLog({

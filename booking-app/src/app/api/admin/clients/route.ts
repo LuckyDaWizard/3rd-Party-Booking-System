@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/admin/clients
@@ -56,31 +57,25 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as CreateClientBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   if (!body.clientName?.trim()) {
-    return NextResponse.json({ error: "clientName is required" }, { status: 400 })
+    return apiError("clientName is required", 400)
   }
 
   let accentColor: string | null
   try {
     accentColor = normaliseAccent(body.accentColor)
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Invalid accent colour" },
-      { status: 400 }
-    )
+    return apiError(err instanceof Error ? err.message : "Invalid accent colour", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const { data: insertData, error: insertErr } = await admin
@@ -98,10 +93,7 @@ export async function POST(request: Request) {
     .single()
 
   if (insertErr || !insertData) {
-    return NextResponse.json(
-      { error: `Failed to create client: ${insertErr?.message ?? "unknown"}` },
-      { status: 500 }
-    )
+    return apiError(`Failed to create client: ${insertErr?.message ?? "unknown"}`, 500)
   }
 
   const clientId = insertData.id
@@ -117,10 +109,7 @@ export async function POST(request: Request) {
     if (unitErr) {
       // Best-effort rollback so we don't leak a half-created client.
       await admin.from("clients").delete().eq("id", clientId)
-      return NextResponse.json(
-        { error: `Failed to create initial unit: ${unitErr.message}` },
-        { status: 500 }
-      )
+      return apiError(`Failed to create initial unit: ${unitErr.message}`, 500)
     }
   }
 

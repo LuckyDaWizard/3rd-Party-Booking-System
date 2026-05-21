@@ -5,6 +5,7 @@ import { sendPinResetEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { generateSecurePin } from "@/lib/pin"
 import { getAppUrl } from "@/lib/app-url"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/admin/users/[id]/reset-pin
@@ -31,17 +32,14 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing user id" }, { status: 400 })
+    return apiError("Missing user id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load the user (no longer selecting pin — it has been dropped).
@@ -52,20 +50,17 @@ export async function POST(request: Request, context: RouteContext) {
     .single()
 
   if (loadErr || !user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 })
+    return apiError("User not found", 404)
   }
 
   // Unit-scoping: unit_managers can only reset PINs for users in their own units.
   const hasAccess = await callerCanAccessUser(caller, id, admin)
   if (!hasAccess) {
-    return NextResponse.json({ error: "Forbidden — user is not in your units" }, { status: 403 })
+    return apiError("Forbidden — user is not in your units", 403)
   }
 
   if (!user.auth_user_id) {
-    return NextResponse.json(
-      { error: "User has no auth_user_id. Run the backfill script first." },
-      { status: 500 }
-    )
+    return apiError("User has no auth_user_id. Run the backfill script first.", 500)
   }
 
   // Generate a PIN and try to apply it. Supabase Auth enforces email
@@ -96,22 +91,16 @@ export async function POST(request: Request, context: RouteContext) {
     lastAuthError = authErr
     if (!isDuplicateAuthError(authErr)) {
       // Non-collision error — bail immediately.
-      return NextResponse.json(
-        { error: `Failed to update auth user: ${authErr.message}` },
-        { status: 500 }
-      )
+      return apiError(`Failed to update auth user: ${authErr.message}`, 500)
     }
     // Else: collision. Retry with a fresh PIN.
   }
 
   if (!newPin) {
-    return NextResponse.json(
-      {
-        error:
-          "Failed to generate a unique PIN after 10 attempts" +
-          (lastAuthError?.message ? `: ${lastAuthError.message}` : ""),
-      },
-      { status: 500 }
+    return apiError(
+      "Failed to generate a unique PIN after 10 attempts" +
+        (lastAuthError?.message ? `: ${lastAuthError.message}` : ""),
+      500
     )
   }
 

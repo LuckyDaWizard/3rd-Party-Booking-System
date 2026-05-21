@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // PATCH /api/admin/units/[id]  — update a unit
@@ -47,24 +48,21 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing unit id" }, { status: 400 })
+    return apiError("Missing unit id", 400)
   }
 
   let body: UpdateUnitBody
   try {
     body = (await request.json()) as UpdateUnitBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load current row for audit diff.
@@ -93,7 +91,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     .eq("id", id)
 
   if (updErr) {
-    return NextResponse.json({ error: updErr.message }, { status: 500 })
+    return apiError(updErr.message, 500)
   }
 
   // Audit log.
@@ -137,17 +135,14 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing unit id" }, { status: 400 })
+    return apiError("Missing unit id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load name before deletion for audit log.
@@ -168,7 +163,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   const { error: delErr } = await admin.from("units").delete().eq("id", id)
   if (delErr) {
-    return NextResponse.json({ error: delErr.message }, { status: 500 })
+    return apiError(delErr.message, 500)
   }
 
   writeAuditLog({

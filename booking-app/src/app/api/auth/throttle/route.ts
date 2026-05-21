@@ -8,6 +8,7 @@ import {
   getThrottleIp,
   MAX_ATTEMPTS_PER_PIN,
 } from "@/lib/pin-throttle"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/auth/throttle
@@ -46,25 +47,22 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as ThrottleBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   if (!body.pin || !PIN_REGEX.test(body.pin)) {
-    return NextResponse.json({ error: "Invalid PIN format" }, { status: 400 })
+    return apiError("Invalid PIN format", 400)
   }
 
   if (body.action !== "check" && body.action !== "record") {
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+    return apiError("Invalid action", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const ipAddress = getThrottleIp(request)

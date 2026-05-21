@@ -358,9 +358,15 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { user, activeUnitId: authActiveUnitId } = useAuth()
 
-  // Keep a ref so event handlers always see the latest value
+  // Keep a ref so event handlers always see the latest value. Assignment
+  // lives in a post-commit effect rather than running during render — the
+  // latter trips React 19's set-ref-during-render rule and is unsafe under
+  // concurrent rendering (the render may be discarded but the ref mutation
+  // would persist).
   const activeBookingIdRef = useRef(activeBookingId)
-  activeBookingIdRef.current = activeBookingId
+  useEffect(() => {
+    activeBookingIdRef.current = activeBookingId
+  }, [activeBookingId])
 
   // ------- Fetch bookings (filtered by unit for non-admins) -------
   const fetchBookings = useCallback(async () => {
@@ -526,7 +532,11 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   // ------- Abandoned detection: route change -------
   const prevPathnameRef = useRef(pathname)
   const abandonBookingRef = useRef(abandonBooking)
-  abandonBookingRef.current = abandonBooking
+  // Same reasoning as activeBookingIdRef above — keep the ref-sync in an
+  // effect so it doesn't violate the set-ref-during-render rule.
+  useEffect(() => {
+    abandonBookingRef.current = abandonBooking
+  }, [abandonBooking])
 
   useEffect(() => {
     const wasInBookingFlow = prevPathnameRef.current?.startsWith("/create-booking")

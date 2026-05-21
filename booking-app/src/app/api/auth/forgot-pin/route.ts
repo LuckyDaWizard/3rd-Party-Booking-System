@@ -34,15 +34,20 @@ interface Body {
 }
 
 /**
- * Hash a (code, userId) pair for storage. Binding the hash to the user_id
- * means a stolen code blob can't be replayed against a different account
- * even if the hashes collide somehow.
+ * Hash a (code, salt) pair for storage (audit #16). 128 bits of random salt
+ * per token mean a token-table dump can't be brute-forced offline — the
+ * attacker has to try all 10^6 codes against each row's unique hash.
  */
-function hashCodeForStorage(code: string, userId: string): string {
+function hashCodeForStorage(code: string, salt: string): string {
   return crypto
     .createHash("sha256")
-    .update(`${code}:${userId}`)
+    .update(`${code}:${salt}`)
     .digest("hex")
+}
+
+/** 128 bits of randomness, hex-encoded (32 chars). */
+function generateTokenSalt(): string {
+  return crypto.randomBytes(16).toString("hex")
 }
 
 /** Generate a cryptographically random 6-digit code (leading zeros OK). */
@@ -115,12 +120,14 @@ export async function POST(request: Request) {
     .is("used_at", null)
 
   const code = generateResetCode()
-  const tokenHash = hashCodeForStorage(code, user.id)
+  const tokenSalt = generateTokenSalt()
+  const tokenHash = hashCodeForStorage(code, tokenSalt)
   const expiresAt = new Date(Date.now() + EXPIRES_MINUTES * 60 * 1000).toISOString()
 
   const { error: insertErr } = await admin.from("pin_reset_tokens").insert({
     user_id: user.id,
     token_hash: tokenHash,
+    token_salt: tokenSalt,
     expires_at: expiresAt,
     ip_address: ipAddress === "unknown" ? null : ipAddress,
   })

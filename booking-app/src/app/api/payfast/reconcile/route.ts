@@ -8,6 +8,7 @@ import {
 } from "@/lib/payfast"
 import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
 import { recordIncident, buildSignature } from "@/lib/incidents"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/payfast/reconcile
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   } = await sb.auth.getUser()
 
   if (!authUser) {
-    return NextResponse.json({ error: "Unauthenticated" }, { status: 401 })
+    return apiError("Unauthenticated", 401)
   }
 
   let body: Body = {}
@@ -70,20 +71,14 @@ export async function POST(request: Request) {
   try {
     config = getPayfastConfig()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Single-booking mode.
@@ -104,10 +99,7 @@ export async function POST(request: Request) {
     .single()
 
   if (!callerRow || callerRow.status !== "Active" || callerRow.role !== "system_admin") {
-    return NextResponse.json(
-      { error: "Batch reconciliation requires system_admin" },
-      { status: 403 }
-    )
+    return apiError("Batch reconciliation requires system_admin", 403)
   }
 
   // Find pending bookings from the last LOOKBACK_HOURS. Include both
@@ -125,10 +117,7 @@ export async function POST(request: Request) {
     .limit(100)
 
   if (pendingErr) {
-    return NextResponse.json(
-      { error: `Failed to load pending bookings: ${pendingErr.message}` },
-      { status: 500 }
-    )
+    return apiError(`Failed to load pending bookings: ${pendingErr.message}`, 500)
   }
 
   const results: ReconcileResult[] = []

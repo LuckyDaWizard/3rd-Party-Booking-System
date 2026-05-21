@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager, callerCanAccessUser } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // PATCH /api/admin/users/[id]   — update an existing user
@@ -39,24 +40,21 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing user id" }, { status: 400 })
+    return apiError("Missing user id", 400)
   }
 
   let body: UpdateUserBody
   try {
     body = (await request.json()) as UpdateUserBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load current row so we can compare for audit logging.
@@ -67,21 +65,18 @@ export async function PATCH(request: Request, context: RouteContext) {
     .single()
 
   if (loadErr || !current) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 })
+    return apiError("User not found", 404)
   }
 
   // Unit-scoping: unit_managers can only edit users in their own units.
   const hasAccess = await callerCanAccessUser(caller, id, admin)
   if (!hasAccess) {
-    return NextResponse.json({ error: "Forbidden — user is not in your units" }, { status: 403 })
+    return apiError("Forbidden — user is not in your units", 403)
   }
 
   // unit_manager cannot change roles (only system_admin can promote/demote)
   if (caller.role === "unit_manager" && body.role !== undefined) {
-    return NextResponse.json(
-      { error: "Unit managers cannot change user roles" },
-      { status: 403 }
-    )
+    return apiError("Unit managers cannot change user roles", 403)
   }
 
   // Build the public.users update. (PIN is intentionally not supported here —
@@ -102,7 +97,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       .eq("id", id)
 
     if (updErr) {
-      return NextResponse.json({ error: updErr.message }, { status: 500 })
+      return apiError(updErr.message, 500)
     }
   }
 
@@ -113,10 +108,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       .delete()
       .eq("user_id", id)
     if (delErr) {
-      return NextResponse.json(
-        { error: `Failed to clear unit assignments: ${delErr.message}` },
-        { status: 500 }
-      )
+      return apiError(`Failed to clear unit assignments: ${delErr.message}`, 500)
     }
 
     if (body.unitIds.length > 0) {
@@ -126,10 +118,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       }))
       const { error: insErr } = await admin.from("user_units").insert(rows)
       if (insErr) {
-        return NextResponse.json(
-          { error: `Failed to assign units: ${insErr.message}` },
-          { status: 500 }
-        )
+        return apiError(`Failed to assign units: ${insErr.message}`, 500)
       }
     }
 
@@ -191,23 +180,20 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing user id" }, { status: 400 })
+    return apiError("Missing user id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Unit-scoping: unit_managers can only delete users in their own units.
   const hasAccess = await callerCanAccessUser(caller, id, admin)
   if (!hasAccess) {
-    return NextResponse.json({ error: "Forbidden — user is not in your units" }, { status: 403 })
+    return apiError("Forbidden — user is not in your units", 403)
   }
 
   // Load user data before we delete the row.
@@ -218,7 +204,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     .single()
 
   if (loadErr || !delTarget) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 })
+    return apiError("User not found", 404)
   }
 
   // Delete public.users row first. ON DELETE CASCADE should clean up
@@ -234,7 +220,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   const { error: delErr } = await admin.from("users").delete().eq("id", id)
   if (delErr) {
-    return NextResponse.json({ error: delErr.message }, { status: 500 })
+    return apiError(delErr.message, 500)
   }
 
   // Then delete the auth user.

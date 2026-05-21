@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/bookings/audit
@@ -41,26 +42,23 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as Body
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+    return apiError("Invalid JSON", 400)
   }
 
   const bookingId = typeof body.bookingId === "string" ? body.bookingId.trim() : ""
   const action = typeof body.action === "string" ? body.action : ""
   if (!bookingId) {
-    return NextResponse.json({ error: "Missing bookingId" }, { status: 400 })
+    return apiError("Missing bookingId", 400)
   }
   if (!ALLOWED_ACTIONS.has(action)) {
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 })
+    return apiError("Invalid action", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Verify the booking exists and is in the caller's scope.
@@ -71,13 +69,13 @@ export async function POST(request: Request) {
     .single()
 
   if (loadErr || !booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    return apiError("Booking not found", 404)
   }
 
   // Non-admins may only audit bookings in their assigned units.
   if (caller.role !== "system_admin") {
     if (!booking.unit_id || !caller.unitIds.includes(booking.unit_id)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return apiError("Forbidden", 403)
     }
   }
 

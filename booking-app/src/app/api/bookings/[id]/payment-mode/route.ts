@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/bookings/[id]/payment-mode
@@ -40,17 +41,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 })
+    return apiError("Missing booking id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Embed the booking's unit row (FK: bookings.unit_id → units.id) so we
@@ -63,12 +61,12 @@ export async function GET(_request: Request, context: RouteContext) {
     .single()
 
   if (loadErr || !booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    return apiError("Booking not found", 404)
   }
 
   if (caller.role !== "system_admin") {
     if (!booking.unit_id || !caller.unitIds.includes(booking.unit_id)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      return apiError("Forbidden", 403)
     }
   }
 

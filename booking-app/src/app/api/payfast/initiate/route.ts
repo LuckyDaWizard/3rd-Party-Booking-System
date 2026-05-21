@@ -11,6 +11,7 @@ import {
   PAYMENT_ITEM_NAME,
 } from "@/lib/payfast"
 import { recordBookingValidator } from "@/lib/booking-validator"
+import { apiError } from "@/lib/api-response"
 
 // Per-user rate limit on PayFast initiation (audit #19). A legitimate
 // operator hits this once per booking — 10 per minute leaves plenty of
@@ -50,16 +51,10 @@ export async function POST(request: Request) {
   // operators behind a single NAT shouldn't share a bucket.
   const limit = initiateRateLimiter(caller.id)
   if (!limit.allowed) {
-    return NextResponse.json(
-      {
-        error: `Too many payment initiations. Please retry in ${limit.retryAfterSeconds}s.`,
-      },
-      {
-        status: 429,
-        headers: {
-          "retry-after": String(limit.retryAfterSeconds),
-        },
-      }
+    return apiError(
+      `Too many payment initiations. Please retry in ${limit.retryAfterSeconds}s.`,
+      429,
+      { headers: { "retry-after": String(limit.retryAfterSeconds) } }
     )
   }
 
@@ -67,22 +62,19 @@ export async function POST(request: Request) {
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   const bookingId = body.bookingId
   if (!bookingId) {
-    return NextResponse.json({ error: "bookingId is required" }, { status: 400 })
+    return apiError("bookingId is required", 400)
   }
 
   let config
   try {
     config = getPayfastConfig()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load the booking to get patient info for PayFast
@@ -90,10 +82,7 @@ export async function POST(request: Request) {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Embed the booking's unit row (FK: bookings.unit_id → units.id) so we
@@ -106,7 +95,7 @@ export async function POST(request: Request) {
     .single()
 
   if (loadErr || !booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    return apiError("Booking not found", 404)
   }
 
   // Unit scoping: non-admin callers may only initiate payments for bookings
@@ -115,17 +104,14 @@ export async function POST(request: Request) {
   // as admin-only to avoid accidental cross-unit access.
   if (caller.role !== "system_admin") {
     if (!booking.unit_id || !caller.unitIds.includes(booking.unit_id)) {
-      return NextResponse.json(
-        { error: "Forbidden — booking is not in your assigned units" },
-        { status: 403 }
-      )
+      return apiError("Forbidden — booking is not in your assigned units", 403)
     }
   }
 
   if (booking.status !== "In Progress") {
-    return NextResponse.json(
-      { error: `Booking status is "${booking.status}", expected "In Progress"` },
-      { status: 400 }
+    return apiError(
+      `Booking status is "${booking.status}", expected "In Progress"`,
+      400
     )
   }
 
@@ -152,22 +138,10 @@ export async function POST(request: Request) {
       bill_monthly: boolean | null
     } | null
     if (c?.bill_monthly) {
-      return NextResponse.json(
-        {
-          error:
-            "This client is billed monthly. Bookings auto-complete without going through the gateway.",
-        },
-        { status: 400 }
-      )
+      return apiError("This client is billed monthly. Bookings auto-complete without going through the gateway.", 400)
     }
     if (c?.collect_payment_at_unit) {
-      return NextResponse.json(
-        {
-          error:
-            "This client collects payment directly. Use the in-unit payment confirmation flow instead.",
-        },
-        { status: 400 }
-      )
+      return apiError("This client collects payment directly. Use the in-unit payment confirmation flow instead.", 400)
     }
   }
 

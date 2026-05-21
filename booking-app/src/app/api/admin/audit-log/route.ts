@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/admin/audit-log
@@ -62,10 +63,7 @@ export async function GET(request: Request) {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Build the query.
@@ -92,7 +90,7 @@ export async function GET(request: Request) {
   const { data, error, count } = await query
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(error.message, 500)
   }
 
   return NextResponse.json({

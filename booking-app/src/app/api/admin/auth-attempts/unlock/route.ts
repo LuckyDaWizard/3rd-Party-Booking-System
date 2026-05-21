@@ -3,6 +3,7 @@ import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { PIN_REGEX } from "@/lib/constants"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/admin/auth-attempts/unlock
@@ -27,21 +28,18 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as UnlockBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   if (!body.pin || !PIN_REGEX.test(body.pin)) {
-    return NextResponse.json({ error: "Invalid PIN format" }, { status: 400 })
+    return apiError("Invalid PIN format", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Look up the user (for audit log entity info). The plaintext `pin` column
@@ -73,7 +71,7 @@ export async function POST(request: Request) {
     .eq("succeeded", false)
 
   if (delErr) {
-    return NextResponse.json({ error: delErr.message }, { status: 500 })
+    return apiError(delErr.message, 500)
   }
 
   // Audit log (PIN is masked).

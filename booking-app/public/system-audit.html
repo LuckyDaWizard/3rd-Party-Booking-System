@@ -203,6 +203,26 @@
     }
     tr.done .done-item { text-decoration: line-through; }
 
+    /* Deferred — audit item that's intentionally not actioned now per
+       the audit's own recommendation (e.g. "defer until volume warrants
+       it"). Visually distinct from done (amber, no strikethrough). */
+    tr.deferred > td { color: var(--r-mute); background: #fffbeb; }
+    tr.deferred > td:first-child { border-left: 3px solid #d97706; }
+    tr.deferred .deferred-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
     .lede {
       max-width: var(--r-content-max);
       margin: 24px auto 0;
@@ -1028,10 +1048,10 @@
             <tr><th>#</th><th>Item</th><th>Recommendation</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td>10</td>
-              <td>Error messages aren't consistent across endpoints</td>
-              <td>Standardise on a single shape, e.g. <code>{ success: false, error: "..." }</code></td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>10</td>
+              <td><span class="done-item">Error messages aren't consistent across endpoints</span></td>
+              <td>Done 2026-05-21 — added <code>src/lib/api-response.ts</code> with an <code>apiError(message, status, init?)</code> helper that returns the canonical <code>{ ok: false, error }</code> shape. Swept ~225 error sites across 34 API route files to use it. Anti-enumeration endpoints (forgot-pin, reset-pin reason codes, manager-pin valid:false) deliberately keep their existing shapes so they don't leak account existence.</td>
             </tr>
             <tr class="done">
               <td><span class="done-tag">Complete</span>11</td>
@@ -1048,30 +1068,30 @@
               <td><span class="done-item">Manager-PIN verification has a tiny timing side-channel</span></td>
               <td>Done 2026-05-21 — added a 300ms constant-time floor to <code>/api/verify/manager-pin</code>. Every <code>valid: false</code> / <code>valid: true</code> path now calls <code>padResponse(start)</code> before returning, masking the difference between "PIN doesn't exist" (skips DB lookups) and "PIN matches but wrong role / unit" (does the lookups). Status-code paths (401 / 429 / 400) deliberately stay unpadded — they're distinct outcomes the client needs to react to.</td>
             </tr>
-            <tr>
-              <td>14</td>
-              <td>Old session tokens stay valid up to an hour after forced sign-out</td>
-              <td>Shorten access-token expiry to 15 minutes</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>14</td>
+              <td><span class="done-item">Old session tokens stay valid up to an hour after forced sign-out</span></td>
+              <td>Done 2026-05-21 — Supabase Studio config change applied + verified live. Path: <strong>Project Settings → JWT Keys → Legacy JWT Secret → Access token expiry time</strong> set to 900 seconds (15 min). Verified via decoded auth cookie: <code>exp - iat = 900</code> on freshly-issued tokens. Documented in OPERATIONS.md. A revoked session now bites within 15 min instead of an hour. User experience is unchanged because Supabase auto-refreshes access tokens via the long-lived refresh token. A future code-side JWT blacklist would close the residual window if needed.</td>
             </tr>
             <tr class="done">
               <td><span class="done-tag">Complete</span>15</td>
               <td><span class="done-item">No content-type validation on incoming requests</span></td>
               <td>Done 2026-05-21 — middleware now rejects <code>/api/*</code> POST/PUT/PATCH requests with a body whose Content-Type is anything other than <code>application/json</code>, <code>multipart/form-data</code> (avatar uploads), or <code>application/x-www-form-urlencoded</code> (PayFast notify). Returns 415 before the handler ever calls <code>request.json()</code>. Bodiless POSTs (e.g. /reset-pin trigger) are skipped.</td>
             </tr>
-            <tr>
-              <td>16</td>
-              <td>PIN-reset code uses the user ID as a salt</td>
-              <td>Use a random salt per token</td>
+            <tr class="done">
+              <td><span class="done-tag">Complete</span>16</td>
+              <td><span class="done-item">PIN-reset code uses the user ID as a salt</span></td>
+              <td>Done 2026-05-21 — migration 030 adds a <code>token_salt</code> column to <code>pin_reset_tokens</code>. <code>/api/auth/forgot-pin</code> now generates 128 bits of random salt per token; <code>/api/auth/reset-pin</code> loads it on verify. Migration pre-emptively deletes in-flight pre-030 tokens (which lack a salt and would fail under the new code anyway).</td>
             </tr>
             <tr class="done">
               <td><span class="done-tag">Complete</span>17</td>
               <td><span class="done-item">Some routes do three sequential database queries</span></td>
               <td>Done 2026-05-21 — collapsed the bookings + units lookup into a single Supabase nested-select using the existing <code>bookings.unit_id → units.id</code> FK in both <code>/api/bookings/[id]/payment-mode</code> and <code>/api/payfast/initiate</code>. Initiate additionally <code>Promise.all</code>s the final write pair (UPDATE payment_amount + recordBookingValidator). Reads on payment-mode go 3 → 2 round-trips; writes on initiate go from sequential to parallel.</td>
             </tr>
-            <tr>
-              <td>18</td>
+            <tr class="deferred">
+              <td><span class="deferred-tag">Deferred</span>18</td>
               <td>Audit-log + incidents endpoints group up to 5,000 rows in memory</td>
-              <td>Push grouping into a database stored procedure when volume warrants</td>
+              <td>Deferred 2026-05-21 per audit recommendation — works fine today, only spikes above 5,000 events. Current volume is well under that. Revisit when row counts approach 4,000 (early-warning threshold); fix at that point is a stored procedure that pushes the GROUP BY into Postgres instead of doing it in Node.</td>
             </tr>
             <tr class="done">
               <td><span class="done-tag">Complete</span>19</td>
@@ -1097,13 +1117,13 @@
             <tr class="done"><td><span class="done-tag">Complete</span>21</td><td><span class="done-item">Default README is still the Next.js boilerplate</span></td><td>Done 2026-05-21 — replaced with a project intro: stack, local dev, env vars, useful routes, roles, deploy one-liner, repo layout. Pointers to <code>OPERATIONS.md</code> + <code>/system-audit.html</code>.</td></tr>
             <tr class="done"><td><span class="done-tag">Complete</span>22</td><td><span class="done-item">A few utility functions exported but only used internally</span></td><td>Done 2026-05-21 — dropped <code>export</code> from <code>hexToRgb</code>, <code>relativeLuminance</code>, <code>contrastRatio</code>, <code>ContrastVerdict</code>, <code>ContrastCheck</code> (color-contrast.ts) and <code>readImageDimensions</code>, <code>ImageDimensions</code> (image-dimensions.ts).</td></tr>
             <tr class="done"><td><span class="done-tag">Complete</span>23</td><td><span class="done-item">One migration comment references columns dropped later</span></td><td>Done 2026-05-21 — forward-pointing notes added to migration 025 and 027 headers.</td></tr>
-            <tr><td>24</td><td>Two pre-existing lint warnings about refs-during-render</td><td>Inherited; harmless functionally</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>24</td><td><span class="done-item">Two pre-existing lint warnings about refs-during-render</span></td><td>Done 2026-05-21 — moved both <code>activeBookingIdRef.current = …</code> and <code>abandonBookingRef.current = …</code> assignments out of the render body and into post-commit <code>useEffect</code>s in booking-store.tsx. Refs are still kept in sync but the mutation now runs after React commits, matching the React 19 set-ref-during-render rule.</td></tr>
             <tr class="done"><td><span class="done-tag">Complete</span>25</td><td><span class="done-item">Reports page loads diagram library on every page</span></td><td>Done 2026-05-21 — wrapped <code>Mermaid</code> in <code>next/dynamic</code> with <code>ssr: false</code>. The component's real implementation (renamed to <code>MermaidClient.tsx</code>) and its ~80 KB <code>mermaid</code> dep are now in a deferred chunk that only downloads when a diagram actually mounts. Call sites unchanged — they still <code>import { Mermaid } from "./Mermaid"</code>.</td></tr>
             <tr class="done"><td><span class="done-tag">Complete</span>26</td><td><span class="done-item">Excel library may be unused</span></td><td>Done 2026-05-21 — <code>xlsx</code> had one call site (system-admin Export button on /patient-history producing an .xlsx file). Replaced with a hand-rolled RFC 4180 CSV writer (~17 lines, UTF-8 BOM so Excel auto-detects encoding) and removed the dependency. Excel opens .csv natively, so the operator UX is unchanged.</td></tr>
-            <tr><td>27</td><td>Email transporter built lazily without locking</td><td>Cosmetic; nodemailer handles it</td></tr>
-            <tr><td>28</td><td>File upload trusts the browser-supplied file type</td><td>Add server-side magic-byte check</td></tr>
+            <tr class="deferred"><td><span class="deferred-tag">Deferred</span>27</td><td>Email transporter built lazily without locking</td><td>Deferred 2026-05-21 per audit recommendation — the audit itself labels this "cosmetic" and notes nodemailer handles concurrent transporter creation internally (idempotent on the same config). No user-visible failure mode; revisit only if duplicate-transport warnings ever show up in production logs.</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>28</td><td><span class="done-item">File upload trusts the browser-supplied file type</span></td><td>Done 2026-05-21 — new <code>src/lib/image-magic-bytes.ts</code> with a hand-rolled <code>validateImageMagicBytes(buffer, claimedMime)</code> that sniffs PNG/JPEG/WebP/SVG/ICO signatures. Wired into all three upload endpoints (avatar, client logo, client favicon) immediately after the existing MIME allowlist check. Rejects with a 400 + detected-format label (e.g. "detected GIF (not allowed)") when the bytes contradict the claimed type. No new dependency — hand-rolled rather than pulling in the ~50KB <code>file-type</code> library.</td></tr>
             <tr class="done"><td><span class="done-tag">Complete</span>29</td><td><span class="done-item">No memory / CPU limits on the booking-app container</span></td><td>Done 2026-05-21 — added <code>mem_limit: 1g</code>, <code>mem_reservation: 256m</code>, <code>cpus: 1.5</code> to docker-compose.yml. Also capped json-file logs at 3 &times; 10 MB so docker logs can't fill the disk.</td></tr>
-            <tr><td>30</td><td>No automated tests</td><td>Acceptable at this stage; worth starting a smoke test soon</td></tr>
+            <tr class="done"><td><span class="done-tag">Complete</span>30</td><td><span class="done-item">No automated tests</span></td><td>Done 2026-05-21 — installed <code>@playwright/test</code> as a dev dep (Chromium-only for fast runs). Added <code>playwright.config.ts</code> with auto-start of the dev server, HTML reporter locally / GitHub Actions reporter on CI, traces + screenshots on failure. First smoke test (<code>tests/sign-in.spec.ts</code>) verifies the /sign-in page renders, the submit button is correctly gated, and the Forgot-PIN escape hatch routes to /forgot-pin. Run via <code>npm test</code> / <code>npm run test:headed</code> / <code>npm run test:ui</code>. Add happy-path booking-flow coverage as the next iteration once a deterministic test-user seeding strategy is in place.</td></tr>
           </tbody>
         </table>
       </section>

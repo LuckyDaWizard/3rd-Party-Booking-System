@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/admin/trusted-ips — list all trusted IPs
@@ -42,10 +43,7 @@ export async function GET() {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const { data, error } = await admin
@@ -54,7 +52,7 @@ export async function GET() {
     .order("created_at", { ascending: false })
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(error.message, 500)
   }
 
   // Look up creator names.
@@ -95,15 +93,12 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as CreateBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   const ip = body.ipAddress?.trim() ?? ""
   if (!isValidIp(ip)) {
-    return NextResponse.json(
-      { error: "Invalid IP address format" },
-      { status: 400 }
-    )
+    return apiError("Invalid IP address format", 400)
   }
 
   const label = body.label?.trim().slice(0, 60) || null
@@ -112,10 +107,7 @@ export async function POST(request: Request) {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const { data, error } = await admin
@@ -127,12 +119,9 @@ export async function POST(request: Request) {
   if (error) {
     // Unique violation = IP already trusted.
     if (error.code === "23505") {
-      return NextResponse.json(
-        { error: "This IP is already trusted" },
-        { status: 409 }
-      )
+      return apiError("This IP is already trusted", 409)
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(error.message, 500)
   }
 
   writeAuditLog({
@@ -157,17 +146,14 @@ export async function DELETE(request: Request) {
   const url = new URL(request.url)
   const id = url.searchParams.get("id")
   if (!id) {
-    return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    return apiError("Missing id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load for audit before delete.
@@ -179,7 +165,7 @@ export async function DELETE(request: Request) {
 
   const { error } = await admin.from("trusted_ips").delete().eq("id", id)
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(error.message, 500)
   }
 
   writeAuditLog({

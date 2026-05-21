@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/admin/sessions/revoke
@@ -35,22 +36,19 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as Body
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   const sessionId = body.sessionId?.trim()
   if (!sessionId || !/^[0-9a-f-]{36}$/i.test(sessionId)) {
-    return NextResponse.json({ error: "Invalid session id" }, { status: 400 })
+    return apiError("Invalid session id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Look up the session + user for the audit log BEFORE deleting.
@@ -82,17 +80,11 @@ export async function POST(request: Request) {
   })
 
   if (rpcErr) {
-    return NextResponse.json(
-      { error: `Failed to revoke session: ${rpcErr.message}` },
-      { status: 500 }
-    )
+    return apiError(`Failed to revoke session: ${rpcErr.message}`, 500)
   }
 
   if (!revoked) {
-    return NextResponse.json(
-      { error: "Session not found or already revoked" },
-      { status: 404 }
-    )
+    return apiError("Session not found or already revoked", 404)
   }
 
   // Audit log.

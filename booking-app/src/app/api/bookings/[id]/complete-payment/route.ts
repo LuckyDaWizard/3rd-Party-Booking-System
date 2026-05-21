@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { recordBookingValidator } from "@/lib/booking-validator"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/bookings/[id]/complete-payment
@@ -43,17 +44,14 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 })
+    return apiError("Missing booking id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load the booking.
@@ -64,23 +62,17 @@ export async function POST(request: Request, context: RouteContext) {
     .single()
 
   if (loadErr || !booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    return apiError("Booking not found", 404)
   }
 
   // Unit scoping: unit_manager can only confirm bookings in their units.
   // system_admin can confirm any booking.
   if (caller.role === "unit_manager") {
     if (!booking.unit_id) {
-      return NextResponse.json(
-        { error: "Forbidden — booking is not assigned to a unit" },
-        { status: 403 }
-      )
+      return apiError("Forbidden — booking is not assigned to a unit", 403)
     }
     if (!caller.unitIds.includes(booking.unit_id)) {
-      return NextResponse.json(
-        { error: "Forbidden — booking is not in your assigned units" },
-        { status: 403 }
-      )
+      return apiError("Forbidden — booking is not in your assigned units", 403)
     }
   }
 
@@ -96,19 +88,10 @@ export async function POST(request: Request, context: RouteContext) {
   // unrecoverable — those were an explicit user choice.
   if (booking.status === "Abandoned") {
     if (!booking.payment_amount) {
-      return NextResponse.json(
-        {
-          error:
-            "Cannot confirm payment — booking was abandoned before reaching the payment step.",
-        },
-        { status: 409 }
-      )
+      return apiError("Cannot confirm payment — booking was abandoned before reaching the payment step.", 409)
     }
   } else if (booking.status !== "In Progress") {
-    return NextResponse.json(
-      { error: `Cannot complete payment for booking with status "${booking.status}"` },
-      { status: 409 }
-    )
+    return apiError(`Cannot complete payment for booking with status "${booking.status}"`, 409)
   }
 
   // Update via service role.
@@ -121,7 +104,7 @@ export async function POST(request: Request, context: RouteContext) {
     .eq("id", id)
 
   if (updErr) {
-    return NextResponse.json({ error: updErr.message }, { status: 500 })
+    return apiError(updErr.message, 500)
   }
 
   // Snapshot the supervisor who manually confirmed payment — best-effort.

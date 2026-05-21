@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
 import { sweepStaleIncidents } from "@/lib/incidents"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/admin/incidents
@@ -42,10 +43,7 @@ export async function GET(request: Request) {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   let query = admin
@@ -69,7 +67,7 @@ export async function GET(request: Request) {
       )
       return NextResponse.json({ data: [], openCount: 0 })
     }
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return apiError(error.message, 500)
   }
 
   return NextResponse.json({

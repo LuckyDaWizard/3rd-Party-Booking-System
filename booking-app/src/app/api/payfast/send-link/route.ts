@@ -9,6 +9,7 @@ import {
 import { sendPaymentLinkEmail } from "@/lib/email"
 import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { recordBookingValidator } from "@/lib/booking-validator"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/payfast/send-link
@@ -39,32 +40,26 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as Body
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   const bookingId = body.bookingId?.trim()
   if (!bookingId) {
-    return NextResponse.json({ error: "bookingId is required" }, { status: 400 })
+    return apiError("bookingId is required", 400)
   }
 
   let config
   try {
     config = getPayfastConfig()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load the booking.
@@ -77,36 +72,22 @@ export async function POST(request: Request) {
     .single()
 
   if (loadErr || !booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    return apiError("Booking not found", 404)
   }
 
   if (booking.status !== "In Progress") {
-    return NextResponse.json(
-      {
-        error: `Cannot send payment link — booking status is "${booking.status}"`,
-      },
-      { status: 409 }
-    )
+    return apiError(`Cannot send payment link — booking status is "${booking.status}"`, 409)
   }
 
   if (!booking.email_address) {
-    return NextResponse.json(
-      {
-        error:
-          "Booking has no patient email address. Go back and add an email before sending a payment link.",
-      },
-      { status: 400 }
-    )
+    return apiError("Booking has no patient email address. Go back and add an email before sending a payment link.", 400)
   }
 
   // Unit-scoping: unit_manager can only send links for bookings in their units.
   // system_admin can send for any booking.
   if (caller.role === "unit_manager") {
     if (!booking.unit_id || !caller.unitIds.includes(booking.unit_id)) {
-      return NextResponse.json(
-        { error: "Forbidden — booking is not in your assigned units" },
-        { status: 403 }
-      )
+      return apiError("Forbidden — booking is not in your assigned units", 403)
     }
   }
 
@@ -132,22 +113,10 @@ export async function POST(request: Request) {
         bill_monthly: boolean | null
       } | null
       if (c?.bill_monthly) {
-        return NextResponse.json(
-          {
-            error:
-              "This client is billed monthly. No payment link applies to bookings under this client.",
-          },
-          { status: 400 }
-        )
+        return apiError("This client is billed monthly. No payment link applies to bookings under this client.", 400)
       }
       if (c?.collect_payment_at_unit) {
-        return NextResponse.json(
-          {
-            error:
-              "This client collects payment directly. Use the in-unit payment confirmation flow instead.",
-          },
-          { status: 400 }
-        )
+        return apiError("This client collects payment directly. Use the in-unit payment confirmation flow instead.", 400)
       }
     }
   }

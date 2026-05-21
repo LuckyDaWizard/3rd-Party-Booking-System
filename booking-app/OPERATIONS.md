@@ -531,6 +531,55 @@ done
 
 ---
 
+## Supabase Auth: shorten access-token expiry (audit #14)
+
+When an admin revokes a session via /security, the corresponding row in
+Supabase's `auth.sessions` is deleted — but the user's existing **access
+token** (a stateless JWT) keeps validating against Supabase until it expires
+naturally. Default expiry is **3600 s (1 hour)**, which is the window during
+which a revoked session can still call protected APIs. For incident response
+this delay matters.
+
+**Fix (one-time setup, no code change):**
+
+1. Open the Supabase Studio for the project.
+2. Navigate to **Project Settings → JWT Keys → Legacy JWT Secret tab**.
+3. Find the **"Access token expiry time"** field (Supabase recommends 3600).
+4. Set the value to **900 seconds (15 min)** and Save.
+5. No application restart needed — the change applies to all newly-issued
+   access tokens on the next sign-in / refresh.
+
+(The newer "Authentication → Sessions" page surfaces *Time-box* / *Inactivity*
+controls but those are Pro-plan-only. The Free-plan access-token expiry lives
+on the Legacy JWT Secret tab.)
+
+**Verify it took effect:** sign out + back in, then in the browser console:
+
+```js
+(() => {
+  const m = document.cookie.match(/sb-[^=]+-auth-token=([^;]+)/);
+  const raw = decodeURIComponent(m[1]).replace(/^base64-/, "");
+  const jwt = JSON.parse(atob(raw)).access_token;
+  const p = JSON.parse(atob(jwt.split(".")[1]));
+  return { ttl_seconds: p.exp - p.iat };
+})()
+```
+
+Should return `{ ttl_seconds: 900 }`. If you see 3600, the change didn't save.
+
+**What this changes for users:** sessions still last as long as before
+(refresh tokens are unchanged) — the browser quietly refreshes the access
+token every 15 min behind the scenes via Supabase's auth client. The user
+experience is unchanged. The only observable effect is that revoking a
+session now bites within 15 min instead of an hour.
+
+**If we ever need full immediate revocation**, the next step would be a
+server-side JWT blacklist (compare each request's session ID against a
+revoked-list table in middleware). Deferred for now — the 15-min window is
+acceptable per the audit.
+
+---
+
 ## Getting Support
 
 For operational emergencies or escalation beyond this runbook:

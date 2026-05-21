@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/admin/privacy/access
@@ -45,27 +46,21 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as Body
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   const idNumber = body.idNumber?.trim()
   const reason = body.reason?.trim() || "Access request (reason not provided)"
 
   if (!idNumber) {
-    return NextResponse.json(
-      { error: "idNumber is required" },
-      { status: 400 }
-    )
+    return apiError("idNumber is required", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Pull every booking matching this ID number. Includes bookings that
@@ -79,10 +74,7 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("[privacy/access] DB error:", error.message)
-    return NextResponse.json(
-      { error: `Database error: ${error.message}` },
-      { status: 500 }
-    )
+    return apiError(`Database error: ${error.message}`, 500)
   }
 
   // Audit log — the reason is captured verbatim so we can show the POPIA

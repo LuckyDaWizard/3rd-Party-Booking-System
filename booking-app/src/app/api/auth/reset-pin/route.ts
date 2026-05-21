@@ -42,10 +42,13 @@ interface Body {
 
 const CODE_REGEX = /^\d{6}$/
 
-function hashCodeForStorage(code: string, userId: string): string {
+/** Mirror of forgot-pin/route.ts — combine the 6-digit code with the
+ * per-token salt and SHA-256 it. Salt is loaded from the row at verify
+ * time so this function never needs the user_id (audit #16). */
+function hashCodeForStorage(code: string, salt: string): string {
   return crypto
     .createHash("sha256")
-    .update(`${code}:${userId}`)
+    .update(`${code}:${salt}`)
     .digest("hex")
 }
 
@@ -137,7 +140,7 @@ export async function POST(request: Request) {
   const nowIso = new Date().toISOString()
   const { data: token } = await admin
     .from("pin_reset_tokens")
-    .select("id, token_hash, expires_at")
+    .select("id, token_hash, token_salt, expires_at")
     .eq("user_id", user.id)
     .is("used_at", null)
     .gt("expires_at", nowIso)
@@ -145,14 +148,19 @@ export async function POST(request: Request) {
     .limit(1)
     .single()
 
-  if (!token) {
+  if (!token || !token.token_salt) {
+    // Pre-migration-030 tokens (no salt) are rejected on purpose — they
+    // can't be verified under the new format and the user should re-request
+    // a fresh code. Live tokens at deploy time are pre-emptively deleted
+    // by the migration, so this branch only fires for genuinely-invalid
+    // or already-expired attempts.
     return NextResponse.json(
       { ok: false, reason: "invalid" },
       { status: 400 }
     )
   }
 
-  const expectedHash = hashCodeForStorage(code, user.id)
+  const expectedHash = hashCodeForStorage(code, token.token_salt)
   if (
     !crypto.timingSafeEqual(
       Buffer.from(token.token_hash, "hex"),

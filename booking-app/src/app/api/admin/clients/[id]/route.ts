@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // PATCH /api/admin/clients/[id]  — update a client
@@ -82,34 +83,28 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing client id" }, { status: 400 })
+    return apiError("Missing client id", 400)
   }
 
   let body: UpdateClientBody
   try {
     body = (await request.json()) as UpdateClientBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   let normalisedAccent: string | null | undefined
   try {
     normalisedAccent = normaliseAccent(body.accentColor)
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Invalid accent colour" },
-      { status: 400 }
-    )
+    return apiError(err instanceof Error ? err.message : "Invalid accent colour", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load current row for audit diff.
@@ -169,7 +164,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     .eq("id", id)
 
   if (updErr) {
-    return NextResponse.json({ error: updErr.message }, { status: 500 })
+    return apiError(updErr.message, 500)
   }
 
   // Audit log.
@@ -250,17 +245,14 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing client id" }, { status: 400 })
+    return apiError("Missing client id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load name before deletion for audit log.
@@ -306,11 +298,9 @@ export async function DELETE(request: Request, context: RouteContext) {
         .delete()
         .in("unit_id", unitIds)
       if (delBookingsErr) {
-        return NextResponse.json(
-          {
-            error: `Failed to cascade-delete bookings: ${delBookingsErr.message}`,
-          },
-          { status: 500 }
+        return apiError(
+          `Failed to cascade-delete bookings: ${delBookingsErr.message}`,
+          500
         )
       }
     }
@@ -328,11 +318,9 @@ export async function DELETE(request: Request, context: RouteContext) {
         .delete()
         .in("unit_id", unitIds)
       if (delAssignsErr) {
-        return NextResponse.json(
-          {
-            error: `Failed to cascade-delete user-unit assignments: ${delAssignsErr.message}`,
-          },
-          { status: 500 }
+        return apiError(
+          `Failed to cascade-delete user-unit assignments: ${delAssignsErr.message}`,
+          500
         )
       }
     }
@@ -343,9 +331,9 @@ export async function DELETE(request: Request, context: RouteContext) {
       .delete()
       .eq("client_id", id)
     if (delUnitsErr) {
-      return NextResponse.json(
-        { error: `Failed to cascade-delete units: ${delUnitsErr.message}` },
-        { status: 500 }
+      return apiError(
+        `Failed to cascade-delete units: ${delUnitsErr.message}`,
+        500
       )
     }
   }
@@ -354,7 +342,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   const { error: delErr } = await admin.from("clients").delete().eq("id", id)
 
   if (delErr) {
-    return NextResponse.json({ error: delErr.message }, { status: 500 })
+    return apiError(delErr.message, 500)
   }
 
   writeAuditLog({

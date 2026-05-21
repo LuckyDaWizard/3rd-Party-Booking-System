@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/admin/sessions
@@ -72,10 +73,7 @@ export async function GET() {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const { data: sessionsData, error: sessionsErr } = await admin
@@ -85,7 +83,7 @@ export async function GET() {
     .limit(500)
 
   if (sessionsErr) {
-    return NextResponse.json({ error: sessionsErr.message }, { status: 500 })
+    return apiError(sessionsErr.message, 500)
   }
 
   const sessions = (sessionsData ?? []) as SessionRow[]

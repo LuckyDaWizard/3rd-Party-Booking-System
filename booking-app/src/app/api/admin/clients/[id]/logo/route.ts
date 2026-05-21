@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import { apiError } from "@/lib/api-response"
+import { validateImageMagicBytes } from "@/lib/image-magic-bytes"
 
 // =============================================================================
 // POST   /api/admin/clients/[id]/logo  — upload (or replace) the client logo
@@ -35,38 +37,29 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing client id" }, { status: 400 })
+    return apiError("Missing client id", 400)
   }
 
   const form = await request.formData().catch(() => null)
   const file = form?.get("file")
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing 'file' field" }, { status: 400 })
+    return apiError("Missing 'file' field", 400)
   }
 
   if (file.size > MAX_BYTES) {
-    return NextResponse.json(
-      { error: `File too large (${file.size} bytes). Max is ${MAX_BYTES}.` },
-      { status: 413 }
-    )
+    return apiError(`File too large (${file.size} bytes). Max is ${MAX_BYTES}.`, 413)
   }
 
   const ext = ALLOWED_MIME[file.type]
   if (!ext) {
-    return NextResponse.json(
-      { error: `Unsupported file type: ${file.type}. Allowed: PNG, JPEG, WEBP, SVG.` },
-      { status: 400 }
-    )
+    return apiError(`Unsupported file type: ${file.type}. Allowed: PNG, JPEG, WEBP, SVG.`, 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const { data: clientRow, error: loadErr } = await admin
@@ -75,11 +68,23 @@ export async function POST(request: Request, context: RouteContext) {
     .eq("id", id)
     .single()
   if (loadErr || !clientRow) {
-    return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    return apiError("Client not found", 404)
   }
 
   const objectKey = `${id}/logo.${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
+
+  // Verify the bytes actually match the declared MIME — `file.type` is
+  // browser-supplied and trivially spoofable (audit #28). An attacker
+  // labelling an HTML payload as image/png would otherwise get it served
+  // back from Supabase Storage with the wrong Content-Type.
+  const magic = validateImageMagicBytes(buffer, file.type)
+  if (!magic.ok) {
+    return apiError(
+      `File contents don't match declared type "${file.type}" — detected ${magic.detected}.`,
+      400
+    )
+  }
 
   const { error: uploadErr } = await admin.storage
     .from("client-logos")
@@ -90,10 +95,7 @@ export async function POST(request: Request, context: RouteContext) {
     })
 
   if (uploadErr) {
-    return NextResponse.json(
-      { error: `Upload failed: ${uploadErr.message}` },
-      { status: 500 }
-    )
+    return apiError(`Upload failed: ${uploadErr.message}`, 500)
   }
 
   const { data: publicUrlData } = admin.storage
@@ -109,10 +111,7 @@ export async function POST(request: Request, context: RouteContext) {
     .eq("id", id)
 
   if (dbErr) {
-    return NextResponse.json(
-      { error: `Failed to set logo URL: ${dbErr.message}` },
-      { status: 500 }
-    )
+    return apiError(`Failed to set logo URL: ${dbErr.message}`, 500)
   }
 
   writeAuditLog({
@@ -138,17 +137,14 @@ export async function DELETE(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing client id" }, { status: 400 })
+    return apiError("Missing client id", 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   const { data: clientRow, error: loadErr } = await admin
@@ -157,7 +153,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     .eq("id", id)
     .single()
   if (loadErr || !clientRow) {
-    return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    return apiError("Client not found", 404)
   }
 
   await admin.storage
@@ -170,7 +166,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     .eq("id", id)
 
   if (dbErr) {
-    return NextResponse.json({ error: dbErr.message }, { status: 500 })
+    return apiError(dbErr.message, 500)
   }
 
   writeAuditLog({

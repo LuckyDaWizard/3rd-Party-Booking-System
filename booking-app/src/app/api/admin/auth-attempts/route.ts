@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin, pinToEmail } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // GET /api/admin/auth-attempts
@@ -43,10 +44,7 @@ export async function GET() {
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Pull the last 500 attempts (any PIN, any status) — plenty for display.
@@ -57,7 +55,7 @@ export async function GET() {
     .limit(500)
 
   if (attemptsErr) {
-    return NextResponse.json({ error: attemptsErr.message }, { status: 500 })
+    return apiError(attemptsErr.message, 500)
   }
 
   const attempts = (attemptsData ?? []) as AttemptRow[]

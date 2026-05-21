@@ -11,6 +11,7 @@ import {
   type BookingForHandoff,
 } from "@/lib/carefirst"
 import { sendConsultLinkEmail } from "@/lib/email"
+import { apiError } from "@/lib/api-response"
 
 type DeliveryMode = "device" | "email"
 
@@ -55,7 +56,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { id } = await context.params
   if (!id) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 })
+    return apiError("Missing booking id", 400)
   }
 
   // Optional body: { deliveryMode: "device" | "email" }
@@ -76,20 +77,14 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     config = getCareFirstConfig()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // Load the full booking needed for the CareFirst payload.
@@ -132,22 +127,16 @@ export async function POST(request: Request, context: RouteContext) {
     >()
 
   if (loadErr || !booking) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    return apiError("Booking not found", 404)
   }
 
   // Unit scoping.
   if (caller.role === "unit_manager") {
     if (!booking.unit_id) {
-      return NextResponse.json(
-        { error: "Forbidden — booking is not assigned to a unit" },
-        { status: 403 }
-      )
+      return apiError("Forbidden — booking is not assigned to a unit", 403)
     }
     if (!caller.unitIds.includes(booking.unit_id)) {
-      return NextResponse.json(
-        { error: "Forbidden — booking is not in your assigned units" },
-        { status: 403 }
-      )
+      return apiError("Forbidden — booking is not in your assigned units", 403)
     }
   }
 
@@ -162,22 +151,14 @@ export async function POST(request: Request, context: RouteContext) {
         redirectUrl: booking.handoff_redirect_url,
       })
     }
-    return NextResponse.json(
-      {
-        error:
-          "Booking is already marked as Successful but no redirect URL is stored. Contact support.",
-      },
-      { status: 409 }
-    )
+    return apiError("Booking is already marked as Successful but no redirect URL is stored. Contact support.", 409)
   }
 
   // Must be paid before we hand off.
   if (booking.status !== "Payment Complete") {
-    return NextResponse.json(
-      {
-        error: `Cannot start consultation — booking status is "${booking.status}". Payment must be complete first.`,
-      },
-      { status: 409 }
+    return apiError(
+      `Cannot start consultation — booking status is "${booking.status}". Payment must be complete first.`,
+      409
     )
   }
 
@@ -189,11 +170,9 @@ export async function POST(request: Request, context: RouteContext) {
   if (!booking.first_names) missing.push("first names")
   if (!booking.surname) missing.push("surname")
   if (missing.length > 0) {
-    return NextResponse.json(
-      {
-        error: `Cannot start consultation — missing required patient data: ${missing.join(", ")}.`,
-      },
-      { status: 400 }
+    return apiError(
+      `Cannot start consultation — missing required patient data: ${missing.join(", ")}.`,
+      400
     )
   }
 

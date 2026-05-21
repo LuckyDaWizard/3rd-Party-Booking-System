@@ -6,6 +6,7 @@ import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { generateSecurePin } from "@/lib/pin"
 import { getAppUrl } from "@/lib/app-url"
 import type { User } from "@supabase/supabase-js"
+import { apiError } from "@/lib/api-response"
 
 // =============================================================================
 // POST /api/admin/users
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as CreateUserBody
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    return apiError("Invalid JSON body", 400)
   }
 
   // Validate
@@ -64,10 +65,7 @@ export async function POST(request: Request) {
 
   // unit_manager can only create 'user' role accounts
   if (caller.role === "unit_manager" && body.role !== "user") {
-    return NextResponse.json(
-      { error: "Unit managers can only create users with the 'user' role" },
-      { status: 403 }
-    )
+    return apiError("Unit managers can only create users with the 'user' role", 403)
   }
 
   // unit_manager can only assign to their own units
@@ -75,24 +73,18 @@ export async function POST(request: Request) {
     const callerUnitSet = new Set(caller.unitIds)
     const unauthorized = body.unitIds.filter((uid) => !callerUnitSet.has(uid))
     if (unauthorized.length > 0) {
-      return NextResponse.json(
-        { error: "You can only assign users to your own units" },
-        { status: 403 }
-      )
+      return apiError("You can only assign users to your own units", 403)
     }
   }
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors.join("; ") }, { status: 400 })
+    return apiError(errors.join("; "), 400)
   }
 
   let admin
   try {
     admin = getSupabaseAdmin()
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server misconfigured" },
-      { status: 500 }
-    )
+    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   // 1. Generate a cryptographically secure PIN and create the auth user in
@@ -124,22 +116,19 @@ export async function POST(request: Request) {
 
     lastAuthError = authErr
     if (!isDuplicateAuthError(authErr)) {
-      return NextResponse.json(
-        { error: `Failed to create auth user: ${authErr?.message ?? "unknown"}` },
-        { status: 500 }
+      return apiError(
+        `Failed to create auth user: ${authErr?.message ?? "unknown"}`,
+        500
       )
     }
     // Collision — retry with a fresh PIN.
   }
 
   if (!newPin || !authUser) {
-    return NextResponse.json(
-      {
-        error:
-          "Failed to generate a unique PIN after 10 attempts" +
-          (lastAuthError?.message ? `: ${lastAuthError.message}` : ""),
-      },
-      { status: 500 }
+    return apiError(
+      "Failed to generate a unique PIN after 10 attempts" +
+        (lastAuthError?.message ? `: ${lastAuthError.message}` : ""),
+      500
     )
   }
 
@@ -165,9 +154,9 @@ export async function POST(request: Request) {
   if (insertErr || !insertData) {
     // Rollback the auth user so we don't leak orphans.
     await admin.auth.admin.deleteUser(authUserId)
-    return NextResponse.json(
-      { error: `Failed to create user row: ${insertErr?.message ?? "unknown"}` },
-      { status: 500 }
+    return apiError(
+      `Failed to create user row: ${insertErr?.message ?? "unknown"}`,
+      500
     )
   }
 
@@ -184,10 +173,7 @@ export async function POST(request: Request) {
       // Best-effort cleanup so the user is fully removed.
       await admin.from("users").delete().eq("id", userId)
       await admin.auth.admin.deleteUser(authUserId)
-      return NextResponse.json(
-        { error: `Failed to assign units: ${junctionErr.message}` },
-        { status: 500 }
-      )
+      return apiError(`Failed to assign units: ${junctionErr.message}`, 500)
     }
   }
 
