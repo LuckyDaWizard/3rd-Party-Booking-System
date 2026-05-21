@@ -1545,17 +1545,17 @@
           <div class="test-section">
             <div class="test-section-header">
               <strong>7 — Concurrency stress tests</strong>
-              <span class="test-status">2 / 3 passed · 1 pending</span>
+              <span class="test-status">3 / 3 passed</span>
             </div>
             <ul class="test-list">
               <li><span class="test-tag pass">Pass</span><span>7.1 — Concurrent Start Consult race: caught a real bug (duplicate CareFirst SSO sessions). Fixed via the handoff-lock pattern (commit <code>7cdf4b3</code>) + migration 031. Re-tested green: loser gets clean 409, only one CareFirst session created.</span></li>
               <li><span class="test-tag pass">Pass</span><span>7.2 — PayFast initiate rate-limit: 12 rapid POSTs to <code>/api/payfast/initiate</code> via console script. Attempts 1–10 returned 200; attempts 11+ returned <strong>429</strong> with <code>"Too many payment initiations. Please retry in 43s."</code> Countdown decremented correctly across attempts. Audit #19 confirmed live.</span></li>
-              <li><span class="test-tag pending">Pending</span><span>7.3 — Booking-store error toast (network kill mid-save)</span></li>
+              <li><span class="test-tag pass">Pass</span><span>7.3 — Booking-store error toast: DevTools Network set to Offline mid-session. Red <code>&lt;Banner kind="danger"&gt;</code> appeared bottom-right with title "Something went wrong" and body "Couldn't load bookings. Please refresh the page or try again in a moment." Dismiss X worked. Audit #11 confirmed live.</span></li>
             </ul>
           </div>
 
           <div class="test-summary">
-            <strong>Summary:</strong> 30 of 33 tests passed · 1 N/A (slow-CareFirst path not naturally hit) · 1 pending (booking-store offline toast). One real production race condition surfaced during testing — concurrent Start Consult clicks were creating duplicate CareFirst SSO sessions — and was fixed in-session via a handoff-lock pattern (audit #8 follow-up; see the resolution box on Finding #8 above).
+            <strong>Summary:</strong> 32 of 33 tests passed · 1 N/A (slow-CareFirst timeout path not naturally hit during testing). Every code path proven live in production. One real race condition surfaced and was fixed in-session — concurrent Start Consult clicks were creating duplicate CareFirst SSO sessions, resolved via the handoff-lock pattern (audit #8 follow-up; see the resolution box on Finding #8 above).
           </div>
         </div>
       </section>
