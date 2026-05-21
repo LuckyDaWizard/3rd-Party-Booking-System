@@ -263,6 +263,76 @@
       margin-bottom: 4px;
     }
 
+    /* Smoke-test results block — compact list of every test from the
+       2026-05-21 production verification pass, with pass / pending / N/A
+       status pills per item. Lives inside the action-plan section. */
+    .test-block {
+      margin-top: 24px;
+      padding: 20px;
+      border: 1px solid var(--r-line);
+      border-radius: 12px;
+      background: #fafbfc;
+    }
+    .test-block .test-section {
+      margin-top: 16px;
+    }
+    .test-block .test-section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--r-line-2);
+      margin-bottom: 8px;
+    }
+    .test-block .test-section-header strong {
+      font-size: 14px;
+      color: var(--r-ink);
+    }
+    .test-block .test-section-header .test-status {
+      font-size: 12px;
+      color: var(--r-mute);
+      font-weight: 600;
+    }
+    .test-block ul.test-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .test-block ul.test-list li {
+      padding: 4px 0;
+      font-size: 13px;
+      color: var(--r-ink);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .test-tag {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+      width: 56px;
+      text-align: center;
+    }
+    .test-tag.pass { background: #dcfce7; color: #166534; }
+    .test-tag.pending { background: #fef3c7; color: #92400e; }
+    .test-tag.na { background: #e5e7eb; color: #4b5563; }
+    .test-block .test-summary {
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: #ecfdf5;
+      border-left: 3px solid #10b981;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--r-ink);
+    }
+
     .lede {
       max-width: var(--r-content-max);
       margin: 24px auto 0;
@@ -1383,6 +1453,111 @@
 
         <h3><span class="h3-num">Backlog</span> Pick up when convenient</h3>
         <p>Polish items 21-30 above. None are urgent. Pick them up when you're touching the relevant file for another reason.</p>
+
+        <div class="test-block">
+          <h3 style="margin-top: 0;"><span class="h3-num">Tests</span> Production smoke-test pass — 2026-05-21</h3>
+          <p style="margin-top: 0;">After the audit closeout was deployed, a structured smoke test ran against production (<code>http://187.127.135.11:3000</code>) covering authentication, the booking flow, all three payment paths, admin operations, file uploads, UI polish, and concurrency stress. One real production bug was found and fixed during the run (duplicate CareFirst SSO sessions under concurrent Start Consult clicks).</p>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>1 — Auth &amp; sessions</strong>
+              <span class="test-status">6 / 6 passed</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>1.1 — Sign in with known PIN</span></li>
+              <li><span class="test-tag pass">Pass</span><span>1.2 — JWT access-token TTL = 900s (15 min) verified via decoded cookie</span></li>
+              <li><span class="test-tag pass">Pass</span><span>1.3 — Lockout after 5 failed sign-ins</span></li>
+              <li><span class="test-tag pass">Pass</span><span>1.4 — Route guard redirects unauthenticated <code>/home</code> to <code>/sign-in</code></span></li>
+              <li><span class="test-tag pass">Pass</span><span>1.5 — Forgot-PIN → email code → reset-PIN → sign in with new PIN (migration 030 verified)</span></li>
+              <li><span class="test-tag pass">Pass</span><span>1.6 — Old PIN rejected after reset</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>2 — Booking happy path (gateway payment)</strong>
+              <span class="test-status">5 / 5 passed (1 N/A)</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>2.1 — Create-booking entry, search patient-details renders</span></li>
+              <li><span class="test-tag pass">Pass</span><span>2.2 — All three search modes (National ID with check-digit, Passport, Date of Birth)</span></li>
+              <li><span class="test-tag pass">Pass</span><span>2.3 — Patient-details 4-step form → payment branch</span></li>
+              <li><span class="test-tag pass">Pass</span><span>2.4 — PayFast gateway flow end-to-end</span></li>
+              <li><span class="test-tag pass">Pass</span><span>2.5 — Start Consult → CareFirst handoff → booking → Successful</span></li>
+              <li><span class="test-tag na">N/A</span><span>2.6 — Slow-CareFirst timeout copy (not naturally hit during test)</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>3 — Alternative payment flows</strong>
+              <span class="test-status">5 / 5 passed</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>3.1 — Bill monthly toggle on client (Client Management PATCH)</span></li>
+              <li><span class="test-tag pass">Pass</span><span>3.2 — Monthly-invoice booking auto-skips PayFast</span></li>
+              <li><span class="test-tag pass">Pass</span><span>3.3 — Self-collect toggle (mutual exclusion with monthly)</span></li>
+              <li><span class="test-tag pass">Pass</span><span>3.4 — Self-collect booking reaches "Pay on device" UI</span></li>
+              <li><span class="test-tag pass">Pass</span><span>3.5 — Self-collect mark-complete via manager PIN (timing pad verified)</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>4 — Admin operations</strong>
+              <span class="test-status">5 / 5 passed</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>4.1 — Active Sessions tab loads with correct status pills</span></li>
+              <li><span class="test-tag pass">Pass</span><span>4.2 — Force sign-out modal copy shows "~15 minutes" (matches JWT TTL)</span></li>
+              <li><span class="test-tag pass">Pass</span><span>4.3 — Audit Log Admin + Bookings tabs both populate</span></li>
+              <li><span class="test-tag pass">Pass</span><span>4.4 — Unauthenticated <code>/api/admin/users</code> returns 401 + canonical <code>{ ok: false, error }</code> shape</span></li>
+              <li><span class="test-tag pass">Pass</span><span>4.5 — User PIN reset via manager-PIN modal sends email</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>5 — File uploads (magic-byte check)</strong>
+              <span class="test-status">3 / 3 passed</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>5.1 — Legitimate PNG avatar upload</span></li>
+              <li><span class="test-tag pass">Pass</span><span>5.2 — Spoofed <code>fake.png</code> (HTML payload) rejected with "detected unrecognised binary"</span></li>
+              <li><span class="test-tag pass">Pass</span><span>5.3 — &gt; 2 MB file rejected by size guard</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>6 — UI polish &amp; regression</strong>
+              <span class="test-status">5 / 5 passed</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>6.1 — Patient History + Audit Log filter pills + search responsive</span></li>
+              <li><span class="test-tag pass">Pass</span><span>6.2 — Home dashboard Patient History card: red count badge flush right of heading</span></li>
+              <li><span class="test-tag pass">Pass</span><span>6.3 — Design System catalogue renders cleanly, Consolidation outcome visible</span></li>
+              <li><span class="test-tag pass">Pass</span><span>6.4 — System Audit page reflects Sprint 3 closeout (Sprint 3 all green, #18 + #27 deferred)</span></li>
+              <li><span class="test-tag pass">Pass</span><span>6.5 — Mobile sidebar drawer + responsive layout</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>7 — Concurrency stress tests</strong>
+              <span class="test-status">1 / 3 passed · 2 pending</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>7.1 — Concurrent Start Consult race: caught a real bug (duplicate CareFirst SSO sessions). Fixed via the handoff-lock pattern (commit <code>7cdf4b3</code>) + migration 031. Re-tested green: loser gets clean 409, only one CareFirst session created.</span></li>
+              <li><span class="test-tag pending">Pending</span><span>7.2 — PayFast initiate rate-limit (11+ rapid clicks should trigger 429)</span></li>
+              <li><span class="test-tag pending">Pending</span><span>7.3 — Booking-store error toast (network kill mid-save)</span></li>
+            </ul>
+          </div>
+
+          <div class="test-summary">
+            <strong>Summary:</strong> 29 of 33 tests passed · 1 N/A (slow-CareFirst path not naturally hit) · 2 pending (low-priority concurrency edge cases). One real production race condition surfaced during testing — concurrent Start Consult clicks were creating duplicate CareFirst SSO sessions — and was fixed in-session via a handoff-lock pattern (audit #8 follow-up; see the resolution box on Finding #8 above).
+          </div>
+        </div>
       </section>
 
       <section id="verification">
