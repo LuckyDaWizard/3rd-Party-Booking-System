@@ -911,7 +911,7 @@ function ActiveSessionsTab() {
                           ({revokeTarget.userEmail})
                         </>
                       )}
-                      . They&apos;ll be signed out within ~60 minutes (when their access
+                      . They&apos;ll be signed out within ~15 minutes (when their access
                       token expires).
                     </>
                   )}

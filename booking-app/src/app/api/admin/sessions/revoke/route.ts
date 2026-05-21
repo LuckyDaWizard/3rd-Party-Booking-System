@@ -15,7 +15,7 @@ import { apiError } from "@/lib/api-response"
 // Behaviour:
 //   - Target user's refresh token is invalidated immediately.
 //   - Their currently-issued access token remains valid until it expires
-//     (~60 min default — configurable in Supabase Auth settings).
+//     (~15 min — configured in Supabase Auth settings, audit #14).
 //   - On their next API call after the access token expires (or their next
 //     page reload / refresh), they're signed out.
 //
