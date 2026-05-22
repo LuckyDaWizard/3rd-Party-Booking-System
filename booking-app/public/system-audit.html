@@ -898,8 +898,12 @@
           </div>
         </div>
 
-        <div class="finding crit">
-          <h3>3. Confirm the secret-config file isn't in git history</h3>
+        <div class="finding crit done">
+          <h3><span class="done-tag">Complete</span>3. Confirm the secret-config file isn't in git history</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-22</span>
+            Swept the full git history with <code>git log --all --full-history --oneline -- &lt;path&gt;</code> against every plausible credential filename: <code>.env</code>, <code>.env.local</code>, <code>.env.production</code>, <code>.env.development</code>, <code>credentials.json</code>, <code>secrets.json</code>, both at the repo root and under <code>booking-app/</code>. <strong>Zero commits matched.</strong> Combined with the existing <code>.gitignore</code> entries on lines 50-51 (<code>.env</code> + <code>.env.*</code>), this confirms credentials have never been version-controlled. No key rotation required.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>The reviewer flagged that the file holding production API keys, SMTP credentials, and payment-gateway secrets (<code>.env.local</code>) may have been committed to the repository at some point. If so, anyone with a copy of the repository (including from any historical fork or backup) can read those secrets even if the file is now removed.</div>
