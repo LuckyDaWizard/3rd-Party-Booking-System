@@ -1593,13 +1593,13 @@
           <div class="test-section">
             <div class="test-section-header">
               <strong>B — Cleanup endpoint (/api/admin/cleanup/sweep)</strong>
-              <span class="test-status">0 / 4 passed · 4 pending</span>
+              <span class="test-status">4 / 4 passed</span>
             </div>
             <ul class="test-list">
-              <li><span class="test-tag pending">Pending</span><span>B.1 — Dry-run POST returns <code>{ ok: true, dryRun: true, swept: { pin_reset_tokens, auth_attempts, incidents } }</code></span></li>
-              <li><span class="test-tag pending">Pending</span><span>B.2 — Unauthenticated POST returns 401 (middleware default-deny)</span></li>
-              <li><span class="test-tag pending">Pending</span><span>B.3 — Real (non-dry) POST succeeds and returns counts</span></li>
-              <li><span class="test-tag pending">Pending</span><span>B.4 — Sweep event visible in <code>/audit-log</code> Admin tab</span></li>
+              <li><span class="test-tag pass">Pass</span><span>B.1 — Dry-run POST returned <code>{ ok: true, dryRun: true, swept: { pin_reset_tokens: 2, auth_attempts: 0, incidents: 0 } }</code> — 2 stale tokens eligible for deletion.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>B.2 — Unauthenticated POST returned 401 with <code>{ ok: false, error: "Unauthenticated" }</code> — middleware default-deny confirmed.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>B.3 — Real (non-dry) POST deleted 2 pin_reset_tokens. Re-running returned all zeros — idempotency confirmed.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>B.4 — Sweep event appeared in <code>/audit-log</code> Admin tab: <code>Cleanup sweep (0 rows removed)</code>, type=system, action=delete, per-table counts in the expanded detail. <strong>Caught + fixed a real bug in-session</strong> — initial run failed silently because <code>entityId: "sweep"</code> isn't a valid UUID for the audit_log <code>entity_id</code> column. Fixed in commit <code>236c06d</code> by using <code>SYSTEM_ACTOR_ID</code> (zero-UUID sentinel) instead.</span></li>
             </ul>
           </div>
 
@@ -1655,7 +1655,7 @@
           </div>
 
           <div class="test-summary">
-            <strong>Status (in progress):</strong> 2 of 21 tests passed so far · 19 pending. Section A (DB indexes) complete; B–F still to run. This pass verifies the items shipped on 2026-05-22.
+            <strong>Status (in progress):</strong> 6 of 21 tests passed so far · 15 pending. Sections A (DB indexes) + B (cleanup endpoint) complete; C–F still to run. One real bug surfaced and was fixed in-session (audit-log <code>entity_id</code> UUID constraint mismatch).
           </div>
         </div>
       </section>
