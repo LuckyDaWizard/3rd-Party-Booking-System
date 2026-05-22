@@ -1364,17 +1364,11 @@
             <tr><th>Task</th><th style="width: 180px;">Effort</th></tr>
           </thead>
           <tbody>
-            <tr>
+            <tr class="done">
               <td>
-                6. Build cleanup endpoint for old tokens &amp; login attempts
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>New <code>POST /api/admin/cleanup/sweep</code> route - service-role auth, three DELETE queries (expired pin_reset_tokens, old sessions, ancient login_attempts) with row-count logging. ~3 hr code + ~1 hr test.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>6. Build cleanup endpoint for old tokens &amp; login attempts
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-22</td>
             </tr>
             <tr>
               <td>

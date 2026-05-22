@@ -27,7 +27,7 @@ export interface AuditEntry {
   actorName: string
   actorRole: string
   action: "create" | "update" | "delete" | "reset_pin" | "toggle_status"
-  entityType: "user" | "client" | "unit" | "booking"
+  entityType: "user" | "client" | "unit" | "booking" | "system"
   entityId: string
   entityName?: string
   changes?: Record<string, { old?: unknown; new?: unknown }>
