@@ -1574,6 +1574,90 @@
             <strong>Summary:</strong> 32 of 33 tests passed · 1 N/A (slow-CareFirst timeout path not naturally hit during testing). Every code path proven live in production. One real race condition surfaced and was fixed in-session — concurrent Start Consult clicks were creating duplicate CareFirst SSO sessions, resolved via the handoff-lock pattern (audit #8 follow-up; see the resolution box on Finding #8 above).
           </div>
         </div>
+
+        <div class="test-block">
+          <h3 style="margin-top: 0;"><span class="h3-num">Tests</span> Sprint 1 + Sprint 2 verification — 2026-05-22</h3>
+          <p style="margin-top: 0;">Focused smoke test of the items shipped on 2026-05-22 (audit #2 PII redaction, #3 git history sweep, #4 DB indexes, Sprint 2 #6 cleanup endpoint, Sprint 2 #8 booking-store in-place patching). Same structure as the 2026-05-21 pass — pass / pending / N/A pills per item.</p>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>A — Migration 032 (three DB indexes)</strong>
+              <span class="test-status">2 / 2 passed</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pass">Pass</span><span>A.1 — All three indexes exist in production: <code>idx_bookings_unit_id</code>, <code>idx_user_units_user_id</code>, <code>idx_user_units_unit_id</code>. Verified via <code>pg_indexes</code> SELECT.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>A.2 — Non-admin <code>/patient-history</code> load fires the expected <code>bookings?...&amp;unit_id=eq.&lt;uuid&gt;</code> Supabase query and completes in ~236ms server-response time. Index in use, no errors.</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>B — Cleanup endpoint (/api/admin/cleanup/sweep)</strong>
+              <span class="test-status">0 / 4 passed · 4 pending</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pending">Pending</span><span>B.1 — Dry-run POST returns <code>{ ok: true, dryRun: true, swept: { pin_reset_tokens, auth_attempts, incidents } }</code></span></li>
+              <li><span class="test-tag pending">Pending</span><span>B.2 — Unauthenticated POST returns 401 (middleware default-deny)</span></li>
+              <li><span class="test-tag pending">Pending</span><span>B.3 — Real (non-dry) POST succeeds and returns counts</span></li>
+              <li><span class="test-tag pending">Pending</span><span>B.4 — Sweep event visible in <code>/audit-log</code> Admin tab</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>C — Booking-store in-place patching</strong>
+              <span class="test-status">0 / 5 passed · 5 pending</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pending">Pending</span><span>C.1 — Note scroll position of a specific booking on <code>/patient-history</code> (baseline)</span></li>
+              <li><span class="test-tag pending">Pending</span><span>C.2 — Edit a field on patient-details, auto-save fires within 2s, no visible flicker</span></li>
+              <li><span class="test-tag pending">Pending</span><span>C.3 — Return to <code>/patient-history</code>, booking still at same scroll position with new value</span></li>
+              <li><span class="test-tag pending">Pending</span><span>C.4 — Create new booking → appears at top, previous In Progress booking flips to Abandoned</span></li>
+              <li><span class="test-tag pending">Pending</span><span>C.5 — Discard a booking → row stays, badge flips to Discarded, no full-list reflow</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>D — PII log redaction</strong>
+              <span class="test-status">0 / 4 passed · 4 pending</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pending">Pending</span><span>D.1 — VPS docker logs tail set up via <code>docker logs -f booking-app</code></span></li>
+              <li><span class="test-tag pending">Pending</span><span>D.2 — PayFast ITN log line shows 8-char ref instead of full UUID</span></li>
+              <li><span class="test-tag pending">Pending</span><span>D.3 — Start Consult failure log shows <code>ref:</code> only, no firstName/nationality/gender/country/province keys</span></li>
+              <li><span class="test-tag pending">Pending</span><span>D.4 — Source grep confirms no <code>payloadSnapshot</code> or PII field references in API log statements</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>E — Visual checks (audit page)</strong>
+              <span class="test-status">0 / 4 passed · 4 pending</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pending">Pending</span><span>E.1 — Effort column at 180px, "Done 2026-05-22" fits without wrapping</span></li>
+              <li><span class="test-tag pending">Pending</span><span>E.2 — Findings #2, #3, #4, #6 show green Complete pills + resolution boxes</span></li>
+              <li><span class="test-tag pending">Pending</span><span>E.3 — Sprint 1 rows 2, 3, 4 green Complete; rows 1, 5 open</span></li>
+              <li><span class="test-tag pending">Pending</span><span>E.4 — Sprint 2 rows 6, 8, 9, 10 green Complete; row 7 open</span></li>
+            </ul>
+          </div>
+
+          <div class="test-section">
+            <div class="test-section-header">
+              <strong>F — Existing regression check</strong>
+              <span class="test-status">0 / 2 passed · 2 pending</span>
+            </div>
+            <ul class="test-list">
+              <li><span class="test-tag pending">Pending</span><span>F.1 — Sign-out + sign-in still works (no auth-flow regression)</span></li>
+              <li><span class="test-tag pending">Pending</span><span>F.2 — All 27 Playwright tests still pass</span></li>
+            </ul>
+          </div>
+
+          <div class="test-summary">
+            <strong>Status (in progress):</strong> 2 of 21 tests passed so far · 19 pending. Section A (DB indexes) complete; B–F still to run. This pass verifies the items shipped on 2026-05-22.
+          </div>
+        </div>
       </section>
 
       <section id="verification">
