@@ -1633,13 +1633,13 @@
           <div class="test-section">
             <div class="test-section-header">
               <strong>E — Visual checks (audit page)</strong>
-              <span class="test-status">0 / 4 passed · 4 pending</span>
+              <span class="test-status">4 / 4 passed</span>
             </div>
             <ul class="test-list">
-              <li><span class="test-tag pending">Pending</span><span>E.1 — Effort column at 180px, "Done 2026-05-22" fits without wrapping</span></li>
-              <li><span class="test-tag pending">Pending</span><span>E.2 — Findings #2, #3, #4, #6 show green Complete pills + resolution boxes</span></li>
-              <li><span class="test-tag pending">Pending</span><span>E.3 — Sprint 1 rows 2, 3, 4 green Complete; rows 1, 5 open</span></li>
-              <li><span class="test-tag pending">Pending</span><span>E.4 — Sprint 2 rows 6, 8, 9, 10 green Complete; row 7 open</span></li>
+              <li><span class="test-tag pass">Pass</span><span>E.1 — Effort column at 180px; "0.5 day (worst case)" and "Done 2026-05-22 (audit #14)" all fit on a single line across all three Sprint tables.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>E.2 — Findings #2, #3, #4, #6 (plus #7, #8 from yesterday) all show green left-border + Complete pill + green-tinted resolution box. Findings #1, #5, #9 still open (no green styling) as expected.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>E.3 — Sprint 1 action plan: rows 2, 3, 4 green Complete; rows 1 (HTTPS) and 5 (POPIA) still open as expected (blocked on management decisions).</span></li>
+              <li><span class="test-tag pass">Pass</span><span>E.4 — Sprint 2 action plan: rows 6, 8, 9, 10 green Complete; row 7 (cron) still open as expected (blocked on management decision on tooling).</span></li>
             </ul>
           </div>
 
@@ -1655,7 +1655,7 @@
           </div>
 
           <div class="test-summary">
-            <strong>Status (in progress):</strong> 12 of 21 tests passed · 3 N/A · 6 pending. Sections A, B, C, D complete (D covered structurally by source-grep D.4 — live PayFast trigger attempts kept hitting other state-machine guards correctly). Sections E (visual checks) + F (regression) still to run. One real bug surfaced and was fixed in-session (audit-log <code>entity_id</code> UUID constraint mismatch).
+            <strong>Status (in progress):</strong> 16 of 21 tests passed · 3 N/A · 2 pending. Sections A, B, C, D, E complete (D covered structurally by source-grep D.4 — live PayFast trigger attempts kept hitting other state-machine guards correctly). Section F (regression) still to run. One real bug surfaced and was fixed in-session (audit-log <code>entity_id</code> UUID constraint mismatch).
           </div>
         </div>
       </section>
