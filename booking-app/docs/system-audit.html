@@ -943,8 +943,21 @@
         <h2><span class="section-num">05 - High</span> Address this quarter</h2>
         <p>These won't break the system tomorrow, but each is a real liability waiting for the right (wrong) day.</p>
 
-        <div class="finding high">
-          <h3>4. Database is missing indexes on the columns we query most</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Complete</span>4. Database is missing indexes on the columns we query most</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-22</span>
+            Migration <code>032_unit_scope_indexes.sql</code> applied to
+            production Supabase. Three new indexes added:
+            <code>idx_bookings_unit_id</code> on <code>bookings(unit_id)</code>,
+            <code>idx_user_units_user_id</code> on <code>user_units(user_id)</code>,
+            and <code>idx_user_units_unit_id</code> on <code>user_units(unit_id)</code>.
+            All three are FK columns that Postgres does NOT auto-index —
+            the gap had been there since day one. Query patterns
+            (/patient-history non-admin load, api-auth.ts caller-scope
+            resolution, unit admin tools) now use index lookups instead
+            of full table scans. Idempotent (IF NOT EXISTS).
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>Several columns that the application filters by on every page - for example, the column linking a booking to its unit - don't have a database index. Today the booking volume is small enough that the database scans the whole table fast enough that nobody notices. As bookings grow, those scans get linearly slower.</div>
@@ -1323,17 +1336,11 @@
               </td>
               <td>Done 2026-05-22 — zero matches; no rotation needed</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                4. Add the three missing database indexes (migration 030)
-                <details class="reasoning">
-                  <summary>Why 0.25 day</summary>
-                  <div class="reasoning-body">
-                    <p>The SQL is 3 lines. The hour covers writing migration in the existing format + EXPLAIN ANALYZE locally to confirm the index is picked up + staging smoke test + production apply (additive, no lock contention).</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>4. Add the three missing database indexes (migration 032)
               </td>
-              <td>0.25 day</td>
+              <td>Done 2026-05-22</td>
             </tr>
             <tr>
               <td>
