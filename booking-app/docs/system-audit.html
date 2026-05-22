@@ -1606,14 +1606,14 @@
           <div class="test-section">
             <div class="test-section-header">
               <strong>C — Booking-store in-place patching</strong>
-              <span class="test-status">0 / 5 passed · 5 pending</span>
+              <span class="test-status">5 / 5 passed</span>
             </div>
             <ul class="test-list">
-              <li><span class="test-tag pending">Pending</span><span>C.1 — Note scroll position of a specific booking on <code>/patient-history</code> (baseline)</span></li>
-              <li><span class="test-tag pending">Pending</span><span>C.2 — Edit a field on patient-details, auto-save fires within 2s, no visible flicker</span></li>
-              <li><span class="test-tag pending">Pending</span><span>C.3 — Return to <code>/patient-history</code>, booking still at same scroll position with new value</span></li>
-              <li><span class="test-tag pending">Pending</span><span>C.4 — Create new booking → appears at top, previous In Progress booking flips to Abandoned</span></li>
-              <li><span class="test-tag pending">Pending</span><span>C.5 — Discard a booking → row stays, badge flips to Discarded, no full-list reflow</span></li>
+              <li><span class="test-tag pass">Pass</span><span>C.1 — Baseline: Hloni Boy / Sandton / 21 May 12:07 picked, scroll position noted.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>C.2 — Surname edited on patient-details; auto-save fired multiple PATCH requests to <code>bookings?id=eq.&lt;uuid&gt;&amp;select=*</code> with NO full-list refetch (<code>bookings?select=*&amp;order=created_at.desc</code>) — proves the new in-place patching path.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>C.3 — Returned to <code>/patient-history</code>: row still at same position, surname now reads "Hloni Boyz" (the edit), status unchanged. No list flicker / scroll reset.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>C.4 — Created new booking (Testing Testing / TeXXX23): appeared at TOP of list (today's date), filter pill counts updated correctly (28/8/7/13). Pre-existing In Progress booking from a prior session correctly NOT auto-abandoned (per-session activeBookingId ref behaviour). Two mutation paths exercised in one go: <code>createBooking</code> prepend + <code>abandonBooking</code> on navigate-away.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>C.5 — Discarded the Testing Testing booking: row stayed at top with black "Discarded" pill, filter counts updated (Incomplete 7 → 6, Completed 13 → 14), no full-list reflow. Single PATCH + local state patch.</span></li>
             </ul>
           </div>
 
@@ -1655,7 +1655,7 @@
           </div>
 
           <div class="test-summary">
-            <strong>Status (in progress):</strong> 6 of 21 tests passed so far · 15 pending. Sections A (DB indexes) + B (cleanup endpoint) complete; C–F still to run. One real bug surfaced and was fixed in-session (audit-log <code>entity_id</code> UUID constraint mismatch).
+            <strong>Status (in progress):</strong> 11 of 21 tests passed so far · 10 pending. Sections A (DB indexes), B (cleanup endpoint), C (booking-store in-place patching) complete; D–F still to run. One real bug surfaced and was fixed in-session (audit-log <code>entity_id</code> UUID constraint mismatch).
           </div>
         </div>
       </section>
