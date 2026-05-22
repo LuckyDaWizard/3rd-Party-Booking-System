@@ -199,13 +199,16 @@ export async function POST(request: Request) {
   if (!dryRun) {
     const total =
       counts.pin_reset_tokens + counts.auth_attempts + counts.incidents
+    // entity_id must be a valid UUID (NOT NULL uuid column on audit_log).
+    // Use SYSTEM_ACTOR_ID — the canonical zero-UUID for system-originated
+    // entities that don't tie to a specific user/client/unit/booking row.
     writeAuditLog({
       actorId: caller.id || SYSTEM_ACTOR_ID,
       actorName: caller.name || "System",
       actorRole: caller.role,
       action: "delete",
       entityType: "system",
-      entityId: "sweep",
+      entityId: SYSTEM_ACTOR_ID,
       entityName: `Cleanup sweep (${total} rows removed)`,
       changes: {
         "pin_reset_tokens": { new: String(counts.pin_reset_tokens) },
