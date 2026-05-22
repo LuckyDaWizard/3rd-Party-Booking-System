@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFirst Booking System — Management Decisions Required (2026-05-21)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  header.doc-header {
+    border-bottom: 3px solid var(--brand);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brand);
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--brand);
+    border-radius: 6px;
+  }
+
+  .decision {
+    margin-top: 28px;
+    padding: 24px 26px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .decision-number {
+    display: inline-block;
+    background: var(--brand);
+    color: white;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+  .decision h3 {
+    margin: 0 0 14px;
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .field {
+    margin: 14px 0;
+  }
+  .field-label {
+    display: block;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    font-weight: 800;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .field-body {
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+  .field-body ul { margin: 6px 0; padding-left: 20px; }
+  .field-body li { margin-bottom: 4px; }
+  .recommendation {
+    background: var(--ok-tint);
+    border-left: 3px solid var(--ok-ink);
+    color: var(--ok-ink);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+  }
+  .recommendation .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+  }
+  .ask {
+    background: #fff8e1;
+    border-left: 3px solid #d97706;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+    color: #5a3e08;
+  }
+  .ask .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #92400e;
+    margin-right: 8px;
+  }
+
+  .impact {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .impact.high { background: var(--danger-tint); color: #991b1b; }
+  .impact.medium { background: var(--warn-tint); color: var(--warn-ink); }
+  .impact.low { background: var(--brand-tint); color: #0f4a6b; }
+
+  footer.doc-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 12px;
+  }
+  footer.doc-footer p { margin-bottom: 6px; }
+
+  @media print {
+    body { background: white; }
+    .page {
+      max-width: none;
+      margin: 0;
+      padding: 24px 32px;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    .decision { page-break-inside: avoid; }
+    header.doc-header { page-break-after: avoid; }
+    h2 { page-break-after: avoid; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="doc-header">
+      <div class="eyebrow">Management Decisions Required</div>
+      <h1>CareFirst Third&nbsp;Party Booking System</h1>
+      <div class="meta">
+        Prepared <strong>2026-05-21</strong> by the development team<br>
+        Following the 2026-05-21 system audit closeout (28 of 30 audit findings resolved in&nbsp;code)
+      </div>
+    </header>
+
+    <p class="lede">
+      The development team has just completed a substantial cleanup pass on the booking system &mdash;
+      28&nbsp;security and quality findings from the system audit have been resolved and shipped to
+      production. <strong>Seven items remain that cannot be closed by engineering alone</strong>; they
+      need a decision, approval, or coordination from outside the development team. This document
+      summarises each one in plain language so leadership can review, ask questions, and respond.
+    </p>
+
+    <h2>How to read this document</h2>
+    <p>
+      Each item below has the same structure: <strong>what we&rsquo;re asking</strong>,
+      <strong>why it matters</strong>, <strong>the options on the table</strong>, the team&rsquo;s
+      <strong>recommendation</strong> (where we have one), and <strong>the specific action we need
+      from you</strong>. The impact tags (<span class="impact high">High</span>
+      <span class="impact medium">Medium</span> <span class="impact low">Low</span>) indicate
+      business or compliance impact, not technical effort.
+    </p>
+
+    <!-- ====================================================================== -->
+    <!-- DECISION 1 — HTTPS -->
+    <!-- ====================================================================== -->
+
+    <h2>The Decisions</h2>
+
+    <div class="decision">
+      <span class="decision-number">1</span>
+      <h3>Choose a production domain and switch the site to HTTPS<span class="impact high">High</span></h3>
+
+      <div class="field">
+        <span class="field-label">What we&rsquo;re asking</span>
+        <div class="field-body">
+          The site is currently reachable only at <code>http://187.127.135.11:3000</code> &mdash; an IP
+          address with no encryption. We need a real domain (e.g.
+          <code>booking.firstcare.solutions</code>) attached and traffic encrypted before this can
+          safely be used for real patient information at scale.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Why this matters</span>
+        <div class="field-body">
+          Today every login, every patient record, every payment confirmation travels across the
+          network unencrypted. Anyone in a position to observe the network (public Wi-Fi at a clinic,
+          an upstream internet provider, a malicious actor on the same network) can read or tamper
+          with it. South Africa&rsquo;s POPIA law explicitly requires encryption of patient data in
+          transit. The app code is already prepared to flip into &ldquo;HTTPS mode&rdquo; the moment
+          the encryption is in place; we just need the domain.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">What we need from you</span>
+        <div class="field-body">
+          <ul>
+            <li>A decision on the domain (does the brand team have a preferred subdomain?).</li>
+            <li>Access to whoever manages the DNS for <code>firstcare.solutions</code> (or whichever
+            domain we choose) so we can point it at our server.</li>
+            <li>Sign-off that we&rsquo;re ready to attach the brand to this live system.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="recommendation"><span class="label">Effort once unblocked</span>
+        Half a day, mostly waiting for DNS propagation. The encryption certificate is free
+        (Let&rsquo;s Encrypt) and renews automatically.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- DECISION 2 — POPIA stance -->
+    <!-- ====================================================================== -->
+
+    <div class="decision">
+      <span class="decision-number">2</span>
+      <h3>Decide our POPIA &ldquo;right to erasure&rdquo; stance<span class="impact high">High</span></h3>
+
+      <div class="field">
+        <span class="field-label">What we&rsquo;re asking</span>
+        <div class="field-body">
+          When a patient requests their data be deleted under POPIA, our system removes their
+          personal details but keeps one piece of information &mdash; the <strong>clinic unit</strong>
+          they booked through &mdash; for billing reconciliation. Strictly speaking, that piece of
+          information, combined with the date of the deletion and other public records, could
+          theoretically be used to re-identify the patient. We need to decide how to handle this.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Why this matters</span>
+        <div class="field-body">
+          Our privacy notice promises &ldquo;we delete everything that identifies you.&rdquo; The
+          current implementation can be challenged on that promise if a complaint is ever lodged with
+          the Information Regulator. The risk is low in practice but not zero, and the cleanest
+          position is to make an explicit choice and document it.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Options on the table</span>
+        <div class="field-body">
+          <ul>
+            <li><strong>(A) Accept the residual risk and update the privacy notice</strong> to be
+            transparent that we retain unit-level billing data after erasure. Lower engineering cost,
+            higher compliance-conversation cost.</li>
+            <li><strong>(B) Replace the unit identifier post-erasure with a broader code</strong>
+            (e.g. just the client&rsquo;s overall code rather than the specific clinic unit). Higher
+            engineering cost (half a day), cleaner compliance story.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="ask"><span class="label">What we need from you</span>
+        A stakeholder conversation with legal / the data protection officer to pick between (A) and
+        (B). Either is defensible &mdash; the question is which posture the business wants to take.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- DECISION 3 — PayFast TEST_MODE -->
+    <!-- ====================================================================== -->
+
+    <div class="decision">
+      <span class="decision-number">3</span>
+      <h3>Confirm the payment gateway is in the correct mode<span class="impact high">High</span></h3>
+
+      <div class="field">
+        <span class="field-label">What we&rsquo;re asking</span>
+        <div class="field-body">
+          The PayFast payment gateway has two modes: <strong>sandbox</strong> (test transactions, no
+          real money) and <strong>live</strong> (real cards, real money). Our system has a setting
+          called <code>PAYFAST_TEST_MODE</code> that controls which one is used. We need finance /
+          ownership to confirm which mode should be active in production right now.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Why this matters</span>
+        <div class="field-body">
+          If we are still in sandbox mode but actual paying patients reach the site, no money will
+          actually be collected. Conversely, if we are in live mode prematurely, test bookings could
+          accidentally charge real cards. Today&rsquo;s smoke tests all ran against the sandbox
+          merchant account.
+        </div>
+      </div>
+
+      <div class="ask"><span class="label">What we need from you</span>
+        A simple yes/no from finance: should we be in live mode or sandbox right now? If live, we
+        also need to confirm we have the right merchant credentials in place.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- DECISION 4 — Supabase Pro -->
+    <!-- ====================================================================== -->
+
+    <div class="decision">
+      <span class="decision-number">4</span>
+      <h3>Decide whether to upgrade our database provider plan<span class="impact medium">Medium</span></h3>
+
+      <div class="field">
+        <span class="field-label">What we&rsquo;re asking</span>
+        <div class="field-body">
+          Our database and authentication provider (Supabase) currently sits on their free tier.
+          Upgrading to the Pro plan (~&pound;20&ndash;25 per month per project) would unlock two
+          additional security features: <strong>session time-boxing</strong> (force a user to
+          re-sign-in after, say, every 12 hours) and <strong>idle auto-sign-out enforced at the
+          database level</strong>. We already have an in-app idle timer that covers the basics, but
+          the platform-level controls add a safety net.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Why this matters</span>
+        <div class="field-body">
+          Not blocking anything today &mdash; we have functional alternatives. The question is
+          whether the additional defence-in-depth (a few extra layers of automatic sign-out) is worth
+          the small monthly cost. Also relevant for future scale, as the Pro plan increases database
+          capacity limits.
+        </div>
+      </div>
+
+      <div class="recommendation"><span class="label">Our recommendation</span>
+        Worth the cost. Most production-grade systems run on at least the Pro tier of their
+        backend-as-a-service provider, and the security improvements compound over time. Not urgent
+        though &mdash; can be done at the next budget review.
+      </div>
+
+      <div class="ask"><span class="label">What we need from you</span>
+        Sign-off (or rejection) on the recurring ~&pound;20&ndash;25/month cost.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- DECISION 5 — CareFirst coordination -->
+    <!-- ====================================================================== -->
+
+    <div class="decision">
+      <span class="decision-number">5</span>
+      <h3>Coordinate with the CareFirst Patient team on two follow-ups<span class="impact medium">Medium</span></h3>
+
+      <div class="field">
+        <span class="field-label">What we&rsquo;re asking</span>
+        <div class="field-body">
+          Our system hands patient bookings over to the CareFirst Patient app for the actual
+          consultation. Two operational items surfaced during today&rsquo;s testing that need
+          coordination with the CareFirst operations team:
+          <ul>
+            <li>The staging tenant&rsquo;s consult <strong>service credits have been used up</strong>,
+            so end-to-end tests can&rsquo;t complete (the booking succeeds on our side, the consult
+            never starts on theirs).</li>
+            <li>During concurrent-click testing earlier today, before we deployed the fix, we
+            inadvertently created <strong>duplicate patient sessions</strong> on CareFirst&rsquo;s
+            side for one test booking. CareFirst ops may want to clean those duplicates out.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Why this matters</span>
+        <div class="field-body">
+          Neither item blocks production code, but both prevent us from doing fully end-to-end
+          rehearsal of the patient journey ahead of go-live. The duplicate-session item is also worth
+          flagging proactively so it doesn&rsquo;t surface as a data-cleanup question later from
+          their side.
+        </div>
+      </div>
+
+      <div class="ask"><span class="label">What we need from you</span>
+        An introduction or warm handoff to the right person on the CareFirst Patient team for
+        operational coordination. We can take it from there.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- DECISION 6 — Cron approach -->
+    <!-- ====================================================================== -->
+
+    <div class="decision">
+      <span class="decision-number">6</span>
+      <h3>Approve the approach for background housekeeping jobs<span class="impact low">Low</span></h3>
+
+      <div class="field">
+        <span class="field-label">What we&rsquo;re asking</span>
+        <div class="field-body">
+          The system needs three small background &ldquo;housekeeping&rdquo; jobs to run every 15
+          minutes &mdash; rechecking the payment gateway for missed payments, clearing the
+          &ldquo;incidents&rdquo; banner when problems resolve, and tidying up old session records.
+          Today these only run when an admin happens to open certain pages. We need a small
+          scheduler to fire them automatically.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Why this matters</span>
+        <div class="field-body">
+          At today&rsquo;s low booking volume, nothing breaks &mdash; an admin checks in often enough.
+          As volume grows, payments can sit in &ldquo;limbo&rdquo; until someone manually clicks
+          &ldquo;Check PayFast for new payments,&rdquo; and old security records pile up forever.
+          The self-healing premise of the audit fixes relies on these sweeps running regularly.
+        </div>
+      </div>
+
+      <div class="recommendation"><span class="label">Our recommendation</span>
+        Use a standard Linux scheduler (cron) on the server we already operate. Simplest possible
+        setup, no extra cost. Effort: half a day including a small alert if it ever stops firing.
+      </div>
+
+      <div class="ask"><span class="label">What we need from you</span>
+        Just acknowledgement that we&rsquo;re proceeding with the recommended approach (or
+        objection if you&rsquo;d prefer something more sophisticated like a managed scheduler).
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- DECISION 7 — device coverage -->
+    <!-- ====================================================================== -->
+
+    <div class="decision">
+      <span class="decision-number">7</span>
+      <h3>Decide how we cover real-device testing<span class="impact low">Low</span></h3>
+
+      <div class="field">
+        <span class="field-label">What we&rsquo;re asking</span>
+        <div class="field-body">
+          The audit and today&rsquo;s smoke test were both done on desktop Chrome. We have no
+          verified coverage on iPhone Safari, Android Chrome, older Edge versions, or Firefox. For
+          a clinic-facing tool that nurses may operate on a mix of devices, that gap is worth
+          closing.
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Options on the table</span>
+        <div class="field-body">
+          <ul>
+            <li><strong>(A) Physical devices</strong> &mdash; have one or two team members spot-check
+            on their own phones and tablets. Free, but not systematic.</li>
+            <li><strong>(B) Browser-testing service</strong> (BrowserStack, LambdaTest, Sauce Labs)
+            &mdash; ~&pound;30&ndash;100/month, lets us script tests against dozens of real device
+            combinations.</li>
+            <li><strong>(C) Defer</strong> &mdash; accept the risk until a real device-specific bug
+            surfaces, then react.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="recommendation"><span class="label">Our recommendation</span>
+        (A) initially &mdash; a one-off spot-check from a couple of team members on their own
+        devices costs nothing and catches the obvious issues. Revisit (B) only if we hit a real
+        device-specific bug in production.
+      </div>
+
+      <div class="ask"><span class="label">What we need from you</span>
+        A nod that (A) is acceptable, or alternatively budget for (B).
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- Footer -->
+    <!-- ====================================================================== -->
+
+    <footer class="doc-footer">
+      <p>
+        <strong>Document version:</strong> 1.0 &middot; <strong>Prepared:</strong> 2026-05-21
+      </p>
+      <p>
+        <strong>Status:</strong> All seven items are non-urgent in the sense that the system runs
+        today, but each one represents either a compliance posture, an operational improvement, or
+        a defence-in-depth measure that strengthens the platform.
+      </p>
+    </footer>
+
+  </div>
+</body>
+</html>
