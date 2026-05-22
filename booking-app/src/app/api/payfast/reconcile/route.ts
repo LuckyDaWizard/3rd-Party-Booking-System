@@ -278,8 +278,9 @@ async function reconcileOne(
     }
   }
 
+  // PII redaction (audit #2): short reference, not raw UUID.
   console.log(
-    `[PayFast Reconcile] Booking ${bookingId} marked Payment Complete (pf_payment_id=${pfPaymentId ?? "none"})`
+    `[PayFast Reconcile] Booking ${bookingRef(bookingId)} marked Payment Complete (pf_payment_id=${pfPaymentId ?? "none"})`
   )
 
   const patientName =

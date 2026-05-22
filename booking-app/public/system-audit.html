@@ -863,8 +863,24 @@
           </div>
         </div>
 
-        <div class="finding crit">
-          <h3>2. Patient details appear in server diagnostic logs</h3>
+        <div class="finding crit done">
+          <h3><span class="done-tag">Complete</span>2. Patient details appear in server diagnostic logs</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-22</span>
+            Removed the <code>payloadSnapshot</code> block from
+            <code>start-consultation/route.ts</code> that dumped the
+            patient's first name, ID type, nationality, gender, country,
+            and province into stderr. Replaced with a short
+            <code>bookingRef</code> hash + CareFirst's own
+            statusCode/error/rawResponse — none of which contain our PII.
+            Full booking context is preserved in the <code>audit_log</code>
+            table where it belongs (service-role RLS protected).
+            Also swept every <code>${'$'}{bookingId}</code> interpolation in
+            <code>/api/payfast/notify</code> + <code>/api/payfast/reconcile</code>
+            console statements to use <code>bookingRef()</code> instead,
+            so docker-logs streams can't be cross-referenced back to the
+            bookings table.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>When a Start Consult handoff fails (e.g. the CareFirst 502 last week), the system writes the patient's first name, ID type, nationality, gender, country, and province into the server log so a technician can diagnose the problem. PayFast payment notifications also log the booking's unique ID.</div>
@@ -1331,17 +1347,11 @@
               </td>
               <td>0.5 day</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                2. Redact PII from server logs
-                <details class="reasoning">
-                  <summary>Why 0.25 day</summary>
-                  <div class="reasoning-body">
-                    <p>Two sites to update at ~15 min each. The rest is triggering a fake failure to confirm what's now logged + confirming equivalent detail is still recoverable from <code>audit_log</code>.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>2. Redact PII from server logs
               </td>
-              <td>0.25 day</td>
+              <td>Done 2026-05-22</td>
             </tr>
             <tr class="done">
               <td>

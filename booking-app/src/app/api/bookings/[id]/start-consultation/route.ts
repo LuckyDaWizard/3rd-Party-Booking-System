@@ -231,21 +231,22 @@ export async function POST(request: Request, context: RouteContext) {
     // parse a useful reason out of their response body. This goes to the
     // container's stderr — visible via `docker logs` on the VPS or in
     // the dev server output locally.
+    // PII redaction (audit #2): the previous version of this log dumped
+    // the patient's first name + ID type + nationality + gender + country
+    // + province into stderr to help spot patterns in CareFirst rejection
+    // logic. That data is patient PII under POPIA and operational logs
+    // are not patient-record-grade storage. The full booking context lives
+    // in the `audit_log` table (written below via writeAuditLog), which
+    // has proper service-role RLS protection.
+    //
+    // Operational diagnostics here are limited to: short booking
+    // reference, CareFirst's own statusCode + error + rawResponse (none
+    // of which contain our PII — they're CareFirst's own response body).
     console.error("[start-consultation] CareFirst handoff failed", {
-      bookingId: id,
+      ref: bookingRef(id),
       statusCode: result.statusCode,
       error: result.error,
       rawResponse: result.rawResponse,
-      payloadSnapshot: {
-        // PII-safe snapshot: enough to pattern-match the cause without
-        // dumping the full booking row to logs.
-        firstName: booking.first_names,
-        idType: booking.id_type,
-        nationality: booking.nationality,
-        gender: booking.gender,
-        country: booking.country,
-        province: booking.province,
-      },
     })
 
     // Record the failed attempt. Booking stays at "Payment Complete" so the

@@ -95,7 +95,12 @@ async function processItn(request: Request): Promise<ItnOutcome> {
   const paymentStatus = postData.payment_status
   const amountGross = postData.amount_gross
 
-  console.log(`[PayFast ITN] Received for booking ${bookingId}, status: ${paymentStatus}`)
+  // PII redaction (audit #2): log the short reference, not the raw UUID,
+  // so the operational log can't be cross-referenced back to the
+  // bookings table by anyone reading docker logs / monitoring streams.
+  console.log(
+    `[PayFast ITN] Received for booking ${bookingId ? bookingRef(bookingId) : "(missing)"}, status: ${paymentStatus}`
+  )
 
   // Malformed request — PayFast retrying won't help.
   if (!bookingId || !pfPaymentId) {
@@ -162,19 +167,19 @@ async function processItn(request: Request): Promise<ItnOutcome> {
     // Distinguish "no rows" (PGRST116) from actual DB errors.
     if (loadErr.code === "PGRST116") {
       // Booking genuinely not found — retries won't help.
-      return accept(`Booking not found: ${bookingId} (ignored)`)
+      return accept(`Booking not found: ${bookingRef(bookingId)} (ignored)`)
     }
     console.error("[PayFast ITN] DB load error:", loadErr.message)
     return transientFailure("Database query error", 503)
   }
 
   if (!booking) {
-    return accept(`Booking not found: ${bookingId} (ignored)`)
+    return accept(`Booking not found: ${bookingRef(bookingId)} (ignored)`)
   }
 
   // Idempotency: already processed.
   if (booking.pf_payment_id) {
-    return accept(`Already processed booking ${bookingId}`)
+    return accept(`Already processed booking ${bookingRef(bookingId)}`)
   }
 
   // Step 3: Amount. Mismatch = tampering, definitive reject.
@@ -207,7 +212,7 @@ async function processItn(request: Request): Promise<ItnOutcome> {
       // (idempotent) — the alternative is asking PayFast to keep retrying
       // a webhook we'll never honour.
       return accept(
-        `Booking ${bookingId} already past In Progress (status=${fromStatus}); ITN ignored`
+        `Booking ${bookingRef(bookingId)} already past In Progress (status=${fromStatus}); ITN ignored`
       )
     }
 
@@ -228,11 +233,11 @@ async function processItn(request: Request): Promise<ItnOutcome> {
         // transition between our read above and this update. Their write
         // wins; we ack the ITN so PayFast stops retrying.
         return accept(
-          `Booking ${bookingId} transitioned by a concurrent writer; ITN ignored`
+          `Booking ${bookingRef(bookingId)} transitioned by a concurrent writer; ITN ignored`
         )
       }
       console.error(
-        `[PayFast ITN] Failed to update booking ${bookingId}:`,
+        `[PayFast ITN] Failed to update booking ${bookingRef(bookingId)}:`,
         result.error
       )
       return transientFailure("Failed to update booking", 503)
@@ -257,12 +262,12 @@ async function processItn(request: Request): Promise<ItnOutcome> {
       ipAddress: clientIp,
     })
 
-    return accept(`Booking ${bookingId} marked as Payment Complete`)
+    return accept(`Booking ${bookingRef(bookingId)} marked as Payment Complete`)
   }
 
   // Non-COMPLETE status (FAILED, PENDING, CANCELLED) — accept but don't
   // mark as paid. No retry needed.
-  return accept(`Non-COMPLETE status for ${bookingId}: ${paymentStatus}`)
+  return accept(`Non-COMPLETE status for ${bookingRef(bookingId)}: ${paymentStatus}`)
 }
 
 export async function POST(request: Request) {
