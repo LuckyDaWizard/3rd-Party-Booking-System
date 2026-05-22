@@ -1030,8 +1030,21 @@
           </div>
         </div>
 
-        <div class="finding high">
-          <h3>6. Booking list re-loads everything after every change</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Complete</span>6. Booking list re-loads everything after every change</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-22</span>
+            All four booking-store mutation paths (<code>createBooking</code>,
+            <code>updateBooking</code>, <code>discardBooking</code>,
+            <code>abandonBooking</code>) now patch the local <code>bookings</code>
+            array in place after the Supabase call instead of refetching
+            the whole list. Each mutation appends <code>.select("*")</code>
+            so it gets the canonical row back from the server, then
+            uses <code>setBookings(prev =&gt; prev.map(...))</code> (or
+            <code>prepend</code> for create) to update only the affected
+            record. Side effects: no post-mutation network round-trip,
+            no list flicker, scroll position preserved.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>When you create, edit, discard, or abandon a booking, the app reloads the entire list of bookings for the unit from the database. With 50 bookings this is fine. With 500 it flickers and loses scroll position.</div>
@@ -1382,17 +1395,11 @@
               </td>
               <td>0.5 day</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                8. Patch booking list in place instead of refetching
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>~30 lines of code change in <code>booking-store.tsx</code> across 4 mutation paths (create / edit / discard / abandon). The other half is manually testing each path - scroll-position preservation, no flicker, no double-update.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>8. Patch booking list in place instead of refetching
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-22</td>
             </tr>
             <tr class="done">
               <td>

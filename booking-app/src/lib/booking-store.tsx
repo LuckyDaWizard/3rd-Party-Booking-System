@@ -401,6 +401,12 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchBookings])
 
   // ------- Create a new booking -------
+  //
+  // Mutations below patch the local `bookings` array in place after a
+  // successful Supabase call instead of refetching the whole list (audit
+  // #6 / Sprint 2 #8). Eliminates the post-mutation refetch round-trip
+  // + the brief list flicker + the loss of scroll position that the
+  // refetch approach caused at higher volumes.
   const createBooking = useCallback(
     async (data: Partial<BookingRecord>): Promise<string> => {
       // Abandon any existing "In Progress" bookings before creating a new one
@@ -422,7 +428,7 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
       const { data: row, error } = await supabase
         .from("bookings")
         .insert(dbData)
-        .select("id")
+        .select("*")
         .single()
 
       if (error) {
@@ -431,8 +437,24 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         throw error
       }
 
-      const id = row.id
+      const newBooking = mapDbToBooking(row as DbBooking)
+      const id = newBooking.id
       setActiveBookingId(id)
+
+      // Patch local state: prepend the new booking + flip the previous
+      // active booking (if any) to Abandoned. Order matches the server
+      // fetch (created_at DESC) so the new row sits at the top.
+      setBookings((prev) => {
+        const updated = oldId
+          ? prev.map((b) =>
+              b.id === oldId && b.status === "In Progress"
+                ? { ...b, status: "Abandoned" as const }
+                : b
+            )
+          : prev
+        return [newBooking, ...updated]
+      })
+
       const patientName =
         [data.firstNames, data.surname].filter(Boolean).join(" ").trim()
       postBookingAudit({
@@ -445,10 +467,9 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
           Status: { new: "In Progress" },
         },
       })
-      await fetchBookings()
       return id
     },
-    [fetchBookings]
+    []
   )
 
   // ------- Update an existing booking -------
@@ -457,33 +478,43 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
       const dbUpdates = mapBookingToDb(updates)
       if (Object.keys(dbUpdates).length === 0) return
 
-      const { error } = await supabase
+      const { data: row, error } = await supabase
         .from("bookings")
         .update(dbUpdates)
         .eq("id", id)
+        .select("*")
+        .single()
 
       if (error) {
         console.error("Error updating booking:", error)
         setLastError("Couldn't save your changes. Please retry — if it keeps failing the data may be out of date; refresh the page.")
+        return
       }
 
-      await fetchBookings()
+      if (row) {
+        const updated = mapDbToBooking(row as DbBooking)
+        setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)))
+      }
     },
-    [fetchBookings]
+    []
   )
 
   // ------- Discard a booking -------
   const discardBooking = useCallback(
     async (id: string) => {
-      const { error } = await supabase
+      const { data: row, error } = await supabase
         .from("bookings")
         .update({ status: "Discarded" })
         .eq("id", id)
+        .select("*")
+        .single()
 
       if (error) {
         console.error("Error discarding booking:", error)
         setLastError("Couldn't discard this booking. Please retry.")
-      } else {
+      } else if (row) {
+        const updated = mapDbToBooking(row as DbBooking)
+        setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)))
         postBookingAudit({
           bookingId: id,
           action: "update",
@@ -492,25 +523,30 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
       }
 
       setActiveBookingId(null)
-      await fetchBookings()
     },
-    [fetchBookings]
+    []
   )
 
   // ------- Abandon a booking -------
   const abandonBooking = useCallback(
     async (id: string) => {
-      // Only abandon if the booking is still In Progress
-      const { error } = await supabase
+      // Only abandon if the booking is still In Progress. select() returns
+      // the matched row (or nothing if 0 rows met the filter) so we know
+      // whether to patch local state.
+      const { data: row, error } = await supabase
         .from("bookings")
         .update({ status: "Abandoned" })
         .eq("id", id)
         .eq("status", "In Progress")
+        .select("*")
+        .maybeSingle()
 
       if (error) {
         console.error("Error abandoning booking:", error)
         setLastError("Couldn't abandon this booking. Please retry.")
-      } else {
+      } else if (row) {
+        const updated = mapDbToBooking(row as DbBooking)
+        setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)))
         postBookingAudit({
           bookingId: id,
           action: "update",
@@ -519,9 +555,8 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
       }
 
       setActiveBookingId(null)
-      await fetchBookings()
     },
-    [fetchBookings]
+    []
   )
 
   // ------- Get a single booking -------
