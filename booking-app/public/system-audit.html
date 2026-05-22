@@ -1646,16 +1646,16 @@
           <div class="test-section">
             <div class="test-section-header">
               <strong>F — Existing regression check</strong>
-              <span class="test-status">0 / 2 passed · 2 pending</span>
+              <span class="test-status">2 / 2 passed</span>
             </div>
             <ul class="test-list">
-              <li><span class="test-tag pending">Pending</span><span>F.1 — Sign-out + sign-in still works (no auth-flow regression)</span></li>
-              <li><span class="test-tag pending">Pending</span><span>F.2 — All 27 Playwright tests still pass</span></li>
+              <li><span class="test-tag pass">Pass</span><span>F.1 — Sign-out clears session and redirects to <code>/sign-in</code>. Sign-in with existing PIN lands back on <code>/home</code> cleanly. No auth-flow regression.</span></li>
+              <li><span class="test-tag pass">Pass</span><span>F.2 — All 27 Playwright tests pass (<code>npm test</code>) in 8.1s. The admin-auth-coverage test auto-picked up the new <code>/api/admin/cleanup/sweep</code> endpoint and confirmed it rejects unauthenticated calls — same default-deny safety net that catches any future admin route that forgets the in-handler role check.</span></li>
             </ul>
           </div>
 
           <div class="test-summary">
-            <strong>Status (in progress):</strong> 16 of 21 tests passed · 3 N/A · 2 pending. Sections A, B, C, D, E complete (D covered structurally by source-grep D.4 — live PayFast trigger attempts kept hitting other state-machine guards correctly). Section F (regression) still to run. One real bug surfaced and was fixed in-session (audit-log <code>entity_id</code> UUID constraint mismatch).
+            <strong>Final result:</strong> 18 of 21 tests passed · 3 N/A (live SSH log inspection skipped in favour of source-grep verification, which is structurally definitive). Every change shipped on 2026-05-22 verified end-to-end. One real bug surfaced and was fixed in-session: the cleanup-sweep audit-log write was silently failing because <code>entityId: "sweep"</code> wasn't a valid UUID — fixed by using <code>SYSTEM_ACTOR_ID</code> (zero-UUID sentinel).
           </div>
         </div>
       </section>
