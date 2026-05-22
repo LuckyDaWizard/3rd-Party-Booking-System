@@ -1317,17 +1317,11 @@
               </td>
               <td>0.25 day</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                3. Audit git history for committed secrets; rotate if found
-                <details class="reasoning">
-                  <summary>Why 0.5 day worst case</summary>
-                  <div class="reasoning-body">
-                    <p>15 min to check (one git log command). If found: rotate 4 secrets (Supabase, PayFast, CareFirst, SMTP) at ~15 min each + BFG history scrub + force-push + re-deploy + verify everything still works = ~2-3 hr.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>3. Audit git history for committed secrets; rotate if found
               </td>
-              <td>0.5 day (worst case)</td>
+              <td>Done 2026-05-22 — zero matches; no rotation needed</td>
             </tr>
             <tr>
               <td>
