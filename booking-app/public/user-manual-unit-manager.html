@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFirst Booking System — User Manual (Unit Manager)</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+    --role-mgr: #6d28d9;
+    --role-mgr-tint: #ede9fe;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  header.doc-header {
+    border-bottom: 3px solid var(--role-mgr);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--role-mgr);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+
+  .role-badge {
+    display: inline-block;
+    background: var(--role-mgr-tint);
+    color: var(--role-mgr);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 11px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--role-mgr);
+    margin: 44px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+    margin: 28px 0 12px;
+    line-height: 1.3;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink-soft);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+
+  strong { color: var(--ink); font-weight: 700; }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--role-mgr);
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+
+  .toc {
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 20px 0 36px;
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--mute);
+    margin-bottom: 10px;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 22px;
+    columns: 2;
+    column-gap: 32px;
+  }
+  .toc ol li {
+    margin-bottom: 4px;
+    break-inside: avoid;
+    font-size: 14px;
+  }
+  .toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .toc a:hover { color: var(--role-mgr); text-decoration: underline; }
+
+  .section {
+    margin-top: 36px;
+    padding-top: 4px;
+  }
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    padding-left: 0;
+    margin: 18px 0;
+  }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 14px 18px 14px 56px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 28px;
+    height: 28px;
+    background: var(--role-mgr);
+    color: white;
+    font-weight: 800;
+    font-size: 13px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .steps > li .step-title {
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 4px;
+    font-size: 15px;
+  }
+  .steps > li .step-body {
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .callout {
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 3px solid var(--role-mgr);
+    background: var(--role-mgr-tint);
+    color: #3b0764;
+    font-size: 13.5px;
+  }
+  .callout.tip { border-color: var(--ok-ink); background: var(--ok-tint); color: var(--ok-ink); }
+  .callout.warn { border-color: #d97706; background: #fff8e1; color: #5a3e08; }
+  .callout.danger { border-color: #991b1b; background: var(--danger-tint); color: #991b1b; }
+  .callout .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+  }
+
+  table.matrix {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  table.matrix th, table.matrix td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.matrix th {
+    background: var(--line-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+  }
+  table.matrix tr:last-child td { border-bottom: none; }
+
+  .role-tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .role-tag.user { background: #ccfbf1; color: #0f766e; }
+  .role-tag.mgr { background: var(--role-mgr-tint); color: var(--role-mgr); }
+  .role-tag.admin { background: #fee2e2; color: #991b1b; }
+
+  .scope-note {
+    font-size: 13px;
+    color: var(--mute);
+    font-style: italic;
+    margin-top: 4px;
+  }
+
+  footer.doc-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 12px;
+  }
+  footer.doc-footer p { margin-bottom: 6px; }
+
+  @media print {
+    body { background: white; }
+    .page {
+      max-width: none;
+      margin: 0;
+      padding: 24px 32px;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    .section, .steps > li, h2, h3 { page-break-inside: avoid; }
+    header.doc-header { page-break-after: avoid; }
+    .no-print { display: none; }
+    .toc ol { columns: 2; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="doc-header">
+      <div class="eyebrow">User Manual</div>
+      <span class="role-badge">Role: Unit Manager</span>
+      <h1>CareFirst Third&nbsp;Party Booking System</h1>
+      <div class="meta">
+        Operational guide for the manager(s) of a clinic unit.<br>
+        Version 1 &middot; Last updated <strong>2026-05-25</strong>
+      </div>
+    </header>
+
+    <p class="lede">
+      You are a <strong>Unit Manager</strong>. In addition to doing everything a regular User can
+      do (creating bookings, taking payments, starting consultations), you also <strong>manage the
+      users and units</strong> that belong to your clinic. This manual focuses on the manager-only
+      sections; for the daily booking flow, refer to the User manual.
+    </p>
+
+    <div class="toc">
+      <div class="toc-title">Contents</div>
+      <ol>
+        <li><a href="#scope">What you can manage</a></li>
+        <li><a href="#sidebar">Your sidebar</a></li>
+        <li><a href="#user-mgmt">User Management</a></li>
+        <li><a href="#add-user">Adding a new user</a></li>
+        <li><a href="#reset-pin">Resetting a user&rsquo;s PIN</a></li>
+        <li><a href="#deactivate-user">Deactivating a user</a></li>
+        <li><a href="#unit-mgmt">Unit Management</a></li>
+        <li><a href="#add-unit">Adding a new unit</a></li>
+        <li><a href="#edit-unit">Editing a unit</a></li>
+        <li><a href="#switch-unit">Working across multiple units</a></li>
+        <li><a href="#bookings-monitor">Monitoring bookings</a></li>
+        <li><a href="#manager-pin">Manager-PIN prompts</a></li>
+        <li><a href="#troubleshooting">Common manager problems</a></li>
+        <li><a href="#cannot-do">What this role cannot do</a></li>
+      </ol>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="scope">1. What you can manage</h2>
+    <div class="section">
+      <p>
+        A Unit Manager has authority over <strong>the units they are assigned to</strong> &mdash;
+        not the whole system. Your assignments are visible at the bottom of the User Management
+        page when an admin grants them. In practice this means:
+      </p>
+      <table class="matrix">
+        <thead><tr><th>Area</th><th>What you can do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Users</strong></td>
+            <td>Create, edit, deactivate, and reset PINs for <span class="role-tag user">User</span> accounts that work at <em>your</em> units. You cannot create or edit managers or admins.</td>
+          </tr>
+          <tr>
+            <td><strong>Units</strong></td>
+            <td>Edit details of units you are assigned to. You can also add new units &mdash; they will automatically be linked to the same client as your other units.</td>
+          </tr>
+          <tr>
+            <td><strong>Bookings</strong></td>
+            <td>Create them and view all bookings made at your units (via Home and Patient History).</td>
+          </tr>
+          <tr>
+            <td><strong>Client-level settings</strong></td>
+            <td><strong>No access.</strong> Branding, payment-mode, self-collect toggle &mdash; these belong to the System Admin.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="sidebar">2. Your sidebar</h2>
+    <div class="section">
+      <p>Your sidebar shows the same items as a regular User <em>plus</em> two extras:</p>
+      <ul>
+        <li>Home</li>
+        <li>Create a Booking</li>
+        <li>Patient History</li>
+        <li><strong>Unit Management</strong> &mdash; manager-only</li>
+        <li><strong>User Management</strong> &mdash; manager-only</li>
+        <li>Reports (opens in a new tab)</li>
+      </ul>
+      <div class="callout">
+        <span class="label">Note</span>
+        <strong>Client Management</strong>, <strong>Audit Log</strong> and <strong>Security</strong>
+        do not appear in your sidebar. They are system_admin-only.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="user-mgmt">3. User Management</h2>
+    <div class="section">
+      <p>
+        Click <strong>User Management</strong> in the sidebar. You see a list of every user who has
+        ever been assigned to one of <em>your</em> units &mdash; including their:
+      </p>
+      <ul>
+        <li>Avatar, full name and email.</li>
+        <li>Role (you only see <span class="role-tag user">User</span> rows; managers and admins are hidden from you).</li>
+        <li>Status: <strong>Active</strong>, <strong>Inactive</strong>, or <strong>Pending PIN</strong> (new account, hasn&rsquo;t signed in yet).</li>
+        <li>Last sign-in time and the unit(s) they belong to.</li>
+      </ul>
+      <p>From this page you can:</p>
+      <ul>
+        <li>Click any row to open the user&rsquo;s profile and edit details.</li>
+        <li>Click <strong>+ Add User</strong> to create a new account.</li>
+        <li>Filter by name, email or status.</li>
+      </ul>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="add-user">4. Adding a new user</h2>
+    <div class="section">
+      <ol class="steps">
+        <li>
+          <div class="step-title">Click &ldquo;+ Add User&rdquo;</div>
+          <div class="step-body">Top right of the User Management page.</div>
+        </li>
+        <li>
+          <div class="step-title">Fill in the basic details</div>
+          <div class="step-body">
+            First name, surname, work email. The email is also their sign-in identifier &mdash; it
+            must be unique across the whole system.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Pick a role</div>
+          <div class="step-body">
+            Your only option is <span class="role-tag user">User</span>. Managers cannot create other
+            managers (only system admins can).
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Assign one or more units</div>
+          <div class="step-body">
+            You see a list of your assigned units; tick the ones this user should work at. If the
+            user only works at one unit, tick just that one.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Click &ldquo;Save&rdquo;</div>
+          <div class="step-body">
+            The system sends the new user an email containing a one-time link to set their PIN.
+            Until they click it, their status is <strong>Pending PIN</strong>.
+          </div>
+        </li>
+      </ol>
+      <div class="callout tip">
+        <span class="label">If they don&rsquo;t get the email</span>
+        Check the spelling of the address, then come back to the user&rsquo;s profile and click
+        <strong>Resend invite</strong>. Codes expire after 15 minutes.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="reset-pin">5. Resetting a user&rsquo;s PIN</h2>
+    <div class="section">
+      <p>
+        If a user is locked out or has genuinely forgotten their PIN and can&rsquo;t use the
+        &ldquo;Forgot PIN&rdquo; flow themselves, you can trigger a reset:
+      </p>
+      <ol class="steps">
+        <li>
+          <div class="step-title">Open the user&rsquo;s profile</div>
+          <div class="step-body">User Management &rarr; click the user&rsquo;s row.</div>
+        </li>
+        <li>
+          <div class="step-title">Click &ldquo;Send PIN reset&rdquo;</div>
+          <div class="step-body">
+            The user receives a 6-digit code by email, valid for 15 minutes, single-use.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">They enter the code on the sign-in page</div>
+          <div class="step-body">
+            They click &ldquo;Forgot PIN?&rdquo;, type the code, and set a new 4-digit PIN.
+          </div>
+        </li>
+      </ol>
+      <div class="callout warn">
+        <span class="label">Important</span>
+        Resetting a PIN signs the user out of every device they were on. Make sure they are ready
+        to sign back in before you trigger this.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="deactivate-user">6. Deactivating a user</h2>
+    <div class="section">
+      <p>
+        When a staff member leaves or moves on, deactivate their account rather than deleting it.
+        Deactivation preserves the audit trail of every booking they ever created, but prevents
+        them from signing in again.
+      </p>
+      <ol class="steps">
+        <li>
+          <div class="step-title">Open their profile</div>
+          <div class="step-body">User Management &rarr; click the row.</div>
+        </li>
+        <li>
+          <div class="step-title">Toggle &ldquo;Active&rdquo; off</div>
+          <div class="step-body">A confirmation box appears. Confirm.</div>
+        </li>
+        <li>
+          <div class="step-title">All their open sessions are revoked</div>
+          <div class="step-body">
+            If they were signed in at the time, they are kicked out on their next page load.
+          </div>
+        </li>
+      </ol>
+      <div class="callout">
+        <span class="label">Re-activating</span>
+        You can toggle them back to Active later; their old PIN still works.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="unit-mgmt">7. Unit Management</h2>
+    <div class="section">
+      <p>
+        Click <strong>Unit Management</strong> in the sidebar. You see a list of every unit you are
+        assigned to, with its:
+      </p>
+      <ul>
+        <li>Name and short code.</li>
+        <li>Client it belongs to (read-only).</li>
+        <li>Logo and accent colour (read-only &mdash; set by the System Admin at client level).</li>
+        <li>Number of active users.</li>
+        <li>Number of bookings this month.</li>
+      </ul>
+      <p>Click any unit row to open and edit it, or click <strong>+ Add Unit</strong> to create a new one.</p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="add-unit">8. Adding a new unit</h2>
+    <div class="section">
+      <ol class="steps">
+        <li>
+          <div class="step-title">Click &ldquo;+ Add Unit&rdquo;</div>
+          <div class="step-body">Top right of Unit Management.</div>
+        </li>
+        <li>
+          <div class="step-title">Pick the parent client</div>
+          <div class="step-body">
+            You see only the client(s) your other units already belong to. (System Admin defines
+            clients; you can only attach units to ones already in the system.)
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Enter unit details</div>
+          <div class="step-body">
+            Unit name, short code (used in booking references), address, contact details.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Click &ldquo;Create&rdquo;</div>
+          <div class="step-body">
+            The new unit appears in your list. You can now assign users to it.
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="edit-unit">9. Editing a unit</h2>
+    <div class="section">
+      <p>
+        Click any unit row to open it. You can edit name, code, address, and contact details. The
+        following <strong>cannot</strong> be changed by a manager:
+      </p>
+      <ul>
+        <li>The parent client (System Admin only).</li>
+        <li>Branding &mdash; logo, favicon, accent colour (System Admin only, at client level).</li>
+        <li>Payment mode &mdash; PayFast / self-collect / monthly-invoice (System Admin only, at client level).</li>
+      </ul>
+      <div class="callout">
+        <span class="label">Why these are admin-only</span>
+        These settings cascade across <strong>all</strong> units of a client. A manager who can edit
+        their own unit could otherwise accidentally change branding for a sister-unit across the
+        country.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="switch-unit">10. Working across multiple units</h2>
+    <div class="section">
+      <p>
+        If you manage more than one unit, the sidebar shows your <strong>active unit</strong> near
+        the top. Click it to switch. <em>Important:</em> the unit you are on at the time you create
+        a booking is the unit it&rsquo;s attached to &mdash; not the unit selected later.
+      </p>
+      <p>
+        Patient History, Reports, and Home all show data only for the currently-active unit. To
+        review another unit, switch to it first.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="bookings-monitor">11. Monitoring bookings</h2>
+    <div class="section">
+      <p>
+        Use <strong>Home</strong> and <strong>Patient History</strong> to keep an eye on activity at
+        your unit. Things to watch for:
+      </p>
+      <ul>
+        <li>
+          <strong>Bookings stuck on &ldquo;In Progress&rdquo;</strong> for hours: usually the user
+          left them open. They will auto-flip to Abandoned eventually.
+        </li>
+        <li>
+          <strong>A run of Discarded bookings from one user:</strong> may indicate confusion. Worth a
+          quick chat.
+        </li>
+        <li>
+          <strong>A booking stuck on Payment Complete (not yet Successful)</strong>: the patient paid
+          but Start Consult never fired. Check with the user; raise an incident if the consultation
+          system is down.
+        </li>
+      </ul>
+      <p>
+        Reports (top-right opens in new tab) gives unit-level totals: bookings per day, by status,
+        by user.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="manager-pin">12. Manager-PIN prompts</h2>
+    <div class="section">
+      <p>
+        Some actions in the User flow (for example, a clinic with &ldquo;nurse verification&rdquo;
+        switched on, or a discard with a manager-confirm prompt) ask for your <strong>Manager
+        PIN</strong>. This is the same PIN you use to sign in, entered as a one-off authorisation.
+      </p>
+      <div class="callout warn">
+        <span class="label">Important</span>
+        Don&rsquo;t give your PIN to a User to type in &mdash; come and enter it yourself. Every
+        Manager PIN entry is logged with your name as the authoriser.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="troubleshooting">13. Common manager problems</h2>
+    <div class="section">
+      <table class="matrix">
+        <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>User says they didn&rsquo;t get an invite email</strong></td>
+            <td>Open their profile, click <strong>Resend invite</strong>. Check spam folder. Codes expire in 15 minutes.</td>
+          </tr>
+          <tr>
+            <td><strong>User can&rsquo;t sign in (lockout)</strong></td>
+            <td>5 wrong PINs locks an account for 15 minutes. Either wait, or send them a PIN reset.</td>
+          </tr>
+          <tr>
+            <td><strong>I can&rsquo;t see a unit I should be managing</strong></td>
+            <td>Your assignments are managed by the System Admin. Ask them to add the unit to your assignments.</td>
+          </tr>
+          <tr>
+            <td><strong>I need to change the clinic logo / accent colour</strong></td>
+            <td>These are client-level settings, controlled by the System Admin. Send the request to them.</td>
+          </tr>
+          <tr>
+            <td><strong>A booking is stuck and the user is in tears</strong></td>
+            <td>Open the booking, check the status. If Payment Complete but no Start Consult: try Start Consult again. If it still fails, CareFirst is likely down &mdash; raise an incident with the System Admin.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="cannot-do">14. What this role cannot do</h2>
+    <div class="section">
+      <p>For transparency, here&rsquo;s what a Unit Manager <strong>cannot</strong> do. For these, you need a System Admin:</p>
+      <ul>
+        <li>Create, edit or remove other managers or admins.</li>
+        <li>Create or remove clients.</li>
+        <li>Edit client branding (logo, favicon, accent colour).</li>
+        <li>Change a client&rsquo;s payment mode (PayFast vs. self-collect vs. monthly invoice).</li>
+        <li>Toggle the &ldquo;Skip patient metrics&rdquo; or &ldquo;Nurse verification&rdquo; client switches.</li>
+        <li>View the system-wide Audit Log.</li>
+        <li>View the Security dashboard (sessions, failed sign-ins, suspicious activity, etc).</li>
+        <li>Run cleanup sweeps or trigger PayFast reconciliation manually.</li>
+        <li>Process a POPIA right-to-erasure request.</li>
+      </ul>
+    </div>
+
+    <footer class="doc-footer">
+      <p><strong>CareFirst Third&nbsp;Party Booking System</strong> &mdash; User Manual for the Unit Manager role.</p>
+      <p>For daily-flow tasks (creating bookings, payments, Start Consult), see the User manual.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

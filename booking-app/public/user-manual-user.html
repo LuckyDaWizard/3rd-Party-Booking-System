@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFirst Booking System — User Manual (Nurse / Reception)</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+    --role-user: #0f766e;
+    --role-user-tint: #ccfbf1;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  header.doc-header {
+    border-bottom: 3px solid var(--brand);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+
+  .role-badge {
+    display: inline-block;
+    background: var(--role-user-tint);
+    color: var(--role-user);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 11px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brand);
+    margin: 44px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+    margin: 28px 0 12px;
+    line-height: 1.3;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink-soft);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+
+  strong { color: var(--ink); font-weight: 700; }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--brand);
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+
+  .toc {
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 20px 0 36px;
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--mute);
+    margin-bottom: 10px;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 22px;
+    columns: 2;
+    column-gap: 32px;
+  }
+  .toc ol li {
+    margin-bottom: 4px;
+    break-inside: avoid;
+    font-size: 14px;
+  }
+  .toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .toc a:hover { color: var(--brand); text-decoration: underline; }
+
+  .section {
+    margin-top: 36px;
+    padding-top: 4px;
+  }
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    padding-left: 0;
+    margin: 18px 0;
+  }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 14px 18px 14px 56px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 28px;
+    height: 28px;
+    background: var(--brand);
+    color: white;
+    font-weight: 800;
+    font-size: 13px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .steps > li .step-title {
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 4px;
+    font-size: 15px;
+  }
+  .steps > li .step-body {
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .callout {
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 3px solid var(--brand);
+    background: var(--brand-tint);
+    color: #0f4a6b;
+    font-size: 13.5px;
+  }
+  .callout.tip { border-color: var(--ok-ink); background: var(--ok-tint); color: var(--ok-ink); }
+  .callout.warn { border-color: #d97706; background: #fff8e1; color: #5a3e08; }
+  .callout.danger { border-color: #991b1b; background: var(--danger-tint); color: #991b1b; }
+  .callout .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+  }
+
+  table.matrix {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  table.matrix th, table.matrix td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.matrix th {
+    background: var(--line-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+  }
+  table.matrix tr:last-child td { border-bottom: none; }
+
+  .status-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .status-pill.in-progress { background: var(--warn-tint); color: var(--warn-ink); }
+  .status-pill.complete { background: var(--ok-tint); color: var(--ok-ink); }
+  .status-pill.successful { background: #d1fae5; color: #064e3b; }
+  .status-pill.discarded { background: var(--danger-tint); color: #991b1b; }
+  .status-pill.abandoned { background: var(--line-soft); color: var(--mute); }
+
+  footer.doc-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 12px;
+  }
+  footer.doc-footer p { margin-bottom: 6px; }
+
+  @media print {
+    body { background: white; }
+    .page {
+      max-width: none;
+      margin: 0;
+      padding: 24px 32px;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    .section, .steps > li, h2, h3 { page-break-inside: avoid; }
+    header.doc-header { page-break-after: avoid; }
+    .no-print { display: none; }
+    .toc ol { columns: 2; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="doc-header">
+      <div class="eyebrow">User Manual</div>
+      <span class="role-badge">Role: User (Nurse / Reception)</span>
+      <h1>CareFirst Third&nbsp;Party Booking System</h1>
+      <div class="meta">
+        Day-to-day guide for staff who create patient bookings.<br>
+        Version 1 &middot; Last updated <strong>2026-05-25</strong>
+      </div>
+    </header>
+
+    <p class="lede">
+      You are a <strong>User</strong>. Your job in this system is to create patient bookings, capture
+      payment, and hand the patient over to the consulting nurse via &ldquo;Start Consult&rdquo;.
+      Everything you can and can&rsquo;t do is described in this manual. If a menu item or button
+      isn&rsquo;t mentioned here, it&rsquo;s not part of your role.
+    </p>
+
+    <div class="toc">
+      <div class="toc-title">Contents</div>
+      <ol>
+        <li><a href="#signing-in">Signing in</a></li>
+        <li><a href="#home">The Home dashboard</a></li>
+        <li><a href="#switch-unit">Switching units</a></li>
+        <li><a href="#booking-overview">Creating a booking &mdash; overview</a></li>
+        <li><a href="#step-search">Step 1 &middot; Patient search</a></li>
+        <li><a href="#step-details">Step 2 &middot; Patient details</a></li>
+        <li><a href="#step-metrics">Step 3 &middot; Patient metrics</a></li>
+        <li><a href="#step-payment">Step 4 &middot; Payment</a></li>
+        <li><a href="#step-success">Step 5 &middot; Confirmation &amp; Start Consult</a></li>
+        <li><a href="#patient-history">Patient History</a></li>
+        <li><a href="#avatar">Your profile picture</a></li>
+        <li><a href="#forgot-pin">Forgotten PIN</a></li>
+        <li><a href="#idle">Idle timeout &amp; auto sign-out</a></li>
+        <li><a href="#troubleshooting">Common problems</a></li>
+        <li><a href="#cannot-do">What this role cannot do</a></li>
+      </ol>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="signing-in">1. Signing in</h2>
+    <div class="section">
+      <p>
+        Open the booking system in your browser. Your manager will give you the address. The sign-in
+        page asks for two things:
+      </p>
+      <ol class="steps">
+        <li>
+          <div class="step-title">Email</div>
+          <div class="step-body">
+            The work email address your manager registered for you. It is not case-sensitive.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">PIN</div>
+          <div class="step-body">
+            A 4-digit number. You set this when you first signed in; if you have forgotten it, see
+            &ldquo;<a href="#forgot-pin">Forgotten PIN</a>&rdquo; below.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Click &ldquo;Sign in&rdquo;</div>
+          <div class="step-body">
+            If both are correct, you land on the Home dashboard. If either is wrong, you see
+            &ldquo;Invalid email or PIN.&rdquo; After 5 wrong PIN attempts in a row, the system
+            locks your account for 15 minutes &mdash; this protects you, but you must wait.
+          </div>
+        </li>
+      </ol>
+      <div class="callout warn">
+        <span class="label">Important</span>
+        Never share your PIN. Every booking, payment, and Start Consult is logged against the user
+        who was signed in. If someone else uses your PIN, their actions will appear as yours.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="home">2. The Home dashboard</h2>
+    <div class="section">
+      <p>
+        Home is what you see immediately after signing in. It shows:
+      </p>
+      <ul>
+        <li>A list of <strong>recent bookings</strong> created at your unit.</li>
+        <li>A &ldquo;<strong>Create a Booking</strong>&rdquo; button to start a new one.</li>
+        <li>The <strong>sidebar</strong> on the left with everything you can navigate to.</li>
+      </ul>
+      <p>
+        Click any booking in the list to see its details. The status of each booking is shown as a
+        coloured pill:
+      </p>
+      <table class="matrix">
+        <thead>
+          <tr><th>Status</th><th>What it means</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="status-pill in-progress">In Progress</span></td><td>You started the booking but haven&rsquo;t completed payment yet. You can resume.</td></tr>
+          <tr><td><span class="status-pill complete">Payment Complete</span></td><td>Payment received. The patient can be started on consultation.</td></tr>
+          <tr><td><span class="status-pill successful">Successful</span></td><td>Consultation started (Start Consult was clicked and CareFirst accepted the hand-off).</td></tr>
+          <tr><td><span class="status-pill discarded">Discarded</span></td><td>You explicitly cancelled the booking before payment.</td></tr>
+          <tr><td><span class="status-pill abandoned">Abandoned</span></td><td>Booking was left unfinished and the browser was closed. The system marks these automatically after a short delay.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="switch-unit">3. Switching units</h2>
+    <div class="section">
+      <p>
+        If you work at more than one clinic unit, the sidebar shows your <strong>active unit</strong>
+        near the top. Click on it to open the &ldquo;Switch unit&rdquo; page and choose a different one.
+        Every booking you create from that point forward is attached to the unit you have selected.
+      </p>
+      <div class="callout">
+        <span class="label">Why this matters</span>
+        Bookings, payments and reports are all scoped to the unit you were on at the time. Switch
+        <em>before</em> you start a booking, not halfway through.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="booking-overview">4. Creating a booking &mdash; overview</h2>
+    <div class="section">
+      <p>
+        A booking is the record of one patient&rsquo;s visit. Creating one walks you through
+        <strong>five</strong> steps in order:
+      </p>
+      <ol>
+        <li><strong>Patient search</strong> &mdash; find the patient (or confirm they&rsquo;re new).</li>
+        <li><strong>Patient details</strong> &mdash; basic info, address, contact, ID verification.</li>
+        <li><strong>Patient metrics</strong> &mdash; vital signs (blood pressure, weight, etc). May be skipped at some clinics.</li>
+        <li><strong>Payment</strong> &mdash; PayFast, self-collect, or monthly invoice depending on the clinic.</li>
+        <li><strong>Confirmation &amp; Start Consult</strong> &mdash; the patient gets handed over to CareFirst.</li>
+      </ol>
+      <p>
+        You can leave a booking part-way through and come back to it from the Home page; the system
+        saves your progress every couple of seconds.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="step-search">5. Step 1 &middot; Patient search</h2>
+    <div class="section">
+      <p>
+        Click <strong>Create a Booking</strong> from the sidebar or the Home page. The first screen asks
+        you to identify the patient. You have three search options:
+      </p>
+      <ol class="steps">
+        <li>
+          <div class="step-title">By National ID</div>
+          <div class="step-body">
+            South African 13-digit ID number. The system checks the digit pattern as you type.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">By Passport</div>
+          <div class="step-body">
+            For foreign nationals. Free-text; type the passport number exactly as it appears.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">By Date of Birth</div>
+          <div class="step-body">
+            Use this when the patient doesn&rsquo;t have or remember their ID number. If more than
+            one patient matches, the system will show a list and ask you to pick the right one.
+          </div>
+        </li>
+      </ol>
+      <p>If your clinic uses <strong>Nurse Verification</strong>, an extra prompt asks for a manager&rsquo;s PIN before you can continue. This is a safeguard that some clinics enable.</p>
+      <div class="callout tip">
+        <span class="label">Tip</span>
+        If the patient is found, their details are pre-filled in the next step &mdash; you only need to
+        confirm. If not found, you fill them in from scratch.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="step-details">6. Step 2 &middot; Patient details</h2>
+    <div class="section">
+      <p>
+        This is the longest step. It is broken into <strong>four sub-tabs</strong>:
+      </p>
+      <ol class="steps">
+        <li>
+          <div class="step-title">Basic Info</div>
+          <div class="step-body">
+            First names, surname, title, ID type, ID number / passport, date of birth, gender,
+            nationality. Fields highlight red if invalid (e.g. wrong ID digit-count).
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Address</div>
+          <div class="step-body">
+            Street, city, province, country, postal code. Province auto-suggests from postal code
+            when you tab out.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Contact</div>
+          <div class="step-body">
+            Mobile, alternative phone, email. Mobile must start with <code>+27</code> or a leading
+            <code>0</code> for South African numbers.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Verification</div>
+          <div class="step-body">
+            Confirm consent and (where enabled) upload an ID photo or capture a signature. The
+            <strong>Save &amp; Continue</strong> button only enables once every required field is
+            valid.
+          </div>
+        </li>
+      </ol>
+      <div class="callout">
+        <span class="label">Auto-save</span>
+        Every change is saved to the booking in the background. If you accidentally close the tab,
+        come back via Home &rarr; the in-progress booking and you&rsquo;ll find your work intact.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="step-metrics">7. Step 3 &middot; Patient metrics</h2>
+    <div class="section">
+      <p>
+        Capture vital signs: blood pressure (systolic / diastolic), pulse, temperature, weight,
+        height. Each field has a sensible range; the form warns you (but does not block you) if a
+        value is out of range &mdash; in case the reading really is unusual.
+      </p>
+      <div class="callout">
+        <span class="label">Note</span>
+        Some clinics have this step <strong>turned off</strong> at the client level. If so, you
+        won&rsquo;t see it &mdash; the system will jump straight to the Payment step.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="step-payment">8. Step 4 &middot; Payment</h2>
+    <div class="section">
+      <p>
+        The system picks one of <strong>three payment modes</strong> automatically based on how the
+        clinic is set up. You don&rsquo;t get to choose &mdash; the right one is shown.
+      </p>
+
+      <h4>Mode A &middot; PayFast (most common)</h4>
+      <p>
+        Click <strong>Pay Now</strong>. You are redirected to the PayFast hosted payment page where
+        the patient enters their card or selects another payment method. After payment succeeds,
+        PayFast brings you back to a confirmation screen. The patient receives a PayFast email
+        receipt directly from PayFast.
+      </p>
+      <div class="callout warn">
+        <span class="label">Important</span>
+        If you close the tab during the PayFast step and reopen the booking, the system will
+        automatically check with PayFast whether payment went through. You don&rsquo;t need to do
+        anything special.
+      </div>
+
+      <h4>Mode B &middot; Self-collect</h4>
+      <p>
+        Some clinics collect payment themselves at the counter (cash, card-on-site, etc.) and just
+        record it here. You confirm the amount and click <strong>Mark as Paid</strong>.
+      </p>
+
+      <h4>Mode C &middot; Monthly invoice</h4>
+      <p>
+        Some clinics are billed monthly by First Care Solutions rather than per booking. You see a
+        notice saying so and click <strong>Continue</strong> &mdash; no money is collected at this
+        step.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="step-success">9. Step 5 &middot; Confirmation &amp; Start Consult</h2>
+    <div class="section">
+      <p>
+        Once payment is confirmed (or skipped for self-collect / monthly-invoice clients), you reach
+        the success screen. From here:
+      </p>
+      <ol class="steps">
+        <li>
+          <div class="step-title">Review the booking summary</div>
+          <div class="step-body">
+            Confirm everything is correct before handing off.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Accept terms</div>
+          <div class="step-body">
+            The patient (or you on their behalf) ticks the consent boxes.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Click &ldquo;Start Consult&rdquo;</div>
+          <div class="step-body">
+            The system sends the patient&rsquo;s details across to <strong>CareFirst Patient</strong>
+            (the consultation app). If CareFirst is reachable, the booking flips to
+            <span class="status-pill successful">Successful</span> and you&rsquo;re done. The patient
+            is now in CareFirst&rsquo;s queue.
+          </div>
+        </li>
+      </ol>
+      <div class="callout danger">
+        <span class="label">If Start Consult fails</span>
+        You&rsquo;ll see a red banner explaining the problem. The booking stays at
+        <span class="status-pill complete">Payment Complete</span> and you can retry. If it keeps
+        failing, raise an incident with your manager &mdash; payment has been taken; nothing is lost.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="patient-history">10. Patient History</h2>
+    <div class="section">
+      <p>
+        The Patient History page (sidebar &rarr; <strong>Patient History</strong>) shows every
+        booking ever created at your unit, with filters for date, patient name, ID, and status.
+      </p>
+      <p>Use it to:</p>
+      <ul>
+        <li>Find a returning patient before creating a new booking.</li>
+        <li>Look up an old booking reference for a refund or follow-up.</li>
+        <li>Check the status of a booking you started earlier.</li>
+      </ul>
+      <p>
+        Click any row to open the booking and see the full audit trail (who created it, when,
+        payment status, etc.).
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="avatar">11. Your profile picture</h2>
+    <div class="section">
+      <p>
+        Click your avatar in the top-right corner to open the profile menu. Upload a small photo
+        (JPEG or PNG, under 2 MB). It appears next to your name on every booking you create.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="forgot-pin">12. Forgotten PIN</h2>
+    <div class="section">
+      <ol class="steps">
+        <li>
+          <div class="step-title">Click &ldquo;Forgot PIN?&rdquo; on the sign-in page</div>
+          <div class="step-body">Enter your email address.</div>
+        </li>
+        <li>
+          <div class="step-title">Check your inbox</div>
+          <div class="step-body">
+            You&rsquo;ll receive a 6-digit reset code. It is valid for <strong>15 minutes</strong>
+            and can be used only <strong>once</strong>.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Enter the code, then choose a new PIN</div>
+          <div class="step-body">
+            Pick any 4 digits except obvious sequences like <code>0000</code> or <code>1234</code>.
+          </div>
+        </li>
+      </ol>
+      <div class="callout warn">
+        <span class="label">Heads up</span>
+        Resetting your PIN signs you out of every device. You&rsquo;ll need to sign in fresh with
+        the new PIN.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="idle">13. Idle timeout &amp; auto sign-out</h2>
+    <div class="section">
+      <p>
+        If you don&rsquo;t touch the keyboard or mouse for <strong>5 minutes</strong>, a warning
+        appears asking if you&rsquo;re still there. Click anywhere to dismiss it. If you do nothing
+        for a further <strong>2 minutes</strong> (7 minutes total), the system signs you out
+        automatically.
+      </p>
+      <p>
+        Any patient details you were typing are saved as a draft on the booking and will be there
+        when you sign back in.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="troubleshooting">14. Common problems</h2>
+    <div class="section">
+      <table class="matrix">
+        <thead>
+          <tr><th>Problem</th><th>What to do</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>&ldquo;Invalid email or PIN&rdquo;</strong></td>
+            <td>Check the email is spelled correctly and the PIN is right. After 5 failed attempts you are locked out for 15 minutes.</td>
+          </tr>
+          <tr>
+            <td><strong>Stuck on the PayFast screen</strong></td>
+            <td>Close the tab, go to Home, click the booking, click <strong>Resume</strong>. The system will check with PayFast and update the status.</td>
+          </tr>
+          <tr>
+            <td><strong>Start Consult fails</strong></td>
+            <td>Click <strong>Retry</strong>. If still failing, the consultation system (CareFirst) is likely down &mdash; let your manager know.</td>
+          </tr>
+          <tr>
+            <td><strong>Browser shows &ldquo;You&rsquo;ve been signed out&rdquo;</strong></td>
+            <td>You were idle too long. Sign in again; your in-progress work is preserved.</td>
+          </tr>
+          <tr>
+            <td><strong>A booking is showing as Abandoned but I didn&rsquo;t finish it</strong></td>
+            <td>That&rsquo;s normal. The system marks bookings as Abandoned when the browser closes mid-flow. You can still resume it &mdash; the data is intact.</td>
+          </tr>
+          <tr>
+            <td><strong>I can&rsquo;t find a button described in this manual</strong></td>
+            <td>Check the top of the page &mdash; you may be on the wrong unit (see &ldquo;Switching units&rdquo;). If still missing, the feature may be turned off for your clinic.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="cannot-do">15. What this role cannot do</h2>
+    <div class="section">
+      <p>For transparency, here is what a User role <strong>cannot</strong> see or do. If you need any of these things, ask your unit manager:</p>
+      <ul>
+        <li>Create, edit, or remove other users.</li>
+        <li>Create, edit, or remove units.</li>
+        <li>See or change client settings (branding, payment mode, etc).</li>
+        <li>View the system audit log.</li>
+        <li>View the security dashboard (failed sign-ins, active sessions, etc).</li>
+        <li>Trigger system-wide cleanups or reconciliation runs.</li>
+      </ul>
+    </div>
+
+    <footer class="doc-footer">
+      <p><strong>CareFirst Third&nbsp;Party Booking System</strong> &mdash; User Manual for the User role.</p>
+      <p>Maintained by the development team. Report errors or suggestions to your unit manager.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

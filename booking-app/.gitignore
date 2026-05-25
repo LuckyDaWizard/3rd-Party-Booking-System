@@ -112,3 +112,8 @@ $RECYCLE.BIN/
 *.backup
 *.orig
 *.tmp
+
+# ---------------------------------------------------------------------------
+# Generated PDFs (HTML sources are tracked; PDFs are rendered on demand)
+# ---------------------------------------------------------------------------
+/public/*.pdf

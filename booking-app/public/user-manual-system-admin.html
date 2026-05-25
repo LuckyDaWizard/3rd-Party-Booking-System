@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFirst Booking System — User Manual (System Admin)</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+    --role-admin: #b91c1c;
+    --role-admin-tint: #fee2e2;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  header.doc-header {
+    border-bottom: 3px solid var(--role-admin);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--role-admin);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+
+  .role-badge {
+    display: inline-block;
+    background: var(--role-admin-tint);
+    color: var(--role-admin);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 11px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--role-admin);
+    margin: 44px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+    margin: 28px 0 12px;
+    line-height: 1.3;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink-soft);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+
+  strong { color: var(--ink); font-weight: 700; }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--role-admin);
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+
+  .toc {
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 20px 0 36px;
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--mute);
+    margin-bottom: 10px;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 22px;
+    columns: 2;
+    column-gap: 32px;
+  }
+  .toc ol li {
+    margin-bottom: 4px;
+    break-inside: avoid;
+    font-size: 14px;
+  }
+  .toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+  .toc a:hover { color: var(--role-admin); text-decoration: underline; }
+
+  .section {
+    margin-top: 36px;
+    padding-top: 4px;
+  }
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    padding-left: 0;
+    margin: 18px 0;
+  }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 14px 18px 14px 56px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 28px;
+    height: 28px;
+    background: var(--role-admin);
+    color: white;
+    font-weight: 800;
+    font-size: 13px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .steps > li .step-title {
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 4px;
+    font-size: 15px;
+  }
+  .steps > li .step-body {
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .callout {
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 3px solid var(--brand);
+    background: var(--brand-tint);
+    color: #0f4a6b;
+    font-size: 13.5px;
+  }
+  .callout.tip { border-color: var(--ok-ink); background: var(--ok-tint); color: var(--ok-ink); }
+  .callout.warn { border-color: #d97706; background: #fff8e1; color: #5a3e08; }
+  .callout.danger { border-color: var(--role-admin); background: var(--role-admin-tint); color: #7f1d1d; }
+  .callout .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+  }
+
+  table.matrix {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  table.matrix th, table.matrix td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.matrix th {
+    background: var(--line-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+  }
+  table.matrix tr:last-child td { border-bottom: none; }
+
+  .tab-stack {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .tab-card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 20px;
+    background: #fafbfc;
+    page-break-inside: avoid;
+  }
+  .tab-card .tab-name {
+    font-weight: 800;
+    color: var(--ink);
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .tab-card .tab-desc {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  footer.doc-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 12px;
+  }
+  footer.doc-footer p { margin-bottom: 6px; }
+
+  @media print {
+    body { background: white; }
+    .page {
+      max-width: none;
+      margin: 0;
+      padding: 24px 32px;
+      box-shadow: none;
+      border-radius: 0;
+    }
+    .section, .steps > li, h2, h3, .tab-card { page-break-inside: avoid; }
+    header.doc-header { page-break-after: avoid; }
+    .no-print { display: none; }
+    .toc ol { columns: 2; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="doc-header">
+      <div class="eyebrow">User Manual</div>
+      <span class="role-badge">Role: System Admin</span>
+      <h1>CareFirst Third&nbsp;Party Booking System</h1>
+      <div class="meta">
+        Full operational and administrative guide.<br>
+        Version 1 &middot; Last updated <strong>2026-05-25</strong>
+      </div>
+    </header>
+
+    <p class="lede">
+      You are a <strong>System Admin</strong>. You have the most powerful role in the system &mdash;
+      complete access to every client, unit, user, audit-log entry, and security control. This
+      manual covers everything that is exclusively yours. For day-to-day booking flow and unit
+      manager tasks, refer to the User and Unit Manager manuals.
+    </p>
+
+    <div class="callout danger">
+      <span class="label">Power &amp; responsibility</span>
+      Every action you take is logged in the Audit Log against your name. Multiple System Admins
+      provide oversight of each other &mdash; there is no &ldquo;super-admin&rdquo; that hides
+      activity. Treat this access accordingly.
+    </div>
+
+    <div class="toc">
+      <div class="toc-title">Contents</div>
+      <ol>
+        <li><a href="#scope">What you can do</a></li>
+        <li><a href="#sidebar">Your sidebar</a></li>
+        <li><a href="#hierarchy">The data hierarchy</a></li>
+        <li><a href="#client-mgmt">Client Management</a></li>
+        <li><a href="#add-client">Adding a new client</a></li>
+        <li><a href="#manage-client">Managing an existing client &mdash; tabs</a></li>
+        <li><a href="#client-settings">Client Settings switches</a></li>
+        <li><a href="#unit-mgmt-admin">Unit Management (admin view)</a></li>
+        <li><a href="#user-mgmt-admin">User Management (admin view)</a></li>
+        <li><a href="#audit-log">Audit Log</a></li>
+        <li><a href="#security">Security dashboard</a></li>
+        <li><a href="#payments">Payments: reconciliation &amp; manual confirm</a></li>
+        <li><a href="#incidents">Incidents</a></li>
+        <li><a href="#privacy">Privacy &amp; POPIA erasure</a></li>
+        <li><a href="#ops">Operations &amp; cleanup</a></li>
+        <li><a href="#manager-pin">Manager-PIN role</a></li>
+        <li><a href="#troubleshooting">Common admin problems</a></li>
+        <li><a href="#delete-warn">Things to be careful with</a></li>
+      </ol>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="scope">1. What you can do</h2>
+    <div class="section">
+      <p>Every UI page and every API endpoint is open to you. In practice, the admin-only areas are:</p>
+      <table class="matrix">
+        <thead><tr><th>Area</th><th>Capabilities</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Clients</strong></td><td>Create, edit, and delete clients. Set branding, payment mode, and feature switches.</td></tr>
+          <tr><td><strong>Units</strong></td><td>Same as a Unit Manager, but across <em>all</em> units, not just assigned ones. You can re-parent a unit to a different client.</td></tr>
+          <tr><td><strong>Users</strong></td><td>Create users of any role (User, Unit Manager, System Admin), assign them to any unit, reset PINs, toggle status.</td></tr>
+          <tr><td><strong>Audit Log</strong></td><td>View every entity create / update / delete / reset_pin / toggle_status action across the system, filterable by actor, date, entity type.</td></tr>
+          <tr><td><strong>Security</strong></td><td>Failed sign-in attempts, active sessions (with revoke), suspicious activity, sign-in history.</td></tr>
+          <tr><td><strong>Operations</strong></td><td>Trigger PayFast reconciliation, run cleanup sweeps, view incidents.</td></tr>
+          <tr><td><strong>Privacy</strong></td><td>Process POPIA right-to-erasure requests via the privacy API.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="sidebar">2. Your sidebar</h2>
+    <div class="section">
+      <p>Your sidebar has the full set of items:</p>
+      <ul>
+        <li>Home</li>
+        <li>Create a Booking</li>
+        <li>Patient History</li>
+        <li><strong>Client Management</strong> &mdash; admin only</li>
+        <li>Unit Management</li>
+        <li>User Management</li>
+        <li><strong>Audit Log</strong> &mdash; admin only</li>
+        <li><strong>Security</strong> &mdash; admin only</li>
+        <li>Reports (new tab)</li>
+      </ul>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="hierarchy">3. The data hierarchy</h2>
+    <div class="section">
+      <p>It helps to keep the hierarchy clear in your head before navigating the admin pages:</p>
+      <ul>
+        <li><strong>Client</strong> &mdash; the company / brand. Holds branding, payment mode, feature switches.</li>
+        <li><strong>Unit</strong> (belongs to one client) &mdash; a physical clinic location. Inherits branding and payment mode from its client.</li>
+        <li><strong>User</strong> (can be assigned to many units) &mdash; a person. Their effective &ldquo;active&rdquo; unit determines what they see.</li>
+        <li><strong>Booking</strong> (belongs to one unit) &mdash; one patient visit.</li>
+      </ul>
+      <p>
+        This means <em>client</em>-level changes (e.g. branding) cascade to every unit; <em>unit</em>-level
+        changes only affect that unit; <em>user</em>-level changes only affect that user.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="client-mgmt">4. Client Management</h2>
+    <div class="section">
+      <p>
+        Click <strong>Client Management</strong> in the sidebar. You see a list of every client with
+        their logo, name, contact, and unit/user counts. Click any row to manage that client, or
+        click <strong>+ Add Client</strong> to create a new one.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="add-client">5. Adding a new client</h2>
+    <div class="section">
+      <p>The Add Client wizard walks you through 4 steps:</p>
+      <ol class="steps">
+        <li>
+          <div class="step-title">Client Details</div>
+          <div class="step-body">
+            Client name, contact person, contact email, contact phone. Used on receipts and emails.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Branding</div>
+          <div class="step-body">
+            Upload logo (appears in the sidebar when a user is on one of this client&rsquo;s units),
+            favicon (browser tab icon), accent colour (used on buttons and highlights). Defaults are
+            fine to start with &mdash; you can always edit later.
+          </div>
+        </li>
+        <li>
+          <div class="step-title">Settings</div>
+          <div class="step-body">
+            Choose payment mode and feature switches (see &sect;7 below).
+          </div>
+        </li>
+        <li>
+          <div class="step-title">First Unit</div>
+          <div class="step-body">
+            Every client needs at least one unit to be useful. Create one now with name, code, and
+            address; you can add more later from the Units tab.
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="manage-client">6. Managing an existing client &mdash; tabs</h2>
+    <div class="section">
+      <p>Click any client row to open it. The page has five tabs:</p>
+      <div class="tab-stack">
+        <div class="tab-card">
+          <div class="tab-name">Client Details (editable)</div>
+          <div class="tab-desc">Client name, contact person, email, phone.</div>
+        </div>
+        <div class="tab-card">
+          <div class="tab-name">Branding (editable)</div>
+          <div class="tab-desc">
+            Logo, favicon, accent colour. Changes are immediate &mdash; users on this client&rsquo;s
+            units will see the new branding on their next page load.
+          </div>
+        </div>
+        <div class="tab-card">
+          <div class="tab-name">Settings (editable, admin-only)</div>
+          <div class="tab-desc">
+            Payment-mode and feature switches. See section 7 for full descriptions.
+          </div>
+        </div>
+        <div class="tab-card">
+          <div class="tab-name">Units (read-only list)</div>
+          <div class="tab-desc">
+            Every unit belonging to this client. Click a unit name to jump to its Unit Management
+            page. Add new units there, not here.
+          </div>
+        </div>
+        <div class="tab-card">
+          <div class="tab-name">Users (read-only list)</div>
+          <div class="tab-desc">
+            Every user assigned to any unit under this client. Includes their role, status, and last
+            sign-in. Read-only here &mdash; edit users from User Management.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="client-settings">7. Client Settings switches</h2>
+    <div class="section">
+      <p>The Settings tab on a client is where the client&rsquo;s personality is configured. Each switch cascades to every unit and every booking made at this client.</p>
+      <table class="matrix">
+        <thead><tr><th>Setting</th><th>What it controls</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Payment mode</strong></td>
+            <td>
+              <strong>PayFast</strong>: the patient pays online during booking.<br>
+              <strong>Self-collect</strong>: the clinic collects payment at the counter; the system just records it.<br>
+              <strong>Monthly invoice</strong>: First Care Solutions invoices the client monthly; no money collected at booking time.
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Self-collect at client level</strong></td>
+            <td>
+              Master switch that enables &ldquo;self-collect&rdquo; mode for every unit of this
+              client. Without this flag, the unit can&rsquo;t opt into self-collect.
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Skip patient metrics</strong></td>
+            <td>
+              When ON, the Patient Metrics step is hidden from the booking flow. Useful for clinics
+              that don&rsquo;t capture vitals at intake.
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Nurse verification</strong></td>
+            <td>
+              When ON, the patient search step requires a Manager PIN as a safeguard. Default OFF.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <span class="label">Effect is immediate</span>
+        Changing payment mode while a user is mid-booking can confuse them. Prefer to change settings
+        during quiet hours.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="unit-mgmt-admin">8. Unit Management (admin view)</h2>
+    <div class="section">
+      <p>
+        Unit Management for an admin is the same as for a manager &mdash; except you see every unit
+        in the system, not just your own. The only additional capability:
+      </p>
+      <ul>
+        <li>
+          You can <strong>re-parent</strong> a unit to a different client. This is a heavy action:
+          it cascades through bookings, users, and audit log. Do it deliberately.
+        </li>
+      </ul>
+      <div class="callout danger">
+        <span class="label">Deletion</span>
+        Deleting a unit also removes its bookings <strong>permanently</strong>. Prefer to deactivate
+        (toggle status) rather than delete unless you have a clear reason.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="user-mgmt-admin">9. User Management (admin view)</h2>
+    <div class="section">
+      <p>
+        Same page as the manager view, but with the full role list (User, Unit Manager, System
+        Admin) available when adding or editing. Specific admin-only powers:
+      </p>
+      <ul>
+        <li>Create other System Admin and Unit Manager accounts.</li>
+        <li>Assign a user to any unit (manager is limited to their own units).</li>
+        <li>Change an existing user&rsquo;s role.</li>
+        <li>Deactivate any user, including managers.</li>
+      </ul>
+      <div class="callout warn">
+        <span class="label">Last-admin protection</span>
+        The system blocks you from deactivating or demoting the <em>last</em> System Admin. There
+        must always be at least one active System Admin.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="audit-log">10. Audit Log</h2>
+    <div class="section">
+      <p>
+        Open <strong>Audit Log</strong> from the sidebar. Every meaningful state change in the system
+        appears here as one row. Each row records:
+      </p>
+      <ul>
+        <li><strong>Actor</strong> &mdash; the signed-in user (or &ldquo;System&rdquo; for automated jobs).</li>
+        <li><strong>Action</strong> &mdash; create, update, delete, reset_pin, toggle_status.</li>
+        <li><strong>Entity</strong> &mdash; user / client / unit / booking / system.</li>
+        <li><strong>Entity name</strong> &mdash; e.g. &ldquo;[A1B2C3D4] Booking for John Doe&rdquo;.</li>
+        <li><strong>Changes</strong> &mdash; old &rarr; new value for each affected field.</li>
+        <li><strong>IP address</strong> &mdash; where the action came from.</li>
+        <li><strong>Timestamp</strong>.</li>
+      </ul>
+      <p>Filters: by date range, actor, entity type, action. Export to CSV via the button top-right.</p>
+      <div class="callout tip">
+        <span class="label">Use it for</span>
+        Investigating a dispute (&ldquo;who edited that booking?&rdquo;), confirming a sweep ran,
+        reviewing a leaving employee&rsquo;s actions, or producing a POPIA disclosure log.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="security">11. Security dashboard</h2>
+    <div class="section">
+      <p>
+        Open <strong>Security</strong> from the sidebar. The page has four tabs:
+      </p>
+      <div class="tab-stack">
+        <div class="tab-card">
+          <div class="tab-name">Failed sign-in attempts</div>
+          <div class="tab-desc">
+            Every wrong PIN attempt, with email, IP and timestamp. Spot brute-force probes by
+            looking for many attempts from one IP across many emails.
+          </div>
+        </div>
+        <div class="tab-card">
+          <div class="tab-name">Active sessions</div>
+          <div class="tab-desc">
+            Everyone currently signed in. You can <strong>revoke</strong> a session: the user is
+            kicked out within 60 seconds. Useful when a device is lost or a contractor leaves.
+          </div>
+        </div>
+        <div class="tab-card">
+          <div class="tab-name">Suspicious activity</div>
+          <div class="tab-desc">
+            Automated flags for things like a session signing in from two different countries in a
+            short window, or a sudden burst of activity from a normally-quiet account.
+          </div>
+        </div>
+        <div class="tab-card">
+          <div class="tab-name">Sign-in history</div>
+          <div class="tab-desc">
+            Every successful sign-in, with email, IP, user-agent, and timestamp. Filterable.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="payments">12. Payments: reconciliation &amp; manual confirm</h2>
+    <div class="section">
+      <p>
+        Most payments resolve automatically through PayFast&rsquo;s ITN webhook. When that fails
+        (e.g. patient closed the tab too quickly), you have two tools:
+      </p>
+
+      <h4>Manual confirm</h4>
+      <p>
+        From a single booking&rsquo;s page, click <strong>Confirm payment manually</strong>. You
+        will be asked for your PIN as a safeguard. Use this only after you have independently
+        verified the payment landed (PayFast dashboard, EFT proof, etc.).
+      </p>
+
+      <h4>Reconcile sweep</h4>
+      <p>
+        From the Operations area (or by POSTing to <code>/api/payfast/reconcile</code> with an empty
+        body), the system queries PayFast&rsquo;s Transaction History API and updates any &ldquo;In
+        Progress&rdquo; or &ldquo;Abandoned&rdquo; bookings from the last 2 hours that PayFast says
+        are actually paid. Safe to re-run as often as needed; idempotent.
+      </p>
+      <div class="callout">
+        <span class="label">Automation</span>
+        Once an external cron is wired (Sprint 2 #7, pending), reconciliation runs every 15 minutes
+        automatically. Until then, manual or as-needed.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="incidents">13. Incidents</h2>
+    <div class="section">
+      <p>
+        The system auto-detects recurring failures (CareFirst hand-off failing repeatedly, PayFast
+        reconcile failing, etc.) and records them as <strong>Incidents</strong>. Visible on the
+        Reports &rarr; Incidents tab.
+      </p>
+      <p>Each incident has:</p>
+      <ul>
+        <li>A short title (e.g. &ldquo;CareFirst start-consultation 502s&rdquo;).</li>
+        <li>First-seen / last-seen timestamps.</li>
+        <li>Count of how many times it&rsquo;s fired.</li>
+        <li>Status: <strong>open</strong> or <strong>resolved</strong> (auto-resolves when the symptom stops for 30 min).</li>
+        <li>The most recent error message.</li>
+        <li>Affected booking IDs.</li>
+      </ul>
+      <p>You can manually mark an incident resolved if you&rsquo;ve confirmed the upstream cause is fixed.</p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="privacy">14. Privacy &amp; POPIA erasure</h2>
+    <div class="section">
+      <p>
+        When a patient lodges a POPIA right-to-erasure request, you process it via the privacy API:
+        <code>POST /api/admin/privacy/erase</code> with the patient&rsquo;s ID number in the body.
+        The system:
+      </p>
+      <ul>
+        <li>Anonymises every booking the patient ever had (names, ID, contact, address &rarr; null or generic placeholder).</li>
+        <li>Keeps booking IDs and unit_id intact for billing reconciliation.</li>
+        <li>Writes an audit log entry under your name as the actor.</li>
+        <li>Returns a count of how many records were anonymised.</li>
+      </ul>
+      <div class="callout warn">
+        <span class="label">Open management decision</span>
+        Whether <code>unit_id</code> should also be replaced post-erasure (to remove any residual
+        re-identification risk) is a pending stakeholder decision &mdash; see the Management Decisions
+        document.
+      </div>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="ops">15. Operations &amp; cleanup</h2>
+    <div class="section">
+      <p>The system has automated housekeeping at <code>POST /api/admin/cleanup/sweep</code>, which:</p>
+      <ul>
+        <li>Deletes <strong>used or 7-day-expired</strong> PIN-reset tokens.</li>
+        <li>Deletes <strong>90-day-old</strong> failed-sign-in attempts.</li>
+        <li>Deletes <strong>resolved incidents</strong> older than 90 days.</li>
+      </ul>
+      <p>
+        Run with <code>{"dryRun": true}</code> first to see what <em>would</em> be deleted without
+        actually doing it. Each run writes an audit-log entry.
+      </p>
+      <p>
+        Once the 15-minute external cron is wired, this runs automatically; until then, kick it off
+        weekly or whenever you want a tidy-up.
+      </p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="manager-pin">16. Manager-PIN role</h2>
+    <div class="section">
+      <p>
+        Some flows in the User experience (nurse-verification on patient search, discard
+        confirmations) require a Manager PIN. As a System Admin, your PIN counts as a Manager PIN
+        anywhere a Manager is asked for one &mdash; you can always step in to authorise.
+      </p>
+      <p>Every Manager-PIN entry is recorded in the Audit Log against your name as the authoriser.</p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="troubleshooting">17. Common admin problems</h2>
+    <div class="section">
+      <table class="matrix">
+        <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>A user reports a payment showing &ldquo;In Progress&rdquo; but they paid</strong></td>
+            <td>Open the booking and click <strong>Reconcile this booking</strong> (or POST <code>/api/payfast/reconcile</code> with that bookingId). The system will query PayFast and update if found.</td>
+          </tr>
+          <tr>
+            <td><strong>I see a flood of failed sign-ins from one IP</strong></td>
+            <td>Security &rarr; Failed attempts. If it&rsquo;s clearly hostile, add the IP to the trusted-IPs deny list or block at the firewall. After 5 failed PINs per email the system auto-locks for 15 minutes.</td>
+          </tr>
+          <tr>
+            <td><strong>An ex-employee is still signed in somewhere</strong></td>
+            <td>Security &rarr; Active sessions &rarr; Revoke. Then User Management &rarr; toggle their status to Inactive so they can&rsquo;t sign in again.</td>
+          </tr>
+          <tr>
+            <td><strong>Recurring CareFirst hand-off failures</strong></td>
+            <td>Reports &rarr; Incidents. Confirm the incident, escalate to the CareFirst team. The booking remains in &ldquo;Payment Complete&rdquo; until the upstream is fixed and Start Consult is retried.</td>
+          </tr>
+          <tr>
+            <td><strong>Need to re-brand a client</strong></td>
+            <td>Client Management &rarr; click client &rarr; Branding tab &rarr; upload new logo / favicon / colour. Changes apply on the next page load for everyone.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="delete-warn">18. Things to be careful with</h2>
+    <div class="section">
+      <ul>
+        <li>
+          <strong>Deleting a client</strong> cascades through units, users, and bookings. Almost
+          always you should deactivate, not delete.
+        </li>
+        <li>
+          <strong>Deleting a unit</strong> permanently removes its bookings. Again &mdash; prefer
+          deactivation.
+        </li>
+        <li>
+          <strong>Changing a client&rsquo;s payment mode</strong> mid-day will confuse users in
+          mid-booking. Schedule outside business hours.
+        </li>
+        <li>
+          <strong>Demoting yourself</strong> is allowed only if another active System Admin exists.
+          Don&rsquo;t leave the system without an admin.
+        </li>
+        <li>
+          <strong>Manually rotating production secrets</strong> (PayFast keys, Supabase service-role
+          key, SMTP password) requires a redeploy. Coordinate with whoever runs the VPS.
+        </li>
+        <li>
+          <strong>Running cleanup sweep without dryRun first</strong> on a brand-new database can
+          surprise you. Always dry-run once before the first live run.
+        </li>
+      </ul>
+    </div>
+
+    <footer class="doc-footer">
+      <p><strong>CareFirst Third&nbsp;Party Booking System</strong> &mdash; User Manual for the System Admin role.</p>
+      <p>For daily-flow tasks see the User manual; for unit-level operations see the Unit Manager manual.</p>
+    </footer>
+
+  </div>
+</body>
+</html>
