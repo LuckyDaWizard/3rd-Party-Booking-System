@@ -1006,8 +1006,26 @@
           </div>
         </div>
 
-        <div class="finding high">
-          <h3>5. No automatic background schedule for clean-up tasks</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Complete</span>5. No automatic background schedule for clean-up tasks</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-27</span>
+            All three jobs now run on a 15-minute timer.
+            <code>POST /api/admin/cleanup/sweep</code> shipped 2026-05-22
+            with retention policies (consumed/expired pin_reset_tokens,
+            auth_attempts &gt; 90 days, resolved incidents &gt; 90 days).
+            On 2026-05-27 a <code>CRON_SECRET</code> shared-secret pattern
+            (constant-time compare in both <code>api-auth.ts</code> and
+            edge middleware) enabled an external scheduler to bypass the
+            cookie + CSRF gates. The VPS now runs
+            <code>/etc/cron.d/booking-app</code> every 15 min, which
+            executes <code>/usr/local/bin/booking-cron.sh</code> &mdash;
+            three sequential curls hitting reconcile, cleanup/sweep, and
+            incidents with the secret header. Logs to
+            <code>/var/log/booking-cron.log</code>. Verified five
+            consecutive ticks (08:00, 08:15, 08:30, 08:45, 09:00) all
+            returning HTTP 200.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>The system has three jobs that should run on a timer but don't:
@@ -1393,17 +1411,11 @@
               </td>
               <td>Done 2026-05-22</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                7. Wire a 15-minute external cron for reconcile, incidents, cleanup
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>Choose the runner (cron-job.org, GitHub Actions schedule, or Hostinger native) and configure 3 sequential HTTP POSTs. The half-day is mostly verifying the first few 15-min ticks fire correctly and adding alerting if they stop.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>7. Wire a 15-minute external cron for reconcile, incidents, cleanup
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-27</td>
             </tr>
             <tr class="done">
               <td>
