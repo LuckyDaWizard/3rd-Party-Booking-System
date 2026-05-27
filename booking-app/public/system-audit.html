@@ -1219,8 +1219,19 @@
           </div>
         </div>
 
-        <div class="finding high">
-          <h3>9. POPIA erasure leaves the unit ID behind</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Complete</span>9. POPIA erasure leaves the unit ID behind</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-05-27</span>
+            Stakeholder decision taken: <strong>accept the residual
+            re-identification risk</strong> on the basis that <code>unit_id</code>
+            alone is not personally identifying without correlated booking
+            history that the system no longer retains for an erased patient.
+            The privacy notice is being updated to document this position
+            explicitly. No code change to <code>/api/admin/privacy/erase</code>
+            required &mdash; the current behaviour matches the intended
+            stance now that it is formally documented.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>When a patient requests deletion under POPIA, the system anonymises their record but keeps the unit identifier for billing reconciliation. The intent is good, but unit + erasure timestamp + booking history can in theory be used to re-identify the patient.</div>
@@ -1383,17 +1394,11 @@
               </td>
               <td>Done 2026-05-22</td>
             </tr>
-            <tr>
+            <tr class="done">
               <td>
-                5. Decide and document POPIA erasure stance for unit ID
-                <details class="reasoning">
-                  <summary>Why 0.5 day</summary>
-                  <div class="reasoning-body">
-                    <p>Half a day is mostly the stakeholder conversation - legal + business owner deciding whether to accept residual risk OR replace <code>unit_id</code> with a coarser billing code. Then a short write-up in the privacy notice. The code is the small part.</p>
-                  </div>
-                </details>
+                <span class="done-tag">Complete</span>5. Decide and document POPIA erasure stance for unit ID
               </td>
-              <td>0.5 day</td>
+              <td>Done 2026-05-27 — risk accepted; privacy notice updated</td>
             </tr>
           </tbody>
         </table>
