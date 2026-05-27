@@ -580,6 +580,92 @@ acceptable per the audit.
 
 ---
 
+## VPS Cron: 15-min reconcile + cleanup + incident sweep
+
+The app exposes three endpoints intended to run on a 15-min schedule:
+
+| Endpoint | Method | What it does |
+|---|---|---|
+| `/api/payfast/reconcile` | POST (empty body) | Pulls PayFast Transaction History and flips any `In Progress` / `Abandoned` bookings to `Payment Complete` if PayFast confirms payment. |
+| `/api/admin/cleanup/sweep` | POST (empty body) | Deletes consumed/expired `pin_reset_tokens`, `auth_attempts` older than 90d, resolved `incidents` older than 90d. |
+| `/api/admin/incidents` | GET | Triggers `sweepStaleIncidents()` so open incidents auto-resolve once their symptom stops. |
+
+Each accepts an `X-Cron-Secret` header matching `CRON_SECRET` in the app's
+env, which lets cron bypass the session-based auth guards. The compare is
+constant-time, the secret must be at least 16 chars.
+
+### One-time setup on the VPS
+
+1. Make sure `CRON_SECRET` is set in the app's env (the `.env.local` the
+   container is started with). Generate one if needed:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+   Add to `/opt/3rd-Party-Booking-System/booking-app/.env.local`:
+   ```
+   CRON_SECRET=<paste the generated value>
+   ```
+   Redeploy so the running container picks it up.
+
+2. Create `/etc/cron.d/booking-app` (replace `<SECRET>` with the same value):
+   ```cron
+   # CareFirst booking — 15-min reconcile + cleanup + incident sweep
+   # Logs to /var/log/booking-cron.log (rotated by logrotate's default)
+   SHELL=/bin/bash
+   PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+   */15 * * * * root /usr/local/bin/booking-cron.sh >> /var/log/booking-cron.log 2>&1
+   ```
+
+3. Create `/usr/local/bin/booking-cron.sh`:
+   ```bash
+   #!/bin/bash
+   set -u
+   SECRET='<SECRET>'
+   BASE='http://127.0.0.1:3000'
+   STAMP=$(date '+%Y-%m-%d %H:%M:%S')
+   echo "[$STAMP] cron tick"
+   for path in /api/payfast/reconcile /api/admin/cleanup/sweep; do
+     code=$(curl -s -o /tmp/cron-resp -w "%{http_code}" -X POST \
+       -H "X-Cron-Secret: $SECRET" -H "Content-Type: application/json" \
+       --max-time 60 "$BASE$path")
+     echo "[$STAMP] POST $path -> $code $(cat /tmp/cron-resp)"
+   done
+   code=$(curl -s -o /tmp/cron-resp -w "%{http_code}" \
+     -H "X-Cron-Secret: $SECRET" --max-time 30 "$BASE/api/admin/incidents")
+   echo "[$STAMP] GET  /api/admin/incidents -> $code"
+   ```
+   Then:
+   ```bash
+   chmod +x /usr/local/bin/booking-cron.sh
+   chmod 600 /etc/cron.d/booking-app    # crontab refuses world-readable
+   ```
+
+4. Watch the first tick land (cron fires on the next quarter-hour):
+   ```bash
+   tail -f /var/log/booking-cron.log
+   ```
+   Each tick should show `200` for all three endpoints. A `401`/`403` means
+   the secret in the script doesn't match the secret in the container env.
+
+5. Confirm in the app: the Audit Log should show a "Cleanup sweep (N rows
+   removed)" entry from actor "Cron" within 15 min of each tick.
+
+### Rotating the secret
+
+If the secret leaks, regenerate, update both `.env.local` (redeploy) and
+`/usr/local/bin/booking-cron.sh`, then `systemctl reload cron` (or just wait
+— the new schedule reads it on the next tick).
+
+### Disabling temporarily
+
+```bash
+sudo mv /etc/cron.d/booking-app /etc/cron.d/booking-app.disabled
+```
+
+Restore by moving back.
+
+---
+
 ## Getting Support
 
 For operational emergencies or escalation beyond this runbook:

@@ -90,9 +90,33 @@ function requestHasBody(request: NextRequest): boolean {
   return false
 }
 
+/**
+ * Check whether the request carries a valid X-Cron-Secret matching the
+ * CRON_SECRET env var. Used to let the 15-min VPS crontab bypass the
+ * cookie-based admin gate + CSRF check on /api/payfast/reconcile,
+ * /api/admin/cleanup/sweep, and /api/admin/incidents. Constant-time
+ * compare. Returns false if CRON_SECRET isn't configured (cron disabled).
+ *
+ * Mirrors `isAuthorizedCronCall` in lib/api-auth.ts but runs on edge
+ * runtime, so it uses the local constantTimeEqual rather than node:crypto.
+ */
+function isCronCall(request: NextRequest): boolean {
+  const expected = process.env.CRON_SECRET
+  if (!expected || expected.length < 16) return false
+  const provided = request.headers.get("x-cron-secret")
+  if (!provided) return false
+  return constantTimeEqual(provided, expected)
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const method = request.method.toUpperCase()
+
+  // A valid X-Cron-Secret short-circuits the cookie-based admin gate and
+  // the CSRF check below — the secret IS the auth for the 15-min VPS
+  // crontab calling /api/payfast/reconcile, /api/admin/cleanup/sweep,
+  // and /api/admin/incidents. Computed once per request.
+  const cronAuthed = isCronCall(request)
 
   // Default-deny for /api/admin/* without an auth cookie (audit #7 /
   // Sprint 3 #11). The in-handler `requireSystemAdminWithCaller()` checks
@@ -100,7 +124,7 @@ export function middleware(request: NextRequest) {
   // that ensures a new admin route which forgets the in-handler check is
   // STILL blocked for unauthenticated callers. Supabase sets the access
   // token under cookie name `sb-<project-ref>-auth-token`.
-  if (pathname.startsWith("/api/admin/")) {
+  if (pathname.startsWith("/api/admin/") && !cronAuthed) {
     const hasSupabaseAuthCookie = request.cookies
       .getAll()
       .some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"))
@@ -119,8 +143,9 @@ export function middleware(request: NextRequest) {
   const existing = request.cookies.get(CSRF_COOKIE_NAME)?.value
 
   // Validate FIRST so a missing/mismatched token on a protected request
-  // short-circuits before we touch the response at all.
-  if (CSRF_PROTECTED_METHODS.has(method) && !isExempt(pathname)) {
+  // short-circuits before we touch the response at all. Cron-authenticated
+  // calls are exempt — they're not browsers and can't read cookies.
+  if (CSRF_PROTECTED_METHODS.has(method) && !isExempt(pathname) && !cronAuthed) {
     const headerToken = request.headers.get(CSRF_HEADER_NAME)
     if (
       !existing ||

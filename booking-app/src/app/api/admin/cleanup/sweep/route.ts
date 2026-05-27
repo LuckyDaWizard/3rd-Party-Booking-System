@@ -1,5 +1,9 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdminWithCaller } from "@/lib/api-auth"
+import {
+  requireSystemAdminWithCaller,
+  isAuthorizedCronCall,
+  type CallerInfo,
+} from "@/lib/api-auth"
 import { apiError } from "@/lib/api-response"
 import {
   writeAuditLog,
@@ -65,8 +69,23 @@ interface SweepErrors {
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export async function POST(request: Request) {
-  const { caller, denied } = await requireSystemAdminWithCaller()
-  if (denied) return denied
+  // Auth: cron-secret header bypasses session auth. Synthesize a system
+  // caller so the audit log still has a recognisable actor for cron-driven
+  // sweeps.
+  let caller: CallerInfo
+  if (isAuthorizedCronCall(request)) {
+    caller = {
+      id: SYSTEM_ACTOR_ID,
+      authUserId: SYSTEM_ACTOR_ID,
+      role: "system_admin",
+      unitIds: [],
+      name: "Cron",
+    }
+  } else {
+    const result = await requireSystemAdminWithCaller()
+    if (result.denied) return result.denied
+    caller = result.caller
+  }
 
   let body: Body = {}
   try {

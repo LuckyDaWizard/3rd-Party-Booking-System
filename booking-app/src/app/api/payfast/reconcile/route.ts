@@ -9,6 +9,7 @@ import {
 import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
 import { recordIncident, buildSignature } from "@/lib/incidents"
 import { apiError } from "@/lib/api-response"
+import { isAuthorizedCronCall } from "@/lib/api-auth"
 import {
   transitionStatus,
   type BookingStatus,
@@ -50,16 +51,20 @@ interface ReconcileResult {
 const LOOKBACK_HOURS = 2
 
 export async function POST(request: Request) {
-  // Require a signed-in session. Anyone with a session can reconcile.
-  // If the request is for a specific bookingId, we don't need admin — the
-  // PayFast API check gates whether we actually write.
-  const sb = await getSupabaseServer()
-  const {
-    data: { user: authUser },
-  } = await sb.auth.getUser()
+  // Auth: either a signed-in session OR a valid cron-secret header.
+  // A cron call is treated as system_admin-equivalent for batch mode.
+  const isCron = isAuthorizedCronCall(request)
 
-  if (!authUser) {
-    return apiError("Unauthenticated", 401)
+  let authUser: { id: string } | null = null
+  if (!isCron) {
+    const sb = await getSupabaseServer()
+    const {
+      data: { user },
+    } = await sb.auth.getUser()
+    if (!user) {
+      return apiError("Unauthenticated", 401)
+    }
+    authUser = { id: user.id }
   }
 
   let body: Body = {}
@@ -95,15 +100,18 @@ export async function POST(request: Request) {
     })
   }
 
-  // Batch mode — require admin role.
-  const { data: callerRow } = await sb
-    .from("users")
-    .select("role, status")
-    .eq("auth_user_id", authUser.id)
-    .single()
+  // Batch mode — require admin role (skipped for cron callers).
+  if (!isCron) {
+    const sb = await getSupabaseServer()
+    const { data: callerRow } = await sb
+      .from("users")
+      .select("role, status")
+      .eq("auth_user_id", authUser!.id)
+      .single()
 
-  if (!callerRow || callerRow.status !== "Active" || callerRow.role !== "system_admin") {
-    return apiError("Batch reconciliation requires system_admin", 403)
+    if (!callerRow || callerRow.status !== "Active" || callerRow.role !== "system_admin") {
+      return apiError("Batch reconciliation requires system_admin", 403)
+    }
   }
 
   // Find pending bookings from the last LOOKBACK_HOURS. Include both

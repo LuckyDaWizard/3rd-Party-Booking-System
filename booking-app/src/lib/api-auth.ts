@@ -11,6 +11,7 @@
 // =============================================================================
 
 import { NextResponse } from "next/server"
+import { timingSafeEqual } from "node:crypto"
 import { getSupabaseServer } from "./supabase-server"
 
 // ---------------------------------------------------------------------------
@@ -255,6 +256,41 @@ export async function requireAuthenticated(): Promise<
       name: `${callerRow.first_names} ${callerRow.surname}`.trim(),
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// isAuthorizedCronCall
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether the request carries a valid X-Cron-Secret header matching
+ * the CRON_SECRET environment variable. Returns false if CRON_SECRET is
+ * not configured (cron auth disabled) or if the header is missing/wrong.
+ *
+ * Designed to be checked BEFORE the session-based guards in routes that
+ * should be reachable by both signed-in admins (via UI) and an automated
+ * cron job (via the shared secret). The constant-time compare avoids a
+ * timing side-channel that could leak the secret.
+ *
+ * Usage at the top of a route handler:
+ *   if (isAuthorizedCronCall(request)) {
+ *     // skip user-session auth; treat as system-equivalent
+ *   } else {
+ *     const denied = await requireSystemAdmin()
+ *     if (denied) return denied
+ *   }
+ */
+export function isAuthorizedCronCall(request: Request): boolean {
+  const expected = process.env.CRON_SECRET
+  if (!expected || expected.length < 16) return false
+
+  const provided = request.headers.get("x-cron-secret")
+  if (!provided) return false
+
+  const bufA = Buffer.from(provided)
+  const bufB = Buffer.from(expected)
+  if (bufA.length !== bufB.length) return false
+  return timingSafeEqual(bufA, bufB)
 }
 
 // ---------------------------------------------------------------------------

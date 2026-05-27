@@ -55,6 +55,10 @@ services:
       - CAREFIRST_API_KEY=${CAREFIRST_API_KEY}
       - CAREFIRST_CLIENT_CODE=${CAREFIRST_CLIENT_CODE}
       - CAREFIRST_CLIENT_PLAN_CODE=${CAREFIRST_CLIENT_PLAN_CODE}
+      # Cron auth — shared secret for the 15-min VPS crontab that hits
+      # /api/payfast/reconcile, /api/admin/cleanup/sweep, /api/admin/incidents.
+      # Must match the X-Cron-Secret header in /etc/cron.d/booking-app.
+      - CRON_SECRET=${CRON_SECRET}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.booking.rule=PathPrefix(`/`)"

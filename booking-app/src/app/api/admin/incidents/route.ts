@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdmin } from "@/lib/api-auth"
+import { requireSystemAdmin, isAuthorizedCronCall } from "@/lib/api-auth"
 import { sweepStaleIncidents } from "@/lib/incidents"
 import { apiError } from "@/lib/api-response"
 
@@ -18,8 +18,12 @@ import { apiError } from "@/lib/api-response"
 // =============================================================================
 
 export async function GET(request: Request) {
-  const denied = await requireSystemAdmin()
-  if (denied) return denied
+  // Auth: cron-secret header bypasses session auth (cron hits this purely
+  // to trigger sweepStaleIncidents() and doesn't care about the JSON body).
+  if (!isAuthorizedCronCall(request)) {
+    const denied = await requireSystemAdmin()
+    if (denied) return denied
+  }
 
   // Auto-resolve anything stale before we read.
   await sweepStaleIncidents()
