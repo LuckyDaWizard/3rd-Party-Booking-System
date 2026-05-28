@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFirst Booking System — In-Flow Consultation Scheduling (Proposal &amp; Open Questions)</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  header.doc-header {
+    border-bottom: 3px solid var(--brand);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brand);
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h3 {
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--ink);
+    margin: 0 0 14px;
+    line-height: 1.3;
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  ul, ol { margin: 6px 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  strong { color: var(--ink); font-weight: 700; }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--brand);
+    border-radius: 6px;
+  }
+
+  .block {
+    margin-top: 28px;
+    padding: 24px 26px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+
+  .field { margin: 14px 0; }
+  .field-label {
+    display: block;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    font-weight: 800;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .field-body {
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+
+  .recommendation {
+    background: var(--ok-tint);
+    border-left: 3px solid var(--ok-ink);
+    color: var(--ok-ink);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+  }
+  .recommendation .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+  }
+
+  .ask {
+    background: #fff8e1;
+    border-left: 3px solid #d97706;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+    color: #5a3e08;
+  }
+  .ask .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #92400e;
+    margin-right: 8px;
+  }
+
+  table.cmp {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  table.cmp th, table.cmp td {
+    text-align: left;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.cmp th {
+    background: var(--line-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  table.cmp td.dim { color: var(--mute); }
+  .pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .pill.good { background: var(--ok-tint); color: var(--ok-ink); }
+  .pill.bad { background: var(--danger-tint); color: #991b1b; }
+  .pill.mid { background: var(--warn-tint); color: var(--warn-ink); }
+
+  .qlist { counter-reset: q; list-style: none; padding-left: 0; }
+  .qlist > li {
+    counter-increment: q;
+    position: relative;
+    padding: 12px 16px 12px 48px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .qlist > li::before {
+    content: "Q" counter(q);
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--brand);
+  }
+  .qlist .q-text { font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+  .qlist .q-why { font-size: 13px; color: var(--mute); }
+  .qlist > li.answered {
+    background: var(--ok-tint);
+    border-color: #a7d8b8;
+  }
+  .qlist > li.answered::before { color: var(--ok-ink); }
+  .qlist .q-answer {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  .audience {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 9px;
+    border-radius: 999px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .audience.vhc { background: var(--brand-tint); color: #0f4a6b; }
+  .audience.mgmt { background: #ede9fe; color: #6d28d9; }
+
+  footer.doc-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 12px;
+  }
+  footer.doc-footer p { margin-bottom: 6px; }
+
+  @media print {
+    body { background: white; }
+    .page { max-width: none; margin: 0; padding: 24px 32px; box-shadow: none; border-radius: 0; }
+    .block, .qlist > li, table.cmp { page-break-inside: avoid; }
+    header.doc-header { page-break-after: avoid; }
+    h2 { page-break-after: avoid; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="doc-header">
+      <div class="eyebrow">Technical Scoping</div>
+      <h1>In-Flow Consultation Scheduling<br>VHC Integration &mdash; Technical Notes &amp; Questions</h1>
+      <div class="meta">
+        Prepared <strong>2026-05-27</strong> by the development team<br>
+        For the VHC technical contact + internal engineering reference
+      </div>
+    </header>
+
+    <p class="lede">
+      Today the booking system handles patient intake and payment, then hands the patient over to
+      the VHC consultation platform via the existing <code>Start Consult</code> SSO handoff. The
+      patient does <strong>not</strong> currently leave the booking flow knowing the exact date and
+      time of their consultation. This document scopes adding a scheduling step inside the flow so
+      the patient ends with a <strong>confirmed slot</strong>. It covers where the step fits, the
+      two integration approaches, the API contract we&rsquo;d need, and the technical questions VHC
+      must answer before we can finalise a design.
+    </p>
+
+    <h2>The goal</h2>
+    <p>
+      A patient (or the nurse capturing the booking) should be able to <strong>see available
+      consultation times, pick one, and have it confirmed</strong> as part of the same booking
+      session &mdash; before they walk out the door. The confirmed time should appear on the booking
+      confirmation screen and, ideally, in any confirmation email.
+    </p>
+
+    <h2>Where the step fits in the current flow</h2>
+    <p>
+      The booking flow today runs: <code>patient search</code> &rarr; <code>patient details</code>
+      &rarr; <code>patient metrics</code> &rarr; <code>payment</code> &rarr; <code>success</code>
+      &rarr; <code>Start Consult</code> (SSO handoff to VHC). The new scheduling step slots in at one
+      of two points depending on whether VHC can hold a slot:
+    </p>
+    <ul>
+      <li>
+        <strong>Reserve-then-pay:</strong> scheduling goes <em>between</em> <code>patient
+        metrics</code> and <code>payment</code> &mdash; pick &amp; hold a slot, pay, then the hold is
+        confirmed on success.
+      </li>
+      <li>
+        <strong>Pay-then-pick:</strong> scheduling goes on the <code>success</code> screen, after
+        payment clears, before <code>Start Consult</code>.
+      </li>
+    </ul>
+    <p>
+      Either way the chosen slot ID is stored on the booking row (a new
+      <code>consultation_slot_id</code> / <code>consultation_at</code> column pair) and passed in the
+      existing <code>Start Consult</code> handoff payload so VHC associates the booked slot with the
+      patient record it receives.
+    </p>
+
+    <h2>Why this isn&rsquo;t a simple drop-in</h2>
+    <p>
+      There are two genuinely tricky parts. Both need answers from the VHC side before we can commit
+      to a design.
+    </p>
+
+    <div class="block">
+      <h3>Challenge 1 &mdash; Holding the slot during payment</h3>
+      <div class="field-body">
+        <p>
+          If the patient picks a 10:30 slot and then spends 90 seconds paying via PayFast, someone
+          else at another clinic could grab that same 10:30 slot in the meantime. There are two ways
+          to handle this:
+        </p>
+        <ul>
+          <li>
+            <strong>Reserve-then-pay:</strong> the slot is held for a few minutes while the patient
+            pays, then confirmed. This needs VHC to support a temporary &ldquo;hold&rdquo; on a slot.
+          </li>
+          <li>
+            <strong>Pay-then-pick:</strong> the patient pays first, then chooses from whatever is
+            still available. Simpler and safer technically, but the patient only learns their time
+            <em>after</em> paying &mdash; which slightly weakens the &ldquo;confirmed time up
+            front&rdquo; experience.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3>Challenge 2 &mdash; What VHC actually gives us to work with</h3>
+      <div class="field-body">
+        <p>
+          This is the big fork in the road, and it decides almost everything about cost and quality:
+        </p>
+        <ul>
+          <li>
+            <strong>If VHC has scheduling APIs</strong> (a way for our system to ask &ldquo;what
+            slots are free?&rdquo; and &ldquo;book this one&rdquo;), we can build the calendar
+            <em>natively</em> inside our booking flow &mdash; using our own branding, colours, and
+            mobile-friendly design. The patient never feels like they left our system.
+          </li>
+          <li>
+            <strong>If VHC only has a hosted booking page</strong> (a web page on their side), our
+            only option is to embed that page in a frame inside our flow. It works, but it will look
+            and feel like a different product bolted on &mdash; different fonts, spacing, and colours
+            &mdash; and is awkward on mobile.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>The two options compared</h2>
+    <table class="cmp">
+      <thead>
+        <tr>
+          <th style="width:26%;">&nbsp;</th>
+          <th>Option A &mdash; Embed VHC&rsquo;s page (iframe)</th>
+          <th>Option B &mdash; Build it natively (VHC API)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Look &amp; feel</strong></td>
+          <td><span class="pill bad">Mismatched</span> Different styling from the rest of the booking flow.</td>
+          <td><span class="pill good">Seamless</span> Same branding, accent colour, fonts.</td>
+        </tr>
+        <tr>
+          <td><strong>Mobile experience</strong></td>
+          <td><span class="pill mid">Awkward</span> Nested scrolling, sizing issues.</td>
+          <td><span class="pill good">Native</span> Same responsive behaviour as our other steps.</td>
+        </tr>
+        <tr>
+          <td><strong>Build effort</strong></td>
+          <td><span class="pill good">Lower</span> ~Half the work of Option B.</td>
+          <td><span class="pill mid">Higher</span> Roughly 2&ndash;3 days once VHC details are known.</td>
+        </tr>
+        <tr>
+          <td><strong>Dependency on VHC</strong></td>
+          <td class="dim">VHC must allow their page to be embedded from our domain (a security-header change on their side).</td>
+          <td class="dim">VHC must expose availability + reserve/confirm APIs.</td>
+        </tr>
+        <tr>
+          <td><strong>Knowing when the slot is picked</strong></td>
+          <td class="dim">Needs a technical handshake between the two systems to detect the choice and pull it back into our booking.</td>
+          <td class="dim">We control it directly &mdash; no handshake needed.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="recommendation"><span class="label">Our lean</span>
+      If VHC has the APIs, <strong>Option B (native build)</strong> is clearly better &mdash; the
+      patient experience stays consistent and we control the whole flow. Option A is only worth it if
+      VHC has no APIs and only a hosted page to offer.
+    </div>
+
+    <h2>API contract we&rsquo;d need (Option B)</h2>
+    <p>
+      For a native build, the minimum surface from VHC is three calls. Shapes below are
+      illustrative &mdash; we&rsquo;ll conform to whatever VHC already has; this just shows the
+      <em>capabilities</em> required.
+    </p>
+    <table class="cmp">
+      <thead>
+        <tr><th style="width:30%;">Capability</th><th>What we send / get back</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. Query availability</strong><br><code>GET</code></td>
+          <td>Send: client/plan code, date range. Get back: a list of free slots, each with a stable
+          <code>slot_id</code> and an ISO timestamp (and ideally practitioner / duration).</td>
+        </tr>
+        <tr>
+          <td><strong>2. Hold a slot</strong> <span class="pill mid">optional</span><br><code>POST</code></td>
+          <td>Send: <code>slot_id</code>. Get back: a hold token + expiry (e.g. 5 min). Only needed
+          for the reserve-then-pay flow. If absent, we fall back to pay-then-pick.</td>
+        </tr>
+        <tr>
+          <td><strong>3. Confirm / book</strong><br><code>POST</code></td>
+          <td>Send: <code>slot_id</code> (or hold token) + the patient identifier we already use in
+          the SSO handoff. Get back: a confirmed booking reference + final timestamp.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Auth would follow the same pattern as the current handoff &mdash; the existing
+      <code>CAREFIRST_API_KEY</code> / client-code credentials, server-to-server, never exposed to
+      the browser. The calendar UI calls our own API routes, which proxy to VHC, so the key stays
+      server-side.
+    </p>
+
+    <h2>Option A technical note (iframe)</h2>
+    <p>
+      If we embed VHC&rsquo;s hosted page, two things have to be true on VHC&rsquo;s side:
+    </p>
+    <ul>
+      <li>
+        <strong>Framing must be permitted from our domain</strong> &mdash; VHC&rsquo;s
+        <code>X-Frame-Options</code> / <code>Content-Security-Policy: frame-ancestors</code> headers
+        must allow our booking origin, otherwise the browser blocks the embed outright.
+      </li>
+      <li>
+        <strong>A way to know the slot was picked</strong> &mdash; the embedded page needs to emit a
+        <code>postMessage</code> event (or redirect to a callback URL with the slot details) so our
+        flow can capture the chosen slot and store it on the booking. Without this we&rsquo;d have no
+        reliable signal that scheduling completed.
+      </li>
+    </ul>
+
+    <h2>Questions for the VHC technical contact</h2>
+    <p>These are the technical facts we need before we can choose an approach or give a firm estimate.</p>
+    <ol class="qlist">
+      <li>
+        <div class="q-text">Does VHC expose a scheduling / availability API? <span class="audience vhc">VHC</span></div>
+        <div class="q-why">i.e. can our system programmatically ask &ldquo;what consultation slots are free for this client/plan on this date?&rdquo; and receive a machine-readable answer.</div>
+      </li>
+      <li>
+        <div class="q-text">Is there a way to book / confirm a specific slot via API? <span class="audience vhc">VHC</span></div>
+        <div class="q-why">And does that booking tie back to the same patient record we hand over at &ldquo;Start Consult&rdquo;?</div>
+      </li>
+      <li>
+        <div class="q-text">Can a slot be temporarily held / reserved (e.g. for 5 minutes) while the patient pays? <span class="audience vhc">VHC</span></div>
+        <div class="q-why">This decides whether we can do &ldquo;reserve-then-pay&rdquo; or have to fall back to &ldquo;pay-then-pick&rdquo;.</div>
+      </li>
+      <li>
+        <div class="q-text">If there is no API &mdash; is there a hosted booking page we could embed? <span class="audience vhc">VHC</span></div>
+        <div class="q-why">And critically, can VHC allow that page to be embedded from our booking domain (a security-header / <code>X-Frame-Options</code> change on their side)?</div>
+      </li>
+      <li>
+        <div class="q-text">How is availability scoped &mdash; per practitioner, per clinic, per client? <span class="audience vhc">VHC</span></div>
+        <div class="q-why">So the patient is only ever shown slots that are genuinely valid for their booking.</div>
+      </li>
+      <li class="answered">
+        <div class="q-text">Does VHC send its own confirmation (email/SMS) once a slot is booked? <span class="audience vhc">VHC</span> <span class="pill good">Answered</span></div>
+        <div class="q-why">Determines whether we need to send the confirmed time ourselves or can rely on VHC to notify the patient.</div>
+        <div class="q-answer"><strong>Yes</strong> &mdash; VHC sends email/SMS confirmation to the patient when a slot is booked. <em>Implication:</em> we don&rsquo;t need to build our own confirmed-time notification; our booking confirmation screen just needs to display the time, and VHC handles the patient reminder. One less thing to build.</div>
+      </li>
+    </ol>
+
+    <div class="ask"><span class="label">Next technical step</span>
+      Get answers to Q1&ndash;Q6 from the VHC side. Q1&ndash;Q3 (does an availability/booking API
+      exist, and can a slot be held) are the load-bearing ones &mdash; they decide between Option A
+      and Option B and whether we can do reserve-then-pay. Once those land we&rsquo;ll finalise the
+      integration design and give a firm estimate (indicatively <strong>2&ndash;3 days native</strong>,
+      ~half that for an embedded page).
+    </div>
+
+    <footer class="doc-footer">
+      <p><strong>CareFirst Third&nbsp;Party Booking System</strong> &mdash; In-flow consultation scheduling proposal.</p>
+      <p>Prepared by the development team, 2026-05-27. Estimates are indicative until VHC&rsquo;s technical answers are in.</p>
+    </footer>
+
+  </div>
+</body>
+</html>
