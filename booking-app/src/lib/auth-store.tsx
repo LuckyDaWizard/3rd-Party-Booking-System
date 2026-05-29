@@ -205,11 +205,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u)
 
       // Restore active unit from localStorage, or default to first.
+      //
+      // RULE: a system_admin is NEVER auto-assigned a unit. They see all
+      // data regardless of active unit, and silently picking an arbitrary
+      // first unit risks attaching a new booking to the wrong one. So an
+      // admin starts with no unit selected and chooses one manually via the
+      // switcher. A unit they previously chose themselves IS restored from
+      // localStorage — that's an explicit choice, not an auto-pick. Other
+      // roles keep defaulting to their first assigned unit.
       try {
         const storedUnitId = localStorage.getItem(ACTIVE_UNIT_STORAGE_KEY)
         if (storedUnitId && u.unitIds.includes(storedUnitId)) {
           setActiveUnitIdState(storedUnitId)
-        } else if (u.unitIds.length > 0) {
+        } else if (u.role !== "system_admin" && u.unitIds.length > 0) {
           setActiveUnitIdState(u.unitIds[0])
           localStorage.setItem(ACTIVE_UNIT_STORAGE_KEY, u.unitIds[0])
         } else {
@@ -267,7 +275,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // onAuthStateChange will fire and set the user state, but we also set
       // it eagerly so the sign-in page can navigate away immediately.
       setUser(authUser)
-      if (authUser.unitIds.length > 0) {
+      // Non-admins default to their first assigned unit on sign-in. A
+      // system_admin is NOT auto-assigned a unit — they choose one manually.
+      // (applyAuthUser, fired by onAuthStateChange, will still restore a
+      // unit the admin previously chose from localStorage.)
+      if (authUser.role !== "system_admin" && authUser.unitIds.length > 0) {
         setActiveUnitIdState(authUser.unitIds[0])
         try {
           localStorage.setItem(ACTIVE_UNIT_STORAGE_KEY, authUser.unitIds[0])
