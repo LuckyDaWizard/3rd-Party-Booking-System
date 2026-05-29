@@ -318,7 +318,7 @@
       <h1>CareFirst Third&nbsp;Party Booking System</h1>
       <div class="meta">
         Operational guide for the manager(s) of a clinic unit.<br>
-        Version 1 &middot; Last updated <strong>2026-05-25</strong>
+        Version 1 &middot; Last updated <strong>2026-05-29</strong>
       </div>
     </header>
 
@@ -390,7 +390,6 @@
         <li>Patient History</li>
         <li><strong>Unit Management</strong> &mdash; manager-only</li>
         <li><strong>User Management</strong> &mdash; manager-only</li>
-        <li>Reports (opens in a new tab)</li>
       </ul>
       <div class="callout">
         <span class="label">Note</span>
@@ -602,8 +601,8 @@
         a booking is the unit it&rsquo;s attached to &mdash; not the unit selected later.
       </p>
       <p>
-        Patient History, Reports, and Home all show data only for the currently-active unit. To
-        review another unit, switch to it first.
+        Patient History and Home both show data only for the currently-active unit. To review
+        another unit, switch to it first.
       </p>
     </div>
 
@@ -625,14 +624,10 @@
         </li>
         <li>
           <strong>A booking stuck on Payment Complete (not yet Successful)</strong>: the patient paid
-          but Start Consult never fired. Check with the user; raise an incident if the consultation
-          system is down.
+          but Start Consult never fired. Check with the user; if the consultation system (CareFirst)
+          is down, escalate to a System Admin.
         </li>
       </ul>
-      <p>
-        Reports (top-right opens in new tab) gives unit-level totals: bookings per day, by status,
-        by user.
-      </p>
     </div>
 
     <!-- ====================================================================== -->

@@ -322,7 +322,7 @@
       <h1>CareFirst Third&nbsp;Party Booking System</h1>
       <div class="meta">
         Full operational and administrative guide.<br>
-        Version 1 &middot; Last updated <strong>2026-05-25</strong>
+        Version 1 &middot; Last updated <strong>2026-05-29</strong>
       </div>
     </header>
 
@@ -355,7 +355,6 @@
         <li><a href="#audit-log">Audit Log</a></li>
         <li><a href="#security">Security dashboard</a></li>
         <li><a href="#payments">Payments: reconciliation &amp; manual confirm</a></li>
-        <li><a href="#incidents">Incidents</a></li>
         <li><a href="#privacy">Privacy &amp; POPIA erasure</a></li>
         <li><a href="#ops">Operations &amp; cleanup</a></li>
         <li><a href="#manager-pin">Manager-PIN role</a></li>
@@ -376,7 +375,7 @@
           <tr><td><strong>Users</strong></td><td>Create users of any role (User, Unit Manager, System Admin), assign them to any unit, reset PINs, toggle status.</td></tr>
           <tr><td><strong>Audit Log</strong></td><td>View every entity create / update / delete / reset_pin / toggle_status action across the system, filterable by actor, date, entity type.</td></tr>
           <tr><td><strong>Security</strong></td><td>Failed sign-in attempts, active sessions (with revoke), suspicious activity, sign-in history.</td></tr>
-          <tr><td><strong>Operations</strong></td><td>Trigger PayFast reconciliation, run cleanup sweeps, view incidents.</td></tr>
+          <tr><td><strong>Operations</strong></td><td>Trigger PayFast reconciliation and run cleanup sweeps (most of this is automated by the server&rsquo;s 15-minute schedule).</td></tr>
           <tr><td><strong>Privacy</strong></td><td>Process POPIA right-to-erasure requests via the privacy API.</td></tr>
         </tbody>
       </table>
@@ -395,7 +394,6 @@
         <li>User Management</li>
         <li><strong>Audit Log</strong> &mdash; admin only</li>
         <li><strong>Security</strong> &mdash; admin only</li>
-        <li>Reports (new tab)</li>
       </ul>
     </div>
 
@@ -661,10 +659,11 @@
 
       <h4>Reconcile sweep</h4>
       <p>
-        From the Operations area (or by POSTing to <code>/api/payfast/reconcile</code> with an empty
-        body), the system queries PayFast&rsquo;s Transaction History API and updates any &ldquo;In
+        The reconcile sweep queries PayFast&rsquo;s Transaction History API and updates any &ldquo;In
         Progress&rdquo; or &ldquo;Abandoned&rdquo; bookings from the last 2 hours that PayFast says
-        are actually paid. Safe to re-run as often as needed; idempotent.
+        are actually paid. This runs automatically on the server&rsquo;s 15-minute schedule (see
+        Operations below), so you normally don&rsquo;t trigger it yourself. Idempotent &mdash; safe
+        to run repeatedly.
       </p>
       <div class="callout">
         <span class="label">Automation</span>
@@ -675,27 +674,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="incidents">13. Incidents</h2>
-    <div class="section">
-      <p>
-        The system auto-detects recurring failures (CareFirst hand-off failing repeatedly, PayFast
-        reconcile failing, etc.) and records them as <strong>Incidents</strong>. Visible on the
-        Reports &rarr; Incidents tab.
-      </p>
-      <p>Each incident has:</p>
-      <ul>
-        <li>A short title (e.g. &ldquo;CareFirst start-consultation 502s&rdquo;).</li>
-        <li>First-seen / last-seen timestamps.</li>
-        <li>Count of how many times it&rsquo;s fired.</li>
-        <li>Status: <strong>open</strong> or <strong>resolved</strong> (auto-resolves when the symptom stops for 30 min).</li>
-        <li>The most recent error message.</li>
-        <li>Affected booking IDs.</li>
-      </ul>
-      <p>You can manually mark an incident resolved if you&rsquo;ve confirmed the upstream cause is fixed.</p>
-    </div>
-
-    <!-- ====================================================================== -->
-    <h2 id="privacy">14. Privacy &amp; POPIA erasure</h2>
+    <h2 id="privacy">13. Privacy &amp; POPIA erasure</h2>
     <div class="section">
       <p>
         When a patient lodges a POPIA right-to-erasure request, you process it via the privacy API:
@@ -719,7 +698,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="ops">15. Operations &amp; cleanup</h2>
+    <h2 id="ops">14. Operations &amp; cleanup</h2>
     <div class="section">
       <p>
         A 15-minute cron on the server (live since 2026-05-27) runs the system&rsquo;s housekeeping
@@ -741,7 +720,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="manager-pin">16. Manager-PIN role</h2>
+    <h2 id="manager-pin">15. Manager-PIN role</h2>
     <div class="section">
       <p>
         Some flows in the User experience (nurse-verification on patient search, discard
@@ -752,7 +731,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="troubleshooting">17. Common admin problems</h2>
+    <h2 id="troubleshooting">16. Common admin problems</h2>
     <div class="section">
       <table class="matrix">
         <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
@@ -771,7 +750,7 @@
           </tr>
           <tr>
             <td><strong>Recurring CareFirst hand-off failures</strong></td>
-            <td>Reports &rarr; Incidents. Confirm the incident, escalate to the CareFirst team. The booking remains in &ldquo;Payment Complete&rdquo; until the upstream is fixed and Start Consult is retried.</td>
+            <td>Escalate to the CareFirst / development team. The booking stays at &ldquo;Payment Complete&rdquo; until the upstream is fixed and Start Consult is retried &mdash; no payment is lost.</td>
           </tr>
           <tr>
             <td><strong>Need to re-brand a client</strong></td>
@@ -782,7 +761,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="delete-warn">18. Things to be careful with</h2>
+    <h2 id="delete-warn">17. Things to be careful with</h2>
     <div class="section">
       <ul>
         <li>
