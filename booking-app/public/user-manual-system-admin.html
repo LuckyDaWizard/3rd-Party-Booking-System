@@ -668,8 +668,9 @@
       </p>
       <div class="callout">
         <span class="label">Automation</span>
-        Once an external cron is wired (Sprint 2 #7, pending), reconciliation runs every 15 minutes
-        automatically. Until then, manual or as-needed.
+        A 15-minute cron on the server runs reconciliation automatically (live since 2026-05-27), so
+        in normal operation you rarely need to trigger it by hand. The manual route stays available
+        for one-off checks.
       </div>
     </div>
 
@@ -707,30 +708,35 @@
         <li>Writes an audit log entry under your name as the actor.</li>
         <li>Returns a count of how many records were anonymised.</li>
       </ul>
-      <div class="callout warn">
-        <span class="label">Open management decision</span>
-        Whether <code>unit_id</code> should also be replaced post-erasure (to remove any residual
-        re-identification risk) is a pending stakeholder decision &mdash; see the Management Decisions
-        document.
+      <div class="callout">
+        <span class="label">Retention &amp; the unit ID</span>
+        Stakeholders have <strong>accepted</strong> the residual re-identification risk of keeping
+        <code>unit_id</code> after erasure (it is not personally identifying on its own); the privacy
+        notice documents this. Separately, abandoned (never-paid) bookings are automatically
+        anonymised after 30 days by the retention sweep below &mdash; you don&rsquo;t need to action
+        those manually.
       </div>
     </div>
 
     <!-- ====================================================================== -->
     <h2 id="ops">15. Operations &amp; cleanup</h2>
     <div class="section">
-      <p>The system has automated housekeeping at <code>POST /api/admin/cleanup/sweep</code>, which:</p>
+      <p>
+        A 15-minute cron on the server (live since 2026-05-27) runs the system&rsquo;s housekeeping
+        automatically &mdash; you don&rsquo;t normally touch any of this by hand. Each tick runs four
+        jobs in sequence:
+      </p>
       <ul>
-        <li>Deletes <strong>used or 7-day-expired</strong> PIN-reset tokens.</li>
-        <li>Deletes <strong>90-day-old</strong> failed-sign-in attempts.</li>
-        <li>Deletes <strong>resolved incidents</strong> older than 90 days.</li>
+        <li><strong>Payment reconcile</strong> (<code>/api/payfast/reconcile</code>) &mdash; catches any missed PayFast payments.</li>
+        <li><strong>Cleanup sweep</strong> (<code>/api/admin/cleanup/sweep</code>) &mdash; deletes used/7-day-expired PIN-reset tokens, failed sign-in attempts &gt; 90 days, and resolved incidents &gt; 90 days.</li>
+        <li><strong>Retention sweep</strong> (<code>/api/admin/privacy/retention-sweep</code>) &mdash; anonymises PII on <strong>abandoned</strong> (never-paid) bookings older than 30 days (POPIA &sect;14). Completed/paid bookings are left alone &mdash; they fall under multi-year medical-records retention.</li>
+        <li><strong>Incident sweep</strong> (<code>/api/admin/incidents</code>) &mdash; auto-resolves incidents whose symptom has stopped.</li>
       </ul>
       <p>
-        Run with <code>{"dryRun": true}</code> first to see what <em>would</em> be deleted without
-        actually doing it. Each run writes an audit-log entry.
-      </p>
-      <p>
-        Once the 15-minute external cron is wired, this runs automatically; until then, kick it off
-        weekly or whenever you want a tidy-up.
+        Each cleanup-sweep run writes an audit-log entry from actor &ldquo;Cron&rdquo;. The
+        cleanup-sweep route also accepts <code>{"dryRun": true}</code> if you ever want to preview
+        what <em>would</em> be deleted without deleting it. Operational setup details (the cron file,
+        the secret, how to verify ticks) live in <code>OPERATIONS.md</code>.
       </p>
     </div>
 
