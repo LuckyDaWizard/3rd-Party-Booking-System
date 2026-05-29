@@ -671,6 +671,6 @@ Restore by moving back.
 
 For operational emergencies or escalation beyond this runbook:
 
-- **Email:** lehlohonolom@firstcare.solutions
+- **Email:** lehlohonolom@carefirst.co.za
 - **Also hardcoded in:** the "Contact Support" button in the sidebar,
   which opens a mailto with user context pre-filled.
