@@ -13,6 +13,7 @@ import {
   Users,
   ScrollText,
   Shield,
+  FolderOpen,
   Headset,
   ChevronsLeft,
   ChevronsRight,
@@ -27,6 +28,8 @@ import { useActiveClientBranding } from "@/lib/use-active-client-branding"
 interface NavChild {
   label: string
   href: string
+  /** Open in a new tab. Used for static docs / the internal Reports page. */
+  openInNewTab?: boolean
 }
 
 interface NavItem {
@@ -54,6 +57,26 @@ const navItems: NavItem[] = [
   { label: "User Management", href: "/user-management", icon: Users, roles: ["system_admin", "unit_manager"] },
   { label: "Audit Log", href: "/audit-log", icon: ScrollText, roles: ["system_admin"] },
   { label: "Security", href: "/security", icon: Shield, roles: ["system_admin"] },
+  {
+    // Quick links to pages that exist but aren't part of the day-to-day nav.
+    // system_admin only. The docs are static HTML in /public and the Reports
+    // page is internal, so all children open in a new tab to keep the app
+    // shell open behind them.
+    label: "Resources",
+    href: "/resources",
+    icon: FolderOpen,
+    roles: ["system_admin"],
+    children: [
+      { label: "Reports (internal)", href: "/reports", openInNewTab: true },
+      { label: "Design System", href: "/design-system" },
+      { label: "System Audit", href: "/system-audit.html", openInNewTab: true },
+      { label: "Management Decisions", href: "/management-decisions-2026-05-21.html", openInNewTab: true },
+      { label: "Scheduling Proposal", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
+      { label: "Manual — User", href: "/user-manual-user.html", openInNewTab: true },
+      { label: "Manual — Unit Manager", href: "/user-manual-unit-manager.html", openInNewTab: true },
+      { label: "Manual — System Admin", href: "/user-manual-system-admin.html", openInNewTab: true },
+    ],
+  },
 ]
 
 interface SidebarProps {
@@ -294,6 +317,8 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                             <Link
                               key={child.href}
                               href={child.href}
+                              target={child.openInNewTab ? "_blank" : undefined}
+                              rel={child.openInNewTab ? "noopener noreferrer" : undefined}
                               onClick={() => setOpenDropdown(null)}
                               className={cn(
                                 "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
@@ -356,6 +381,8 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                         <Link
                           key={child.href}
                           href={child.href}
+                          target={child.openInNewTab ? "_blank" : undefined}
+                          rel={child.openInNewTab ? "noopener noreferrer" : undefined}
                           onClick={isDrawer ? closeMobile : undefined}
                           className={cn(
                             "rounded-lg px-3 py-2 text-sm transition-colors",
