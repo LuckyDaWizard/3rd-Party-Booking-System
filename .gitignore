@@ -28,6 +28,14 @@ testing extention.txt
 # Commit only final published versions if needed; drafts stay local.
 AUDIT_REPORT_*.md
 
+# Rendered PDFs — HTML sources in booking-app/public are the source of
+# truth; PDFs are generated on demand and kept local (keeps the repo slim).
+*.pdf
+
+# Patient-data exports — POPIA-protected PII. Must NEVER be committed.
+patient-records-*.csv
+*-patient-records.csv
+
 # ---------------------------------------------------------------------------
 # Secrets
 # ---------------------------------------------------------------------------
