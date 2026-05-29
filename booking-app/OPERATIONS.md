@@ -588,6 +588,7 @@ The app exposes three endpoints intended to run on a 15-min schedule:
 |---|---|---|
 | `/api/payfast/reconcile` | POST (empty body) | Pulls PayFast Transaction History and flips any `In Progress` / `Abandoned` bookings to `Payment Complete` if PayFast confirms payment. |
 | `/api/admin/cleanup/sweep` | POST (empty body) | Deletes consumed/expired `pin_reset_tokens`, `auth_attempts` older than 90d, resolved `incidents` older than 90d. |
+| `/api/admin/privacy/retention-sweep` | POST (empty body) | POPIA §14 — anonymises PII on `Abandoned` bookings older than 30 days (never-completed intakes). Completed bookings are out of scope (HPCSA medical-records retention). |
 | `/api/admin/incidents` | GET | Triggers `sweepStaleIncidents()` so open incidents auto-resolve once their symptom stops. |
 
 Each accepts an `X-Cron-Secret` header matching `CRON_SECRET` in the app's
@@ -624,7 +625,7 @@ constant-time, the secret must be at least 16 chars.
    BASE='http://127.0.0.1:3000'
    STAMP=$(date '+%Y-%m-%d %H:%M:%S')
    echo "[$STAMP] cron tick"
-   for path in /api/payfast/reconcile /api/admin/cleanup/sweep; do
+   for path in /api/payfast/reconcile /api/admin/cleanup/sweep /api/admin/privacy/retention-sweep; do
      code=$(curl -s -o /tmp/cron-resp -w "%{http_code}" -X POST \
        -H "X-Cron-Secret: $SECRET" -H "Content-Type: application/json" \
        --max-time 60 "$BASE$path")

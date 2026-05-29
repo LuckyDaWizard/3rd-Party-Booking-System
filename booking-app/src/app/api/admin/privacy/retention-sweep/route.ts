@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase-admin"
-import { requireSystemAdminWithCaller } from "@/lib/api-auth"
-import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
+import {
+  requireSystemAdminWithCaller,
+  isAuthorizedCronCall,
+  type CallerInfo,
+} from "@/lib/api-auth"
+import { writeAuditLog, getCallerIp, SYSTEM_ACTOR_ID } from "@/lib/audit-log"
 import { apiError } from "@/lib/api-response"
 
 // =============================================================================
@@ -64,8 +68,23 @@ const PII_COLUMNS_TO_CLEAR = [
 ] as const
 
 export async function POST(request: Request) {
-  const { caller, denied } = await requireSystemAdminWithCaller()
-  if (denied) return denied
+  // Auth: cron-secret header bypasses session auth so the 15-min VPS
+  // crontab can run the retention sweep. Synthesize a system caller for
+  // the audit-log entry.
+  let caller: CallerInfo
+  if (isAuthorizedCronCall(request)) {
+    caller = {
+      id: SYSTEM_ACTOR_ID,
+      authUserId: SYSTEM_ACTOR_ID,
+      role: "system_admin",
+      unitIds: [],
+      name: "Cron",
+    }
+  } else {
+    const result = await requireSystemAdminWithCaller()
+    if (result.denied) return result.denied
+    caller = result.caller
+  }
 
   let admin
   try {
