@@ -1025,6 +1025,15 @@
             <code>/var/log/booking-cron.log</code>. Verified five
             consecutive ticks (08:00, 08:15, 08:30, 08:45, 09:00) all
             returning HTTP 200.
+            <br><br>
+            <strong>Update 2026-05-29:</strong> a fourth job &mdash;
+            <code>POST /api/admin/privacy/retention-sweep</code> &mdash; was
+            added to the same cron. It anonymises PII on <code>Abandoned</code>
+            bookings older than 30 days (POPIA &sect;14). This route existed
+            but had no caller, so the policy was never being enforced; it now
+            runs every 15 minutes. (Completed/paid bookings remain under
+            multi-year HPCSA medical-records retention and are intentionally
+            out of scope.)
           </div>
           <div class="field">
             <div class="field-label">What it is</div>
