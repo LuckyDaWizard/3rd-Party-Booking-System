@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
 import { SubNav } from "@/components/ui/sub-nav"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
+import { compressImage } from "@/lib/compress-image"
 
 const AVATAR_MIN_WIDTH = 80
 const AVATAR_MIN_HEIGHT = 80
@@ -270,8 +271,9 @@ export default function AddUserPage() {
       // alert rather than blocking the flow.
       if (avatarFile && newUserId) {
         try {
+          const compressed = await compressImage(avatarFile, { maxDimension: 512, quality: 0.85 })
           const fd = new FormData()
-          fd.append("file", avatarFile)
+          fd.append("file", compressed)
           const uploadRes = await fetch(`/api/users/${newUserId}/avatar`, {
             method: "POST",
             body: fd,

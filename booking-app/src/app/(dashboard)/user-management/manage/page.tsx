@@ -22,6 +22,7 @@ import { useUnitStore } from "@/lib/unit-store"
 import { PIN_LENGTH } from "@/lib/constants"
 import { useAuth } from "@/lib/auth-store"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
+import { compressImage } from "@/lib/compress-image"
 
 // Minimum pixel dimensions for the avatar — guards against tiny crops that
 // would scale up unattractively in the header. SVG / ICO skip the check.
@@ -255,8 +256,9 @@ export default function ManageUserPage() {
     setAvatarBusy(true)
     setAvatarError(null)
     try {
+      const compressed = await compressImage(file, { maxDimension: 512, quality: 0.85 })
       const fd = new FormData()
-      fd.append("file", file)
+      fd.append("file", compressed)
       const res = await fetch(`/api/users/${userId}/avatar`, {
         method: "POST",
         body: fd,

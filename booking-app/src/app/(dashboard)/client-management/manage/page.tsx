@@ -23,6 +23,7 @@ import { useUnitStore } from "@/lib/unit-store"
 import { useUserStore } from "@/lib/user-store"
 import { useAuth } from "@/lib/auth-store"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
+import { compressImage } from "@/lib/compress-image"
 import { checkAccentAgainstWhite } from "@/lib/color-contrast"
 
 // System default accent — used as the picker's starting value when a client
@@ -177,8 +178,12 @@ export default function ManageClientPage() {
     setBusy(true)
     setError(null)
     try {
+      const compressed = await compressImage(file, {
+        maxDimension: kind === "logo" ? 1024 : 256,
+        quality: 0.9,
+      })
       const fd = new FormData()
-      fd.append("file", file)
+      fd.append("file", compressed)
       const res = await fetch(`/api/admin/clients/${clientId}/${kind}`, {
         method: "POST",
         body: fd,

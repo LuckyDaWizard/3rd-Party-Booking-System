@@ -21,6 +21,7 @@ import { useUserStore } from "@/lib/user-store"
 import { useAuth } from "@/lib/auth-store"
 import { supabase } from "@/lib/supabase"
 import { validateImageMinDimensions } from "@/lib/image-dimensions"
+import { compressImage } from "@/lib/compress-image"
 import { checkAccentAgainstWhite } from "@/lib/color-contrast"
 
 // ---------------------------------------------------------------------------
@@ -1071,8 +1072,12 @@ export default function AddNewClientPage() {
         // retry from Manage Client.
         async function uploadAsset(kind: "logo" | "favicon", file: File) {
           try {
+            const compressed = await compressImage(file, {
+              maxDimension: kind === "logo" ? 1024 : 256,
+              quality: 0.9,
+            })
             const fd = new FormData()
-            fd.append("file", file)
+            fd.append("file", compressed)
             const uploadRes = await fetch(`/api/admin/clients/${id}/${kind}`, {
               method: "POST",
               body: fd,
@@ -1144,8 +1149,9 @@ export default function AddNewClientPage() {
           // Avatar upload (best-effort, same pattern as logo/favicon).
           if (userDetails.avatarFile && newUserId) {
             try {
+              const compressed = await compressImage(userDetails.avatarFile, { maxDimension: 512, quality: 0.85 })
               const fd = new FormData()
-              fd.append("file", userDetails.avatarFile)
+              fd.append("file", compressed)
               const uploadRes = await fetch(`/api/users/${newUserId}/avatar`, {
                 method: "POST",
                 body: fd,
