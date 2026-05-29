@@ -146,6 +146,28 @@
     font-size: 13.5px;
     margin-top: 12px;
   }
+  .resolved-banner {
+    background: var(--ok-tint);
+    border: 1px solid var(--ok-ink);
+    color: var(--ok-ink);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin: 0 0 16px;
+  }
+  .resolved-banner .label {
+    display: inline-block;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    background: var(--ok-ink);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 8px;
+  }
+  .decision.is-resolved { opacity: 0.85; }
   .recommendation .label {
     font-weight: 800;
     text-transform: uppercase;
@@ -231,6 +253,13 @@
       summarises each one in plain language so leadership can review, ask questions, and respond.
     </p>
 
+    <div class="resolved-banner">
+      <span class="label">Status update 2026-05-29</span>
+      Two of the seven are now closed: <strong>#2 (POPIA erasure stance)</strong> and
+      <strong>#6 (background housekeeping jobs)</strong> &mdash; see the green banners on those items
+      below. The most important remaining item is <strong>#1 (production domain + HTTPS)</strong>.
+    </div>
+
     <h2>How to read this document</h2>
     <p>
       Each item below has the same structure: <strong>what we&rsquo;re asking</strong>,
@@ -295,9 +324,16 @@
     <!-- DECISION 2 — POPIA stance -->
     <!-- ====================================================================== -->
 
-    <div class="decision">
+    <div class="decision is-resolved">
       <span class="decision-number">2</span>
       <h3>Decide our POPIA &ldquo;right to erasure&rdquo; stance<span class="impact high">High</span></h3>
+
+      <div class="resolved-banner">
+        <span class="label">Resolved 2026-05-29</span>
+        Decision taken: <strong>accept the residual re-identification risk</strong> of retaining
+        <code>unit_id</code> after erasure (it is not personally identifying on its own). The privacy
+        notice is being updated to document this. No further action needed from leadership.
+      </div>
 
       <div class="field">
         <span class="field-label">What we&rsquo;re asking</span>
@@ -460,9 +496,16 @@
     <!-- DECISION 6 — Cron approach -->
     <!-- ====================================================================== -->
 
-    <div class="decision">
+    <div class="decision is-resolved">
       <span class="decision-number">6</span>
       <h3>Approve the approach for background housekeeping jobs<span class="impact low">Low</span></h3>
+
+      <div class="resolved-banner">
+        <span class="label">Resolved 2026-05-29</span>
+        Built and live. A 15-minute schedule on our existing server now runs payment reconciliation,
+        record cleanup, POPIA retention anonymisation, and incident auto-resolve &mdash; no new
+        third-party service or cost. No further action needed from leadership.
+      </div>
 
       <div class="field">
         <span class="field-label">What we&rsquo;re asking</span>
