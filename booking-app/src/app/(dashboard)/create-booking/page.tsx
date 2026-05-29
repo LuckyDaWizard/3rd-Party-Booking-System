@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowRight } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OtpInput } from "@/components/ui/otp-input"
 import { SubNav } from "@/components/ui/sub-nav"
@@ -114,6 +114,44 @@ export default function CreateBookingPage() {
     { key: "passport", label: "Passport Number" },
     { key: "dob", label: "Date of Birth" },
   ]
+
+  // Hard guard: a booking must be attached to a unit. If there's no active
+  // unit (e.g. a system_admin who hasn't picked one — they're never
+  // auto-assigned), block the flow with a prompt to choose one rather than
+  // letting a no-unit booking be created.
+  if (!activeUnitId) {
+    return (
+      <div className="flex flex-col gap-6">
+        <SubNav onBack={() => router.push("/home")} />
+        <div
+          data-testid="no-unit-guard"
+          className="flex flex-col items-center py-16 text-center"
+        >
+          <div className="flex size-14 items-center justify-center rounded-full bg-[var(--client-primary-10)]">
+            <Building2 className="size-7 text-[var(--client-primary)]" />
+          </div>
+          <h1 className="mt-5 text-2xl font-extrabold text-ink">
+            Select a unit to continue
+          </h1>
+          <p className="mt-2 max-w-md text-ink-muted">
+            Every booking is attached to a unit. You don&apos;t have an active
+            unit selected yet — choose the unit you&apos;re booking for, then
+            start the booking.
+          </p>
+          <Button
+            data-testid="select-unit-cta"
+            variant="accent"
+            size="cta-lg"
+            className="mt-6"
+            onClick={() => router.push("/switch-unit")}
+          >
+            Choose a unit
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
