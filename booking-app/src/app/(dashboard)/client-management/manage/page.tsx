@@ -993,11 +993,13 @@ export default function ManageClientPage() {
         cancelTestId="cancel-status-button"
       />
 
-      {/* PIN verification — required before client deletion */}
+      {/* PIN verification — required before client deletion. Manager-only
+          (regular user PINs cannot authorise this destructive change). */}
       <PinVerificationModal
         open={pinOpen}
         onOpenChange={setPinOpen}
         activeUnitId={activeUnitId}
+        purpose="manager-action"
         heading="Confirm client deletion"
         subtitle="Enter your access PIN to permanently delete this client."
         onVerified={async () => {

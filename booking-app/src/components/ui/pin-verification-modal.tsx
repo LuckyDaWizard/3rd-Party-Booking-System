@@ -43,6 +43,15 @@ export interface PinVerificationModalProps {
   activeUnitId: string | null
   heading: string
   subtitle?: string
+  /**
+   * Authorisation scope sent to the verify endpoint:
+   *   - "booking-validation" (default) — any Active role assigned to the
+   *     unit may sign off. Used for nurse verification + Start Consult.
+   *   - "manager-action" — unit_manager / system_admin only. Used for the
+   *     manual "Mark Payment as Confirmed" override and the user / client /
+   *     unit management re-verification gates.
+   */
+  purpose?: "booking-validation" | "manager-action"
 }
 
 export function PinVerificationModal({
@@ -52,6 +61,7 @@ export function PinVerificationModal({
   activeUnitId,
   heading,
   subtitle,
+  purpose,
 }: PinVerificationModalProps) {
   const [code, setCode] = React.useState<string[]>(
     Array.from({ length: PIN_LENGTH }, () => "")
@@ -84,7 +94,7 @@ export function PinVerificationModal({
       const res = await fetch("/api/verify/manager-pin", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pin, unitId: activeUnitId }),
+        body: JSON.stringify({ pin, unitId: activeUnitId, purpose }),
       })
       const data = (await res.json().catch(() => ({}))) as { valid?: boolean }
       valid = res.ok && Boolean(data.valid)

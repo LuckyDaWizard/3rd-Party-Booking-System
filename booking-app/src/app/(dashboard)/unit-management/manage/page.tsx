@@ -342,11 +342,13 @@ export default function ManageUnitPage() {
         cancelTestId="cancel-status-button"
       />
 
-      {/* PIN verification — required before unit deletion */}
+      {/* PIN verification — required before unit deletion. Manager-only
+          (regular user PINs cannot authorise this destructive change). */}
       <PinVerificationModal
         open={pinOpen}
         onOpenChange={setPinOpen}
         activeUnitId={activeUnitId}
+        purpose="manager-action"
         heading="Confirm unit deletion"
         subtitle="Enter your access PIN to permanently delete this unit."
         onVerified={async () => {

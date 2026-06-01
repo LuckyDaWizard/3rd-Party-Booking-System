@@ -824,10 +824,12 @@ export default function ManageUserPage() {
 
                 // Two-person sign-off via /api/verify/manager-pin (Phase 5
                 // RLS forbids reading other users' PINs directly).
+                // purpose="manager-action" restricts to unit_manager /
+                // system_admin only — regular user PINs are rejected.
                 const verifyRes = await fetch("/api/verify/manager-pin", {
                   method: "POST",
                   headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ pin, unitId: activeUnitId }),
+                  body: JSON.stringify({ pin, unitId: activeUnitId, purpose: "manager-action" }),
                 })
                 const verifyData = (await verifyRes.json().catch(() => ({}))) as {
                   valid?: boolean
@@ -900,13 +902,16 @@ export default function ManageUserPage() {
         cancelTestId="cancel-status-button"
       />
 
-      {/* PIN verification modal — gates destructive + privilege-change actions */}
+      {/* PIN verification modal — gates destructive + privilege-change actions.
+          manager-action keeps this restricted to unit_manager / system_admin
+          only; a regular user PIN can't authorise user-management changes. */}
       <PinVerificationModal
         open={pinAction !== null}
         onOpenChange={(open) => {
           if (!open) setPinAction(null)
         }}
         activeUnitId={activeUnitId}
+        purpose="manager-action"
         heading={
           pinAction === "delete"
             ? "Confirm user deletion"

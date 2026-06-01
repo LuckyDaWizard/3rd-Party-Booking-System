@@ -962,7 +962,12 @@ export default function PatientHistoryPage() {
         }}
       />
 
-      {/* PIN Verification Modal — gates manual payment confirmation */}
+      {/* PIN Verification Modal — gates manual payment confirmation.
+          purpose="manager-action" keeps this restricted to unit_manager /
+          system_admin only (financial override). The default
+          "booking-validation" purpose used on the Start Consult + nurse
+          verification modals also accepts a regular user assigned to the
+          unit. */}
       <PinVerificationModal
         open={pinModalOpen}
         onOpenChange={(o) => {
@@ -970,6 +975,7 @@ export default function PatientHistoryPage() {
           if (!o) setPendingConfirmBookingId(null)
         }}
         activeUnitId={activeUnitId}
+        purpose="manager-action"
         heading="Enter your verification code to confirm payment"
         subtitle="This will mark the booking as paid and be recorded in the audit log."
         onVerified={async () => {
