@@ -318,7 +318,7 @@
       <h1>CareFirst Third&nbsp;Party Booking System</h1>
       <div class="meta">
         Operational guide for the manager(s) of a clinic unit.<br>
-        Version 1 &middot; Last updated <strong>2026-05-29</strong>
+        Version 1 &middot; Last updated <strong>2026-06-01</strong>
       </div>
     </header>
 
@@ -343,7 +343,7 @@
         <li><a href="#edit-unit">Editing a unit</a></li>
         <li><a href="#switch-unit">Working across multiple units</a></li>
         <li><a href="#bookings-monitor">Monitoring bookings</a></li>
-        <li><a href="#manager-pin">Manager-PIN prompts</a></li>
+        <li><a href="#manager-pin">When your PIN is required</a></li>
         <li><a href="#troubleshooting">Common manager problems</a></li>
         <li><a href="#cannot-do">What this role cannot do</a></li>
       </ol>
@@ -631,12 +631,22 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="manager-pin">12. Manager-PIN prompts</h2>
+    <h2 id="manager-pin">12. When your PIN is required</h2>
     <div class="section">
       <p>
-        Some actions in the User flow (for example, a clinic with &ldquo;nurse verification&rdquo;
-        switched on, or a discard with a manager-confirm prompt) ask for your <strong>Manager
-        PIN</strong>. This is the same PIN you use to sign in, entered as a one-off authorisation.
+        The booking flow itself does <strong>not</strong> usually need a manager &mdash; a regular
+        User assigned to a unit can complete their own bookings end-to-end (nurse verification at
+        the start and Start Consult at the end both accept their own PIN). You only need to step in
+        and enter your Manager PIN for actions that have a higher trust bar:
+      </p>
+      <ul>
+        <li><strong>Mark Payment as Confirmed</strong> &mdash; the supervisor override on a booking when PayFast didn&rsquo;t notify us automatically.</li>
+        <li><strong>Edit / delete a user, or reset another user&rsquo;s PIN</strong> (User Management).</li>
+        <li><strong>Delete a unit</strong> (Unit Management).</li>
+      </ul>
+      <p>
+        For these, the system shows a PIN prompt and your Manager PIN authorises the action. Your
+        PIN is the same one you use to sign in.
       </p>
       <div class="callout warn">
         <span class="label">Important</span>

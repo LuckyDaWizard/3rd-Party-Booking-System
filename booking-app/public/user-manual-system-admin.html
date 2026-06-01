@@ -322,7 +322,7 @@
       <h1>CareFirst Third&nbsp;Party Booking System</h1>
       <div class="meta">
         Full operational and administrative guide.<br>
-        Version 1 &middot; Last updated <strong>2026-05-29</strong>
+        Version 1 &middot; Last updated <strong>2026-06-01</strong>
       </div>
     </header>
 
@@ -357,7 +357,7 @@
         <li><a href="#payments">Payments: reconciliation &amp; manual confirm</a></li>
         <li><a href="#privacy">Privacy &amp; POPIA erasure</a></li>
         <li><a href="#ops">Operations &amp; cleanup</a></li>
-        <li><a href="#manager-pin">Manager-PIN role</a></li>
+        <li><a href="#manager-pin">PIN verification &mdash; who can authorise what</a></li>
         <li><a href="#troubleshooting">Common admin problems</a></li>
         <li><a href="#delete-warn">Things to be careful with</a></li>
       </ol>
@@ -529,7 +529,10 @@
           <tr>
             <td><strong>Nurse verification</strong></td>
             <td>
-              When ON, the patient search step requires a Manager PIN as a safeguard. Default OFF.
+              When ON, the booking flow shows PIN prompts at the start (patient search) and the
+              end (Start Consult) as a second-factor checkpoint. <strong>Any Active user assigned
+              to the unit</strong> &mdash; including regular Users &mdash; can authorise their own
+              booking; you don&rsquo;t need a separate manager to be present. Default OFF.
             </td>
           </tr>
         </tbody>
@@ -720,14 +723,53 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="manager-pin">15. Manager-PIN role</h2>
+    <h2 id="manager-pin">15. PIN verification &mdash; who can authorise what</h2>
     <div class="section">
       <p>
-        Some flows in the User experience (nurse-verification on patient search, discard
-        confirmations) require a Manager PIN. As a System Admin, your PIN counts as a Manager PIN
-        anywhere a Manager is asked for one &mdash; you can always step in to authorise.
+        The system has a two-tier PIN verification model. Both tiers use the same PIN modal but
+        accept different roles depending on the action&rsquo;s trust level:
       </p>
-      <p>Every Manager-PIN entry is recorded in the Audit Log against your name as the authoriser.</p>
+      <table class="matrix">
+        <thead><tr><th>Action</th><th>Who can enter a PIN to authorise</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Nurse verification</strong> at the start of the booking flow</td>
+            <td>Any Active <strong>User, Unit Manager, or System Admin</strong> assigned to the unit</td>
+          </tr>
+          <tr>
+            <td><strong>Start Consult</strong> handoff to CareFirst</td>
+            <td>Any Active <strong>User, Unit Manager, or System Admin</strong> assigned to the unit</td>
+          </tr>
+          <tr>
+            <td><strong>Mark Payment as Confirmed</strong> (supervisor override)</td>
+            <td><strong>Unit Manager or System Admin</strong> only</td>
+          </tr>
+          <tr>
+            <td><strong>User Management</strong> edits (edit / delete / reset PIN / change role)</td>
+            <td><strong>Unit Manager or System Admin</strong> only</td>
+          </tr>
+          <tr>
+            <td><strong>Client Management</strong> deletion</td>
+            <td><strong>Unit Manager or System Admin</strong> only</td>
+          </tr>
+          <tr>
+            <td><strong>Unit Management</strong> deletion</td>
+            <td><strong>Unit Manager or System Admin</strong> only</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        As a System Admin your PIN authorises any of the above, anywhere, regardless of unit
+        assignment. Every PIN entry &mdash; whether it succeeded or failed &mdash; is recorded in
+        the Audit Log against the authoriser&rsquo;s name.
+      </p>
+      <div class="callout">
+        <span class="label">Why two tiers</span>
+        The lower tier (booking flow) keeps a clinic operating with just one User per unit &mdash;
+        no need to pull a manager off another task to sign off every patient. The higher tier
+        (financial overrides + management actions) preserves the two-person sign-off where it
+        genuinely matters for accountability.
+      </div>
     </div>
 
     <!-- ====================================================================== -->
