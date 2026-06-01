@@ -19,7 +19,7 @@ import { Banner } from "@/components/ui/banner"
 // Route access by role
 // ---------------------------------------------------------------------------
 
-const ADMIN_ONLY_ROUTES = ["/client-management", "/audit-log", "/security"]
+const ADMIN_ONLY_ROUTES = ["/client-management", "/audit-log", "/security", "/coupons"]
 const MANAGER_AND_ADMIN_ROUTES = ["/unit-management", "/user-management"]
 
 function useRouteGuard() {
