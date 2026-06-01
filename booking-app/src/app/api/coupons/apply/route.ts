@@ -74,23 +74,27 @@ export async function POST(request: Request) {
   const { data: booking, error: bookErr } = await admin
     .from("bookings")
     .select(
-      "id, status, payment_amount, original_amount, email_address, coupon_id, unit_id, units(client_id, clients(allow_coupons))"
+      "id, status, payment_amount, original_amount, email_address, coupon_id, unit_id, units(client_id, clients(id, allow_coupons))"
     )
     .eq("id", bookingId)
     .maybeSingle()
   if (bookErr) return apiError(bookErr.message, 500)
   if (!booking) return apiError("Booking not found", 404)
 
-  // Per-client gate: extract the parent client's allow_coupons flag. The
-  // embed comes back as either an object or a singleton-array depending on
-  // Supabase's mood; handle both shapes.
-  const unitEmbed = booking.units as
-    | { clients: { allow_coupons: boolean | null } | { allow_coupons: boolean | null }[] | null }
-    | { clients: { allow_coupons: boolean | null } | { allow_coupons: boolean | null }[] | null }[]
-    | null
+  // Resolve the parent client. We need TWO things from it: the per-client
+  // allow_coupons gate, AND the client_id used by per-coupon client-scope
+  // restrictions inside the constraint check. Supabase embeds come back
+  // as either an object or a singleton-array depending on cardinality —
+  // normalise to a scalar for both layers.
+  type EmbeddedUnit = {
+    client_id?: string | null
+    clients: { id?: string; allow_coupons: boolean | null } | { id?: string; allow_coupons: boolean | null }[] | null
+  }
+  const unitEmbed = booking.units as EmbeddedUnit | EmbeddedUnit[] | null
   const unitRow = Array.isArray(unitEmbed) ? unitEmbed[0] ?? null : unitEmbed
   const clientEmbed = unitRow?.clients ?? null
   const clientRow = Array.isArray(clientEmbed) ? clientEmbed[0] ?? null : clientEmbed
+  const bookingClientId = clientRow?.id ?? unitRow?.client_id ?? null
   const allowCoupons = Boolean(clientRow?.allow_coupons)
   if (!allowCoupons) {
     return NextResponse.json(
@@ -162,6 +166,7 @@ export async function POST(request: Request) {
     totalUses,
     usesForEmail,
     now: new Date().toISOString(),
+    bookingClientId,
   })
   if (reason) {
     return NextResponse.json(

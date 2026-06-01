@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { DataCard } from "@/components/data-card"
 import { ListPagination, usePagination } from "@/components/list-pagination"
 import { useAuth } from "@/lib/auth-store"
+import { useClientStore } from "@/lib/client-store"
 
 // =============================================================================
 // /coupons — list of all coupons (system_admin only)
@@ -32,6 +33,7 @@ interface CouponRow {
   usage_limit: number | null
   usage_limit_per_email: number | null
   allowed_emails: string[] | null
+  client_id: string | null
   status: "active" | "disabled"
   used_count: number
   created_at: string
@@ -65,6 +67,11 @@ function isExpired(c: CouponRow): boolean {
 export default function CouponsListPage() {
   const router = useRouter()
   const { isSystemAdmin, loading: authLoading } = useAuth()
+  const { clients } = useClientStore()
+  const clientNameById = React.useMemo(
+    () => new Map(clients.map((c) => [c.id, c.clientName])),
+    [clients]
+  )
 
   const [coupons, setCoupons] = React.useState<CouponRow[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -251,12 +258,18 @@ export default function CouponsListPage() {
                     fields={[
                       { label: "Code", value: c.code },
                       { label: "Discount", value: formatValue(c) },
+                      {
+                        label: "Scope",
+                        value: c.client_id
+                          ? clientNameById.get(c.client_id) ?? "Specific client"
+                          : "Any client",
+                      },
                       { label: "Used", value: formatUsage(c) },
                       { label: "Expires", value: formatExpiry(c) },
                     ]}
                   />
                 </div>
-                <DesktopRow gridTemplate="100px 1.4fr 1fr 1fr 1fr 140px">
+                <DesktopRow gridTemplate="100px 1.4fr 1fr 1.2fr 1fr 1fr 140px">
                   <div className="flex items-center">
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}
@@ -279,6 +292,21 @@ export default function CouponsListPage() {
                     <span className="text-xs font-bold text-ink">Discount</span>
                     <span className="truncate text-sm text-ink-muted">
                       {formatValue(c)} {c.discount_type === "percentage" ? "off" : ""}
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
+                    <span className="text-xs font-bold text-ink">Scope</span>
+                    <span
+                      className="truncate text-sm text-ink-muted"
+                      title={
+                        c.client_id
+                          ? clientNameById.get(c.client_id) ?? "Specific client"
+                          : "Any client"
+                      }
+                    >
+                      {c.client_id
+                        ? clientNameById.get(c.client_id) ?? "Specific client"
+                        : "Any client"}
                     </span>
                   </div>
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">

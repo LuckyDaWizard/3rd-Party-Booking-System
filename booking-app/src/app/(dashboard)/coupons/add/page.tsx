@@ -9,6 +9,7 @@ import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { Banner } from "@/components/ui/banner"
 import { useAuth } from "@/lib/auth-store"
+import { useClientStore } from "@/lib/client-store"
 
 // =============================================================================
 // /coupons/add — create a new coupon (system_admin only)
@@ -19,12 +20,15 @@ type DiscountType = "percentage" | "fixed"
 export default function CouponAddPage() {
   const router = useRouter()
   const { isSystemAdmin, loading: authLoading } = useAuth()
+  const { clients } = useClientStore()
 
   // ----- General -----
   const [code, setCode] = React.useState("")
   const [description, setDescription] = React.useState("")
   const [discountType, setDiscountType] = React.useState<DiscountType>("percentage")
   const [discountValue, setDiscountValue] = React.useState("")
+  // "" = "Any client" (NULL on server). Otherwise the selected client id.
+  const [clientId, setClientId] = React.useState("")
 
   // ----- Validity -----
   const [validFrom, setValidFrom] = React.useState("")
@@ -101,6 +105,7 @@ export default function CouponAddPage() {
             ? Number(usageLimitPerEmail)
             : null,
           allowed_emails: allowedEmails.length > 0 ? allowedEmails : null,
+          client_id: clientId || null,
         }),
       })
       const data = (await res.json().catch(() => ({}))) as {
@@ -185,6 +190,33 @@ export default function CouponAddPage() {
             data-testid="coupon-discount-value"
           />
         </div>
+      </section>
+
+      {/* ===== Scope ===== */}
+      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
+        <div>
+          <h2 className="text-sm font-bold text-ink">Scope</h2>
+          <p className="text-xs text-ink-muted">
+            Restrict the coupon to a specific client, or leave on
+            <em> Any client</em> to make it system-wide. Either way the
+            client must have <em>Allow coupon codes</em> turned on for the
+            patient to apply it.
+          </p>
+        </div>
+        <FloatingSelect
+          id="client-scope"
+          label="Restrict to client"
+          value={clientId}
+          onChange={setClientId}
+          options={[
+            { value: "", label: "Any client" },
+            ...clients
+              .slice()
+              .sort((a, b) => a.clientName.localeCompare(b.clientName))
+              .map((c) => ({ value: c.id, label: c.clientName })),
+          ]}
+          data-testid="coupon-client-scope"
+        />
       </section>
 
       {/* ===== Validity ===== */}

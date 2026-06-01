@@ -34,6 +34,8 @@ export interface DbCoupon {
   usage_limit: number | null
   usage_limit_per_email: number | null
   allowed_emails: string[] | null
+  /** Optional client restriction. NULL = any client. */
+  client_id: string | null
   status: CouponStatus
   created_by: string | null
   created_at: string
@@ -62,6 +64,7 @@ export type CouponRejectionReason =
   | "usage-limit-per-email-reached"
   | "email-not-allowed"
   | "missing-email"
+  | "wrong-client"
 
 /** Human-readable text per rejection reason. Patient-side messages. */
 export function rejectionMessage(reason: CouponRejectionReason): string {
@@ -86,6 +89,8 @@ export function rejectionMessage(reason: CouponRejectionReason): string {
       return "This coupon isn't available for this patient email."
     case "missing-email":
       return "A patient email is required to apply this coupon."
+    case "wrong-client":
+      return "This coupon isn't valid for bookings under this clinic."
   }
 }
 
@@ -159,12 +164,20 @@ export function checkCouponConstraints(
     usesForEmail: number
     /** ISO timestamp to compare valid_from / valid_until against. Pass new Date().toISOString() in production. */
     now: string
+    /** Parent client id of the booking. Used for the client-scope check. null if unknown. */
+    bookingClientId: string | null
   }
 ): CouponRejectionReason | null {
   if (coupon.status === "disabled") return "disabled"
 
   if (coupon.valid_from && ctx.now < coupon.valid_from) return "not-yet-active"
   if (coupon.valid_until && ctx.now > coupon.valid_until) return "expired"
+
+  // Client scope: when a coupon is restricted to a specific client, the
+  // booking's parent client must match. NULL = "any client".
+  if (coupon.client_id !== null && coupon.client_id !== ctx.bookingClientId) {
+    return "wrong-client"
+  }
 
   if (coupon.min_spend !== null && ctx.bookingAmount < Number(coupon.min_spend)) {
     return "min-spend-not-met"

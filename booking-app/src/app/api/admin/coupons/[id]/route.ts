@@ -82,6 +82,7 @@ interface PatchBody {
   usage_limit?: number | null
   usage_limit_per_email?: number | null
   allowed_emails?: string[] | null
+  client_id?: string | null
   status?: "active" | "disabled"
 }
 
@@ -193,6 +194,28 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.valid_until !== undefined) {
     patch.valid_until = body.valid_until ?? null
     changes["Valid until"] = { old: existing.valid_until ?? "", new: body.valid_until ?? "" }
+  }
+
+  if (body.client_id !== undefined) {
+    if (body.client_id === null || body.client_id === "") {
+      patch.client_id = null
+      changes["Restrict to client"] = {
+        old: existing.client_id ?? "",
+        new: "",
+      }
+    } else {
+      const { data: client } = await admin
+        .from("clients")
+        .select("id")
+        .eq("id", body.client_id)
+        .maybeSingle()
+      if (!client) return apiError("Selected client not found", 400)
+      patch.client_id = body.client_id
+      changes["Restrict to client"] = {
+        old: existing.client_id ?? "",
+        new: body.client_id,
+      }
+    }
   }
 
   if (body.allowed_emails !== undefined) {

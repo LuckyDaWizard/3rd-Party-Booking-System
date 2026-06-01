@@ -79,6 +79,7 @@ interface CreateBody {
   usage_limit?: number | null
   usage_limit_per_email?: number | null
   allowed_emails?: string[] | null
+  client_id?: string | null
 }
 
 export async function POST(request: Request) {
@@ -163,6 +164,20 @@ export async function POST(request: Request) {
     .maybeSingle()
   if (existing) return apiError(`A coupon with code "${code}" already exists`, 409)
 
+  // Optional client restriction. Verify the client exists when provided
+  // so we don't write an FK-dangling row that the apply endpoint would
+  // silently reject.
+  let clientId: string | null = null
+  if (body.client_id) {
+    const { data: client } = await admin
+      .from("clients")
+      .select("id")
+      .eq("id", body.client_id)
+      .maybeSingle()
+    if (!client) return apiError("Selected client not found", 400)
+    clientId = body.client_id
+  }
+
   const { data: inserted, error } = await admin
     .from("coupons")
     .insert({
@@ -177,6 +192,7 @@ export async function POST(request: Request) {
       usage_limit: usageLimit,
       usage_limit_per_email: usageLimitPerEmail,
       allowed_emails: allowedEmails && allowedEmails.length > 0 ? allowedEmails : null,
+      client_id: clientId,
       status: "active",
       created_by: caller.id,
     })

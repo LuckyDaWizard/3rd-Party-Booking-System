@@ -10,6 +10,7 @@ import { FloatingSelect } from "@/components/ui/floating-select"
 import { Banner } from "@/components/ui/banner"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useAuth } from "@/lib/auth-store"
+import { useClientStore } from "@/lib/client-store"
 
 // =============================================================================
 // /coupons/manage?id=… — edit / disable / delete a coupon (system_admin only)
@@ -31,6 +32,7 @@ interface Coupon {
   usage_limit: number | null
   usage_limit_per_email: number | null
   allowed_emails: string[] | null
+  client_id: string | null
   status: Status
 }
 
@@ -55,6 +57,7 @@ export default function CouponManagePage() {
   const search = useSearchParams()
   const id = search.get("id")
   const { isSystemAdmin, loading: authLoading } = useAuth()
+  const { clients } = useClientStore()
 
   const [coupon, setCoupon] = React.useState<Coupon | null>(null)
   const [uses, setUses] = React.useState<CouponUse[]>([])
@@ -74,6 +77,7 @@ export default function CouponManagePage() {
   const [usageLimit, setUsageLimit] = React.useState("")
   const [usageLimitPerEmail, setUsageLimitPerEmail] = React.useState("")
   const [allowedEmailsText, setAllowedEmailsText] = React.useState("")
+  const [clientId, setClientId] = React.useState("")
   const [status, setStatus] = React.useState<Status>("active")
 
   const [saving, setSaving] = React.useState(false)
@@ -119,6 +123,7 @@ export default function CouponManagePage() {
           c.usage_limit_per_email !== null ? String(c.usage_limit_per_email) : ""
         )
         setAllowedEmailsText((c.allowed_emails ?? []).join("\n"))
+        setClientId(c.client_id ?? "")
         setStatus(c.status)
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : "Couldn't load coupon")
@@ -181,6 +186,7 @@ export default function CouponManagePage() {
             ? Number(usageLimitPerEmail)
             : null,
           allowed_emails: allowedEmails.length > 0 ? allowedEmails : null,
+          client_id: clientId || null,
           status,
         }),
       })
@@ -324,6 +330,28 @@ export default function CouponManagePage() {
             error={fieldErrors.discountValue}
           />
         </div>
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
+        <div>
+          <h2 className="text-sm font-bold text-ink">Scope</h2>
+          <p className="text-xs text-ink-muted">
+            Restrict to a single client, or leave on <em>Any client</em>.
+          </p>
+        </div>
+        <FloatingSelect
+          id="client-scope"
+          label="Restrict to client"
+          value={clientId}
+          onChange={setClientId}
+          options={[
+            { value: "", label: "Any client" },
+            ...clients
+              .slice()
+              .sort((a, b) => a.clientName.localeCompare(b.clientName))
+              .map((c) => ({ value: c.id, label: c.clientName })),
+          ]}
+        />
       </section>
 
       <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
