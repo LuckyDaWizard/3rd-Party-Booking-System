@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coupon Codes &amp; Discounts &mdash; Scoping Proposal</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .page {
+    max-width: 820px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  header.doc-header {
+    border-bottom: 3px solid var(--brand);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brand);
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--ink);
+    margin: 0 0 14px;
+    line-height: 1.3;
+  }
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+  ul, ol { margin: 6px 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  strong { color: var(--ink); font-weight: 700; }
+  em { color: var(--ink-soft); }
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--brand);
+    border-radius: 6px;
+  }
+  .block {
+    margin-top: 24px;
+    padding: 22px 24px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .block .tag {
+    display: inline-block;
+    background: var(--brand);
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+  .block.is-recommended { border-color: var(--ok-ink); background: #f6fdf8; }
+  .block.is-recommended .tag { background: var(--ok-ink); }
+  .recommendation {
+    background: var(--ok-tint);
+    border-left: 3px solid var(--ok-ink);
+    color: var(--ok-ink);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+  }
+  .recommendation .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+  }
+  .ask {
+    background: #fff8e1;
+    border-left: 3px solid #d97706;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+    color: #5a3e08;
+  }
+  .ask .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #92400e;
+    margin-right: 8px;
+  }
+  table.cmp {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13.5px;
+  }
+  table.cmp th, table.cmp td {
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.cmp th {
+    background: var(--line-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .pill.good { background: var(--ok-tint); color: var(--ok-ink); }
+  .pill.mid { background: var(--warn-tint); color: var(--warn-ink); }
+  .pill.bad { background: var(--danger-tint); color: #991b1b; }
+  .qlist { counter-reset: q; list-style: none; padding-left: 0; }
+  .qlist > li {
+    counter-increment: q;
+    position: relative;
+    padding: 12px 16px 12px 48px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .qlist > li::before {
+    content: "Q" counter(q);
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--brand);
+  }
+  .qlist .q-text { font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+  .qlist .q-why { font-size: 13px; color: var(--mute); }
+  footer.doc-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 12px;
+  }
+  footer.doc-footer p { margin-bottom: 6px; }
+  @media print {
+    body { background: white; }
+    .page { max-width: none; margin: 0; padding: 24px 32px; box-shadow: none; border-radius: 0; }
+    .block, .qlist > li, table.cmp { page-break-inside: avoid; }
+    header.doc-header { page-break-after: avoid; }
+    h2 { page-break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="doc-header">
+      <div class="eyebrow">Scoping Proposal</div>
+      <h1>Coupon Codes &amp; Discounts<br>on the Booking Flow</h1>
+      <div class="meta">
+        Prepared <strong>2026-06-01</strong> by the development team<br>
+        For internal review before scoping any build
+      </div>
+    </header>
+
+    <p class="lede">
+      The proposal is to add a discount mechanism to the booking flow. The right shape of that
+      mechanism depends almost entirely on <strong>who the discount is for and how it gets
+      decided</strong>. This document lays out the four realistic use cases, what each one
+      actually requires to build, and the gating question we need to answer before any work
+      starts. None of this is built yet.
+    </p>
+
+    <h2>What we know today</h2>
+    <ul>
+      <li>The consultation fee is currently a single fixed amount per booking, paid via PayFast
+      (or self-collect / monthly-invoice for clients on those modes).</li>
+      <li>There is no discount, voucher, or comp facility anywhere in the flow.</li>
+      <li>The booking row already stores the amount paid &mdash; any discount would need to be
+      reflected there and in the audit log so we can reconcile correctly.</li>
+    </ul>
+
+    <h2>The four use cases &mdash; pick the one(s) that match the intent</h2>
+
+    <div class="block">
+      <span class="tag">Option A</span>
+      <h3>Marketing &amp; promo codes <span class="pill mid" style="margin-left:6px;">Real coupons</span></h3>
+      <p>
+        Anyone with the code can use it (e.g. <code>WINTER20</code>, <code>LAUNCH50</code>).
+        Patient types the code on the payment screen; it&rsquo;s validated and applied before
+        PayFast is called.
+      </p>
+      <p><strong>What it needs:</strong></p>
+      <ul>
+        <li>A <code>coupons</code> table (code, type=&percnt;/fixed, value, valid_from, valid_to, max_uses, used_count, scope=all/client/unit, status)</li>
+        <li>An admin UI to create / list / disable codes (probably a new section under the admin area)</li>
+        <li>An &ldquo;Apply coupon&rdquo; input on the payment step that validates server-side</li>
+        <li>Server-side calculation of the discounted amount + record of the coupon on the booking + audit-log entry</li>
+        <li>Refund handling needs to be aware of the discounted amount (PayFast refund uses the actual paid amount, not the original fee)</li>
+      </ul>
+      <p><em>Effort: ~2&ndash;3 days.</em></p>
+    </div>
+
+    <div class="block">
+      <span class="tag">Option B</span>
+      <h3>Staff comps &amp; goodwill discounts <span class="pill mid" style="margin-left:6px;">Manager override</span></h3>
+      <p>
+        A nurse or manager wants to give a specific patient a discount &mdash; usually for goodwill
+        (long-time patient, complaint resolution, friends-and-family). No public code; the operator
+        clicks an &ldquo;Apply discount&rdquo; button on the payment step and a manager PIN
+        authorises it.
+      </p>
+      <p><strong>What it needs:</strong></p>
+      <ul>
+        <li>An &ldquo;Apply discount&rdquo; button on the payment screen, behind a manager-PIN modal (same gate we use for &ldquo;Mark Payment as Confirmed&rdquo;)</li>
+        <li>An input for the discount amount (or a small list of preset percentages: 10&percnt; / 25&percnt; / 50&percnt; / 100&percnt; free)</li>
+        <li>Reason field (free text or dropdown) for audit</li>
+        <li>Audit-log entry with the authorising manager, amount, reason</li>
+      </ul>
+      <p><em>Effort: ~1 day.</em></p>
+    </div>
+
+    <div class="block is-recommended">
+      <span class="tag">Option C &mdash; if this is corporate pricing</span>
+      <h3>Per-client / per-unit pricing override <span class="pill good" style="margin-left:6px;">Smallest build</span></h3>
+      <p>
+        Some clients always pay a different rate &mdash; e.g. corporate health programme employees
+        always pay R250 instead of the standard fee. No code, no override; the price is just
+        different for every booking under that client.
+      </p>
+      <p><strong>What it needs:</strong></p>
+      <ul>
+        <li>One column on <code>clients</code>: <code>consultation_fee_override</code> (nullable; if NULL, use the system default)</li>
+        <li>Booking creation reads it from the client row instead of the system default</li>
+        <li>That&rsquo;s it &mdash; no UI complexity, no coupon table, no audit-log changes</li>
+      </ul>
+      <p><em>Effort: ~half a day.</em></p>
+    </div>
+
+    <div class="block">
+      <span class="tag">Option D</span>
+      <h3>All of the above</h3>
+      <p>
+        Marketing codes (A) and goodwill discounts (B) are genuinely different features (public
+        vs. internal), and per-client pricing (C) is a different mechanism again. If we need all
+        three, they&rsquo;re built independently.
+      </p>
+      <p><em>Effort: ~3&ndash;4 days end-to-end.</em></p>
+    </div>
+
+    <h2>Side-by-side</h2>
+    <table class="cmp">
+      <thead>
+        <tr>
+          <th style="width:20%;">&nbsp;</th>
+          <th>A &middot; Promo codes</th>
+          <th>B &middot; Goodwill comp</th>
+          <th>C &middot; Per-client price</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Who decides</strong></td>
+          <td>Marketing / admin creates the code in advance</td>
+          <td>Manager on the spot, per booking</td>
+          <td>Admin sets once per client, applies automatically</td>
+        </tr>
+        <tr>
+          <td><strong>Patient sees</strong></td>
+          <td>An &ldquo;Apply coupon&rdquo; input</td>
+          <td>Nothing &mdash; staff handles it</td>
+          <td>The lower price, no explanation needed</td>
+        </tr>
+        <tr>
+          <td><strong>Effort</strong></td>
+          <td>~2&ndash;3 days</td>
+          <td>~1 day</td>
+          <td>~half day</td>
+        </tr>
+        <tr>
+          <td><strong>Best for</strong></td>
+          <td>Acquisition / seasonal campaigns</td>
+          <td>Retention / dispute resolution</td>
+          <td>Corporate or wellness-programme pricing</td>
+        </tr>
+        <tr>
+          <td><strong>Audit weight</strong></td>
+          <td>Heavy &mdash; usage tracking, expiry, fraud guard</td>
+          <td>Medium &mdash; who authorised + reason</td>
+          <td>Light &mdash; one column, set-and-forget</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="recommendation"><span class="label">If unsure, start with C</span>
+      <strong>Per-client pricing override</strong> covers the most common real-world reason teams
+      ask for &ldquo;discount codes&rdquo; (corporate / wellness pricing) without the heavy
+      machinery of a proper coupon system. We can layer A or B on later if a different need
+      actually emerges.
+    </div>
+
+    <h2>Questions to nail down before any build</h2>
+    <ol class="qlist">
+      <li>
+        <div class="q-text">Who is the discount intended for &mdash; patients (public codes),
+        specific patients (staff comp), or specific clients (corporate pricing)?</div>
+        <div class="q-why">Determines which option(s) above we&rsquo;re actually building.</div>
+      </li>
+      <li>
+        <div class="q-text">If A (promo codes): single-use or reusable? Time-bound? Limited per
+        client / unit, or system-wide?</div>
+        <div class="q-why">These choices shape the schema and the validation rules.</div>
+      </li>
+      <li>
+        <div class="q-text">If B (goodwill comp): is full-comp (R0) allowed, or capped at a
+        percentage?</div>
+        <div class="q-why">Full-comp bookings still need a paid path through PayFast for the
+        record &mdash; or skip PayFast entirely &mdash; which we need to decide before wiring it.</div>
+      </li>
+      <li>
+        <div class="q-text">Discount type: percentage, fixed amount, or both?</div>
+        <div class="q-why">Both is fine but increases the admin UI surface a little.</div>
+      </li>
+      <li>
+        <div class="q-text">PayFast refunds: should refunds be on the discounted amount (what the
+        patient paid) or the original fee?</div>
+        <div class="q-why">Refunds should default to the actually-paid amount, but worth
+        confirming.</div>
+      </li>
+      <li>
+        <div class="q-text">POPIA &amp; T&amp;Cs: do we need to disclose discount usage anywhere?</div>
+        <div class="q-why">Probably not, but worth flagging.</div>
+      </li>
+    </ol>
+
+    <div class="ask"><span class="label">What we&rsquo;d need to move forward</span>
+      Confirmation of which option(s) to build (A / B / C / D), plus a quick answer to Q2 or Q3
+      if the chosen option is A or B. Once that lands the build itself is straightforward.
+    </div>
+
+    <footer class="doc-footer">
+      <p><strong>CareFirst Third&nbsp;Party Booking System</strong> &mdash; Coupon &amp; discount scoping.</p>
+      <p>Nothing in this document has been built. Effort estimates are pre-implementation; firm
+      numbers come once we&rsquo;ve answered the questions above.</p>
+    </footer>
+
+  </div>
+</body>
+</html>
