@@ -125,209 +125,196 @@ export default function CouponAddPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <SubNav backHref="/coupons" />
+    <div data-testid="add-coupon-page" className="flex flex-col gap-8">
+      {/* Top bar */}
+      <SubNav backHref="/coupons" backTestId="back-button" />
 
-      <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Add Coupon</h1>
-        <p className="mt-2 text-base text-ink-muted">
-          All fields except code, type and value are optional. Empty means
-          &ldquo;no limit&rdquo;.
-        </p>
-      </div>
-
-      {submitError && (
-        <Banner
-          kind="danger"
-          title="Couldn't create coupon"
-          description={submitError}
-          onDismiss={() => setSubmitError(null)}
-        />
-      )}
-
-      {/* ===== General ===== */}
-      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div>
-          <h2 className="text-sm font-bold text-ink">General</h2>
-          <p className="text-xs text-ink-muted">The code patients will type + the discount applied.</p>
+      {/* Form card — centred narrow column to match Add User / Add Client */}
+      <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-6 pt-4">
+        {/* Heading */}
+        <div className="flex flex-col items-center gap-2 text-center">
+          <h1
+            data-testid="page-heading"
+            className="text-3xl font-bold text-ink"
+          >
+            Add new coupon
+          </h1>
+          <p className="text-base text-ink-muted">
+            Discount code patients can enter at the payment step
+          </p>
         </div>
-        <FloatingInput
-          id="code"
-          label="Code (e.g. WINTER20)"
-          value={code}
-          onChange={setCode}
-          onClear={() => setCode("")}
-          error={fieldErrors.code}
-          data-testid="coupon-code-input"
-        />
-        <FloatingInput
-          id="description"
-          label="Description (internal — not shown to patient)"
-          value={description}
-          onChange={setDescription}
-          onClear={() => setDescription("")}
-        />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+        {submitError && (
+          <Banner
+            kind="danger"
+            title="Couldn't create coupon"
+            description={submitError}
+            onDismiss={() => setSubmitError(null)}
+            className="w-full"
+          />
+        )}
+
+        {/* Fields */}
+        <div className="flex w-full flex-col gap-4">
+          {/* ----- General ----- */}
+          <FloatingInput
+            id="code"
+            label="Code (e.g. WINTER20)"
+            value={code}
+            onChange={setCode}
+            onClear={() => setCode("")}
+            error={fieldErrors.code}
+            data-testid="coupon-code-input"
+          />
+          <FloatingInput
+            id="description"
+            label="Description (internal — not shown to patient)"
+            value={description}
+            onChange={setDescription}
+            onClear={() => setDescription("")}
+          />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FloatingSelect
+              id="discount-type"
+              label="Discount type"
+              value={discountType}
+              onChange={(v) => setDiscountType(v as DiscountType)}
+              options={[
+                { value: "percentage", label: "Percentage (%)" },
+                { value: "fixed", label: "Fixed amount (R)" },
+              ]}
+              data-testid="coupon-discount-type"
+            />
+            <FloatingInput
+              id="discount-value"
+              label={discountType === "percentage" ? "Discount %" : "Discount amount (R)"}
+              value={discountValue}
+              onChange={setDiscountValue}
+              onClear={() => setDiscountValue("")}
+              type="number"
+              error={fieldErrors.discountValue}
+              data-testid="coupon-discount-value"
+            />
+          </div>
+
+          {/* ----- Scope ----- */}
           <FloatingSelect
-            id="discount-type"
-            label="Discount type"
-            value={discountType}
-            onChange={(v) => setDiscountType(v as DiscountType)}
+            id="client-scope"
+            label="Restrict to client"
+            value={clientId}
+            onChange={setClientId}
             options={[
-              { value: "percentage", label: "Percentage (%)" },
-              { value: "fixed", label: "Fixed amount (R)" },
+              { value: "", label: "Any client" },
+              ...clients
+                .slice()
+                .sort((a, b) => a.clientName.localeCompare(b.clientName))
+                .map((c) => ({ value: c.id, label: c.clientName })),
             ]}
-            data-testid="coupon-discount-type"
+            data-testid="coupon-client-scope"
           />
-          <FloatingInput
-            id="discount-value"
-            label={discountType === "percentage" ? "Discount %" : "Discount amount (R)"}
-            value={discountValue}
-            onChange={setDiscountValue}
-            onClear={() => setDiscountValue("")}
-            type="number"
-            error={fieldErrors.discountValue}
-            data-testid="coupon-discount-value"
-          />
-        </div>
-      </section>
 
-      {/* ===== Scope ===== */}
-      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div>
-          <h2 className="text-sm font-bold text-ink">Scope</h2>
-          <p className="text-xs text-ink-muted">
-            Restrict the coupon to a specific client, or leave on
-            <em> Any client</em> to make it system-wide. Either way the
-            client must have <em>Allow coupon codes</em> turned on for the
-            patient to apply it.
-          </p>
-        </div>
-        <FloatingSelect
-          id="client-scope"
-          label="Restrict to client"
-          value={clientId}
-          onChange={setClientId}
-          options={[
-            { value: "", label: "Any client" },
-            ...clients
-              .slice()
-              .sort((a, b) => a.clientName.localeCompare(b.clientName))
-              .map((c) => ({ value: c.id, label: c.clientName })),
-          ]}
-          data-testid="coupon-client-scope"
-        />
-      </section>
+          {/* ----- Validity ----- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FloatingInput
+              id="valid-from"
+              label="Valid from"
+              value={validFrom}
+              onChange={setValidFrom}
+              onClear={() => setValidFrom("")}
+              type="date"
+            />
+            <FloatingInput
+              id="valid-until"
+              label="Valid until"
+              value={validUntil}
+              onChange={setValidUntil}
+              onClear={() => setValidUntil("")}
+              type="date"
+            />
+            <FloatingInput
+              id="min-spend"
+              label="Min spend (R)"
+              value={minSpend}
+              onChange={setMinSpend}
+              onClear={() => setMinSpend("")}
+              type="number"
+            />
+            <FloatingInput
+              id="max-spend"
+              label="Max spend (R)"
+              value={maxSpend}
+              onChange={setMaxSpend}
+              onClear={() => setMaxSpend("")}
+              type="number"
+            />
+          </div>
 
-      {/* ===== Validity ===== */}
-      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div>
-          <h2 className="text-sm font-bold text-ink">Validity &amp; spend</h2>
-          <p className="text-xs text-ink-muted">
-            When the coupon is active + the booking-amount range it covers. Leave blank for no limit.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FloatingInput
-            id="valid-from"
-            label="Valid from"
-            value={validFrom}
-            onChange={setValidFrom}
-            onClear={() => setValidFrom("")}
-            type="date"
-          />
-          <FloatingInput
-            id="valid-until"
-            label="Valid until"
-            value={validUntil}
-            onChange={setValidUntil}
-            onClear={() => setValidUntil("")}
-            type="date"
-          />
-          <FloatingInput
-            id="min-spend"
-            label="Min spend (R)"
-            value={minSpend}
-            onChange={setMinSpend}
-            onClear={() => setMinSpend("")}
-            type="number"
-          />
-          <FloatingInput
-            id="max-spend"
-            label="Max spend (R)"
-            value={maxSpend}
-            onChange={setMaxSpend}
-            onClear={() => setMaxSpend("")}
-            type="number"
-          />
-        </div>
-      </section>
+          {/* ----- Usage limits ----- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FloatingInput
+              id="usage-limit"
+              label="Total uses (all patients)"
+              value={usageLimit}
+              onChange={setUsageLimit}
+              onClear={() => setUsageLimit("")}
+              type="number"
+            />
+            <FloatingInput
+              id="usage-limit-per-email"
+              label="Uses per patient email"
+              value={usageLimitPerEmail}
+              onChange={setUsageLimitPerEmail}
+              onClear={() => setUsageLimitPerEmail("")}
+              type="number"
+            />
+          </div>
 
-      {/* ===== Usage limits ===== */}
-      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div>
-          <h2 className="text-sm font-bold text-ink">Usage limits</h2>
-          <p className="text-xs text-ink-muted">
-            How many times the code can be redeemed overall and per patient email.
-          </p>
+          {/* ----- Allowed emails ----- */}
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="allowed-emails"
+              className="px-1 text-xs font-semibold text-ink-muted"
+            >
+              Allowed patient emails (optional)
+            </label>
+            <textarea
+              id="allowed-emails"
+              value={allowedEmailsText}
+              onChange={(e) => setAllowedEmailsText(e.target.value)}
+              placeholder="patient1@example.com&#10;patient2@example.com"
+              rows={3}
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-ink focus:border-[var(--client-primary)] focus:outline-none"
+              data-testid="coupon-allowed-emails"
+            />
+            <span className="px-1 text-[11px] text-ink-muted">
+              One per line or comma-separated. Leave blank for any patient.
+            </span>
+          </div>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FloatingInput
-            id="usage-limit"
-            label="Total uses (across all patients)"
-            value={usageLimit}
-            onChange={setUsageLimit}
-            onClear={() => setUsageLimit("")}
-            type="number"
-          />
-          <FloatingInput
-            id="usage-limit-per-email"
-            label="Uses per patient email"
-            value={usageLimitPerEmail}
-            onChange={setUsageLimitPerEmail}
-            onClear={() => setUsageLimitPerEmail("")}
-            type="number"
-          />
-        </div>
-      </section>
 
-      {/* ===== Allowed emails ===== */}
-      <section className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
-        <div>
-          <h2 className="text-sm font-bold text-ink">Allowed emails (optional)</h2>
-          <p className="text-xs text-ink-muted">
-            Restrict the coupon to specific patient emails. One per line or
-            comma-separated. Leave blank for any patient.
-          </p>
-        </div>
-        <textarea
-          value={allowedEmailsText}
-          onChange={(e) => setAllowedEmailsText(e.target.value)}
-          placeholder="patient1@example.com&#10;patient2@example.com"
-          rows={4}
-          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-ink focus:border-[var(--client-primary)] focus:outline-none"
-          data-testid="coupon-allowed-emails"
-        />
-      </section>
-
-      <div className="flex flex-col gap-3">
+        {/* Submit button — matches Add User CTA */}
         <Button
+          data-testid="create-coupon-button"
           variant="primary"
           size="cta-lg"
+          className="mt-2 w-full"
           onClick={handleSubmit}
           disabled={submitting}
-          data-testid="create-coupon-button"
         >
-          {submitting ? "Creating…" : "Create coupon"}
-          <ArrowRight className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={() => router.push("/coupons")}
-          className="border border-black"
-        >
-          Cancel
+          {submitting ? (
+            <>
+              Creating Coupon...
+              <svg className="ml-2 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+              </svg>
+            </>
+          ) : (
+            <>
+              Add Coupon
+              <ArrowRight className="ml-2 size-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>
