@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { SubNav } from "@/components/ui/sub-nav"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { DatePickerField } from "@/components/ui/date-picker-dialog"
 import { Banner } from "@/components/ui/banner"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useAuth } from "@/lib/auth-store"
@@ -361,8 +362,8 @@ export default function CouponManagePage() {
 
           {/* ----- Validity ----- */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FloatingInput id="valid-from" label="Valid from" value={validFrom} onChange={setValidFrom} onClear={() => setValidFrom("")} type="date" />
-            <FloatingInput id="valid-until" label="Valid until" value={validUntil} onChange={setValidUntil} onClear={() => setValidUntil("")} type="date" />
+            <DatePickerField id="valid-from" label="Valid from" value={validFrom} onChange={setValidFrom} onClear={() => setValidFrom("")} />
+            <DatePickerField id="valid-until" label="Valid until" value={validUntil} onChange={setValidUntil} onClear={() => setValidUntil("")} />
             <FloatingInput id="min-spend" label="Min spend (R)" value={minSpend} onChange={setMinSpend} onClear={() => setMinSpend("")} type="number" />
             <FloatingInput id="max-spend" label="Max spend (R)" value={maxSpend} onChange={setMaxSpend} onClear={() => setMaxSpend("")} type="number" />
           </div>

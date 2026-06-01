@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { SubNav } from "@/components/ui/sub-nav"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { DatePickerField } from "@/components/ui/date-picker-dialog"
 import { Banner } from "@/components/ui/banner"
 import { useAuth } from "@/lib/auth-store"
 import { useClientStore } from "@/lib/client-store"
@@ -215,21 +216,19 @@ export default function CouponAddPage() {
 
           {/* ----- Validity ----- */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FloatingInput
+            <DatePickerField
               id="valid-from"
               label="Valid from"
               value={validFrom}
               onChange={setValidFrom}
               onClear={() => setValidFrom("")}
-              type="date"
             />
-            <FloatingInput
+            <DatePickerField
               id="valid-until"
               label="Valid until"
               value={validUntil}
               onChange={setValidUntil}
               onClear={() => setValidUntil("")}
-              type="date"
             />
             <FloatingInput
               id="min-spend"
