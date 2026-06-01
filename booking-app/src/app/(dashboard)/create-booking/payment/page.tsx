@@ -58,6 +58,88 @@ export default function PaymentPage() {
   const [savingEmail, setSavingEmail] = useState(false)
   const [emailError, setEmailError] = useState("")
 
+  // ---- Coupon state ----
+  // The payment summary shows the current applied coupon (if any) plus an
+  // "Apply coupon" input. The /api/coupons/apply endpoint resolves the
+  // discount server-side and updates booking.payment_amount so the PayFast
+  // initiate call below sees the discounted amount automatically.
+  const DEFAULT_AMOUNT = 325 // mirrors PAYMENT_AMOUNT — fallback only.
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string
+    originalAmount: number
+    discountAmount: number
+    finalAmount: number
+  } | null>(null)
+  const [couponInput, setCouponInput] = useState("")
+  const [applyingCoupon, setApplyingCoupon] = useState(false)
+  const [couponError, setCouponError] = useState("")
+
+  const displayedOriginal = appliedCoupon
+    ? appliedCoupon.originalAmount
+    : DEFAULT_AMOUNT
+  const displayedTotal = appliedCoupon
+    ? appliedCoupon.finalAmount
+    : DEFAULT_AMOUNT
+
+  async function handleApplyCoupon() {
+    if (!bookingId || !couponInput.trim() || applyingCoupon) return
+    setApplyingCoupon(true)
+    setCouponError("")
+    try {
+      const res = await fetch("/api/coupons/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponInput.trim(), bookingId }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        code?: string
+        originalAmount?: number
+        discountAmount?: number
+        finalAmount?: number
+        error?: string
+      }
+      if (!res.ok || !data.ok || !data.code) {
+        setCouponError(data.error ?? "Coupon couldn't be applied.")
+        return
+      }
+      setAppliedCoupon({
+        code: data.code,
+        originalAmount: Number(data.originalAmount ?? 0),
+        discountAmount: Number(data.discountAmount ?? 0),
+        finalAmount: Number(data.finalAmount ?? 0),
+      })
+      setCouponInput("")
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : "Coupon couldn't be applied.")
+    } finally {
+      setApplyingCoupon(false)
+    }
+  }
+
+  async function handleRemoveCoupon() {
+    if (!bookingId || !appliedCoupon) return
+    setApplyingCoupon(true)
+    setCouponError("")
+    try {
+      const res = await fetch("/api/coupons/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        setCouponError(data.error ?? "Couldn't remove the coupon.")
+        return
+      }
+      setAppliedCoupon(null)
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : "Couldn't remove the coupon.")
+    } finally {
+      setApplyingCoupon(false)
+    }
+  }
+
   // Payment-mode safety net. Resolved server-side from the booking's parent
   // client's `collect_payment_at_unit` flag. "checking" until the API
   // resolves; "gateway" is the default.
@@ -566,14 +648,75 @@ export default function PaymentPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-ink-muted">Consultation Booking</span>
-                  <span className="text-ink-muted">R325.00</span>
+                  <span className="text-ink-muted">R{displayedOriginal.toFixed(2)}</span>
                 </div>
+
+                {appliedCoupon && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-emerald-700">
+                      Coupon <span className="font-mono">{appliedCoupon.code}</span>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        disabled={applyingCoupon}
+                        className="ml-2 text-xs underline text-emerald-700 hover:text-emerald-900 disabled:opacity-50"
+                        data-testid="remove-coupon-link"
+                      >
+                        Remove
+                      </button>
+                    </span>
+                    <span className="text-emerald-700">
+                      -R{appliedCoupon.discountAmount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="border-t border-gray-100" />
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <span className="text-ink">Total</span>
-                  <span className="text-ink">R325.00</span>
+                  <span className="text-ink">R{displayedTotal.toFixed(2)}</span>
                 </div>
               </div>
+
+              {/* Coupon input — shown only when none is applied */}
+              {!appliedCoupon && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold text-ink-muted">
+                    Have a coupon code?
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      placeholder="Enter code"
+                      className="flex-1 font-mono uppercase"
+                      data-testid="coupon-code-input"
+                      disabled={applyingCoupon}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          void handleApplyCoupon()
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={applyingCoupon || !couponInput.trim()}
+                      variant="outline"
+                      className="border border-gray-300"
+                      data-testid="apply-coupon-button"
+                    >
+                      {applyingCoupon ? "…" : "Apply"}
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="text-xs text-red-600" data-testid="coupon-error">
+                      {couponError}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {paymentType === "link" ? (
                 sent ? (

@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
     .select(
-      "id, status, first_names, surname, email_address, unit_id"
+      "id, status, first_names, surname, email_address, unit_id, payment_amount"
     )
     .eq("id", bookingId)
     .single()
@@ -123,10 +123,14 @@ export async function POST(request: Request) {
 
   // Persist the payment_amount on the booking so the ITN handler can validate
   // the amount PayFast reports back (same pattern as /api/payfast/initiate).
-  await admin
-    .from("bookings")
-    .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
-    .eq("id", bookingId)
+  // Only set the default when there isn't one yet — preserve any
+  // coupon-discounted amount already on the booking.
+  if (booking.payment_amount === null || booking.payment_amount === undefined) {
+    await admin
+      .from("bookings")
+      .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
+      .eq("id", bookingId)
+  }
 
   // Snapshot the operator who emailed the payment link — best-effort.
   await recordBookingValidator(admin, bookingId, caller)
