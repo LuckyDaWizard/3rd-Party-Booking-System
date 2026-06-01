@@ -156,6 +156,15 @@ export default function ManageClientPage() {
     }
   }, [client])
 
+  // Mirror the server's clamp locally so the displayed toggle never lies:
+  // turning ON either non-gateway billing mode forces allow_coupons OFF.
+  // (Server clamps on save regardless; this just keeps the UI honest.)
+  useEffect(() => {
+    if ((collectPaymentAtUnit || billMonthly) && allowCoupons) {
+      setAllowCoupons(false)
+    }
+  }, [collectPaymentAtUnit, billMonthly, allowCoupons])
+
   // Generic asset upload — handles both logo + favicon. Same response shape:
   //   { ok: true, logoUrl?: string, faviconUrl?: string }
   async function uploadAsset(
@@ -692,43 +701,73 @@ export default function ManageClientPage() {
                 </div>
               </div>
 
-              {/* Allow coupons — independent of billing modes. Purple
-                  styling separates it from the billing (amber/blue) and
-                  nurse-verification (green) panels. */}
-              <div
-                data-testid="allow-coupons-toggle-row"
-                className="flex flex-col gap-3 rounded-xl border border-purple-200 bg-purple-50 p-4"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-ink">
-                      Allow coupon codes
-                    </span>
-                    <span className="text-xs text-ink-muted">
-                      When ON, patients can enter a coupon code on the
-                      payment step to apply a discount. Codes are managed
-                      in <em>Coupons</em> in the sidebar.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={allowCoupons}
-                    aria-label="Allow coupon codes"
-                    data-testid="allow-coupons-toggle"
-                    onClick={() => setAllowCoupons((v) => !v)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                      allowCoupons ? "bg-purple-600" : "bg-gray-300"
+              {/* Allow coupons — only meaningful on the gateway billing
+                  path (no fee to discount when collecting at unit or
+                  invoicing monthly). Disabled + auto-cleared when either
+                  non-gateway mode is ON. */}
+              {(() => {
+                const couponsAvailable = !collectPaymentAtUnit && !billMonthly
+                return (
+                  <div
+                    data-testid="allow-coupons-toggle-row"
+                    className={`flex flex-col gap-3 rounded-xl border p-4 ${
+                      couponsAvailable
+                        ? "border-purple-200 bg-purple-50"
+                        : "border-gray-200 bg-gray-50 opacity-60"
                     }`}
                   >
-                    <span
-                      className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
-                        allowCoupons ? "translate-x-5" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-ink">
+                          Allow coupon codes
+                        </span>
+                        <span className="text-xs text-ink-muted">
+                          {couponsAvailable ? (
+                            <>
+                              When ON, patients can enter a coupon code on the
+                              payment step to apply a discount. Codes are managed
+                              in <em>Coupons</em> in the sidebar.
+                            </>
+                          ) : (
+                            <>
+                              Not available with <em>Collect payment at unit</em> or
+                              <em> Bill at end of month</em>. Coupons only apply on
+                              the gateway billing path.
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={allowCoupons && couponsAvailable}
+                        aria-label="Allow coupon codes"
+                        data-testid="allow-coupons-toggle"
+                        disabled={!couponsAvailable}
+                        onClick={() => {
+                          if (!couponsAvailable) return
+                          setAllowCoupons((v) => !v)
+                        }}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                          !couponsAvailable
+                            ? "cursor-not-allowed bg-gray-300"
+                            : allowCoupons
+                              ? "cursor-pointer bg-purple-600"
+                              : "cursor-pointer bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                            allowCoupons && couponsAvailable
+                              ? "translate-x-5"
+                              : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
 

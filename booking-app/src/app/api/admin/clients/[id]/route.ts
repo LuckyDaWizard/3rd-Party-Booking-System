@@ -161,6 +161,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     dbUpdates.skip_patient_metrics = false
   }
 
+  // allow_coupons only makes sense on the gateway billing path — there's
+  // nothing to discount when the unit collects cash directly or when the
+  // client is invoiced at month-end. Clamp to FALSE whenever either
+  // non-gateway billing mode is effectively ON (post the mutex above).
+  if (effectiveBillMonthly || effectiveCollectAtUnit) {
+    dbUpdates.allow_coupons = false
+  }
+
   if (Object.keys(dbUpdates).length === 0) {
     return NextResponse.json({ ok: true })
   }
@@ -227,13 +235,18 @@ export async function PATCH(request: Request, context: RouteContext) {
       old: current?.nurse_verification ?? false,
       new: body.nurseVerification,
     }
-  if (
-    body.allowCoupons !== undefined &&
-    body.allowCoupons !== (current?.allow_coupons ?? false)
-  )
+  // Compare against the EFFECTIVE post-clamp value so an entry only
+  // appears when the stored flag actually changed (operator sent
+  // allowCoupons=true but billing mode is non-gateway → server clamped
+  // to false → no real change).
+  const postClampAllowCoupons =
+    dbUpdates.allow_coupons !== undefined
+      ? (dbUpdates.allow_coupons as boolean)
+      : (current?.allow_coupons ?? false)
+  if (postClampAllowCoupons !== (current?.allow_coupons ?? false))
     changes["Allow Coupons"] = {
       old: current?.allow_coupons ?? false,
-      new: body.allowCoupons,
+      new: postClampAllowCoupons,
     }
 
   if (Object.keys(changes).length > 0) {
