@@ -50,6 +50,12 @@ export interface ClientRecord {
    * any payment mode. Defaults to FALSE for new clients.
    */
   nurseVerification: boolean
+  /**
+   * When TRUE, the booking flow shows the coupon-code input on the
+   * payment step AND /api/coupons/apply accepts requests for this
+   * client's bookings. Defaults to FALSE — admin opts in per client.
+   */
+  allowCoupons: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +73,7 @@ interface ClientStoreContextValue {
   addClient: (
     client: Omit<
       ClientRecord,
-      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification"
+      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
     >
   ) => Promise<string>
   updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
@@ -99,6 +105,7 @@ interface DbClient {
   bill_monthly: boolean | null
   skip_patient_metrics: boolean | null
   nurse_verification: boolean | null
+  allow_coupons: boolean | null
 }
 
 interface DbUnit {
@@ -127,6 +134,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     billMonthly: row.bill_monthly ?? false,
     skipPatientMetrics: row.skip_patient_metrics ?? false,
     nurseVerification: row.nurse_verification ?? false,
+    allowCoupons: row.allow_coupons ?? false,
   }
 }
 
@@ -203,7 +211,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   async function addClient(
     client: Omit<
       ClientRecord,
-      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification"
+      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
     >
   ) {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
@@ -248,6 +256,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.billMonthly !== undefined) body.billMonthly = updates.billMonthly
     if (updates.skipPatientMetrics !== undefined) body.skipPatientMetrics = updates.skipPatientMetrics
     if (updates.nurseVerification !== undefined) body.nurseVerification = updates.nurseVerification
+    if (updates.allowCoupons !== undefined) body.allowCoupons = updates.allowCoupons
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {

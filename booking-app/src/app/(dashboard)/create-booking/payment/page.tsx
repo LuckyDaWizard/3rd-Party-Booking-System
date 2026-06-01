@@ -151,6 +151,10 @@ export default function PaymentPage() {
   // patient-details — skip /patient-metrics on the post-success
   // navigation when the parent client opts in.
   const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
+  // Per-client gate for the "Apply coupon" input on the Payment Summary.
+  // Defaults to FALSE; flipped TRUE only when the payment-mode endpoint
+  // returns allowCoupons=true for this booking's parent client.
+  const [allowCoupons, setAllowCoupons] = useState(false)
 
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
@@ -190,6 +194,7 @@ export default function PaymentPage() {
         const data = (await res.json().catch(() => ({}))) as {
           mode?: "gateway" | "self_collect" | "monthly_invoice"
           skipPatientMetrics?: boolean
+          allowCoupons?: boolean
         }
         if (cancelled) return
         setPaymentMode(
@@ -200,6 +205,7 @@ export default function PaymentPage() {
               : "gateway"
         )
         if (data.skipPatientMetrics) setSkipPatientMetrics(true)
+        setAllowCoupons(Boolean(data.allowCoupons))
       })
       .catch(() => {
         if (!cancelled) setPaymentMode("gateway")
@@ -678,8 +684,10 @@ export default function PaymentPage() {
                 </div>
               </div>
 
-              {/* Coupon input — shown only when none is applied */}
-              {!appliedCoupon && (
+              {/* Coupon input — shown only when the parent client opts in
+                  AND no coupon is currently applied. The per-client
+                  allowCoupons flag comes from /api/bookings/[id]/payment-mode. */}
+              {allowCoupons && !appliedCoupon && (
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-semibold text-ink-muted">
                     Have a coupon code?

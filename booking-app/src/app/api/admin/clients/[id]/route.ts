@@ -53,6 +53,12 @@ interface UpdateClientBody {
    * step. Independent of the billing-mode flags.
    */
   nurseVerification?: boolean
+  /**
+   * When TRUE, the booking flow shows the coupon-code input on the
+   * payment step and /api/coupons/apply accepts requests for this
+   * client. Independent of every other client flag.
+   */
+  allowCoupons?: boolean
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -110,7 +116,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification, allow_coupons")
     .eq("id", id)
     .single()
 
@@ -126,6 +132,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.billMonthly !== undefined) dbUpdates.bill_monthly = body.billMonthly
   if (body.skipPatientMetrics !== undefined) dbUpdates.skip_patient_metrics = body.skipPatientMetrics
   if (body.nurseVerification !== undefined) dbUpdates.nurse_verification = body.nurseVerification
+  if (body.allowCoupons !== undefined) dbUpdates.allow_coupons = body.allowCoupons
 
   // Mutual exclusion: turning one billing-mode flag ON forces the other
   // OFF. The UI already enforces this, but a malformed request that
@@ -219,6 +226,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Nurse Verification"] = {
       old: current?.nurse_verification ?? false,
       new: body.nurseVerification,
+    }
+  if (
+    body.allowCoupons !== undefined &&
+    body.allowCoupons !== (current?.allow_coupons ?? false)
+  )
+    changes["Allow Coupons"] = {
+      old: current?.allow_coupons ?? false,
+      new: body.allowCoupons,
     }
 
   if (Object.keys(changes).length > 0) {

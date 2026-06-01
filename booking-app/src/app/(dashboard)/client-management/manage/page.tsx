@@ -104,6 +104,10 @@ export default function ManageClientPage() {
   // Independent flag — bookings under this client require a
   // nurse-verification step. Combinable with any payment mode.
   const [nurseVerification, setNurseVerification] = useState(false)
+  // Independent flag — when ON, the booking flow shows the coupon-code
+  // input on the payment step AND the apply endpoint accepts requests
+  // for this client. Combinable with any payment mode.
+  const [allowCoupons, setAllowCoupons] = useState(false)
   // Tabbed layout — matches the Add Client flow.
   //   details  → contact form (editable)
   //   branding → logo / favicon / accent picker (editable)
@@ -148,6 +152,7 @@ export default function ManageClientPage() {
       setBillMonthly(client.billMonthly)
       setSkipPatientMetrics(client.skipPatientMetrics)
       setNurseVerification(client.nurseVerification)
+      setAllowCoupons(client.allowCoupons)
     }
   }, [client])
 
@@ -267,7 +272,7 @@ export default function ManageClientPage() {
         // structurally enforced server-side; the omission here just
         // avoids sending a no-op field for non-admins.
         ...(isSystemAdmin
-          ? { collectPaymentAtUnit, billMonthly, skipPatientMetrics, nurseVerification }
+          ? { collectPaymentAtUnit, billMonthly, skipPatientMetrics, nurseVerification, allowCoupons }
           : {}),
       })
       router.push("/client-management")
@@ -681,6 +686,44 @@ export default function ManageClientPage() {
                     <span
                       className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
                         nurseVerification ? "translate-x-5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Allow coupons — independent of billing modes. Purple
+                  styling separates it from the billing (amber/blue) and
+                  nurse-verification (green) panels. */}
+              <div
+                data-testid="allow-coupons-toggle-row"
+                className="flex flex-col gap-3 rounded-xl border border-purple-200 bg-purple-50 p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-ink">
+                      Allow coupon codes
+                    </span>
+                    <span className="text-xs text-ink-muted">
+                      When ON, patients can enter a coupon code on the
+                      payment step to apply a discount. Codes are managed
+                      in <em>Coupons</em> in the sidebar.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={allowCoupons}
+                    aria-label="Allow coupon codes"
+                    data-testid="allow-coupons-toggle"
+                    onClick={() => setAllowCoupons((v) => !v)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                      allowCoupons ? "bg-purple-600" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${
+                        allowCoupons ? "translate-x-5" : "translate-x-0.5"
                       }`}
                     />
                   </button>

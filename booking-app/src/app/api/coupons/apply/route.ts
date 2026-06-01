@@ -69,14 +69,35 @@ export async function POST(request: Request) {
     return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
-  // 1. Load booking — need its current/base amount + email + status.
+  // 1. Load booking — need its current/base amount + email + status, plus
+  // the parent client's allow_coupons flag to gate this entire endpoint.
   const { data: booking, error: bookErr } = await admin
     .from("bookings")
-    .select("id, status, payment_amount, original_amount, email_address, coupon_id")
+    .select(
+      "id, status, payment_amount, original_amount, email_address, coupon_id, unit_id, units(client_id, clients(allow_coupons))"
+    )
     .eq("id", bookingId)
     .maybeSingle()
   if (bookErr) return apiError(bookErr.message, 500)
   if (!booking) return apiError("Booking not found", 404)
+
+  // Per-client gate: extract the parent client's allow_coupons flag. The
+  // embed comes back as either an object or a singleton-array depending on
+  // Supabase's mood; handle both shapes.
+  const unitEmbed = booking.units as
+    | { clients: { allow_coupons: boolean | null } | { allow_coupons: boolean | null }[] | null }
+    | { clients: { allow_coupons: boolean | null } | { allow_coupons: boolean | null }[] | null }[]
+    | null
+  const unitRow = Array.isArray(unitEmbed) ? unitEmbed[0] ?? null : unitEmbed
+  const clientEmbed = unitRow?.clients ?? null
+  const clientRow = Array.isArray(clientEmbed) ? clientEmbed[0] ?? null : clientEmbed
+  const allowCoupons = Boolean(clientRow?.allow_coupons)
+  if (!allowCoupons) {
+    return NextResponse.json(
+      { ok: false, error: "Coupons aren't available for this clinic." },
+      { status: 403 }
+    )
+  }
 
   // Once paid / discarded / abandoned a coupon can't be added or changed.
   if (booking.status !== "In Progress") {
