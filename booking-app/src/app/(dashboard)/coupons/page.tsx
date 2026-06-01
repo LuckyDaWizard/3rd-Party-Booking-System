@@ -72,6 +72,10 @@ export default function CouponsListPage() {
     () => new Map(clients.map((c) => [c.id, c.clientName])),
     [clients]
   )
+  const faviconByClient = React.useMemo(
+    () => new Map(clients.map((c) => [c.id, c.faviconUrl])),
+    [clients]
+  )
 
   const [coupons, setCoupons] = React.useState<CouponRow[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -294,21 +298,38 @@ export default function CouponsListPage() {
                       {formatValue(c)} {c.discount_type === "percentage" ? "off" : ""}
                     </span>
                   </div>
-                  <div className="flex min-w-0 flex-col gap-0.5 text-left">
-                    <span className="text-xs font-bold text-ink">Scope</span>
-                    <span
-                      className="truncate text-sm text-ink-muted"
-                      title={
-                        c.client_id
-                          ? clientNameById.get(c.client_id) ?? "Specific client"
-                          : "Any client"
-                      }
-                    >
-                      {c.client_id
-                        ? clientNameById.get(c.client_id) ?? "Specific client"
-                        : "Any client"}
-                    </span>
-                  </div>
+                  {(() => {
+                    const scopedName = c.client_id
+                      ? clientNameById.get(c.client_id) ?? "Specific client"
+                      : "Any client"
+                    const scopedFavicon = c.client_id
+                      ? faviconByClient.get(c.client_id) ?? null
+                      : null
+                    return (
+                      <div className="flex min-w-0 items-center gap-2 text-left">
+                        {c.client_id ? (
+                          scopedFavicon ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={scopedFavicon}
+                              alt=""
+                              className="size-7 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
+                            />
+                          ) : (
+                            <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[8px] font-medium uppercase tracking-wider text-gray-400">
+                              Icon
+                            </div>
+                          )
+                        ) : null}
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="text-xs font-bold text-ink">Scope</span>
+                          <span className="truncate text-sm text-ink-muted" title={scopedName}>
+                            {scopedName}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })()}
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-ink">Used</span>
                     <span className="truncate text-sm text-ink-muted">
