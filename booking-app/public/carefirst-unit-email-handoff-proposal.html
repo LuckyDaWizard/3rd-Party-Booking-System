@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFirst Patient SSO — Proposal: Notify the Originating Unit on Script Issue</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .page {
+    max-width: 820px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  header.doc-header {
+    border-bottom: 3px solid var(--brand);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brand);
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h3 {
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--ink);
+    margin: 0 0 14px;
+    line-height: 1.3;
+  }
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+  ul, ol { margin: 6px 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 16px 18px;
+    border-radius: 8px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    overflow-x: auto;
+    margin: 14px 0;
+  }
+  pre .k { color: #93c5fd; }   /* keys */
+  pre .s { color: #86efac; }   /* strings */
+  pre .c { color: #94a3b8; }   /* comments */
+  pre .n { color: #fcd34d; }   /* numbers */
+  strong { color: var(--ink); font-weight: 700; }
+  em { color: var(--ink-soft); }
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--brand);
+    border-radius: 6px;
+  }
+  .block {
+    margin-top: 28px;
+    padding: 24px 26px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .block h3 .num {
+    display: inline-block;
+    background: var(--brand);
+    color: white;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-right: 10px;
+    vertical-align: middle;
+  }
+  .recommendation {
+    background: var(--ok-tint);
+    border-left: 3px solid var(--ok-ink);
+    color: var(--ok-ink);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+  }
+  .recommendation .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-right: 8px;
+  }
+  .ask {
+    background: #fff8e1;
+    border-left: 3px solid #d97706;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    margin-top: 12px;
+    color: #5a3e08;
+  }
+  .ask .label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #92400e;
+    margin-right: 8px;
+  }
+  table.cmp {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  table.cmp th, table.cmp td {
+    text-align: left;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.cmp th {
+    background: var(--line-soft);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .qlist { counter-reset: q; list-style: none; padding-left: 0; }
+  .qlist > li {
+    counter-increment: q;
+    position: relative;
+    padding: 12px 16px 12px 48px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .qlist > li::before {
+    content: "Q" counter(q);
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--brand);
+  }
+  .qlist .q-text { font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+  .qlist .q-why { font-size: 13px; color: var(--mute); }
+  footer.doc-footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 12px;
+  }
+  footer.doc-footer p { margin-bottom: 6px; }
+  @media print {
+    body { background: white; }
+    .page { max-width: none; margin: 0; padding: 24px 32px; box-shadow: none; border-radius: 0; }
+    .block, .qlist > li, table.cmp, pre { page-break-inside: avoid; }
+    header.doc-header { page-break-after: avoid; }
+    h2 { page-break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="doc-header">
+      <div class="eyebrow">Integration Proposal &amp; Questions</div>
+      <h1>Notify the Originating Unit on Script Issue<br>(CareFirst Patient SSO &mdash; Auto-Register Handoff)</h1>
+      <div class="meta">
+        Prepared <strong>2026-06-01</strong> by First Care Solutions &mdash; 3rd Party Booking System<br>
+        For the CareFirst Patient technical team
+      </div>
+    </header>
+
+    <p class="lede">
+      We&rsquo;d like to extend the <strong>SSO auto-register handoff</strong> so that the <em>unit
+      that originated the booking</em> also receives a copy of any prescription / script generated
+      during the resulting consultation. This document explains the operational reason, what we
+      already send today, and a short list of concrete questions we need answered on your side
+      before we ship the change on ours.
+    </p>
+
+    <h2>Background &mdash; how the handoff works today</h2>
+    <p>
+      Our 3rd Party Booking System captures a patient&rsquo;s details, takes payment (via PayFast
+      or per-unit collection), then hands the patient over to CareFirst Patient through the
+      <code>auto-register</code> endpoint. We POST the following shape (abbreviated):
+    </p>
+<pre><span class="k">POST</span> https://&lt;careFirstDomain&gt;/api/external/client-sso/auto-register
+<span class="k">x-api-key</span>: &lt;our key&gt;
+
+{
+  <span class="k">"clientCode"</span>: <span class="s">"&lt;our client code&gt;"</span>,
+  <span class="k">"planCode"</span>: <span class="s">"&lt;our plan code&gt;"</span>,
+  <span class="k">"uniqueReference"</span>: <span class="s">"&lt;booking id&gt;"</span>,
+  <span class="k">"user"</span>: {
+    <span class="k">"email"</span>:       <span class="s">"&lt;patient email&gt;"</span>,    <span class="c">// today: only the patient's</span>
+    <span class="k">"cellNumber"</span>:  <span class="s">"&lt;patient cell&gt;"</span>,
+    <span class="k">"idNumber"</span>:    <span class="s">"&lt;patient ID&gt;"</span>,
+    <span class="k">"userProfile"</span>: { <span class="c">/* title, firstName, surname, DOB, gender, address... */</span> }
+  },
+  <span class="k">"returnUrl"</span>: <span class="s">"&lt;our booking-system URL&gt;"</span>
+}</pre>
+    <p>
+      On success you return a redirect URL we open in a new tab to launch the consultation. The
+      patient receives the script directly from CareFirst Patient (email / SMS, per CareFirst&rsquo;s
+      own notification engine). <strong>The originating unit currently does not receive any copy.</strong>
+    </p>
+
+    <h2>The need &mdash; why the unit should also be notified</h2>
+    <p>
+      Most clinic units we work with operate as the patient&rsquo;s primary point of care.
+      Practically, this means the unit&rsquo;s nurse or pharmacist needs to know that a script has
+      been issued so they can:
+    </p>
+    <ul>
+      <li><strong>Dispense or hand over medication</strong> at the same visit, when the script is
+      issued during a same-day virtual consult.</li>
+      <li><strong>Stock-check / order</strong> if the prescribed item isn&rsquo;t on the shelf.</li>
+      <li><strong>Reconcile</strong> the consultation against the unit&rsquo;s own day-end records.</li>
+      <li><strong>Follow up</strong> with the patient if they leave before the script arrives in
+      their inbox.</li>
+    </ul>
+    <p>
+      In our system, each <strong>unit</strong> has its own contact email (separate from the
+      patient&rsquo;s and the client-organisation&rsquo;s). We&rsquo;d like to provide that unit
+      email on the handoff so CareFirst can include it on the script-issue notification.
+    </p>
+
+    <h2>What we&rsquo;re proposing on our side</h2>
+    <p>
+      In our booking system, the operator (system admin) toggles a new per-client setting
+      &mdash; <em>&ldquo;Notify the originating unit on script issue&rdquo;</em> &mdash; on the
+      Client Settings tab, alongside the existing payment-mode and nurse-verification toggles.
+      When that toggle is ON, our handoff request will include the unit&rsquo;s email as an
+      additional field. When OFF (default), the handoff is unchanged.
+    </p>
+    <p>
+      To wire that on your side, we need a place in the payload contract to put the unit email.
+      Three approaches that should each be simple to add &mdash; we&rsquo;d like your guidance on
+      which best fits your existing notification engine:
+    </p>
+
+    <div class="block">
+      <h3><span class="num">A</span>Simple flat field on the request</h3>
+      <p>You add one top-level optional field, e.g. <code>notifyEmails</code>, which is an array of
+      addresses to CC on every notification CareFirst issues for this booking (including the script
+      email). We&rsquo;d send <code>[unitEmail]</code>.</p>
+<pre>{
+  <span class="k">"uniqueReference"</span>: <span class="s">"&lt;booking id&gt;"</span>,
+  <span class="k">"user"</span>: { <span class="c">/* unchanged */</span> },
+  <span class="k">"notifyEmails"</span>: [<span class="s">"sandton@clientname.com"</span>]
+}</pre>
+      <p><em>Simplest. Patient-side experience is unchanged.</em></p>
+    </div>
+
+    <div class="block">
+      <h3><span class="num">B</span>Structured per-recipient block</h3>
+      <p>If your engine already supports per-event subscriptions, a structured field gives you
+      finer control (only CC the script, not every email).</p>
+<pre>{
+  <span class="k">"uniqueReference"</span>: <span class="s">"..."</span>,
+  <span class="k">"user"</span>: { <span class="c">/* ... */</span> },
+  <span class="k">"additionalRecipients"</span>: [
+    { <span class="k">"email"</span>: <span class="s">"sandton@clientname.com"</span>, <span class="k">"events"</span>: [<span class="s">"prescription_issued"</span>] }
+  ]
+}</pre>
+      <p><em>Slightly more API surface for you, but cleaner semantics.</em></p>
+    </div>
+
+    <div class="block">
+      <h3><span class="num">C</span>Webhook-based (we receive, we forward)</h3>
+      <p>If extending the auto-register payload isn&rsquo;t feasible, an alternative: CareFirst
+      fires a webhook to a URL we register, including the booking&rsquo;s
+      <code>uniqueReference</code> and the script PDF/URL. We then forward to the unit email
+      ourselves.</p>
+      <p><em>More moving parts on both sides, but useful longer-term &mdash; opens the door to
+      other unit-level workflows (e.g. day-end reporting).</em></p>
+    </div>
+
+    <div class="recommendation"><span class="label">Our preference</span>
+      <strong>Option A</strong> &mdash; smallest change, fits the existing single-event model, and
+      we&rsquo;d implement on our side in roughly half a day once the field name and format are
+      confirmed. We&rsquo;re happy to go with B or C if it fits your roadmap better.
+    </div>
+
+    <h2>Questions for CareFirst</h2>
+    <p>Anything you can answer here unblocks us on our side.</p>
+    <ol class="qlist">
+      <li>
+        <div class="q-text">Does the <code>auto-register</code> endpoint already support an
+        additional recipient / CC email today (perhaps undocumented)?</div>
+        <div class="q-why">If yes, we can skip the contract change and just start sending the field.</div>
+      </li>
+      <li>
+        <div class="q-text">If not, can you add a field on the request &mdash; and which of A, B, or
+        C above best fits your notification engine?</div>
+        <div class="q-why">We&rsquo;ll match whatever shape you prefer.</div>
+      </li>
+      <li>
+        <div class="q-text">Which notifications would the additional recipient receive? Just the
+        script email, or also reminders / consultation-summary / other touchpoints?</div>
+        <div class="q-why">Helps us communicate accurately to the unit and to the patient (a CC on
+        every email may feel intrusive; CC only on the script is usually what units want).</div>
+      </li>
+      <li>
+        <div class="q-text">Is there a privacy / POPIA consideration on your side we should
+        co-document?</div>
+        <div class="q-why">In our terms, we&rsquo;ll need to disclose to patients that their script
+        will also be sent to the originating unit. Happy to align the wording with whatever you
+        currently tell patients.</div>
+      </li>
+      <li>
+        <div class="q-text">Any rate limits, format constraints (e.g. corporate domains only), or
+        delivery-failure semantics we should handle?</div>
+        <div class="q-why">For example, if the unit email bounces, do you want us to know?</div>
+      </li>
+      <li>
+        <div class="q-text">Rough timeline if a contract change is needed?</div>
+        <div class="q-why">Helps us plan the rollout and what to tell clinic operators.</div>
+      </li>
+    </ol>
+
+    <div class="ask"><span class="label">Next step on our side</span>
+      Once we have your answer to Q1 / Q2 we&rsquo;ll finalise the toggle wiring (it&rsquo;s
+      already a half-day&rsquo;s work on our end) and propose a joint test plan in your staging
+      environment before flipping anything on for live clients.
+    </div>
+
+    <footer class="doc-footer">
+      <p><strong>First Care Solutions &mdash; 3rd Party Booking System</strong></p>
+      <p>Prepared by the development team. Reach out to <code>lehlohonolom@firstcare.solutions</code>
+      with the answers, or any clarifying questions.</p>
+    </footer>
+
+  </div>
+</body>
+</html>
