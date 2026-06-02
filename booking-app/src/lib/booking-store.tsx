@@ -173,6 +173,16 @@ export interface BookingRecord {
    */
   consentAcceptedAt: string | null
   unitId: string | null
+  // Coupon snapshot (denormalised from coupons / coupon_uses by the apply
+  // endpoint — kept here so list views can render without an extra join).
+  /** Coupon code as displayed when the patient applied it. NULL when no coupon. */
+  couponCode: string | null
+  /** Resolved discount in rand, rounded to 2dp. NULL when no coupon. */
+  discountAmount: number | null
+  /** Booking amount BEFORE the discount (for the "was R325 / now R260" surface). */
+  originalAmount: number | null
+  /** What we actually charge / charged — the post-discount total. NULL until the payment step. */
+  paymentAmount: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +227,10 @@ interface DbBooking {
   terms_accepted_at: string | null
   consent_accepted_at: string | null
   unit_id: string | null
+  coupon_code: string | null
+  discount_amount: number | string | null
+  original_amount: number | string | null
+  payment_amount: number | string | null
 }
 
 function mapDbToBooking(row: DbBooking): BookingRecord {
@@ -258,6 +272,10 @@ function mapDbToBooking(row: DbBooking): BookingRecord {
     termsAcceptedAt: row.terms_accepted_at,
     consentAcceptedAt: row.consent_accepted_at,
     unitId: row.unit_id,
+    couponCode: row.coupon_code,
+    discountAmount: row.discount_amount !== null ? Number(row.discount_amount) : null,
+    originalAmount: row.original_amount !== null ? Number(row.original_amount) : null,
+    paymentAmount: row.payment_amount !== null ? Number(row.payment_amount) : null,
   }
 }
 

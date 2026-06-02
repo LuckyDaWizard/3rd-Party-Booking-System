@@ -83,6 +83,12 @@ interface PatientRecord {
    * Not displayed elsewhere on the row.
    */
   emailAddress: string | null
+  /** Coupon code applied to the booking (NULL = no coupon). */
+  couponCode: string | null
+  /** Resolved discount in rand (NULL = no coupon). */
+  discountAmount: number | null
+  /** TRUE when payment_type === "coupon_comp" (a R0 coupon-comped booking). */
+  couponComp: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -511,6 +517,9 @@ export default function PatientHistoryPage() {
     clientId: unitInfo?.clientId ?? null,
     selfCollect: b.paymentType === "self_collect",
     monthlyInvoice: b.paymentType === "monthly_invoice",
+    couponCode: b.couponCode,
+    discountAmount: b.discountAmount,
+    couponComp: b.paymentType === "coupon_comp",
     emailAddress: b.emailAddress ?? null,
     date: new Date(b.createdAt).toLocaleString("en-ZA", {
       year: "numeric",
@@ -688,6 +697,26 @@ export default function PatientHistoryPage() {
               />
             )
 
+            // Emerald coupon chip under the patient name. Two flavours:
+            //   - couponComp (R0 booking)  → "<code> · Comped"
+            //   - normal discount         → "<code> · −R<amount>"
+            // Rendered only when a coupon is attached so the column stays
+            // clean for the (still common) no-coupon case.
+            const couponChip = patient.couponCode ? (
+              <span
+                data-testid={`coupon-chip-${patient.id}`}
+                className="mt-0.5 inline-flex w-fit items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-200"
+                title={patient.couponComp ? "Comped via coupon" : "Coupon applied"}
+              >
+                {patient.couponCode}
+                {patient.couponComp
+                  ? " · Comped"
+                  : patient.discountAmount != null
+                    ? ` · −R${patient.discountAmount.toFixed(2)}`
+                    : ""}
+              </span>
+            ) : null
+
             const actionButton =
               patient.status === "Payment Complete" ? (
                 <Button
@@ -812,6 +841,16 @@ export default function PatientHistoryPage() {
                       { label: "Unit Name", value: patient.unitName || "-" },
                       { label: "Patient Name", value: patient.patientName },
                       { label: "Patient ID Number", value: patient.patientIdNumber },
+                      ...(patient.couponCode
+                        ? [{
+                            label: "Coupon",
+                            value: patient.couponComp
+                              ? `${patient.couponCode} · Comped`
+                              : patient.discountAmount != null
+                                ? `${patient.couponCode} · −R${patient.discountAmount.toFixed(2)}`
+                                : patient.couponCode,
+                          }]
+                        : []),
                       { label: "Date", value: patient.date },
                     ]}
                   />
@@ -859,6 +898,7 @@ export default function PatientHistoryPage() {
                   <div className="flex min-w-0 flex-col gap-0.5 text-left">
                     <span className="text-xs font-bold text-ink">Patient Name</span>
                     <span className="truncate text-sm text-ink-muted" title={patient.patientName}>{patient.patientName}</span>
+                    {couponChip}
                   </div>
 
                   {/* Patient ID Number */}
@@ -1121,6 +1161,10 @@ export default function PatientHistoryPage() {
               "Email": b.emailAddress || "",
               "Address": [b.address, b.suburb, b.city, b.province, b.postalCode].filter(Boolean).join(", "),
               "Payment Type": b.paymentType || "",
+              "Coupon Code": b.couponCode || "",
+              "Original Amount": b.originalAmount != null ? b.originalAmount.toFixed(2) : "",
+              "Discount Amount": b.discountAmount != null ? b.discountAmount.toFixed(2) : "",
+              "Final Amount": b.paymentAmount != null ? b.paymentAmount.toFixed(2) : "",
               "Blood Pressure": b.bloodPressure || "",
               "Glucose": b.glucose || "",
               "Temperature": b.temperature || "",
