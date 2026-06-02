@@ -90,7 +90,7 @@ export async function POST(request: Request) {
   // sequential reads (audit #17).
   const { data: booking, error: loadErr } = await admin
     .from("bookings")
-    .select("id, status, first_names, surname, email_address, unit_id, units(client_id)")
+    .select("id, status, first_names, surname, email_address, unit_id, payment_amount, coupon_code, units(client_id)")
     .eq("id", bookingId)
     .single()
 
@@ -145,24 +145,43 @@ export async function POST(request: Request) {
     }
   }
 
-  // Two independent post-check writes — UPDATE payment_amount and the
-  // booking-validator snapshot — run in parallel (audit #17). Both are
-  // best-effort with respect to user-facing flow; the validator helper
-  // already swallows its own errors, and a failed UPDATE here would
-  // surface at ITN-validation time.
+  // Resolve the amount to charge. If a coupon was applied at /payment,
+  // booking.payment_amount has already been set to the discounted total
+  // by /api/coupons/apply. Otherwise it's null and we use the system
+  // default (the original PAYMENT_AMOUNT constant). The PayFast string
+  // must match the format the ITN validator expects ("325.00" style).
+  const resolvedAmount =
+    booking.payment_amount !== null && booking.payment_amount !== undefined
+      ? Number(booking.payment_amount).toFixed(2)
+      : PAYMENT_AMOUNT
+
+  // Two independent post-check writes — UPDATE payment_amount (only when
+  // there isn't one yet, so we don't clobber a coupon-discounted amount)
+  // and the booking-validator snapshot — run in parallel (audit #17).
+  // Both are best-effort with respect to user-facing flow; the validator
+  // helper already swallows its own errors, and a failed UPDATE here
+  // would surface at ITN-validation time.
+  const needsAmountWrite =
+    booking.payment_amount === null || booking.payment_amount === undefined
   await Promise.all([
-    admin
-      .from("bookings")
-      .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
-      .eq("id", bookingId),
     recordBookingValidator(admin, bookingId, caller),
+    needsAmountWrite
+      ? admin
+          .from("bookings")
+          .update({ payment_amount: parseFloat(PAYMENT_AMOUNT) })
+          .eq("id", bookingId)
+          .then(() => undefined)
+      : Promise.resolve(),
   ])
 
   // Build the form data in PayFast's required field order
+  const itemName = booking.coupon_code
+    ? `${PAYMENT_ITEM_NAME} (coupon ${booking.coupon_code})`
+    : PAYMENT_ITEM_NAME
   const formData = buildPaymentData(config, {
     bookingId,
-    amount: PAYMENT_AMOUNT,
-    itemName: PAYMENT_ITEM_NAME,
+    amount: resolvedAmount,
+    itemName,
     buyerFirstName: booking.first_names ?? undefined,
     buyerLastName: booking.surname ?? undefined,
     buyerEmail: booking.email_address ?? undefined,

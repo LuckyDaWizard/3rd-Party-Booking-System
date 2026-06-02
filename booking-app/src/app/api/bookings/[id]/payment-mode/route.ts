@@ -70,7 +70,7 @@ export async function GET(_request: Request, context: RouteContext) {
     }
   }
 
-  // All three flags live on the parent client. units row was embedded above;
+  // All four flags live on the parent client. units row was embedded above;
   // only the clients lookup remains as a separate query.
   let collectAtUnit = false
   let billMonthly = false
@@ -79,6 +79,9 @@ export async function GET(_request: Request, context: RouteContext) {
   // missing row), keep the verification step. Only flip to FALSE when
   // the parent client has explicitly opted out.
   let nurseVerification = true
+  // Default FALSE — coupons only show when the parent client has
+  // explicitly opted in (matches the apply-endpoint's per-client gate).
+  let allowCoupons = false
   // Supabase returns the embedded row as either an object or array
   // depending on relationship cardinality — normalise to a scalar.
   const unitEmbed = booking.units as
@@ -90,7 +93,7 @@ export async function GET(_request: Request, context: RouteContext) {
   if (clientId) {
     const { data: client } = await admin
       .from("clients")
-      .select("collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification")
+      .select("collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification, allow_coupons")
       .eq("id", clientId)
       .single()
     const c = client as {
@@ -98,6 +101,7 @@ export async function GET(_request: Request, context: RouteContext) {
       bill_monthly: boolean | null
       skip_patient_metrics: boolean | null
       nurse_verification: boolean | null
+      allow_coupons: boolean | null
     } | null
     collectAtUnit = c?.collect_payment_at_unit ?? false
     billMonthly = c?.bill_monthly ?? false
@@ -110,6 +114,7 @@ export async function GET(_request: Request, context: RouteContext) {
     skipPatientMetrics =
       (billMonthly || collectAtUnit) && (c?.skip_patient_metrics ?? false)
     nurseVerification = c?.nurse_verification ?? false
+    allowCoupons = c?.allow_coupons ?? false
   }
 
   // Resolution: monthly_invoice wins if both ever end up TRUE (defensive
@@ -121,5 +126,5 @@ export async function GET(_request: Request, context: RouteContext) {
       ? "self_collect"
       : "gateway"
 
-  return NextResponse.json({ mode, skipPatientMetrics, nurseVerification })
+  return NextResponse.json({ mode, skipPatientMetrics, nurseVerification, allowCoupons })
 }

@@ -5,9 +5,9 @@ subtitle: The page operators live in. Search, filter, reconcile, refund, retry �
 audience: Operators, unit managers, support
 category: Walkthroughs
 internal: true
-tags: [patient-history, operator, reconcile, payfast, carefirst, daily]
+tags: [patient-history, operator, reconcile, payfast, carefirst, daily, coupons]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-02
 pills:
   - { label: Walkthrough, variant: brand }
   - { label: Daily driver, variant: ok }
@@ -104,8 +104,18 @@ Inside <b>Payment Complete</b>, the pill colour subtly differs by how the bookin
 - **Yellow** — gateway (PayFast)
 - **Amber** — self-collect (paid at the unit, confirmed with PIN)
 - **Blue** — monthly invoice (auto-marked, no operator action)
+- **Emerald** — coupon comp (R0 booking — coupon covered the full fee)
 
 This helps you spot reconcile candidates at a glance — yellow Payment Completes are the ones that go through PayFast and so the ones where the ITN might have dropped.
+</Callout>
+
+<Callout title="Coupon chip">
+Bookings that had a coupon applied show a small emerald chip under the patient name:
+
+- <code>CODE · −R25.00</code> — discounted booking (still went through PayFast at the reduced amount)
+- <code>CODE · Comped</code> — R0 booking, completed without PayFast via the comp endpoint
+
+The chip is absent for bookings that never had a coupon, or where the coupon was released because the booking was Abandoned/Discarded.
 </Callout>
 
 </Section>
@@ -197,7 +207,8 @@ The **Export to Excel** button (system_admin only) dumps the current filtered vi
 - Status
 - Unit, Client
 - Date (local timezone, en-ZA formatted)
-- Payment Type, Payment Amount
+- Payment Type, Coupon Code, Original Amount, Discount Amount, Final Amount
+- Vitals (BP, glucose, temperature, oxygen saturation, heart rate) when captured
 
 <Callout title="Filter before export">
 Whatever filters you have applied (status, date range, unit, search) carry through to the export. Set up the view you want first, then click Export.
@@ -228,6 +239,10 @@ Whatever filters you have applied (status, date range, unit, search) carry throu
 
 <Card variant="warn" title="CareFirst handoff keeps failing for one patient">
 Check the **handoff_error_reason** in the booking's audit / view panel. The most common cause is the "already registered to a different account" error — escalate to support to resolve the CareFirst-side record before retrying.
+</Card>
+
+<Card variant="warn" title="Coupon was applied but the patient bailed">
+No action needed — the system auto-releases the coupon slot when the booking flips to Abandoned/Discarded. The coupon's usage count goes back down by one and the same code can be re-applied to the patient's next attempt (limits permitting).
 </Card>
 </Grid2>
 

@@ -53,6 +53,12 @@ interface UpdateClientBody {
    * step. Independent of the billing-mode flags.
    */
   nurseVerification?: boolean
+  /**
+   * When TRUE, the booking flow shows the coupon-code input on the
+   * payment step and /api/coupons/apply accepts requests for this
+   * client. Independent of every other client flag.
+   */
+  allowCoupons?: boolean
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -110,7 +116,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification, allow_coupons")
     .eq("id", id)
     .single()
 
@@ -126,6 +132,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.billMonthly !== undefined) dbUpdates.bill_monthly = body.billMonthly
   if (body.skipPatientMetrics !== undefined) dbUpdates.skip_patient_metrics = body.skipPatientMetrics
   if (body.nurseVerification !== undefined) dbUpdates.nurse_verification = body.nurseVerification
+  if (body.allowCoupons !== undefined) dbUpdates.allow_coupons = body.allowCoupons
 
   // Mutual exclusion: turning one billing-mode flag ON forces the other
   // OFF. The UI already enforces this, but a malformed request that
@@ -152,6 +159,14 @@ export async function PATCH(request: Request, context: RouteContext) {
       : (current?.collect_payment_at_unit ?? false)
   if (!effectiveBillMonthly && !effectiveCollectAtUnit) {
     dbUpdates.skip_patient_metrics = false
+  }
+
+  // allow_coupons only makes sense on the gateway billing path — there's
+  // nothing to discount when the unit collects cash directly or when the
+  // client is invoiced at month-end. Clamp to FALSE whenever either
+  // non-gateway billing mode is effectively ON (post the mutex above).
+  if (effectiveBillMonthly || effectiveCollectAtUnit) {
+    dbUpdates.allow_coupons = false
   }
 
   if (Object.keys(dbUpdates).length === 0) {
@@ -219,6 +234,19 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Nurse Verification"] = {
       old: current?.nurse_verification ?? false,
       new: body.nurseVerification,
+    }
+  // Compare against the EFFECTIVE post-clamp value so an entry only
+  // appears when the stored flag actually changed (operator sent
+  // allowCoupons=true but billing mode is non-gateway → server clamped
+  // to false → no real change).
+  const postClampAllowCoupons =
+    dbUpdates.allow_coupons !== undefined
+      ? (dbUpdates.allow_coupons as boolean)
+      : (current?.allow_coupons ?? false)
+  if (postClampAllowCoupons !== (current?.allow_coupons ?? false))
+    changes["Allow Coupons"] = {
+      old: current?.allow_coupons ?? false,
+      new: postClampAllowCoupons,
     }
 
   if (Object.keys(changes).length > 0) {

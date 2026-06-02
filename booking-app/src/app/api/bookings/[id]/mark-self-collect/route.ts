@@ -113,7 +113,13 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   // Conditional update via the canonical state machine (audit #8).
+  // Preserve any coupon-discounted payment_amount that's already on the
+  // row; only set the system default when the column is empty.
   const fromStatus = booking.status as BookingStatus
+  const resolvedAmount =
+    booking.payment_amount !== null && booking.payment_amount !== undefined
+      ? Number(booking.payment_amount)
+      : parseFloat(PAYMENT_AMOUNT)
   const result = await transitionStatus(
     admin,
     id,
@@ -121,7 +127,7 @@ export async function POST(request: Request, context: RouteContext) {
     "Payment Complete",
     {
       payment_type: "self_collect",
-      payment_amount: parseFloat(PAYMENT_AMOUNT),
+      payment_amount: resolvedAmount,
       payment_confirmed_at: new Date().toISOString(),
     }
   )

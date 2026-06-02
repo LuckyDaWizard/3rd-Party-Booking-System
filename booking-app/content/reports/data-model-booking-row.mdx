@@ -4,9 +4,9 @@ super: 3rd Party Booking System · Reference
 subtitle: The canonical reference for every column on the `bookings` table. What we capture, what we send to CareFirst, and what we keep on our side. Useful when a CareFirst support ticket references a specific field.
 audience: CareFirst Patient development team
 category: System Overview
-tags: [data-model, schema, bookings, postgres, reference]
+tags: [data-model, schema, bookings, postgres, reference, coupons]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-02
 order: 60
 pills:
   - { label: Reference, variant: brand }
@@ -26,7 +26,7 @@ sections:
 
 Every booking the system has ever created exists as one row in the `bookings` table. The row is created when the operator clicks Create Booking, populated incrementally as the patient walks through the flow (auto-save every 2 seconds), and reaches a terminal status at handoff or abandonment.
 
-Roughly 40 columns. They cluster into 7 groups, documented below. Anything not listed here is either a soft-delete flag, a per-environment metadata field, or an internal optimisation; the columns below cover everything externally visible.
+Roughly 45 columns. They cluster into 7 groups, documented below. Anything not listed here is either a soft-delete flag, a per-environment metadata field, or an internal optimisation; the columns below cover everything externally visible.
 
 </Section>
 
@@ -68,12 +68,20 @@ Roughly 40 columns. They cluster into 7 groups, documented below. Anything not l
 
 | Column | Type | Notes |
 |---|---|---|
-| `payment_type` | `text` | `gateway` / `self_collect` / `monthly_invoice` / `manual` |
-| `payment_amount` | `numeric` | Set when payment is initiated (gateway) or confirmed (self-collect/monthly) |
+| `payment_type` | `text` | `gateway` / `self_collect` / `monthly_invoice` / `coupon_comp` / `manual` |
+| `payment_amount` | `numeric` | The amount the patient actually pays — after coupon discount, if any |
 | `payment_reference` | `text` | PayFast's transaction ID for gateway bookings |
 | `payment_confirmed_at` | `timestamptz` | When status flipped to Payment Complete |
+| `original_amount` | `numeric` | The undiscounted consultation fee. Set when a coupon is applied so we can roll back to it on abandon/discard. NULL when no coupon was ever attached. |
+| `discount_amount` | `numeric` | The resolved discount in rand (set even for percentage coupons). NULL when no coupon attached or after the release trigger fires. |
+| `coupon_id` | `uuid` | FK to `coupons.id`. NULL when no coupon attached or after release. |
+| `coupon_code` | `text` | Denormalised coupon code — kept on the booking so a deleted coupon row doesn't leave the booking orphaned. NULL after release. |
 
-**Not sent to CareFirst today.** See [Per-Client Configuration Flags](/reports/per-client-configuration) for the why.
+**Not sent to CareFirst today.** See [Per-Client Configuration Flags](/reports/per-client-configuration) for the why. Coupon details would be cheap to forward in the SSO payload if useful for analytics.
+
+<Callout title="Why the duplicated columns" variant="brand">
+Coupon usage is tracked in the dedicated <code>coupon_uses</code> table — that's the source of truth for usage-limit counting. The four denormalised columns on the booking row exist so the Patient History list, CSV export, and audit log don't have to join <code>coupon_uses</code> on every read. The Abandoned/Discarded trigger keeps both halves in sync: it deletes the <code>coupon_uses</code> row AND nulls the denorm columns AND resets <code>payment_amount</code> to <code>original_amount</code>.
+</Callout>
 
 </Section>
 

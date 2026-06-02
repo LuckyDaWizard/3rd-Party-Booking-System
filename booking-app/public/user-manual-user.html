@@ -574,6 +574,28 @@
         notice saying so and click <strong>Continue</strong> &mdash; no money is collected at this
         step.
       </p>
+
+      <h4>Coupon codes (optional, gateway only)</h4>
+      <p>
+        If the clinic is configured to accept coupons, you&rsquo;ll see an <strong>Apply
+        coupon</strong> box on the PayFast payment screen. Type the code, press <strong>Apply</strong>,
+        and the discount is taken off the total immediately. If the code is invalid, expired, or has
+        run out of uses, you&rsquo;ll see an inline error and nothing on the booking changes.
+      </p>
+      <div class="callout">
+        <span class="label">If the coupon takes the total to R0</span>
+        The <strong>Pay With PayFast</strong> button is automatically replaced by a green
+        <strong>Complete Free Booking</strong> button. Click it and the booking completes without
+        ever leaving the page &mdash; no PayFast redirect, no card details. The booking shows up on
+        Patient History with an emerald &ldquo;Comped&rdquo; chip.
+      </div>
+      <div class="callout warn">
+        <span class="label">If the patient leaves before paying</span>
+        Don&rsquo;t worry about the coupon. When the booking later flips to Abandoned (idle
+        timeout) or Discarded (Options &rarr; Discard Flow), the coupon usage is automatically
+        released &mdash; the same code can be applied again on the patient&rsquo;s next attempt,
+        limits permitting.
+      </div>
     </div>
 
     <!-- ====================================================================== -->
@@ -717,6 +739,10 @@
           <tr>
             <td><strong>I can&rsquo;t find a button described in this manual</strong></td>
             <td>Check the top of the page &mdash; you may be on the wrong unit (see &ldquo;Switching units&rdquo;). If still missing, the feature may be turned off for your clinic.</td>
+          </tr>
+          <tr>
+            <td><strong>Apply Coupon doesn&rsquo;t do anything</strong></td>
+            <td>Check the code is typed correctly (case-insensitive). If the inline error says &ldquo;not valid yet&rdquo; / &ldquo;expired&rdquo; / &ldquo;limit reached&rdquo;, the code can&rsquo;t be applied to this booking &mdash; ask the patient if they have another code.</td>
           </tr>
         </tbody>
       </table>

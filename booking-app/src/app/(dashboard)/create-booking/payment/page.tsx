@@ -58,6 +58,93 @@ export default function PaymentPage() {
   const [savingEmail, setSavingEmail] = useState(false)
   const [emailError, setEmailError] = useState("")
 
+  // ---- Coupon state ----
+  // The payment summary shows the current applied coupon (if any) plus an
+  // "Apply coupon" input. The /api/coupons/apply endpoint resolves the
+  // discount server-side and updates booking.payment_amount so the PayFast
+  // initiate call below sees the discounted amount automatically.
+  const DEFAULT_AMOUNT = 325 // mirrors PAYMENT_AMOUNT — fallback only.
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string
+    originalAmount: number
+    discountAmount: number
+    finalAmount: number
+  } | null>(null)
+  const [couponInput, setCouponInput] = useState("")
+  const [applyingCoupon, setApplyingCoupon] = useState(false)
+  const [couponError, setCouponError] = useState("")
+
+  const displayedOriginal = appliedCoupon
+    ? appliedCoupon.originalAmount
+    : DEFAULT_AMOUNT
+  const displayedTotal = appliedCoupon
+    ? appliedCoupon.finalAmount
+    : DEFAULT_AMOUNT
+  // When a coupon brings the total to R0 we replace the Pay-with-PayFast /
+  // Send-link buttons with a single "Complete free booking" button that
+  // skips the gateway entirely (PayFast rejects R0 transactions).
+  const isFreeBooking =
+    appliedCoupon !== null && appliedCoupon.finalAmount === 0
+
+  async function handleApplyCoupon() {
+    if (!bookingId || !couponInput.trim() || applyingCoupon) return
+    setApplyingCoupon(true)
+    setCouponError("")
+    try {
+      const res = await fetch("/api/coupons/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponInput.trim(), bookingId }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        code?: string
+        originalAmount?: number
+        discountAmount?: number
+        finalAmount?: number
+        error?: string
+      }
+      if (!res.ok || !data.ok || !data.code) {
+        setCouponError(data.error ?? "Coupon couldn't be applied.")
+        return
+      }
+      setAppliedCoupon({
+        code: data.code,
+        originalAmount: Number(data.originalAmount ?? 0),
+        discountAmount: Number(data.discountAmount ?? 0),
+        finalAmount: Number(data.finalAmount ?? 0),
+      })
+      setCouponInput("")
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : "Coupon couldn't be applied.")
+    } finally {
+      setApplyingCoupon(false)
+    }
+  }
+
+  async function handleRemoveCoupon() {
+    if (!bookingId || !appliedCoupon) return
+    setApplyingCoupon(true)
+    setCouponError("")
+    try {
+      const res = await fetch("/api/coupons/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        setCouponError(data.error ?? "Couldn't remove the coupon.")
+        return
+      }
+      setAppliedCoupon(null)
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : "Couldn't remove the coupon.")
+    } finally {
+      setApplyingCoupon(false)
+    }
+  }
+
   // Payment-mode safety net. Resolved server-side from the booking's parent
   // client's `collect_payment_at_unit` flag. "checking" until the API
   // resolves; "gateway" is the default.
@@ -69,6 +156,10 @@ export default function PaymentPage() {
   // patient-details — skip /patient-metrics on the post-success
   // navigation when the parent client opts in.
   const [skipPatientMetrics, setSkipPatientMetrics] = useState(false)
+  // Per-client gate for the "Apply coupon" input on the Payment Summary.
+  // Defaults to FALSE; flipped TRUE only when the payment-mode endpoint
+  // returns allowCoupons=true for this booking's parent client.
+  const [allowCoupons, setAllowCoupons] = useState(false)
 
   useEffect(() => {
     if (bookingId) setActiveBookingId(bookingId)
@@ -108,6 +199,7 @@ export default function PaymentPage() {
         const data = (await res.json().catch(() => ({}))) as {
           mode?: "gateway" | "self_collect" | "monthly_invoice"
           skipPatientMetrics?: boolean
+          allowCoupons?: boolean
         }
         if (cancelled) return
         setPaymentMode(
@@ -118,6 +210,7 @@ export default function PaymentPage() {
               : "gateway"
         )
         if (data.skipPatientMetrics) setSkipPatientMetrics(true)
+        setAllowCoupons(Boolean(data.allowCoupons))
       })
       .catch(() => {
         if (!cancelled) setPaymentMode("gateway")
@@ -219,6 +312,34 @@ export default function PaymentPage() {
       setFormData(data)
     } catch {
       setError("Failed to connect to payment server")
+      setProcessing(false)
+    }
+  }
+
+  // When a coupon brings the final amount to R0 we can't go through PayFast
+  // (gateways reject R0 transactions). The Pay button is swapped for this
+  // handler which marks the booking Payment Complete server-side with
+  // payment_type = "coupon_comp" and lands us on the same success page.
+  async function handleCompleteCouponComp() {
+    if (processing) return
+    setProcessing(true)
+    setError("")
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/complete-coupon-comp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Failed to complete the booking")
+        setProcessing(false)
+        return
+      }
+      // Reuse the existing PayFast success page — it already knows how
+      // to route the post-payment "Start Consult" handoff.
+      router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+    } catch {
+      setError("Network error. Please try again.")
       setProcessing(false)
     }
   }
@@ -566,16 +687,106 @@ export default function PaymentPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-ink-muted">Consultation Booking</span>
-                  <span className="text-ink-muted">R325.00</span>
+                  <span className="text-ink-muted">R{displayedOriginal.toFixed(2)}</span>
                 </div>
+
+                {appliedCoupon && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-emerald-700">
+                      Coupon <span className="font-mono">{appliedCoupon.code}</span>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        disabled={applyingCoupon}
+                        className="ml-2 text-xs underline text-emerald-700 hover:text-emerald-900 disabled:opacity-50"
+                        data-testid="remove-coupon-link"
+                      >
+                        Remove
+                      </button>
+                    </span>
+                    <span className="text-emerald-700">
+                      -R{appliedCoupon.discountAmount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="border-t border-gray-100" />
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <span className="text-ink">Total</span>
-                  <span className="text-ink">R325.00</span>
+                  <span className="text-ink">R{displayedTotal.toFixed(2)}</span>
                 </div>
               </div>
 
-              {paymentType === "link" ? (
+              {/* Coupon input — shown only when the parent client opts in
+                  AND no coupon is currently applied. The per-client
+                  allowCoupons flag comes from /api/bookings/[id]/payment-mode. */}
+              {allowCoupons && !appliedCoupon && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold text-ink-muted">
+                    Have a coupon code?
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      placeholder="Enter code"
+                      className="flex-1 font-mono uppercase"
+                      data-testid="coupon-code-input"
+                      disabled={applyingCoupon}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          void handleApplyCoupon()
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={applyingCoupon || !couponInput.trim()}
+                      variant="outline"
+                      className="border border-gray-300"
+                      data-testid="apply-coupon-button"
+                    >
+                      {applyingCoupon ? "…" : "Apply"}
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="text-xs text-red-600" data-testid="coupon-error">
+                      {couponError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {isFreeBooking ? (
+                /* R0 after coupon — skip PayFast entirely. */
+                <Button
+                  onClick={handleCompleteCouponComp}
+                  disabled={processing}
+                  data-testid="complete-free-booking-button"
+                  className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+                    !processing
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : "bg-gray-300 text-ink-muted"
+                  }`}
+                >
+                  {processing ? (
+                    <>
+                      Completing...
+                      <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                        <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                        <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                      </svg>
+                    </>
+                  ) : (
+                    <>
+                      Complete free booking
+                      <ArrowRight className="size-4" />
+                    </>
+                  )}
+                </Button>
+              ) : paymentType === "link" ? (
                 sent ? (
                   <Button
                     onClick={handleContinue}
