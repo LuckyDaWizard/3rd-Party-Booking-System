@@ -80,6 +80,11 @@ export default function PaymentPage() {
   const displayedTotal = appliedCoupon
     ? appliedCoupon.finalAmount
     : DEFAULT_AMOUNT
+  // When a coupon brings the total to R0 we replace the Pay-with-PayFast /
+  // Send-link buttons with a single "Complete free booking" button that
+  // skips the gateway entirely (PayFast rejects R0 transactions).
+  const isFreeBooking =
+    appliedCoupon !== null && appliedCoupon.finalAmount === 0
 
   async function handleApplyCoupon() {
     if (!bookingId || !couponInput.trim() || applyingCoupon) return
@@ -307,6 +312,34 @@ export default function PaymentPage() {
       setFormData(data)
     } catch {
       setError("Failed to connect to payment server")
+      setProcessing(false)
+    }
+  }
+
+  // When a coupon brings the final amount to R0 we can't go through PayFast
+  // (gateways reject R0 transactions). The Pay button is swapped for this
+  // handler which marks the booking Payment Complete server-side with
+  // payment_type = "coupon_comp" and lands us on the same success page.
+  async function handleCompleteCouponComp() {
+    if (processing) return
+    setProcessing(true)
+    setError("")
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/complete-coupon-comp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? "Failed to complete the booking")
+        setProcessing(false)
+        return
+      }
+      // Reuse the existing PayFast success page — it already knows how
+      // to route the post-payment "Start Consult" handoff.
+      router.push(`/create-booking/payment/success?bookingId=${bookingId}`)
+    } catch {
+      setError("Network error. Please try again.")
       setProcessing(false)
     }
   }
@@ -726,7 +759,34 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {paymentType === "link" ? (
+              {isFreeBooking ? (
+                /* R0 after coupon — skip PayFast entirely. */
+                <Button
+                  onClick={handleCompleteCouponComp}
+                  disabled={processing}
+                  data-testid="complete-free-booking-button"
+                  className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+                    !processing
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : "bg-gray-300 text-ink-muted"
+                  }`}
+                >
+                  {processing ? (
+                    <>
+                      Completing...
+                      <svg className="ml-1 size-4 animate-spin" viewBox="0 0 40 40" fill="none">
+                        <circle cx="20" cy="20" r="15" stroke="#6b7280" strokeWidth="5" strokeLinecap="round" />
+                        <circle cx="20" cy="20" r="15" stroke="white" strokeWidth="5" strokeLinecap="round" strokeDasharray="94.25" strokeDashoffset="70" />
+                      </svg>
+                    </>
+                  ) : (
+                    <>
+                      Complete free booking
+                      <ArrowRight className="size-4" />
+                    </>
+                  )}
+                </Button>
+              ) : paymentType === "link" ? (
                 sent ? (
                   <Button
                     onClick={handleContinue}
