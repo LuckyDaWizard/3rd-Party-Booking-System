@@ -53,6 +53,7 @@ export function FloatingInput({
 }: FloatingInputProps) {
   const hasValue = value.length > 0
   const hasError = !!error
+  const isNumber = type === "number"
 
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
@@ -67,6 +68,14 @@ export function FloatingInput({
           readOnly={readOnly}
           placeholder=" "
           className={`peer h-14 w-full rounded-lg border bg-white px-4 py-4 text-sm text-ink outline-none transition-colors focus:bg-white active:bg-white autofill:bg-white ${
+            // Hide the native number-input spinner buttons (Chrome / Safari
+            // + Firefox). Users type the value directly — keeps the right
+            // edge clean for the existing clear (X) button and avoids the
+            // browser arrows fighting with it for space.
+            isNumber
+              ? "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              : ""
+          } ${
             hasError
               ? "border-[#FF3A69] focus:border-[#FF3A69]"
               : readOnly
