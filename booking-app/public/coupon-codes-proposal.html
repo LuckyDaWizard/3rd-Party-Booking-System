@@ -232,13 +232,19 @@
   <div class="page">
 
     <header class="doc-header">
-      <div class="eyebrow">Scoping Proposal</div>
+      <div class="eyebrow">Scoping Proposal &middot; Implemented</div>
       <h1>Coupon Codes &amp; Discounts<br>on the Booking Flow</h1>
       <div class="meta">
         Prepared <strong>2026-06-01</strong> by the development team<br>
         For internal review before scoping any build
       </div>
     </header>
+
+    <div style="margin: 0 0 32px; padding: 16px 20px; background: var(--ok-tint); border-left: 4px solid var(--ok-ink); border-radius: 4px;">
+      <strong style="color: var(--ok-ink);">Status update &mdash; 2026-06-02:</strong> This feature has been built and shipped on the <code>coupon-code-feature</code> branch. Live behaviour covers per-client coupons (percentage or fixed), global vs single-client scope, usage limits (total + per email), min-spend, validity windows, R0 comp path (skips PayFast), and automatic usage-release on Abandoned / Discarded bookings.
+      <br><br>
+      The proposal below is preserved as the original scoping document for historical reference. For the canonical behaviour of the shipped feature see the <a href="/reports/booking-flow#coupons">Booking Flow walkthrough (Coupons section)</a>, the <strong>Coupon Management</strong> section of the System Admin manual, and the data-model reference for the new <code>coupons</code> + <code>coupon_uses</code> tables.
+    </div>
 
     <p class="lede">
       The proposal is to add a discount mechanism to the booking flow. The right shape of that

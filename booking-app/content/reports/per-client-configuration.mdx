@@ -4,9 +4,9 @@ super: 3rd Party Booking System · Reference
 subtitle: Each client we onboard can flip a handful of flags that materially change the booking flow — payment mode, nurse verification, skipped vitals, branding. This is the matrix and what reaches CareFirst as a result.
 audience: CareFirst Patient development team
 category: Patient Journey
-tags: [clients, configuration, flags, billing, branding, nurse-verification]
+tags: [clients, configuration, flags, billing, branding, nurse-verification, coupons]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-02
 order: 30
 pills:
   - { label: Reference, variant: brand }
@@ -36,7 +36,8 @@ Stored on the `clients` table. Each flag can be ON or OFF independently (with mu
 |---|---|---|
 | `collect_payment_at_unit` | Operator confirms payment at the unit with a PIN; we skip PayFast entirely | Step 5 shows a "Confirm payment in unit" panel instead of the PayFast picker |
 | `bill_monthly` | Client is invoiced monthly; operator never sees Step 5 | Step 5 auto-fires `mark-monthly-invoice`; booking advances without operator action |
-| `skip_patient_metrics` | Skips the vitals capture page; only available if one of the two above is ON | Booking goes from Payment Complete → /creating directly |
+| `allow_coupons` | Patient (or operator) can apply a discount code on the PayFast payment step | Adds the "Apply coupon" input on the gateway payment page; reduces the amount sent to PayFast |
+| `skip_patient_metrics` | Skips the vitals capture page; only available if one of the two non-gateway flags above is ON | Booking goes from Payment Complete → /creating directly |
 | `nurse_verification` | Requires a PIN at search, verification, and handoff (the operating user's own PIN works — any Active role assigned to the unit can sign off; manager not required) | Inserts up to 4 PIN gates across the flow |
 | `accent_color` | Custom brand colour (hex) applied via CSS variable | Affects UI only — operator + (in future) patient-facing surfaces |
 
@@ -45,6 +46,8 @@ Stored on the `clients` table. Each flag can be ON or OFF independently (with mu
 <Section id="payment-modes" num="03 — Payment modes" title="Payment-mode flags interact">
 
 `collect_payment_at_unit` and `bill_monthly` cannot both be ON. The UI cascades — turning one on disables the other — and the server PATCH endpoint clamps if both ever arrive TRUE.
+
+`allow_coupons` is mutually exclusive with both non-gateway modes — coupons only operate on the PayFast path, so turning ON `collect_payment_at_unit` or `bill_monthly` disables `allow_coupons` at the UI level, and the coupon-apply endpoint rejects with a 4xx if a booking already has `payment_type` set to a non-gateway value.
 
 ```mermaid
 flowchart LR
@@ -68,6 +71,8 @@ flowchart LR
 | Resulting mode | What the patient experiences | What CareFirst sees |
 |---|---|---|
 | **Gateway** (default) | Pays via PayFast, returns to our /payment/success | `payment_type = "gateway"` if we ever exposed it |
+| **Gateway + coupon** | Applies a discount code; pays the reduced amount via PayFast | `payment_type = "gateway"`; coupon details are on the booking row |
+| **Coupon comp (R0)** | Applies a 100%-off code (or fixed amount ≥ fee); skips PayFast entirely via the dedicated R0 endpoint | `payment_type = "coupon_comp"` |
 | **Self-collect** | Pays cash/card at the unit; operator confirms with their PIN | `payment_type = "self_collect"` |
 | **Monthly invoice** | No payment step at all — client is billed monthly | `payment_type = "monthly_invoice"` |
 
@@ -130,6 +135,7 @@ Only <Pill variant="brand">system_admin</Pill> can edit client config. The Setti
 |---|---|---|
 | Flip `collect_payment_at_unit` ON | Next new booking sees self-collect flow | Yes — flip OFF restores gateway |
 | Flip `bill_monthly` ON | Next new booking is auto-marked monthly | Yes — same |
+| Flip `allow_coupons` ON | Next new gateway booking sees the coupon input | Yes — flip OFF hides the input on new bookings; existing applied coupons stay attached |
 | Flip `skip_patient_metrics` ON | Next new booking skips vitals | Yes — same |
 | Flip `nurse_verification` ON | Next sign-in / next booking sees PIN gates | Yes — same |
 | Change `accent_color` | Branding updates on next page load | Yes — change again |

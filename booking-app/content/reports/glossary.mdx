@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: System Overview
 tags: [glossary, terminology, definitions]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-02
 order: 20
 pills:
   - { label: Reference, variant: brand }
@@ -68,6 +68,9 @@ sections:
 | **Nurse verification** | A per-client flag (`nurse_verification`) that inserts PIN gates at search, verification, and handoff steps. Used by clinics that require a nurse's sign-off on each booking. |
 | **Self-collect** | Payment mode where the unit takes payment directly (cash / card at the desk) and the operator confirms with a PIN. Skips PayFast. |
 | **Monthly invoice** | Payment mode where the client is invoiced at month-end. Operator never sees a payment step; booking auto-marks Payment Complete. |
+| **Coupon** | Per-client discount code — percentage or fixed amount — applied at the payment step. Tracked in `coupon_uses`; denormalised onto the booking. Gated by `clients.allow_coupons`. Mutually exclusive with self-collect / monthly. |
+| **Coupon comp** | The R0 path: when a coupon takes the booking total to R0, we skip PayFast (which rejects R0 transactions) and complete the booking via a dedicated endpoint. The booking gets `payment_type = "coupon_comp"`. |
+| **Abandon-release** | The Postgres BEFORE-UPDATE trigger that deletes the `coupon_uses` row + nulls denorm columns + resets `payment_amount` when a booking flips to Abandoned/Discarded. Stops a coupon's usage_limit being silently exhausted by abandoned carts. |
 | **Identity-lock banner** | Warning shown to the operator when identity fields are locked. Tells them why and who to escalate to. |
 | **Throttle** | Shared rate-limit keyed on (IP, unit). Applied to PIN attempts and forgot-PIN requests. Prevents brute-force and enumeration. |
 | **Audit log** | Append-only Postgres table recording every state-changing action. See [Audit Log](/reports/audit-log). |

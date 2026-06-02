@@ -627,7 +627,20 @@
           but Start Consult never fired. Check with the user; if the consultation system (CareFirst)
           is down, escalate to a System Admin.
         </li>
+        <li>
+          <strong>Coupon bookings:</strong> a small emerald chip under the patient name shows the
+          coupon code &mdash; <code>CODE &middot; &minus;R25</code> means the patient got a discount,
+          <code>CODE &middot; Comped</code> means the coupon covered the full fee and PayFast was
+          skipped entirely. The status pill itself goes emerald for the comped case.
+        </li>
       </ul>
+      <div class="callout">
+        <span class="label">Coupons release automatically on discard</span>
+        If you Discard a booking that has a coupon attached (or it goes Abandoned), the coupon&rsquo;s
+        usage slot is automatically returned to the pool. You don&rsquo;t need to manually credit
+        anything &mdash; the same code can be applied again on the patient&rsquo;s next attempt
+        (limits permitting).
+      </div>
     </div>
 
     <!-- ====================================================================== -->

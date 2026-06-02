@@ -350,6 +350,7 @@
         <li><a href="#add-client">Adding a new client</a></li>
         <li><a href="#manage-client">Managing an existing client &mdash; tabs</a></li>
         <li><a href="#client-settings">Client Settings switches</a></li>
+        <li><a href="#coupons">Coupon Management</a></li>
         <li><a href="#unit-mgmt-admin">Unit Management (admin view)</a></li>
         <li><a href="#user-mgmt-admin">User Management (admin view)</a></li>
         <li><a href="#audit-log">Audit Log</a></li>
@@ -535,6 +536,16 @@
               booking; you don&rsquo;t need a separate manager to be present. Default OFF.
             </td>
           </tr>
+          <tr>
+            <td><strong>Allow coupons</strong></td>
+            <td>
+              When ON, the PayFast payment step shows an &ldquo;Apply coupon&rdquo; input. Patients
+              (or operators on their behalf) can apply a discount code created in
+              <strong>Coupon Management</strong> (see &sect;8 below). Only works on the PayFast
+              gateway path &mdash; the switch is force-disabled when the client is on self-collect
+              or monthly-invoice. Default OFF.
+            </td>
+          </tr>
         </tbody>
       </table>
       <div class="callout warn">
@@ -545,7 +556,61 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="unit-mgmt-admin">8. Unit Management (admin view)</h2>
+    <h2 id="coupons">8. Coupon Management</h2>
+    <div class="section">
+      <p>
+        Coupons are discount codes that patients (or operators on their behalf) can apply on the
+        PayFast payment step. System Admin only. Find it in the sidebar under
+        <strong>Coupons</strong>.
+      </p>
+
+      <h3>The list page</h3>
+      <p>
+        Every coupon in the system is shown here, across all clients. Each row carries the code,
+        discount, scope (Global or one client&rsquo;s favicon), validity window, usage counter, and
+        a Manage button.
+      </p>
+
+      <h3>Adding a coupon</h3>
+      <p>Click <strong>Add Coupon</strong>. The form mirrors the Add User / Add Client wizards in shape:</p>
+      <ul>
+        <li><strong>Code</strong> &mdash; case-insensitive. Stored uppercase.</li>
+        <li><strong>Discount type + value</strong> &mdash; Percentage (1&ndash;100) or Fixed (rand amount).</li>
+        <li><strong>Scope</strong> &mdash; Global (works for any client) or scope to a single client. Scoped coupons reject on apply if the booking&rsquo;s unit belongs to a different client.</li>
+        <li><strong>Validity window</strong> &mdash; optional &ldquo;valid from&rdquo; / &ldquo;valid to&rdquo; dates.</li>
+        <li><strong>Usage limit</strong> &mdash; total applies across all patients (optional).</li>
+        <li><strong>Usage limit per email</strong> &mdash; how many times one patient (by email) can use this code (optional).</li>
+        <li><strong>Min spend</strong> &mdash; minimum consultation fee for the code to apply (optional).</li>
+      </ul>
+
+      <div class="callout">
+        <span class="label">Releasing usage on Abandon / Discard</span>
+        When a booking with a coupon is moved to Abandoned (idle timeout) or Discarded (user
+        action), the system automatically frees that usage slot &mdash; the coupon&rsquo;s counter
+        decrements and the code can be applied again. This is enforced by a database trigger, not
+        application code, so it works even when the booking is discarded from the database
+        directly.
+      </div>
+
+      <h3>The R0 case (full comp)</h3>
+      <p>
+        If a coupon takes a booking to R0 &mdash; a 100%-off code or a fixed amount worth more than
+        the consultation fee &mdash; PayFast is skipped entirely. The patient sees a green
+        <strong>Complete Free Booking</strong> button instead of <strong>Pay With PayFast</strong>.
+        The resulting booking has <code>payment_type = &quot;coupon_comp&quot;</code> and an emerald
+        &ldquo;Comped&rdquo; chip on Patient History so it can be distinguished from real gateway
+        payments in reports.
+      </p>
+
+      <h3>Managing an existing coupon</h3>
+      <p>Click <strong>Manage</strong> on a row. You can edit any field, see how many times the code has been used so far, and (when usage is zero) hard-delete it. Once a coupon has been used at least once, deletion is blocked &mdash; archive it by setting <em>valid to</em> in the past instead.</p>
+
+      <h3>Reporting</h3>
+      <p>The Patient History CSV export includes <strong>Coupon Code</strong>, <strong>Original Amount</strong>, <strong>Discount Amount</strong>, and <strong>Final Amount</strong> columns next to Payment Type, so coupon usage can be reconciled against consultation revenue.</p>
+    </div>
+
+    <!-- ====================================================================== -->
+    <h2 id="unit-mgmt-admin">9. Unit Management (admin view)</h2>
     <div class="section">
       <p>
         Unit Management for an admin is the same as for a manager &mdash; except you see every unit
@@ -565,7 +630,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="user-mgmt-admin">9. User Management (admin view)</h2>
+    <h2 id="user-mgmt-admin">10. User Management (admin view)</h2>
     <div class="section">
       <p>
         Same page as the manager view, but with the full role list (User, Unit Manager, System
@@ -585,7 +650,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="audit-log">10. Audit Log</h2>
+    <h2 id="audit-log">11. Audit Log</h2>
     <div class="section">
       <p>
         Open <strong>Audit Log</strong> from the sidebar. Every meaningful state change in the system
@@ -609,7 +674,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="security">11. Security dashboard</h2>
+    <h2 id="security">12. Security dashboard</h2>
     <div class="section">
       <p>
         Open <strong>Security</strong> from the sidebar. The page has four tabs:
@@ -646,7 +711,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="payments">12. Payments: reconciliation &amp; manual confirm</h2>
+    <h2 id="payments">13. Payments: reconciliation &amp; manual confirm</h2>
     <div class="section">
       <p>
         Most payments resolve automatically through PayFast&rsquo;s ITN webhook. When that fails
@@ -677,7 +742,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="privacy">13. Privacy &amp; POPIA erasure</h2>
+    <h2 id="privacy">14. Privacy &amp; POPIA erasure</h2>
     <div class="section">
       <p>
         When a patient lodges a POPIA right-to-erasure request, you process it via the privacy API:
@@ -701,7 +766,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="ops">14. Operations &amp; cleanup</h2>
+    <h2 id="ops">15. Operations &amp; cleanup</h2>
     <div class="section">
       <p>
         A 15-minute cron on the server (live since 2026-05-27) runs the system&rsquo;s housekeeping
@@ -723,7 +788,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="manager-pin">15. PIN verification &mdash; who can authorise what</h2>
+    <h2 id="manager-pin">16. PIN verification &mdash; who can authorise what</h2>
     <div class="section">
       <p>
         The system has a two-tier PIN verification model. Both tiers use the same PIN modal but
@@ -773,7 +838,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="troubleshooting">16. Common admin problems</h2>
+    <h2 id="troubleshooting">17. Common admin problems</h2>
     <div class="section">
       <table class="matrix">
         <thead><tr><th>Problem</th><th>What to do</th></tr></thead>
@@ -803,7 +868,7 @@
     </div>
 
     <!-- ====================================================================== -->
-    <h2 id="delete-warn">17. Things to be careful with</h2>
+    <h2 id="delete-warn">18. Things to be careful with</h2>
     <div class="section">
       <ul>
         <li>

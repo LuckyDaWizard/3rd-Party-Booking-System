@@ -4,9 +4,9 @@ super: 3rd Party Booking System · Reference
 subtitle: A page-by-page walkthrough of the data we collect and the decisions we make before the SSO handoff fires. Useful context for understanding the patient state we send to CareFirst Patient.
 audience: CareFirst Patient development team
 category: Patient Journey
-tags: [patient-journey, capture, payfast, carefirst, flow]
+tags: [patient-journey, capture, payfast, carefirst, flow, coupons]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-02
 order: 10
 pills:
   - { label: Reference, variant: brand }
@@ -23,6 +23,7 @@ sections:
   - { id: payfast,         label: PayFast (gateway) flow }
   - { id: self-collect,    label: Self-collect }
   - { id: monthly,         label: Monthly invoice }
+  - { id: coupons,         label: Coupons }
   - { id: post-payment,    label: After payment }
   - { id: handoff,         label: CareFirst handoff }
   - { id: lifecycle,       label: Booking lifecycle }
@@ -42,7 +43,10 @@ flowchart LR
     D -->|gateway| E[/payment/]
     D -->|self-collect| F[Mark in unit]
     D -->|monthly| G[Auto-mark]
-    E --> H[/payment/success/]
+    E --> CP{Coupon to R0?}
+    CP -->|no| H[/payment/success/]
+    CP -->|yes| CC[Comp endpoint]
+    CC --> H
     F --> I[/patient-metrics/]
     G --> I
     H --> I
@@ -52,11 +56,12 @@ flowchart LR
 
     classDef brand fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
     classDef ok fill:#dcfce7,stroke:#166534,color:#0f172a;
-    class B,C,E,H,I,J,K brand;
+    class B,C,E,H,I,J,K,CP brand;
+    class CC ok;
     class L ok;
 ```
 
-Each rounded box = a page. Diamond = branch resolved from the parent client's settings.
+Each rounded box = a page. Diamond = branch resolved from the parent client's settings (or, for the coupon question, from the booking's payment_amount after the coupon is applied).
 
 </Section>
 
@@ -68,11 +73,12 @@ Each client carries flags on the `clients` table that change which pages render 
 |---|---|---|
 | `collect_payment_at_unit` | Skip PayFast — pay at unit, confirm with PIN | Step 5 |
 | `bill_monthly` | Skip payment entirely; client invoiced at month-end | Auto-skip step 5 |
+| `allow_coupons` | Expose the Apply coupon box on the payment step | Step 5 (gateway mode only) |
 | `skip_patient_metrics` | Skip vitals capture (only with one of the two above) | After payment |
 | `nurse_verification` | Require nurse PIN before booking + before handoff | 4 PIN gates across the flow |
 | `accent_color` | Custom brand colour for buttons + pills | Whole UI |
 
-**Mutual exclusion:** `collect_payment_at_unit` and `bill_monthly` cannot both be ON. UI cascades the toggles; server PATCH clamps if both ever arrive TRUE.
+**Mutual exclusion:** `collect_payment_at_unit` and `bill_monthly` cannot both be ON. UI cascades the toggles; server PATCH clamps if both ever arrive TRUE. `allow_coupons` is independently mutually exclusive with both non-gateway modes — coupons only make sense on the PayFast (gateway) path; the API guards reject coupon applies on self-collect / monthly-invoice bookings.
 
 </Section>
 
@@ -261,7 +267,11 @@ flowchart TD
     C --> C2[Send a payment link]
     C1 --> F[/payment/]
     C2 --> F
-    F --> G[/payment/success/]
+    F --> CP{Apply coupon?}
+    CP -->|no| G[/payment/success/]
+    CP -->|yes, total &gt; 0| F
+    CP -->|yes, total = R0| CC[POST complete-coupon-comp]
+    CC --> G
 
     D --> D1[Operator confirms with PIN]
     D1 --> H[mark-self-collect]
@@ -277,9 +287,9 @@ flowchart TD
     classDef brand fill:#e0f0fa,stroke:#1f6f9d;
     classDef ok fill:#dcfce7,stroke:#166534;
     classDef warn fill:#fef3c7,stroke:#92400e;
-    class C,F,G brand;
+    class C,F,G,CP brand;
     class D,H,I warn;
-    class E,J ok;
+    class E,J,CC ok;
 ```
 
 </Section>
@@ -374,7 +384,85 @@ The client's `bill_monthly` flag is checked again in the API. This means a malic
 
 </Section>
 
-<Section id="post-payment" num="13 — Post-payment" title="Vitals, terms, handoff">
+<Section id="coupons" num="13 — Coupons" title="Discount codes on the gateway path">
+
+Per-client opt-in feature. Operators (or patients on a payment link) can apply a coupon code on the payment step to reduce the consultation fee. Gated by `clients.allow_coupons = TRUE` and only available on the gateway flow — coupons are mutually exclusive with self-collect and monthly-invoice.
+
+```mermaid
+flowchart LR
+    A[Payment step mounted] --> B{allow_coupons?}
+    B -->|FALSE| C[No coupon box]
+    B -->|TRUE| D[Apply coupon input shown]
+    D --> E[POST /api/coupons/apply]
+    E -->|invalid / expired / over-limit| F[Inline error, no DB change]
+    E -->|valid| G[Insert coupon_uses row<br/>+ denorm coupon_id/code/discount/amount on booking]
+    G --> H{Final amount &gt; 0?}
+    H -->|yes| I[Pay With PayFast<br/>at discounted amount]
+    H -->|no, total = R0| J[Complete Free Booking<br/>POST complete-coupon-comp]
+    J --> K[Status = Payment Complete<br/>payment_type = coupon_comp]
+    I -->|ITN ok| L[Status = Payment Complete<br/>payment_type = gateway]
+
+    classDef brand fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
+    classDef ok    fill:#dcfce7,stroke:#166534,color:#0f172a;
+    classDef err   fill:#fee2e2,stroke:#991b1b,color:#0f172a;
+    classDef warn  fill:#fef3c7,stroke:#92400e,color:#0f172a;
+    class A,D,E,G,I brand;
+    class K,L ok;
+    class F err;
+    class J warn;
+```
+
+### Discount types
+
+- **Percentage** — % off the consultation fee. Bounded `(0, 100]`. 100% = full comp.
+- **Fixed** — flat rand amount off. If the value exceeds the consultation fee, the final amount is clamped to R0 (still triggers the R0 comp path).
+
+### Limits enforced server-side
+
+| Limit | Source | Enforcement |
+|---|---|---|
+| `valid_from` / `valid_to` window | `coupons` row | Apply endpoint rejects with "Code not valid yet" / "Code expired" |
+| `usage_limit` (total) | `coupons` row | Apply endpoint counts existing `coupon_uses` rows |
+| `usage_limit_per_email` | `coupons` row | Apply endpoint counts `coupon_uses` matching `lower(patient_email)` |
+| `min_spend` | `coupons` row | Apply endpoint rejects if booking amount &lt; min_spend |
+| Per-client `client_id` scope | `coupons.client_id` | When non-NULL, apply rejects if booking unit's parent client differs |
+| Mutex with non-gateway modes | API guard | Apply rejects if `payment_type IS NOT NULL` and not gateway |
+
+### Lifecycle — what happens on abandon / discard
+
+```mermaid
+flowchart LR
+    A[Booking with coupon attached] --> B{status flips}
+    B -->|Payment Complete / Successful| C[Coupon usage retained<br/>counts against usage_limit]
+    B -->|Abandoned / Discarded| D[Postgres BEFORE-UPDATE trigger fires]
+    D --> E[DELETE coupon_uses row]
+    D --> F[NULL coupon_id, coupon_code, discount_amount]
+    D --> G[Reset payment_amount = original_amount]
+
+    classDef ok    fill:#dcfce7,stroke:#166534,color:#0f172a;
+    classDef warn  fill:#fef3c7,stroke:#92400e,color:#0f172a;
+    classDef brand fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
+    class C ok;
+    class D,E,F,G warn;
+    class A,B brand;
+```
+
+The trigger is `SECURITY DEFINER` so it works regardless of caller (browser JWT or server service-role). Without this, browser-side discards fail silently because `coupon_uses` is RLS-protected.
+
+**Result:** A 100-use coupon doesn't get silently exhausted by abandoned carts. The slot returns to the pool the moment the booking falls out of the active funnel.
+
+### R0 comp endpoint — why it exists
+
+PayFast (like most gateways) rejects transactions with amount = 0. A 100%-off code, or a fixed-amount code worth more than the consultation fee, lands the booking on R0. `POST /api/bookings/[id]/complete-coupon-comp` is the dedicated path for that case:
+
+- Strict preconditions: status = In Progress, `coupon_id IS NOT NULL`, `payment_amount = 0`.
+- Bypasses PayFast entirely.
+- Sets `payment_type = "coupon_comp"` (distinct from `gateway` / `self_collect` / `monthly_invoice`) so reports can count free bookings separately.
+- Records the operator on `booking_validator_id` / `booking_validator_name` like the other non-gateway completion paths.
+
+</Section>
+
+<Section id="post-payment" num="14 — Post-payment" title="Vitals, terms, handoff">
 
 <StepRow>
   <Step title="Patient Metrics">BP / glucose / temp / O₂ / heart rate. Skippable per client.</Step>
@@ -397,7 +485,7 @@ The client's `bill_monthly` flag is checked again in the API. This means a malic
 
 </Section>
 
-<Section id="handoff" num="14 — CareFirst handoff" title="SSO auto-register">
+<Section id="handoff" num="15 — CareFirst handoff" title="SSO auto-register">
 
 Booking system passes the patient to the CareFirst Patient app via SSO auto-register.
 
@@ -430,7 +518,7 @@ flowchart LR
 
 </Section>
 
-<Section id="lifecycle" num="15 — Lifecycle" title="Booking statuses">
+<Section id="lifecycle" num="16 — Lifecycle" title="Booking statuses">
 
 ```mermaid
 flowchart LR
@@ -459,14 +547,14 @@ flowchart LR
 |---|---|---|
 | <Pill variant="brand">In Progress</Pill> | Booking created, payment pending | Blue pill |
 | <Pill variant="warn">Incomplete</Pill> | Aggregated label for stuck states | Filter tab on Patient History |
-| <Pill variant="ok">Payment Complete</Pill> | Paid, awaiting Start Consult | Yellow pill (gateway), amber (self-collect), blue (monthly) |
+| <Pill variant="ok">Payment Complete</Pill> | Paid, awaiting Start Consult | Yellow pill (gateway), amber (self-collect), blue (monthly), emerald (coupon comp) |
 | <Pill variant="ok">Successful</Pill> | Handed off to CareFirst | Green pill |
 | <Pill variant="mute">Abandoned</Pill> | Idle past threshold | Grey pill |
 | <Pill variant="mute">Discarded</Pill> | Operator clicked Discard | Hidden by default; visible to admin |
 
 </Section>
 
-<Section id="cross-cutting" num="16 — Cross-cutting" title="Cross-cutting concerns">
+<Section id="cross-cutting" num="17 — Cross-cutting" title="Cross-cutting concerns">
 
 <Grid4>
 <Card variant="brand" title="Session idle">
@@ -500,7 +588,7 @@ flowchart LR
 
 </Section>
 
-<Section id="code-map" num="17 — Code map" title="Where to look in code">
+<Section id="code-map" num="18 — Code map" title="Where to look in code">
 
 | Concern | Path |
 |---|---|
@@ -510,6 +598,10 @@ flowchart LR
 | Mode resolution | `src/app/api/bookings/[id]/payment-mode/route.ts` |
 | PayFast ITN + reconcile | `src/app/api/payfast/...` |
 | Self-collect / monthly mark | `src/app/api/bookings/[id]/mark-*` |
+| Coupon apply / remove | `src/app/api/coupons/apply/route.ts`, `src/app/api/coupons/remove/route.ts` |
+| Coupon R0 comp | `src/app/api/bookings/[id]/complete-coupon-comp/route.ts` |
+| Coupon abandon-release trigger | `supabase/migrations/036_*.sql` + `037_*.sql` (SECURITY DEFINER) |
+| Coupon admin pages | `src/app/(dashboard)/coupons/...` + `src/app/api/admin/coupons/...` |
 | Patient History | `src/app/(dashboard)/patient-history/page.tsx` |
 | CareFirst handoff | `src/lib/carefirst.ts` + `start-consultation` |
 | Client settings UI | `client-management/manage/page.tsx` Settings tab |

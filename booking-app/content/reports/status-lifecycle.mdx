@@ -4,9 +4,9 @@ super: 3rd Party Booking System · Reference
 subtitle: How we model a booking from creation to handoff. What "Successful" means on our side, why it doesn't mean "consultation complete", and what we'd need from CareFirst to close that gap.
 audience: CareFirst Patient development team
 category: CareFirst Integration
-tags: [lifecycle, status, state-machine, handoff, observability]
+tags: [lifecycle, status, state-machine, handoff, observability, coupons]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-02
 order: 20
 pills:
   - { label: Reference, variant: brand }
@@ -34,7 +34,7 @@ This means our terminal status, <Pill variant="ok">Successful</Pill>, marks a su
 ```mermaid
 flowchart LR
     A((Start)) --> B[In Progress]
-    B -->|gateway / self-collect / monthly| C[Payment Complete]
+    B -->|gateway / self-collect / monthly / coupon-comp| C[Payment Complete]
     B -->|operator cancels| D[Discarded]
     B -->|idle &gt; 30 min| E[Abandoned]
     E -->|rescued by reconcile| C
@@ -61,16 +61,20 @@ flowchart LR
 | Status | Triggered by | Reachable from |
 |---|---|---|
 | <Pill variant="brand">In Progress</Pill> | Operator started a booking | Initial state |
-| <Pill variant="ok">Payment Complete</Pill> | Payment confirmed (PayFast ITN, self-collect mark, monthly auto-mark) OR rescue from Abandoned | In Progress, Abandoned, Payment Complete (failed handoff retry) |
+| <Pill variant="ok">Payment Complete</Pill> | Payment confirmed (PayFast ITN, self-collect mark, monthly auto-mark, R0 coupon-comp) OR rescue from Abandoned | In Progress, Abandoned, Payment Complete (failed handoff retry) |
 | <Pill variant="ok">Successful</Pill> | CareFirst auto-register returned 2xx | Payment Complete |
 | <Pill variant="mute">Abandoned</Pill> | No activity for &gt; 30 minutes mid-flow | In Progress |
 | <Pill variant="mute">Discarded</Pill> | Operator clicked Discard | In Progress |
 
 <Callout title="Payment-mode tint on Payment Complete">
 On the UI, <b>Payment Complete</b> is sub-tinted by how the payment came in:<br/>
-<b>Yellow</b> — PayFast gateway · <b>Amber</b> — Self-collect at unit · <b>Blue</b> — Monthly invoice
+<b>Yellow</b> — PayFast gateway · <b>Amber</b> — Self-collect at unit · <b>Blue</b> — Monthly invoice · <b>Emerald</b> — Coupon comp (R0 booking)
 <br/><br/>
 This is purely informational; the canonical status is still <b>Payment Complete</b> regardless of route.
+</Callout>
+
+<Callout title="Abandon/Discard releases the coupon" variant="warn">
+When a booking with an attached coupon flips to <b>Abandoned</b> or <b>Discarded</b>, a Postgres BEFORE-UPDATE trigger deletes the corresponding <code>coupon_uses</code> row, clears the denormalised coupon columns on the booking, and resets <code>payment_amount</code> back to <code>original_amount</code>. The slot returns to the coupon's usage pool. See the Coupons section of the <a href="/reports/booking-flow">booking flow walkthrough</a>.
 </Callout>
 
 </Section>
