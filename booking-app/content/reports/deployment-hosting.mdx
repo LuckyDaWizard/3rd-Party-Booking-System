@@ -26,11 +26,11 @@ sections:
 |---|---|
 | Provider | Hostinger VPS (Ubuntu 24.04 KVM 1) |
 | Public IP | `187.127.135.11` |
-| App URL | `http://187.127.135.11:3000` |
-| Transport | HTTP (no TLS yet) |
-| Domain | Not yet — IP-only access |
-| SSL certificate | None — pending domain |
-| Reverse proxy | Traefik |
+| App URL | `https://bookings.carefirst.co.za` |
+| Transport | HTTPS + HTTP/2 (Let's Encrypt, auto-renewed by Traefik) |
+| Domain | `bookings.carefirst.co.za` (A-record → 187.127.135.11) |
+| SSL certificate | Let's Encrypt via Traefik HTTP-01 ACME, 90-day renewal |
+| Reverse proxy | Traefik (entrypoints :80 + :443, auto HTTP→HTTPS redirect) |
 | App runtime | Docker — single container, multi-stage build |
 
 </Section>
@@ -39,13 +39,13 @@ sections:
 
 ```mermaid
 flowchart LR
-    A[Client browser] -->|HTTP :3000| B[Traefik]
+    A[Client browser] -->|HTTPS :443| B[Traefik]
     B --> C[Docker container<br/>booking-app:&lt;sha&gt;]
     C -->|HTTPS| D[Supabase]
     C -->|HTTPS| E[PayFast]
     C -->|HTTPS| F[CareFirst Patient]
     C -->|TLS :465| G[SMTP]
-    E -->|HTTP ITN webhook| B
+    E -->|HTTPS ITN webhook| B
 
     classDef us    fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
     classDef ext   fill:#fef3c7,stroke:#92400e,color:#0f172a;
@@ -53,35 +53,34 @@ flowchart LR
     class D,E,F,G ext;
 ```
 
-We make outbound HTTPS calls to every external service. We only **receive** traffic over HTTP today, and only on port 3000.
+End-to-end HTTPS: inbound on port 443 with a Let's Encrypt cert auto-renewed by Traefik, all outbound calls over TLS.
 
 </Section>
 
-<Section id="http-only" num="03 — HTTP-only constraint" title="What HTTP-only means in practice">
+<Section id="http-only" num="03 — Transport" title="HTTPS — what it enables">
 
-We can't currently accept secure inbound webhooks because we have no TLS certificate. Specific consequences:
+HTTPS went live 2026-06-03. The constraints that gated us on HTTP are now removed:
 
-| Constraint | Workaround |
+| Was | Now |
 |---|---|
-| PayFast ITN delivery is unreliable on some networks | We rebuild state by polling PayFast's Transaction History API — see <a href="/reports/payfast-payment-didnt-reflect">PayFast</a> |
-| Some browsers warn users on the operator UI | We're an internal tool; operators dismiss the warning. Not acceptable for any patient-facing surface |
-| OAuth-style integrations from third parties typically refuse HTTP callback URLs | We don't have any of those yet, but it'd block future ones |
-| **A CareFirst-side webhook to us would have to land over HTTP** | This is the immediate blocker for the <a href="/reports/consultation-outcome-webhook">Consultation Outcome Webhook</a> proposal |
+| PayFast ITN delivery unreliable on some networks | PayFast ITN over HTTPS lands reliably; pull-reconciliation remains as a belt-and-braces fallback |
+| Browser security warnings on the operator UI | Real Let's Encrypt cert, green padlock, no warnings |
+| Third-party HTTPS-only callbacks couldn't reach us | Now accept HTTPS-only callback URLs |
+| CareFirst-side webhook would land over HTTP | **Unblocked** — see <a href="/reports/consultation-outcome-webhook">Consultation Outcome Webhook</a> |
 
 </Section>
 
-<Section id="https-plan" num="04 — HTTPS plan" title="HTTPS / domain rollout plan">
+<Section id="https-plan" num="04 — HTTPS rollout" title="How HTTPS was set up">
 
-Planned steps, in order:
+Shipped 2026-06-03:
 
-1. **Provision a production domain** (e.g. `booking.carefirst.co.za`) and point DNS at `187.127.135.11`
-2. **Configure Traefik to terminate TLS** using Let's Encrypt — Traefik supports this natively, just needs the resolver block enabled
-3. **Update `NEXT_PUBLIC_APP_URL`** to the HTTPS domain so `returnUrl` and email links use it
-4. **Update PayFast merchant config** to use the new return / notify URLs
-5. **Re-provision the CareFirst auto-register `returnUrl`** to the HTTPS domain
-6. **Verify ITN delivery rate** improves once HTTPS is in place
+1. **Subdomain provisioned:** IT created the `bookings.carefirst.co.za` A-record pointing at `187.127.135.11`.
+2. **Traefik configured for HTTP-01 ACME** — `--certificatesresolvers.letsencrypt.acme.httpchallenge=true` + entrypoints `web:80` and `websecure:443`. Cert storage at `/letsencrypt/acme.json`, ACME email in `/docker/traefik/.env`.
+3. **Booking-app docker-compose labels** point a router at the `websecure` entrypoint with `Host(\`bookings.carefirst.co.za\`)` + `tls.certresolver=letsencrypt`.
+4. **Global HTTP→HTTPS redirect** at the Traefik entrypoint level so any bare-host hit upgrades automatically.
+5. **`NEXT_PUBLIC_APP_URL` = `https://bookings.carefirst.co.za`** in the Hostinger Docker Manager Environment panel.
 
-This is the prerequisite for the CareFirst consultation-outcome webhook. We can't accept inbound webhooks securely until this lands.
+Side bonus: the FortiGuard "Unrated IP" block at the First Care office is resolved — `carefirst.co.za` is rated as Business so the subdomain passes through.
 
 </Section>
 
@@ -110,27 +109,20 @@ Health check post-deploy:
 ```bash
 curl -sf http://127.0.0.1:3000/api/health
 # → { "status": "ok", "time": "...", "checks": { "db": "ok" } }
+# or externally:
+curl -sf https://bookings.carefirst.co.za/api/health
 ```
 
 </Section>
 
 <Section id="implications" num="06 — Implications" title="Implications for CareFirst">
 
-<Callout variant="warn" title="Inbound webhooks from CareFirst are gated on our HTTPS rollout">
-If your team builds the consultation-outcome webhook before we have a domain + TLS, we'd be accepting your POST over plain HTTP — that's an authentication signal you can't safely rely on, and a security surface neither of our compliance posture would tolerate.
-
-The right sequence:
-<ol>
-<li>We complete HTTPS rollout (planned this quarter)</li>
-<li>You build the webhook against our HTTPS URL with shared-secret + signature validation</li>
-<li>We go live with the new states (<code>Consultation Complete</code>, <code>No-show</code>, etc.)</li>
-</ol>
-
-In the meantime, the scheduling RFC's <b>slot-availability</b> ask (an <i>outbound</i> call from us to you) is unblocked — we can build that against your existing HTTPS-only endpoints today.
+<Callout title="Inbound HTTPS webhooks are unblocked">
+HTTPS shipped 2026-06-03. CareFirst can now build the consultation-outcome webhook directly against <code>https://bookings.carefirst.co.za</code> with shared-secret + signature validation. Both sides can move forward on the new states (<code>Consultation Complete</code>, <code>No-show</code>, etc.).
 </Callout>
 
-<Callout title="One-way HTTPS is fine for outbound calls">
-We can call your HTTPS API freely from our HTTP-served app — the outbound TLS is independent of our inbound transport. So the SSO auto-register call, plus any new outbound calls you expose, work today.
+<Callout title="Outbound HTTPS unchanged">
+Our outbound SSO auto-register call and PayFast / Supabase / SMTP calls were always HTTPS. The change is on the inbound side — patient traffic, PayFast ITN, and now CareFirst webhooks all land over TLS.
 </Callout>
 
 </Section>
