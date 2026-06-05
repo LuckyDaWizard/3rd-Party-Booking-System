@@ -81,9 +81,10 @@ The full body we POST.
   "clientCode":      "<configured per environment>",
   "uniqueReference": "<our booking UUID>",
   "user": {
-    "email":      "patient@example.com",
-    "cellNumber": "+27...",
-    "idNumber":   "<13-digit SA ID or passport>",
+    "email":                 "patient@example.com",
+    "cellNumber":            "+27...",
+    "idNumber":              "<13-digit SA ID or passport>",
+    "additionalScriptEmail": "carer@example.com",
     "userProfile": {
       "title":         "MR | MRS | MS | MISS | MASTER | DR | PROF | REV | DS",
       "firstName":     "...",
@@ -115,8 +116,12 @@ The full body we POST.
 }
 ```
 
-<Callout title="vitals — speculative extension, not yet in your schema" variant="warn">
-The <code>user.vitals</code> block is <strong>not</strong> defined in your current TypeScript interface or Postman collection. We send it speculatively starting 2026-06-03 — if your endpoint silently ignores unknown fields (most do), nothing changes for you. When you extend your schema to consume vitals, no code change is required on our side. If your endpoint <strong>rejects</strong> unknown fields under strict validation, let us know and we'll either gate behind a flag or remove until you're ready.
+<Callout title="Speculative extensions — not yet in your schema" variant="warn">
+Two fields above are <strong>not</strong> defined in your current TypeScript interface or Postman collection: <code>user.additionalScriptEmail</code> and the entire <code>user.vitals</code> block. We send them speculatively starting 2026-06-03 — if your endpoint silently ignores unknown fields (most do), nothing changes for you. When you extend your schema to consume them, no code change is required on our side. If your endpoint <strong>rejects</strong> unknown fields under strict validation, let us know and we'll either gate behind a flag or remove until you're ready.
+
+<br/><br/>
+
+<code>additionalScriptEmail</code> in particular is the destination the patient asked us to send their prescription to — without it being forwarded, that intent is captured but never acted on. Worth confirming this surfaces somewhere usable on your side.
 </Callout>
 
 ### Field-by-field
@@ -128,6 +133,7 @@ The <code>user.vitals</code> block is <strong>not</strong> defined in your curre
 | `user.email` | `bookings.email_address` | Captured at patient-details step 3 |
 | `user.cellNumber` | `bookings.contact_number` | E.164-ish; we don't enforce strict E.164 |
 | `user.idNumber` | `bookings.id_number` | 13-digit SA ID OR passport string |
+| `user.additionalScriptEmail` | `bookings.{script_to_another_email, additional_email}` | The patient's "script to another email" answer. Populated when the operator captured both the Yes toggle AND a non-empty email; otherwise `null`. Speculative — see callout below. |
 | `user.userProfile.title` | `bookings.title` | Mapped to your enum (see below) |
 | `user.userProfile.firstName` | `bookings.first_names` | Combined first names; can be one word |
 | `user.userProfile.surname` | `bookings.surname` | Single string |

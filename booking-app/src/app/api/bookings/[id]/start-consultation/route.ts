@@ -113,6 +113,10 @@ export async function POST(request: Request, context: RouteContext) {
         "province",
         "country",
         "postal_code",
+        // "Script this to another email" toggle + value. Forwarded as
+        // user.additionalScriptEmail (null when toggle is off or email blank).
+        "script_to_another_email",
+        "additional_email",
         // Vitals — forwarded to CareFirst under user.vitals when at least one
         // reading is populated. See VitalsBlock in src/lib/carefirst.ts.
         "blood_pressure",
