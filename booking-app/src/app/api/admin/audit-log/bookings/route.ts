@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, unwrapEmbed } from "@/lib/supabase-admin"
 import { requireSystemAdmin } from "@/lib/api-auth"
 import { apiError } from "@/lib/api-response"
 
@@ -100,61 +100,46 @@ export async function GET(request: Request) {
     else byBooking.set(row.entity_id, [row])
   }
 
-  // Step 3: load booking + unit + client context for these booking IDs.
+  // Step 3: load booking + unit + client context for these booking IDs in
+  // a single round-trip via nested embeds. Previously this was 3 sequential
+  // round-trips (bookings → units → clients). With the nested embed,
+  // PostgREST resolves the whole chain server-side.
   const allBookingIds = Array.from(byBooking.keys())
 
-  const { data: bookingRows } = await admin
-    .from("bookings")
-    .select("id, status, first_names, surname, unit_id")
-    .in("id", allBookingIds.length > 0 ? allBookingIds : ["__none__"])
+  // Embed cardinality: bookings.unit_id is nullable, so PostgREST may
+  // return units as either an object or singleton-array. Same one-step
+  // deeper for clients. We normalise both with unwrapEmbed.
+  type EmbeddedClient = { client_name: string | null }
+  type EmbeddedUnit = {
+    unit_name: string | null
+    client_id: string | null
+    clients: EmbeddedClient | EmbeddedClient[] | null
+  }
+  type EmbeddedBookingRow = BookingRow & {
+    units: EmbeddedUnit | EmbeddedUnit[] | null
+  }
 
-  const bookingMap = new Map<string, BookingRow>(
-    ((bookingRows ?? []) as BookingRow[]).map((b) => [b.id, b])
-  )
-
-  const unitIds = Array.from(
-    new Set(
-      ((bookingRows ?? []) as BookingRow[])
-        .map((b) => b.unit_id)
-        .filter((v): v is string => Boolean(v))
-    )
-  )
-
-  const { data: unitRows } = await admin
-    .from("units")
-    .select("id, unit_name, client_id")
-    .in("id", unitIds.length > 0 ? unitIds : ["__none__"])
-
-  const unitMap = new Map<string, { unit_name: string; client_id: string | null }>(
-    (unitRows ?? []).map((u) => [
-      u.id as string,
-      { unit_name: u.unit_name as string, client_id: (u.client_id as string) ?? null },
-    ])
-  )
-
-  const clientIds = Array.from(
-    new Set(
-      (unitRows ?? [])
-        .map((u) => u.client_id as string | null)
-        .filter((v): v is string => Boolean(v))
-    )
-  )
-
-  const { data: clientRows } = await admin
-    .from("clients")
-    .select("id, client_name")
-    .in("id", clientIds.length > 0 ? clientIds : ["__none__"])
-
-  const clientMap = new Map<string, string>(
-    (clientRows ?? []).map((c) => [c.id as string, c.client_name as string])
-  )
+  // Early-return when there are no booking IDs to avoid the
+  // ["__none__"] sentinel + an unnecessary round-trip.
+  const bookingMap = new Map<string, EmbeddedBookingRow>()
+  if (allBookingIds.length > 0) {
+    const { data: bookingRows } = await admin
+      .from("bookings")
+      .select(
+        "id, status, first_names, surname, unit_id, units(unit_name, client_id, clients(client_name))"
+      )
+      .in("id", allBookingIds)
+    for (const b of (bookingRows ?? []) as EmbeddedBookingRow[]) {
+      bookingMap.set(b.id, b)
+    }
+  }
 
   // Step 4: build the grouped objects.
   const groups = allBookingIds.map((bookingId) => {
     const events = byBooking.get(bookingId)!
     const booking = bookingMap.get(bookingId)
-    const unit = booking?.unit_id ? unitMap.get(booking.unit_id) : undefined
-    const clientName = unit?.client_id ? clientMap.get(unit.client_id) : undefined
+    const unit = unwrapEmbed<EmbeddedUnit>(booking?.units ?? null)
+    const client = unwrapEmbed<EmbeddedClient>(unit?.clients ?? null)
 
     const patientName =
       booking
@@ -165,7 +150,7 @@ export async function GET(request: Request) {
       bookingId,
       ref: bookingId.slice(0, 8).toUpperCase(),
       patientName: patientName || "Unknown patient",
-      clientName: clientName ?? null,
+      clientName: client?.client_name ?? null,
       unitName: unit?.unit_name ?? null,
       currentStatus: booking?.status ?? "Unknown",
       firstEventAt: events[events.length - 1].created_at,

@@ -263,10 +263,15 @@ export async function findCouponByCode<T = Record<string, unknown>>(
   const lookupKey = codeLookupKey(code)
   const columns = options?.columns ?? "*"
 
+  // Use the generated `code_lower` column added in migration 038, which
+  // has a regular unique index. Equality against a plain column is the
+  // pattern the planner always picks the unique index for — replaces the
+  // previous ILIKE-on-`code` which depended on the planner choosing the
+  // functional index from migration 033.
   let query = admin
     .from("coupons")
     .select(columns)
-    .filter("code", "ilike", lookupKey)
+    .eq("code_lower", lookupKey)
     .limit(1)
 
   if (options?.excludeId) {

@@ -77,93 +77,30 @@ export async function recordIncident(
     const rawSample = input.rawSample
       ? String(input.rawSample).slice(0, RAW_SAMPLE_MAX)
       : null
-    const now = new Date().toISOString()
 
-    const { data: existing } = await admin
-      .from("incidents")
-      .select("id, failure_count, affected_booking_ids")
-      .eq("signature", input.signature)
-      .eq("status", "open")
-      .maybeSingle()
+    // Single round-trip merge-or-create via the record_incident RPC
+    // (migration 039). Previously this function did 2-3 sequential calls:
+    // SELECT existing → INSERT or UPDATE → retry SELECT+UPDATE on race.
+    // The RPC does INSERT ... ON CONFLICT (signature) WHERE status='open'
+    // DO UPDATE, returning the resulting id. The partial unique index
+    // makes the conflict target safe across concurrent inserts during
+    // an outage — the exact scenario this function is hottest in.
+    const { data: id, error: rpcErr } = await admin.rpc("record_incident", {
+      p_signature: input.signature,
+      p_source: input.source,
+      p_category: input.category,
+      p_title: input.title,
+      p_http_status: input.httpStatus ?? null,
+      p_error_msg: input.errorMsg,
+      p_raw_sample: rawSample,
+      p_booking_id: input.bookingId ?? null,
+    })
 
-    if (existing) {
-      const existingIds = (existing.affected_booking_ids as string[]) ?? []
-      const merged = input.bookingId
-        ? Array.from(new Set([...existingIds, input.bookingId]))
-        : existingIds
-
-      const { error: updErr } = await admin
-        .from("incidents")
-        .update({
-          last_seen_at: now,
-          failure_count: (existing.failure_count as number) + 1,
-          error_msg: input.errorMsg,
-          raw_sample: rawSample,
-          http_status: input.httpStatus ?? null,
-          affected_booking_ids: merged,
-        })
-        .eq("id", existing.id)
-
-      if (updErr) {
-        console.error("[recordIncident] update failed:", updErr.message)
-        return null
-      }
-      return existing.id as string
-    }
-
-    const { data: inserted, error: insErr } = await admin
-      .from("incidents")
-      .insert({
-        signature: input.signature,
-        source: input.source,
-        category: input.category,
-        title: input.title,
-        http_status: input.httpStatus ?? null,
-        error_msg: input.errorMsg,
-        raw_sample: rawSample,
-        affected_booking_ids: input.bookingId ? [input.bookingId] : [],
-      })
-      .select("id")
-      .single()
-
-    if (insErr || !inserted) {
-      // Race: another concurrent failure may have just opened the same
-      // signature. Fall back to update.
-      const { data: retryExisting } = await admin
-        .from("incidents")
-        .select("id, failure_count, affected_booking_ids")
-        .eq("signature", input.signature)
-        .eq("status", "open")
-        .maybeSingle()
-
-      if (retryExisting) {
-        const existingIds = (retryExisting.affected_booking_ids as string[]) ?? []
-        const merged = input.bookingId
-          ? Array.from(new Set([...existingIds, input.bookingId]))
-          : existingIds
-
-        await admin
-          .from("incidents")
-          .update({
-            last_seen_at: now,
-            failure_count: (retryExisting.failure_count as number) + 1,
-            error_msg: input.errorMsg,
-            raw_sample: rawSample,
-            http_status: input.httpStatus ?? null,
-            affected_booking_ids: merged,
-          })
-          .eq("id", retryExisting.id)
-        return retryExisting.id as string
-      }
-
-      console.error(
-        "[recordIncident] insert failed:",
-        insErr?.message ?? "unknown"
-      )
+    if (rpcErr) {
+      console.error("[recordIncident] rpc failed:", rpcErr.message)
       return null
     }
-
-    return inserted.id as string
+    return (id as string | null) ?? null
   } catch (err) {
     console.error("[recordIncident] threw:", err)
     return null

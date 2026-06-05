@@ -89,6 +89,13 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.role !== undefined) dbUpdates.role = body.role
   if (body.clientId !== undefined) dbUpdates.client_id = body.clientId
   if (body.status !== undefined) dbUpdates.status = body.status
+  // Legacy `users.unit_id` is kept in sync with the first row of the
+  // `user_units` junction when unitIds is provided. Folded into the same
+  // patch as the other field updates so we don't emit a separate UPDATE
+  // for it — one round-trip instead of two on user-edit-with-unit-change.
+  if (body.unitIds !== undefined) {
+    dbUpdates.unit_id = body.unitIds[0] ?? null
+  }
 
   if (Object.keys(dbUpdates).length > 0) {
     const { error: updErr } = await admin
@@ -121,12 +128,6 @@ export async function PATCH(request: Request, context: RouteContext) {
         return apiError(`Failed to assign units: ${insErr.message}`, 500)
       }
     }
-
-    // Also keep legacy unit_id column in sync (matches existing user-store behavior).
-    await admin
-      .from("users")
-      .update({ unit_id: body.unitIds[0] ?? null })
-      .eq("id", id)
   }
 
   // Audit log — compute changes (exclude PIN from diff).
