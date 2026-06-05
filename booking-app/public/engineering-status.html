@@ -337,9 +337,26 @@
       <tr>
         <td class="id">B6</td>
         <td>
-          <strong>Investigate PayFast reconcile incident</strong> &mdash; <code>payfast:reconcile:query-failed</code> signature, 5 failures recorded 2026-06-05 11:44 to 12:00. Coincides with Sprint A (C6) deploy that increased reconcile concurrency from sequential to 5-in-flight. Likely diagnosis is PayFast rate-limiting under the new parallelism &mdash; fix would be dropping <code>CONCURRENCY</code> from 5 to 2 or 3 in <code>payfast/reconcile/route.ts</code>. Confirm by reading <code>/var/log/booking-cron.log</code> on the VPS for the actual HTTP status PayFast returned, and section 3 (Last error captured) of the incident report. Auto-resolves after 30 min of no new failures, so may have self-cleared already.
+          <strong>PayFast reconcile 401 in sandbox &mdash; expected behaviour, not a bug.</strong>
+          Diagnosed 2026-06-05. The reconcile incident <code>payfast:reconcile:query-failed</code> turns out to be a PayFast sandbox quirk &mdash; the Transaction History (Query) API returns 401 "Merchant authorization failed" against sandbox credentials even when the same credentials work for payment <code>process</code> + ITN. We&rsquo;re on sandbox during pilot (<code>PAYFAST_TEST_MODE=true</code> with the public sandbox merchant ID/key/passphrase), so this 401 is harmless: real payment confirmation still flows via the ITN webhook (which works fine on sandbox), and reconcile is only the safety net for ITN drops. Will start working once we promote to live PayFast credentials. See B7.
         </td>
-        <td class="effort">30-60 min</td>
+        <td class="effort">No action</td>
+      </tr>
+      <tr>
+        <td class="id">B7</td>
+        <td>
+          <strong>Promote PayFast integration to production credentials.</strong>
+          Currently on sandbox during pilot &mdash; every "payment" is a sandbox test transaction; no real money flows. When ready to go live:
+          <ol style="margin-top: 8px;">
+            <li>Get production credentials from PayFast merchant dashboard (Merchant ID + Merchant Key + Passphrase).</li>
+            <li>In the Hostinger Docker Manager env panel: set <code>PAYFAST_MERCHANT_ID</code>, <code>PAYFAST_MERCHANT_KEY</code>, <code>PAYFAST_PASSPHRASE</code> to the production values; set <code>PAYFAST_TEST_MODE=false</code>.</li>
+            <li>Update the PayFast merchant dashboard with the production return / notify / cancel URLs &mdash; all under <code>https://bookings.carefirst.co.za/api/payfast/...</code>.</li>
+            <li>SSH to the VPS and rebuild: <code>cd /opt/3rd-Party-Booking-System/booking-app &amp;&amp; docker compose up -d --build</code>.</li>
+            <li>Smoke test with a small real-money payment end-to-end; verify ITN arrives + booking flips to Payment Complete + audit log records it correctly.</li>
+            <li>Confirm B6 closes itself (production Query API will start returning data, reconcile will start working).</li>
+          </ol>
+        </td>
+        <td class="effort">Half-day &plus; business sign-off</td>
       </tr>
     </tbody>
   </table>
