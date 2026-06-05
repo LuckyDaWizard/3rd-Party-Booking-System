@@ -74,6 +74,8 @@ const navItems: NavItem[] = [
       { label: "System Audit", href: "/system-audit.html", openInNewTab: true },
       { label: "Management Decisions", href: "/management-decisions-2026-05-21.html", openInNewTab: true },
       { label: "Scheduling Proposal", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
+      { label: "Unit Email Handoff Proposal", href: "/carefirst-unit-email-handoff-proposal.html", openInNewTab: true },
+      { label: "Coupons Proposal", href: "/coupon-codes-proposal.html", openInNewTab: true },
       { label: "Manual — User", href: "/user-manual-user.html", openInNewTab: true },
       { label: "Manual — Unit Manager", href: "/user-manual-unit-manager.html", openInNewTab: true },
       { label: "Manual — System Admin", href: "/user-manual-system-admin.html", openInNewTab: true },
@@ -278,10 +280,16 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
         })()}
       </Link>
 
-      {/* Navigation */}
+      {/* Navigation.
+          min-h-0 is required on a flex-1 child for overflow-y-auto to actually
+          scroll instead of expanding the parent — without it, flex children
+          default to min-height:auto and grow past the container, which on
+          short screens / with the Resources submenu expanded hid the last
+          few items entirely.
+          overscroll-contain stops scroll-chaining into the page behind. */}
       <nav
         data-testid="sidebar-nav"
-        className="flex flex-1 flex-col gap-1 px-3"
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-3"
         aria-label="Main navigation"
       >
         {visibleNavItems.map((item) => {
