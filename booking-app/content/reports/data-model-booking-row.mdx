@@ -53,8 +53,6 @@ Roughly 45 columns. They cluster into 7 groups, documented below. Anything not l
 |---|---|---|
 | `email_address` | `text` | Yes, as `user.email` |
 | `contact_number` | `text` | Yes, as `user.cellNumber` (E.164-ish, not strictly validated) |
-| `script_to_another_email` | `boolean` | Together with `additional_email` → `user.additionalScriptEmail` (string or `null`). Speculative — added 2026-06-03. |
-| `additional_email` | `text` | See above |
 | `address` | `text` | Yes, in `user.userProfile.fullAddress.address` |
 | `suburb` | `text` | Yes, as `fullAddress.suburb` |
 | `city` | `text` | Yes, as `fullAddress.city` |
@@ -136,7 +134,7 @@ See [Vitals Capture — What We Collect](/reports/vitals-capture) for the captur
 
 <Section id="what-we-send" num="08 — Summary" title="What CareFirst actually sees from the row">
 
-About **26 of the 45 fields** make it into the SSO auto-register payload — 20 identity/contact/address fields, the 5 vitals (added 2026-06-03 under a speculative `user.vitals` block), and the additional script email resolved from the `script_to_another_email` + `additional_email` pair (also speculative, added same day). The rest are operational: payment internals, audit snapshots, status machinery.
+About **25 of the 45 fields** make it into the SSO auto-register payload — 20 identity/contact/address fields plus the 5 vitals (added 2026-06-03 as a speculative `user.vitals` block). The rest are operational: payment internals, audit snapshots, status machinery.
 
 If any of the "not sent" columns would be useful in the handoff payload for your side — e.g. `payment_type` for billing reconciliation, coupon details for revenue reconciliation — they're trivially forwardable. Just let us know.
 

@@ -140,12 +140,6 @@ export interface BookingForHandoff {
   province: string | null
   country: string | null
   postal_code: string | null
-  // "Would you like to script this to another email address?" toggle + the
-  // additional email value. Forwarded to CareFirst as user.additionalScriptEmail
-  // so prescriptions can be delivered to a carer / family member / pharmacy.
-  // Captured on patient-details step 3.
-  script_to_another_email: boolean | null
-  additional_email: string | null
   // Vitals captured on /create-booking/patient-metrics. Sent under user.vitals.
   // All strings on the row — BP is composite ("120/80"), the rest are numeric
   // values entered as text. We forward as strings to preserve exactly what was
@@ -197,16 +191,6 @@ export interface SsoAutoRegisterPayload {
     email: string
     cellNumber: string
     idNumber: string
-    /**
-     * Optional extra recipient for the prescription. Populated when the
-     * patient ticked "script this to another email address" AND provided a
-     * valid value. Sent as `null` when the toggle was No (or omitted entirely
-     * if you'd prefer — currently we send `null` so you can distinguish
-     * "patient declined" from "we never asked").
-     *
-     * Speculative — not in CareFirst's current schema. Safe to ignore.
-     */
-    additionalScriptEmail: string | null
     userProfile: {
       title: string | null
       firstName: string
@@ -232,7 +216,7 @@ export interface SsoAutoRegisterPayload {
 }
 
 /**
- * Normalises a string value: trims whitespace, treats empty string the same
+ * Normalises a vitals value: trims whitespace, treats empty string the same
  * as null. Returns null when the field wasn't captured (so the JSON sends
  * `null` rather than `""`, matching what the booking row actually means).
  */
@@ -240,25 +224,6 @@ function normaliseVital(raw: string | null): string | null {
   if (raw === null || raw === undefined) return null
   const trimmed = raw.trim()
   return trimmed.length > 0 ? trimmed : null
-}
-
-/**
- * Resolve the additional script-delivery email. Three states on the row:
- *   - script_to_another_email = false      → patient declined; send null
- *   - script_to_another_email = true + blank email → toggle ON but no value;
- *     treat as missing, send null (we don't want to send "" downstream)
- *   - script_to_another_email = true + populated email → send the email
- *
- * Always returns a string-or-null so the JSON shape is stable and CareFirst
- * can distinguish "patient said no" (null + the toggle wasn't set anywhere
- * else) from "patient said yes here's the address" (the string).
- */
-function resolveAdditionalScriptEmail(
-  toggle: boolean | null,
-  email: string | null
-): string | null {
-  if (toggle !== true) return null
-  return normaliseVital(email)
 }
 
 /**
@@ -305,10 +270,6 @@ export function buildSsoPayload(
       email: booking.email_address ?? "",
       cellNumber: booking.contact_number ?? "",
       idNumber: booking.id_number ?? "",
-      additionalScriptEmail: resolveAdditionalScriptEmail(
-        booking.script_to_another_email,
-        booking.additional_email
-      ),
       userProfile: {
         title: mapTitle(booking.title),
         firstName: booking.first_names ?? "",
