@@ -9,7 +9,6 @@ import {
 } from "@/lib/audit-log"
 import {
   findCouponByCode,
-  normaliseCode,
   type CouponDiscountType,
 } from "@/lib/coupons"
 
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
 
   // Validate the inputs. Errors here are 400s with a specific message —
   // the admin form needs to display them next to fields.
-  const code = normaliseCode(body.code ?? "")
+  const code = String(body.code ?? "").trim()
   if (!code) return apiError("Code is required", 400)
   if (code.length > 64) return apiError("Code must be 64 characters or fewer", 400)
 

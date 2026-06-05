@@ -278,7 +278,7 @@ export default function PatientMetricsPage() {
               router.push(`/create-booking/creating?bookingId=${bookingId}`)
             }}
             disabled={!isFormValid}
-            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-[38%] ${
+            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors sm:w-[38%] ${
               isFormValid
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-ink-muted cursor-default"

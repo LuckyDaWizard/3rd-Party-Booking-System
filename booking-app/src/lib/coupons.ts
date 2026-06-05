@@ -38,7 +38,9 @@ export interface DbCoupon {
   client_id: string | null
   status: CouponStatus
   created_by: string | null
+  /** ISO-8601 timestamp string (Postgres `timestamptz` serialised by PostgREST). */
   created_at: string
+  /** ISO-8601 timestamp string (Postgres `timestamptz` serialised by PostgREST). */
   updated_at: string
 }
 
@@ -220,16 +222,12 @@ export function checkCouponConstraints(
 // ---------------------------------------------------------------------------
 
 /**
- * Codes are stored case-preserving in `coupons.code` but matched
- * case-insensitively (the unique index is `lower(code)`). All callers
- * should lower-case before look-up.
- */
-export function normaliseCode(input: string): string {
-  return input.trim()
-}
-
-/**
  * Lower-case + trim — for the unique-index look-up.
+ *
+ * Codes are stored case-preserving in `coupons.code` but matched
+ * case-insensitively (the unique index from migration 038 is on the
+ * generated `lower(code)` column). All callers should lower-case
+ * before look-up.
  */
 export function codeLookupKey(input: string): string {
   return input.trim().toLowerCase()

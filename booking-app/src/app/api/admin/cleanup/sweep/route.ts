@@ -221,7 +221,12 @@ export async function POST(request: Request) {
     // entity_id must be a valid UUID (NOT NULL uuid column on audit_log).
     // Use SYSTEM_ACTOR_ID — the canonical zero-UUID for system-originated
     // entities that don't tie to a specific user/client/unit/booking row.
-    writeAuditLog({
+    // Awaited (rather than fire-and-forget) because cleanup-sweep is the
+    // slow path of a 15-min cron — on serverless/standalone Next.js the
+    // response can return before a fire-and-forget audit write completes,
+    // and the audit entry vanishes. The await adds maybe 50ms to a route
+    // that already takes seconds; not measurable.
+    await writeAuditLog({
       actorId: caller.id || SYSTEM_ACTOR_ID,
       actorName: caller.name || "System",
       actorRole: caller.role,

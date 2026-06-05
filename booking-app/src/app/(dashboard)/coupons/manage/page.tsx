@@ -479,8 +479,8 @@ export default function CouponManagePage() {
         </button>
         {!canHardDelete && (
           <p className="-mt-2 text-center text-xs text-ink-muted">
-            This coupon has been used. Set status to <em>Disabled</em> above instead &mdash;
-            deleting would break the audit trail.
+            This coupon has been used. Set status to <em>Disabled</em> above
+            instead &mdash; disabling preserves the existing usage records.
           </p>
         )}
       </div>

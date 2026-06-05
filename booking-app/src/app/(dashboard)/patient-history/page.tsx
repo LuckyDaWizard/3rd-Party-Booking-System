@@ -106,6 +106,20 @@ function maskIdNumber(id: string | null): string {
 
 type FilterType = "all" | "in-progress" | "incomplete" | "completed"
 
+// Static parts of the filter tabs hoisted to module scope so the array
+// (and each entry inside it) isn't reallocated on every render of the
+// page. Counts are joined in at render time below.
+const FILTER_TABS = [
+  { key: "all", label: "All", href: "/patient-history" },
+  { key: "in-progress", label: "In Progress", href: "/patient-history?tab=in-progress" },
+  { key: "incomplete", label: "Incomplete", href: "/patient-history?tab=incomplete" },
+  { key: "completed", label: "Completed", href: "/patient-history?tab=completed" },
+] as const satisfies ReadonlyArray<{
+  key: FilterType
+  label: string
+  href: string
+}>
+
 function filterPatients(
   patients: PatientRecord[],
   filter: FilterType,
@@ -676,21 +690,26 @@ export default function PatientHistoryPage() {
           data-testid="filter-tabs"
           className="flex flex-wrap items-center gap-2"
         >
-          {([
-            { key: "all", label: "All", count: allCount, href: "/patient-history" },
-            { key: "in-progress", label: "In Progress", count: inProgressCount, href: "/patient-history?tab=in-progress" },
-            { key: "incomplete", label: "Incomplete", count: incompleteCount, href: "/patient-history?tab=incomplete" },
-            { key: "completed", label: "Completed", count: completedCount, href: "/patient-history?tab=completed" },
-          ] as const).map((tab) => (
-            <FilterPill
-              key={tab.key}
-              active={activeFilter === tab.key}
-              label={tab.label}
-              count={tab.count}
-              onClick={() => router.push(tab.href)}
-              testId={`filter-${tab.key}`}
-            />
-          ))}
+          {FILTER_TABS.map((tab) => {
+            const count =
+              tab.key === "all"
+                ? allCount
+                : tab.key === "in-progress"
+                  ? inProgressCount
+                  : tab.key === "incomplete"
+                    ? incompleteCount
+                    : completedCount
+            return (
+              <FilterPill
+                key={tab.key}
+                active={activeFilter === tab.key}
+                label={tab.label}
+                count={count}
+                onClick={() => router.push(tab.href)}
+                testId={`filter-${tab.key}`}
+              />
+            )
+          })}
         </div>
 
         <SearchInput
@@ -910,6 +929,8 @@ export default function PatientHistoryPage() {
                         <img
                           src={faviconUrl}
                           alt=""
+                          width={36}
+                          height={36}
                           className="size-9 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
                         />
                       ) : (
@@ -1227,7 +1248,11 @@ export default function PatientHistoryPage() {
             document.body.removeChild(a)
             URL.revokeObjectURL(url)
           }}
-          className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-[var(--client-primary)] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-[var(--client-primary-90)] hover:shadow-xl"
+          // Mobile (default): inline button below the table, centered like
+          // the Back Home button — keeps the search input usable when the
+          // on-screen keyboard opens. Desktop (sm: and up): floating FAB
+          // in the bottom-right corner, the original treatment.
+          className="mx-auto flex w-[250px] items-center justify-center gap-2 rounded-full bg-[var(--client-primary)] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-[var(--client-primary-90)] sm:fixed sm:right-8 sm:bottom-8 sm:mx-0 sm:w-auto"
         >
           <Download className="size-4" />
           Export to CSV

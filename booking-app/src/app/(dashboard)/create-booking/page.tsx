@@ -170,7 +170,7 @@ export default function CreateBookingPage() {
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
-              className={`rounded-full px-6 py-2.5 text-sm font-medium transition-all ${
+              className={`rounded-full px-6 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? "bg-[#f4f4f4] text-ink"
                   : "text-ink-muted hover:text-ink"
@@ -387,7 +387,7 @@ export default function CreateBookingPage() {
               setSubmitting(false)
               router.push(`/create-booking/patient-details?${params.toString()}`)
             }}
-            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors ${
               isFormValid && !submitting
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-ink-muted cursor-not-allowed"

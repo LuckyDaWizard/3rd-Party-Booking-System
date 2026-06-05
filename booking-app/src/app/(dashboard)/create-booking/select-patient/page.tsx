@@ -315,7 +315,7 @@ export default function SelectPatientPage() {
           <Button
             onClick={handleSelectPatient}
             disabled={(step === "email" ? !selectedPatientId : !selectedContactId) || submitting}
-            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+            className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors ${
               (step === "email" ? selectedPatientId : selectedContactId) && !submitting
                 ? "bg-gray-900 text-white hover:bg-gray-800"
                 : "bg-gray-300 text-ink-muted cursor-default"

@@ -497,7 +497,7 @@ export default function PaymentPage() {
               data-testid="confirm-self-collect-button"
               onClick={handleConfirmSelfCollect}
               disabled={markingSelfCollect}
-              className={`mt-2 h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all sm:w-fit sm:px-8 ${
+              className={`mt-2 h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors sm:w-fit sm:px-8 ${
                 !markingSelfCollect
                   ? "bg-gray-900 text-white hover:bg-gray-800"
                   : "bg-gray-300 text-ink-muted"
@@ -770,7 +770,7 @@ export default function PaymentPage() {
                   onClick={handleCompleteCouponComp}
                   disabled={processing}
                   data-testid="complete-free-booking-button"
-                  className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+                  className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors ${
                     !processing
                       ? "bg-emerald-600 text-white hover:bg-emerald-700"
                       : "bg-gray-300 text-ink-muted"
@@ -806,7 +806,7 @@ export default function PaymentPage() {
                   <Button
                     onClick={handleSendPaymentLink}
                     disabled={sending || !patientEmail}
-                    className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+                    className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors ${
                       !sending && patientEmail
                         ? "bg-gray-900 text-white hover:bg-gray-800"
                         : "bg-gray-300 text-ink-muted"
@@ -832,7 +832,7 @@ export default function PaymentPage() {
                 <Button
                   onClick={handlePayWithPayfast}
                   disabled={processing}
-                  className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-all ${
+                  className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors ${
                     !processing
                       ? "bg-gray-900 text-white hover:bg-gray-800"
                       : "bg-gray-300 text-ink-muted"

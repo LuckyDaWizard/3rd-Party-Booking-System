@@ -7,7 +7,7 @@ import {
   getCallerIp,
   SYSTEM_ACTOR_ID,
 } from "@/lib/audit-log"
-import { findCouponByCode, normaliseCode } from "@/lib/coupons"
+import { findCouponByCode } from "@/lib/coupons"
 
 // =============================================================================
 // GET    /api/admin/coupons/[id]  — fetch single + usage list
@@ -111,7 +111,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const changes: Record<string, { old?: string; new: string }> = {}
 
   if (typeof body.code === "string") {
-    const code = normaliseCode(body.code)
+    const code = String(body.code).trim()
     if (!code) return apiError("Code can't be empty", 400)
     if (code.length > 64) return apiError("Code must be 64 characters or fewer", 400)
     if (code.toLowerCase() !== String(existing.code).toLowerCase()) {

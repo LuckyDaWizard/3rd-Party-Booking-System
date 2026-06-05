@@ -140,7 +140,12 @@ export async function POST(request: Request) {
     return apiError(`Database error during sweep: ${updErr.message}`, 500)
   }
 
-  writeAuditLog({
+  // Awaited (rather than fire-and-forget) because retention-sweep is the
+  // slow path of a 15-min cron — on serverless/standalone Next.js the
+  // response can return before a fire-and-forget audit write completes,
+  // and the audit entry vanishes. This audit row is the POPIA evidence
+  // trail for the anonymisation, so dropping it is unacceptable.
+  await writeAuditLog({
     actorId: caller.id,
     actorName: caller.name,
     actorRole: caller.role,
