@@ -334,6 +334,13 @@
         </td>
         <td class="effort">15 min</td>
       </tr>
+      <tr>
+        <td class="id">B6</td>
+        <td>
+          <strong>Investigate PayFast reconcile incident</strong> &mdash; <code>payfast:reconcile:query-failed</code> signature, 5 failures recorded 2026-06-05 11:44 to 12:00. Coincides with Sprint A (C6) deploy that increased reconcile concurrency from sequential to 5-in-flight. Likely diagnosis is PayFast rate-limiting under the new parallelism &mdash; fix would be dropping <code>CONCURRENCY</code> from 5 to 2 or 3 in <code>payfast/reconcile/route.ts</code>. Confirm by reading <code>/var/log/booking-cron.log</code> on the VPS for the actual HTTP status PayFast returned, and section 3 (Last error captured) of the incident report. Auto-resolves after 30 min of no new failures, so may have self-cleared already.
+        </td>
+        <td class="effort">30-60 min</td>
+      </tr>
     </tbody>
   </table>
 
