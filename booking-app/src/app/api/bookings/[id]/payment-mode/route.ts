@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, unwrapEmbed } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
 import { apiError } from "@/lib/api-response"
 
@@ -83,12 +83,11 @@ export async function GET(_request: Request, context: RouteContext) {
   // explicitly opted in (matches the apply-endpoint's per-client gate).
   let allowCoupons = false
   // Supabase returns the embedded row as either an object or array
-  // depending on relationship cardinality — normalise to a scalar.
-  const unitEmbed = booking.units as
-    | { client_id: string | null }
-    | { client_id: string | null }[]
-    | null
-  const unitRow = Array.isArray(unitEmbed) ? unitEmbed[0] ?? null : unitEmbed
+  // depending on relationship cardinality; unwrapEmbed normalises both.
+  type EmbeddedUnit = { client_id: string | null }
+  const unitRow = unwrapEmbed<EmbeddedUnit>(
+    booking.units as EmbeddedUnit | EmbeddedUnit[] | null
+  )
   const clientId = unitRow?.client_id ?? null
   if (clientId) {
     const { data: client } = await admin

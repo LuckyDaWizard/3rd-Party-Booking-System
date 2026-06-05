@@ -370,10 +370,10 @@ export async function validateItnServerConfirmation(
 // ---------------------------------------------------------------------------
 // Transaction History Query API
 //
-// When PayFast's ITN fails to reach us (common on HTTP-only / no-domain
-// deployments), we can poll PayFast's Transaction History API instead to
-// reconcile payment status. This is the "pull" model — the opposite of ITN's
-// "push" model.
+// When PayFast's ITN fails to reach us (network blips, brief outages, the
+// app restarting mid-callback, firewall hiccups at either end), we can poll
+// PayFast's Transaction History API instead to reconcile payment status.
+// This is the "pull" model — the opposite of ITN's "push" model.
 //
 // API docs: https://developers.payfast.co.za/docs#transaction_history
 //

@@ -8,7 +8,7 @@ import {
   SYSTEM_ACTOR_ID,
 } from "@/lib/audit-log"
 import {
-  codeLookupKey,
+  findCouponByCode,
   normaliseCode,
   type CouponDiscountType,
 } from "@/lib/coupons"
@@ -156,12 +156,9 @@ export async function POST(request: Request) {
   }
 
   // Pre-check the unique index gives a nicer error than the raw 23505.
-  const { data: existing } = await admin
-    .from("coupons")
-    .select("id")
-    .filter("code", "ilike", codeLookupKey(code))
-    .limit(1)
-    .maybeSingle()
+  const existing = await findCouponByCode<{ id: string }>(admin, code, {
+    columns: "id",
+  })
   if (existing) return apiError(`A coupon with code "${code}" already exists`, 409)
 
   // Optional client restriction. Verify the client exists when provided

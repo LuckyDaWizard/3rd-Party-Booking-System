@@ -234,3 +234,45 @@ export function normaliseCode(input: string): string {
 export function codeLookupKey(input: string): string {
   return input.trim().toLowerCase()
 }
+
+// ---------------------------------------------------------------------------
+// Coupon lookup helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Case-insensitive coupon lookup by code. Returns the first matching row
+ * or null. Centralises the `.filter("code", "ilike", codeLookupKey(code))`
+ * + `.limit(1).maybeSingle()` pattern that was previously duplicated
+ * across the apply endpoint and the two admin endpoints (create + PATCH).
+ *
+ * @param admin    Service-role Supabase client (from getSupabaseAdmin).
+ * @param code     Raw code as entered (case + whitespace are normalised).
+ * @param options  Tunables:
+ *                   - columns: which columns to select (default "*")
+ *                   - excludeId: skip a specific row id (used by the PATCH
+ *                     clash-check so the row being edited doesn't match
+ *                     itself)
+ */
+type AdminClient = ReturnType<typeof import("./supabase-admin").getSupabaseAdmin>
+
+export async function findCouponByCode<T = Record<string, unknown>>(
+  admin: AdminClient,
+  code: string,
+  options?: { columns?: string; excludeId?: string }
+): Promise<T | null> {
+  const lookupKey = codeLookupKey(code)
+  const columns = options?.columns ?? "*"
+
+  let query = admin
+    .from("coupons")
+    .select(columns)
+    .filter("code", "ilike", lookupKey)
+    .limit(1)
+
+  if (options?.excludeId) {
+    query = query.neq("id", options.excludeId)
+  }
+
+  const { data } = await query.maybeSingle<T>()
+  return data ?? null
+}

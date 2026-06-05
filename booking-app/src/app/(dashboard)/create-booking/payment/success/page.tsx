@@ -10,7 +10,8 @@ import { useBookingStore } from "@/lib/booking-store"
 // Payment Success Page
 //
 // IMPORTANT: PayFast's ITN callback is the AUTHORITATIVE source of payment
-// confirmation, but it's unreliable on HTTP-only deployments. To close that
+// confirmation, but it can drop for a range of reasons (network blips,
+// brief PayFast outages, the app restarting mid-callback). To close that
 // gap, while we poll the DB we ALSO call /api/payfast/reconcile — which
 // queries PayFast's Transaction History API and updates the booking if a
 // completed payment is found there. Neither this page nor the reconcile

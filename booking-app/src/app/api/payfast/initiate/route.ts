@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, unwrapEmbed } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
 import { createRateLimiter } from "@/lib/rate-limit"
 import {
@@ -121,11 +121,10 @@ export async function POST(request: Request) {
   // mark-* endpoints, but this guards against any caller that tries to
   // push them through the gateway anyway. The units row was embedded in
   // the bookings query above; only the clients lookup is a separate hop.
-  const unitEmbed = booking.units as
-    | { client_id: string | null }
-    | { client_id: string | null }[]
-    | null
-  const unitRow = Array.isArray(unitEmbed) ? unitEmbed[0] ?? null : unitEmbed
+  type EmbeddedUnit = { client_id: string | null }
+  const unitRow = unwrapEmbed<EmbeddedUnit>(
+    booking.units as EmbeddedUnit | EmbeddedUnit[] | null
+  )
   const clientId = unitRow?.client_id ?? null
   if (clientId) {
     const { data: client } = await admin

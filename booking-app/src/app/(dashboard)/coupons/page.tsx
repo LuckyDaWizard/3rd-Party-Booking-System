@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Plus, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Banner } from "@/components/ui/banner"
@@ -66,6 +66,7 @@ function isExpired(c: CouponRow): boolean {
 
 export default function CouponsListPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isSystemAdmin, loading: authLoading } = useAuth()
   const { clients } = useClientStore()
   const clientNameById = React.useMemo(
@@ -112,14 +113,19 @@ export default function CouponsListPage() {
 
   React.useEffect(() => {
     void load()
-    // Surface a created/deleted banner if URL params say so (from the
-    // add/manage pages' redirect).
-    const params = new URLSearchParams(window.location.search)
-    const created = params.get("created")
-    const deleted = params.get("deleted")
+  }, [load])
+
+  // Surface a created/deleted banner if URL params say so (from the add/
+  // manage pages' redirect). Read via useSearchParams() rather than
+  // window.location.search so client-side nav updates trigger this effect
+  // — matches what the Manage page already does. (Previous version only
+  // ran on mount because window.location was outside React's awareness.)
+  React.useEffect(() => {
+    const created = searchParams.get("created")
+    const deleted = searchParams.get("deleted")
     if (created) setCreatedBanner(created)
     if (deleted) setDeletedBanner(deleted)
-  }, [load])
+  }, [searchParams])
 
   const countByStatus = (filter: StatusFilter): number => {
     if (filter === "all") return coupons.length

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { SubNav } from "@/components/ui/sub-nav"
 import { Input } from "@/components/ui/input"
 import { useBookingStore } from "@/lib/booking-store"
+import { PAYMENT_AMOUNT } from "@/lib/payfast"
 
 // =============================================================================
 // Payment page
@@ -63,7 +64,11 @@ export default function PaymentPage() {
   // "Apply coupon" input. The /api/coupons/apply endpoint resolves the
   // discount server-side and updates booking.payment_amount so the PayFast
   // initiate call below sees the discounted amount automatically.
-  const DEFAULT_AMOUNT = 325 // mirrors PAYMENT_AMOUNT — fallback only.
+  // Fallback when the server hasn't yet stamped payment_amount on the
+  // booking (first render of the page before payment-mode loads).
+  // PAYMENT_AMOUNT is the canonical fixed fee — imported here so this
+  // page can't silently drift if the fee ever changes server-side.
+  const DEFAULT_AMOUNT = Number(PAYMENT_AMOUNT)
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string
     originalAmount: number

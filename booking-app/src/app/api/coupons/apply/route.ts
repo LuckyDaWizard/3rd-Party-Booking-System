@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, unwrapEmbed } from "@/lib/supabase-admin"
 import { requireAuthenticated } from "@/lib/api-auth"
 import { apiError } from "@/lib/api-response"
 import {
@@ -12,7 +12,7 @@ import {
   checkCouponConstraints,
   resolveDiscount,
   rejectionMessage,
-  codeLookupKey,
+  findCouponByCode,
   type DbCoupon,
 } from "@/lib/coupons"
 import { PAYMENT_AMOUNT } from "@/lib/payfast"
@@ -84,16 +84,17 @@ export async function POST(request: Request) {
   // Resolve the parent client. We need TWO things from it: the per-client
   // allow_coupons gate, AND the client_id used by per-coupon client-scope
   // restrictions inside the constraint check. Supabase embeds come back
-  // as either an object or a singleton-array depending on cardinality —
-  // normalise to a scalar for both layers.
+  // as either an object or a singleton-array depending on cardinality;
+  // unwrapEmbed normalises both layers to a scalar.
+  type EmbeddedClient = { id?: string; allow_coupons: boolean | null }
   type EmbeddedUnit = {
     client_id?: string | null
-    clients: { id?: string; allow_coupons: boolean | null } | { id?: string; allow_coupons: boolean | null }[] | null
+    clients: EmbeddedClient | EmbeddedClient[] | null
   }
-  const unitEmbed = booking.units as EmbeddedUnit | EmbeddedUnit[] | null
-  const unitRow = Array.isArray(unitEmbed) ? unitEmbed[0] ?? null : unitEmbed
-  const clientEmbed = unitRow?.clients ?? null
-  const clientRow = Array.isArray(clientEmbed) ? clientEmbed[0] ?? null : clientEmbed
+  const unitRow = unwrapEmbed<EmbeddedUnit>(
+    booking.units as EmbeddedUnit | EmbeddedUnit[] | null
+  )
+  const clientRow = unwrapEmbed<EmbeddedClient>(unitRow?.clients ?? null)
   const bookingClientId = clientRow?.id ?? unitRow?.client_id ?? null
   const allowCoupons = Boolean(clientRow?.allow_coupons)
   if (!allowCoupons) {
@@ -119,20 +120,13 @@ export async function POST(request: Request) {
   )
 
   // 3. Find the coupon by case-insensitive code.
-  const lookupKey = codeLookupKey(code)
-  const { data: coupon } = await admin
-    .from("coupons")
-    .select("*")
-    .filter("code", "ilike", lookupKey)
-    .limit(1)
-    .maybeSingle()
-  if (!coupon) {
+  const c = await findCouponByCode<DbCoupon>(admin, code)
+  if (!c) {
     return NextResponse.json(
       { ok: false, error: rejectionMessage("not-found") },
       { status: 404 }
     )
   }
-  const c = coupon as DbCoupon
 
   // 4. Pull every existing use for this coupon (excluding this booking's
   // row — we replace it below, so it shouldn't count against the limits

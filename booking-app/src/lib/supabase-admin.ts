@@ -54,6 +54,30 @@ export function getSupabaseAdmin(): SupabaseClient {
 }
 
 /**
+ * Normalise a Supabase embedded relation to a scalar (or null).
+ *
+ * The PostgREST embed feature returns the related row as either:
+ *   - a single object (when the FK relationship is unambiguous to-one), or
+ *   - a singleton array (when supabase-js can't disambiguate cardinality,
+ *     typically when the foreign-key column is itself nullable, or when
+ *     there's more than one matching FK between the tables).
+ *
+ * This wraps the `Array.isArray(x) ? x[0] ?? null : x` dance that used to
+ * be duplicated across `coupons/apply`, `payfast/initiate`, and
+ * `bookings/[id]/payment-mode`. Returns `null` when the embed is empty
+ * so callers can use a single `?.field` chain regardless.
+ *
+ * Usage:
+ *   const unitRow = unwrapEmbed&lt;{ client_id: string | null }&gt;(booking.units)
+ *   const clientId = unitRow?.client_id ?? null
+ */
+export function unwrapEmbed<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null
+  if (Array.isArray(value)) return value[0] ?? null
+  return value
+}
+
+/**
  * Synthetic email scheme: PIN -> email used as the Supabase Auth identifier.
  * Keep this in sync with scripts/backfill-auth-users.mjs and the future
  * src/lib/auth-store.tsx PIN-based sign-in flow.

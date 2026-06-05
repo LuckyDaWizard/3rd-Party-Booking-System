@@ -7,7 +7,7 @@ import {
   getCallerIp,
   SYSTEM_ACTOR_ID,
 } from "@/lib/audit-log"
-import { codeLookupKey, normaliseCode } from "@/lib/coupons"
+import { findCouponByCode, normaliseCode } from "@/lib/coupons"
 
 // =============================================================================
 // GET    /api/admin/coupons/[id]  — fetch single + usage list
@@ -115,13 +115,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (!code) return apiError("Code can't be empty", 400)
     if (code.length > 64) return apiError("Code must be 64 characters or fewer", 400)
     if (code.toLowerCase() !== String(existing.code).toLowerCase()) {
-      const { data: clash } = await admin
-        .from("coupons")
-        .select("id")
-        .filter("code", "ilike", codeLookupKey(code))
-        .neq("id", id)
-        .limit(1)
-        .maybeSingle()
+      const clash = await findCouponByCode<{ id: string }>(admin, code, {
+        columns: "id",
+        excludeId: id,
+      })
       if (clash) return apiError(`A coupon with code "${code}" already exists`, 409)
     }
     patch.code = code

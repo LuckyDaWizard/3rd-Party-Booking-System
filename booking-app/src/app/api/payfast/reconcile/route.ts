@@ -18,10 +18,11 @@ import {
 // =============================================================================
 // POST /api/payfast/reconcile
 //
-// Pull-based payment reconciliation. Instead of waiting for PayFast's ITN to
-// push us a payment confirmation (which fails on HTTP-only deployments), this
-// route actively queries PayFast's Transaction History API and updates
-// bookings that it finds have been paid.
+// Pull-based payment reconciliation. ITN delivery can drop for a range of
+// reasons — transient network blips, brief PayFast outages, our app
+// restarting mid-callback, a firewall hiccup at either end. This route
+// actively queries PayFast's Transaction History API and updates bookings
+// it finds have been paid, regardless of whether the ITN arrived.
 //
 // Two modes:
 //   1. Single booking  — body: { bookingId: string }
