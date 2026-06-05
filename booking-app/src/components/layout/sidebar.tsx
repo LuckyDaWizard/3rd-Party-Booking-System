@@ -26,11 +26,25 @@ import { useSidebar } from "@/lib/sidebar-store"
 import { useAuth, type UserRole } from "@/lib/auth-store"
 import { useActiveClientBranding } from "@/lib/use-active-client-branding"
 
-interface NavChild {
-  label: string
-  href: string
-  /** Open in a new tab. Used for static docs / the internal Reports page. */
-  openInNewTab?: boolean
+/**
+ * A child of a top-level nav item. Either a regular link, OR a section
+ * header that visually groups the links that follow it inside the
+ * submenu. Discriminated by whether the `section` property is present.
+ *
+ *   { label, href }              → regular link
+ *   { section: "Manuals" }       → group header, not interactive
+ */
+type NavChild =
+  | {
+      label: string
+      href: string
+      /** Open in a new tab. Used for static docs / the internal Reports page. */
+      openInNewTab?: boolean
+    }
+  | { section: string }
+
+function isSection(c: NavChild): c is { section: string } {
+  return "section" in c
 }
 
 interface NavItem {
@@ -69,16 +83,24 @@ const navItems: NavItem[] = [
     icon: FolderOpen,
     roles: ["system_admin"],
     children: [
-      { label: "Reports (internal)", href: "/reports", openInNewTab: true },
+      // Operators reach for these most often — surface first.
+      { section: "Manuals" },
+      { label: "Operator", href: "/user-manual-user.html", openInNewTab: true },
+      { label: "Unit Manager", href: "/user-manual-unit-manager.html", openInNewTab: true },
+      { label: "System Admin", href: "/user-manual-system-admin.html", openInNewTab: true },
+      // Internal-only browsing surfaces.
+      { section: "Reference" },
+      { label: "Reports", href: "/reports", openInNewTab: true },
       { label: "Design System", href: "/design-system" },
+      // Feature design docs — both shipped and pending.
+      { section: "Proposals" },
+      { label: "Coupons", href: "/coupon-codes-proposal.html", openInNewTab: true },
+      { label: "Unit Email Handoff", href: "/carefirst-unit-email-handoff-proposal.html", openInNewTab: true },
+      { label: "Scheduling", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
+      // Audit + decision records, kept at the bottom — referenced rarely.
+      { section: "Records" },
       { label: "System Audit", href: "/system-audit.html", openInNewTab: true },
       { label: "Management Decisions", href: "/management-decisions-2026-05-21.html", openInNewTab: true },
-      { label: "Scheduling Proposal", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
-      { label: "Unit Email Handoff Proposal", href: "/carefirst-unit-email-handoff-proposal.html", openInNewTab: true },
-      { label: "Coupons Proposal", href: "/coupon-codes-proposal.html", openInNewTab: true },
-      { label: "Manual — User", href: "/user-manual-user.html", openInNewTab: true },
-      { label: "Manual — Unit Manager", href: "/user-manual-unit-manager.html", openInNewTab: true },
-      { label: "Manual — System Admin", href: "/user-manual-system-admin.html", openInNewTab: true },
     ],
   },
 ]
@@ -333,10 +355,18 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                         {item.label}
                       </div>
                       <div className="flex flex-col gap-0.5 px-2 pb-2">
-                        {item.children!.map((child) => {
-                          const isChildActive = child.href.includes("?")
-                            ? currentFullPath === child.href
-                            : currentFullPath === child.href
+                        {item.children!.map((child, idx) => {
+                          if (isSection(child)) {
+                            return (
+                              <div
+                                key={`section-${idx}`}
+                                className="mt-2 px-3 pt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 first:mt-0"
+                              >
+                                {child.section}
+                              </div>
+                            )
+                          }
+                          const isChildActive = currentFullPath === child.href
                           return (
                             <Link
                               key={child.href}
@@ -396,11 +426,18 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
                 </button>
                 {isDropdownOpen && (
                   <div className="ml-8 mt-1 flex flex-col gap-0.5">
-                    {item.children!.map((child) => {
-                      const childHasQuery = child.href.includes("?")
-                      const isChildActive = childHasQuery
-                        ? currentFullPath === child.href
-                        : currentFullPath === child.href
+                    {item.children!.map((child, idx) => {
+                      if (isSection(child)) {
+                        return (
+                          <div
+                            key={`section-${idx}`}
+                            className="mt-3 px-3 pt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 first:mt-0"
+                          >
+                            {child.section}
+                          </div>
+                        )
+                      }
+                      const isChildActive = currentFullPath === child.href
                       return (
                         <Link
                           key={child.href}
