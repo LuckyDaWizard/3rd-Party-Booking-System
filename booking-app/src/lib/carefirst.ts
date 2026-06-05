@@ -140,6 +140,47 @@ export interface BookingForHandoff {
   province: string | null
   country: string | null
   postal_code: string | null
+  // Vitals captured on /create-booking/patient-metrics. Sent under user.vitals.
+  // All strings on the row — BP is composite ("120/80"), the rest are numeric
+  // values entered as text. We forward as strings to preserve exactly what was
+  // captured; consumers can parse if they need numbers.
+  blood_pressure: string | null
+  glucose: string | null
+  temperature: string | null
+  oxygen_saturation: string | null
+  heart_rate: string | null
+  // Best-effort proxy for "when were vitals captured" — really the booking row's
+  // last-modified time. Used as user.vitals.capturedAt.
+  updated_at: string | null
+}
+
+/**
+ * Vitals block sent under `user.vitals`. NOT defined in CareFirst's current
+ * schema (neither the TypeScript interface nor the Postman example references
+ * vitals) — we send it speculatively. CareFirst silently ignores unknown
+ * fields today; when they extend their schema to consume it, no code change
+ * is required on our side.
+ *
+ * Field values are strings to preserve the operator's input exactly:
+ *   - bloodPressure is composite ("120/80")
+ *   - the others are numeric values stored as text on the bookings row
+ *
+ * The whole block is omitted from the payload when every vital field is null
+ * or empty (which is the case for skip_patient_metrics clients).
+ */
+export interface VitalsBlock {
+  bloodPressure: string | null
+  glucose: string | null
+  temperature: string | null
+  oxygenSaturation: string | null
+  heartRate: string | null
+  /**
+   * Best-effort timestamp — the booking row's `updated_at`. NOT specifically
+   * "when vitals were captured": metrics are usually the last update before
+   * T&Cs, but `updated_at` is also bumped by terms acceptance, payment
+   * confirmation, etc. Treat as "last known state of these readings".
+   */
+  capturedAt: string | null
 }
 
 export interface SsoAutoRegisterPayload {
@@ -168,8 +209,50 @@ export interface SsoAutoRegisterPayload {
         postalCode?: string
       } | null
     }
+    /** Speculative extension — see VitalsBlock. */
+    vitals?: VitalsBlock
   }
   returnUrl?: string
+}
+
+/**
+ * Normalises a vitals value: trims whitespace, treats empty string the same
+ * as null. Returns null when the field wasn't captured (so the JSON sends
+ * `null` rather than `""`, matching what the booking row actually means).
+ */
+function normaliseVital(raw: string | null): string | null {
+  if (raw === null || raw === undefined) return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+/**
+ * Build the vitals block — or undefined if every reading is missing, in
+ * which case we omit the field entirely from the payload.
+ */
+function buildVitalsBlock(booking: BookingForHandoff): VitalsBlock | undefined {
+  const bloodPressure = normaliseVital(booking.blood_pressure)
+  const glucose = normaliseVital(booking.glucose)
+  const temperature = normaliseVital(booking.temperature)
+  const oxygenSaturation = normaliseVital(booking.oxygen_saturation)
+  const heartRate = normaliseVital(booking.heart_rate)
+
+  const anyCaptured =
+    bloodPressure !== null ||
+    glucose !== null ||
+    temperature !== null ||
+    oxygenSaturation !== null ||
+    heartRate !== null
+  if (!anyCaptured) return undefined
+
+  return {
+    bloodPressure,
+    glucose,
+    temperature,
+    oxygenSaturation,
+    heartRate,
+    capturedAt: booking.updated_at,
+  }
 }
 
 export function buildSsoPayload(
@@ -177,6 +260,7 @@ export function buildSsoPayload(
   booking: BookingForHandoff
 ): SsoAutoRegisterPayload {
   const hasAddress = Boolean(booking.address && booking.city)
+  const vitals = buildVitalsBlock(booking)
 
   return {
     clientCode: config.clientCode,
@@ -206,6 +290,7 @@ export function buildSsoPayload(
             }
           : null,
       },
+      ...(vitals ? { vitals } : {}),
     },
     returnUrl: `${config.appUrl}/patient-history`,
   }
