@@ -113,14 +113,6 @@ export async function POST(request: Request, context: RouteContext) {
         "province",
         "country",
         "postal_code",
-        // Vitals — forwarded to CareFirst under user.vitals when at least one
-        // reading is populated. See VitalsBlock in src/lib/carefirst.ts.
-        "blood_pressure",
-        "glucose",
-        "temperature",
-        "oxygen_saturation",
-        "heart_rate",
-        "updated_at",
         "handoff_redirect_url",
         "handoff_attempt_count",
       ].join(", ")

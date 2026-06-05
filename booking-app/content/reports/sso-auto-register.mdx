@@ -4,9 +4,9 @@ super: 3rd Party Booking System · Reference
 subtitle: Field-by-field reference for our single outbound API call to CareFirst Patient. What we send, what we expect back, what we do on every response code.
 audience: CareFirst Patient development team
 category: CareFirst Integration
-tags: [sso, auto-register, contract, payload, api, handoff, vitals]
+tags: [sso, auto-register, contract, payload, api, handoff]
 date: 2026-05-11
-updated: 2026-06-03
+updated: 2026-05-11
 order: 10
 pills:
   - { label: Reference, variant: brand }
@@ -101,23 +101,11 @@ The full body we POST.
         "country":    "...",
         "postalCode": "..."
       }
-    },
-    "vitals": {
-      "bloodPressure":    "120/80",
-      "glucose":          "5.4",
-      "temperature":      "36.5",
-      "oxygenSaturation": "98",
-      "heartRate":        "72",
-      "capturedAt":       "2026-06-03T10:30:00.000Z"
     }
   },
   "returnUrl":   "https://<our-app>/patient-history"
 }
 ```
-
-<Callout title="vitals — speculative extension, not yet in your schema" variant="warn">
-The <code>user.vitals</code> block is <strong>not</strong> defined in your current TypeScript interface or Postman collection. We send it speculatively starting 2026-06-03 — if your endpoint silently ignores unknown fields (most do), nothing changes for you. When you extend your schema to consume vitals, no code change is required on our side. If your endpoint <strong>rejects</strong> unknown fields under strict validation, let us know and we'll either gate behind a flag or remove until you're ready.
-</Callout>
 
 ### Field-by-field
 
@@ -137,15 +125,7 @@ The <code>user.vitals</code> block is <strong>not</strong> defined in your curre
 | `user.userProfile.nationality` | `bookings.nationality` | Same enum as `countryCode` |
 | `user.userProfile.gender` | `bookings.gender` | First character upper-cased, defaulted to `N` |
 | `user.userProfile.fullAddress` | `bookings.{address,suburb,city,...}` | `null` if `address` or `city` is blank |
-| `user.vitals.bloodPressure` | `bookings.blood_pressure` | Composite string (e.g. `"120/80"`). Speculative — see callout. |
-| `user.vitals.glucose` | `bookings.glucose` | mmol/L, string. Speculative. |
-| `user.vitals.temperature` | `bookings.temperature` | Celsius, string. Speculative. |
-| `user.vitals.oxygenSaturation` | `bookings.oxygen_saturation` | Percent, string. Speculative. |
-| `user.vitals.heartRate` | `bookings.heart_rate` | bpm, string. Speculative. |
-| `user.vitals.capturedAt` | `bookings.updated_at` | Best-effort "when these readings were last touched" (booking row's last-modified time). Speculative. |
 | `returnUrl` | `<APP_URL>/patient-history` | We send the operator back here after the patient finishes |
-
-The entire `user.vitals` block is **omitted from the payload** when every vital reading is null or empty — which is the case for `skip_patient_metrics` clients and for any booking that never reached the metrics step.
 
 ### Title enum
 

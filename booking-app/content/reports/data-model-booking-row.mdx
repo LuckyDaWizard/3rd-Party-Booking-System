@@ -4,9 +4,9 @@ super: 3rd Party Booking System · Reference
 subtitle: The canonical reference for every column on the `bookings` table. What we capture, what we send to CareFirst, and what we keep on our side. Useful when a CareFirst support ticket references a specific field.
 audience: CareFirst Patient development team
 category: System Overview
-tags: [data-model, schema, bookings, postgres, reference, coupons, vitals]
+tags: [data-model, schema, bookings, postgres, reference, coupons]
 date: 2026-05-11
-updated: 2026-06-03
+updated: 2026-06-02
 order: 60
 pills:
   - { label: Reference, variant: brand }
@@ -105,15 +105,13 @@ These are the columns CareFirst's devs are most likely to encounter in support t
 
 | Column | Type | Sent to CareFirst? |
 |---|---|---|
-| `blood_pressure` | `text` | Yes — `user.vitals.bloodPressure` (string, e.g. `"120/80"`) |
-| `glucose` | `text` | Yes — `user.vitals.glucose` (string, mmol/L) |
-| `temperature` | `text` | Yes — `user.vitals.temperature` (string, celsius) |
-| `oxygen_saturation` | `text` | Yes — `user.vitals.oxygenSaturation` (string, percent) |
-| `heart_rate` | `text` | Yes — `user.vitals.heartRate` (string, bpm) |
+| `bp_systolic`, `bp_diastolic` | `int` | No — kept on our side only |
+| `glucose` | `numeric` | No |
+| `temperature` | `numeric` | No |
+| `oxygen_saturation` | `int` | No |
+| `heart_rate` | `int` | No |
 
-Sent under `user.vitals` since 2026-06-03. Block is omitted entirely when every reading is null/empty. Speculative — not in CareFirst's published schema yet; see [SSO Auto-Register — The Contract](/reports/sso-auto-register#payload).
-
-See [Vitals Capture — What We Collect](/reports/vitals-capture) for the capture-side rationale.
+See [Vitals Capture — What We Collect, What We Don't Send](/reports/vitals-capture) for the rationale and integration question.
 
 </Section>
 
@@ -134,8 +132,8 @@ See [Vitals Capture — What We Collect](/reports/vitals-capture) for the captur
 
 <Section id="what-we-send" num="08 — Summary" title="What CareFirst actually sees from the row">
 
-About **25 of the 45 fields** make it into the SSO auto-register payload — 20 identity/contact/address fields plus the 5 vitals (added 2026-06-03 as a speculative `user.vitals` block). The rest are operational: payment internals, audit snapshots, status machinery.
+About **20 of the 40 fields** make it into the SSO auto-register payload. The rest are operational: payment internals, vitals (today), audit snapshots, status machinery.
 
-If any of the "not sent" columns would be useful in the handoff payload for your side — e.g. `payment_type` for billing reconciliation, coupon details for revenue reconciliation — they're trivially forwardable. Just let us know.
+If any of the "not sent" columns would be useful in the handoff payload for your side — e.g. `payment_type` for billing reconciliation, vitals for clinical context — they're trivially forwardable. Just let us know.
 
 </Section>

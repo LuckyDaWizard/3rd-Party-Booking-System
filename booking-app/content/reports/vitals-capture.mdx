@@ -1,22 +1,23 @@
 ---
-title: Vitals Capture — What We Collect, What We Send
+title: Vitals Capture — What We Collect, What We Don't Send
 super: 3rd Party Booking System · Reference
-subtitle: We capture five vital-sign measurements at the unit before handoff. As of 2026-06-03, these are forwarded to CareFirst under user.vitals in the SSO payload — speculatively, since CareFirst's published schema doesn't yet define the block.
+subtitle: We capture five vital-sign measurements at the unit before handoff. Today none of them are sent to CareFirst in the SSO payload — a deliberate gap that's worth surfacing as a potential integration point.
 audience: CareFirst Patient development team
 category: Patient Journey
-tags: [vitals, blood-pressure, glucose, observability, integration-gap, sso]
+tags: [vitals, blood-pressure, glucose, observability, integration-gap]
 date: 2026-05-11
-updated: 2026-06-03
+updated: 2026-05-11
 order: 50
 pills:
   - { label: Reference, variant: brand }
-  - { label: Speculative ship, variant: warn }
+  - { label: Integration gap, variant: warn }
 sections:
   - { id: what-we-capture, label: What we capture }
   - { id: when,            label: When in the flow }
   - { id: storage,         label: How we store it }
   - { id: skip,            label: When we skip vitals }
-  - { id: sent,            label: Sent to CareFirst (since 2026-06-03) }
+  - { id: not-sent,        label: Not sent to CareFirst (yet) }
+  - { id: proposal,        label: Proposal — adding vitals to the handoff }
   - { id: questions,       label: Open questions }
 ---
 
@@ -95,50 +96,52 @@ For skipped bookings, all five columns stay `null`.
 
 </Section>
 
-<Section id="sent" num="05 — Sent" title="Sent to CareFirst (since 2026-06-03)">
+<Section id="not-sent" num="05 — Not sent" title="Not sent to CareFirst (today)">
 
-All five vitals are forwarded to CareFirst inside the SSO auto-register payload as a `user.vitals` sub-object. See [SSO Auto-Register — The Contract](/reports/sso-auto-register#payload) for the full payload shape.
+**None of the five vitals appear in the SSO auto-register payload.** The handoff sends identity, contact, and address — but no clinical data.
 
-```json
-"user": {
-  ...identity / contact / address fields...,
-  "vitals": {
-    "bloodPressure":    "120/80",
-    "glucose":          "5.4",
-    "temperature":      "36.5",
-    "oxygenSaturation": "98",
-    "heartRate":        "72",
-    "capturedAt":       "2026-06-03T10:30:00.000Z"
+This is partly historical and partly deliberate:
+
+- We didn't have a stable contract for clinical fields on your side
+- POPIA classifies vitals as sensitive personal information; minimal-necessary-transfer is a defensible default
+- The clinician inside CareFirst Patient can capture their own vitals during the consult if they need authoritative readings
+
+But it's also a potential integration improvement. The clinician seeing the patient's pre-consult vitals at handoff time could:
+
+- Triage urgency (BP 200/120 → seen first)
+- Skip re-capture if our readings are recent and sufficient
+- Trend against historical readings if your system stores them
+
+</Section>
+
+<Section id="proposal" num="06 — Proposal" title="Proposal — adding vitals to the handoff">
+
+If CareFirst wants this, the additive change on our side is small. Suggested payload extension:
+
+```payload
+{
+  ...existing payload fields...,
+  "intakeMetrics": {
+    "capturedAt":        "2026-05-14T09:12:34Z",
+    "bloodPressure":     { "systolic": 122, "diastolic": 78 },
+    "bloodGlucose":      { "value": 5.4, "unit": "mmol/L" },
+    "temperature":       { "value": 36.7, "unit": "C" },
+    "oxygenSaturation":  { "value": 98, "unit": "%" },
+    "heartRate":         { "value": 72, "unit": "bpm" }
   }
 }
 ```
 
-<Callout title="Speculative — not yet in your published schema" variant="warn">
-Neither your TypeScript interface (<code>UserValidationPayloadI</code>) nor your Postman collection currently defines a <code>vitals</code> block. We send it on the assumption that your endpoint silently ignores unknown fields. If your validation is strict and the payload is rejected, tell us — we'll either gate behind a per-client flag or pause until your schema catches up.
-</Callout>
-
-### Shape decisions
-
-- **Strings, not numbers.** `bloodPressure` is a single composite string (`"120/80"`) since that's how operators enter it. The other readings are numeric values typed as text on the bookings row, and we forward them as-is to preserve exactly what was captured.
-- **Block omitted when empty.** If every reading is null/empty (which is the case for `skip_patient_metrics` clients), the `vitals` key is absent from the payload entirely — we don't send `vitals: null`.
-- **`capturedAt` is best-effort.** It's the booking row's `updated_at` timestamp, not specifically the vitals-capture event. In the typical flow, metrics are the last thing touched before T&Cs, so it's a usable proxy — but `updated_at` is also bumped by terms acceptance and other late-flow changes.
-- **No unit annotations.** Units aren't sent alongside values (e.g. no `{ value: "5.4", unit: "mmol/L" }`); we assumed standard units (mmHg / mmol/L / °C / % / bpm). Worth confirming with you.
-
-### Why ship it speculatively
-
-- POPIA's minimisation principle is about not sending what isn't useful, not about deliberately withholding clinically useful data; vitals at handoff are clinically useful.
-- Clinicians seeing pre-consult readings can triage urgency (BP 200/120 → seen first), skip re-capture if our readings are recent, or trend against history if you store longitudinally.
-- The risk of being silently ignored by an undefined field is lower than the risk of waiting for a schema change that may take months.
+Nullable individually — we'd omit fields that weren't captured. The whole `intakeMetrics` object would be omitted for `skip_patient_metrics`-flagged bookings.
 
 </Section>
 
-<Section id="questions" num="06 — Questions" title="Open questions for CareFirst">
+<Section id="questions" num="07 — Questions" title="Open questions for CareFirst">
 
-1. **Are you OK with the field names + types we chose?** If your team has a preferred schema (e.g. `intakeMetrics` with `{ value, unit }` sub-objects, numbers instead of strings), tell us and we'll switch.
-2. **Does your auto-register endpoint reject unknown fields under strict validation?** If yes, the payload may currently be failing for clients that have vitals captured. Easy fix: we'll gate behind a per-client flag until your schema is updated.
-3. **Does CareFirst Patient have an "intake observations" surface** where these would land? Or would they need a new section?
-4. **POPIA / data-sharing implications.** Vitals are health data under POPIA. Forwarding them to your application creates joint-controller responsibilities — worth a separate compliance conversation now that they're being sent.
-5. **Trending against history.** Do your clinicians see incoming vitals as standalone readings or as part of a longitudinal record?
-6. **Authority / overwrite rules.** If CareFirst captures vitals again during the consult, do ours stay as "pre-consult" and theirs as "in-consult", or do they overwrite? Affects how clinicians interpret them.
+1. **Do you want vitals in the handoff payload?** If yes, the field names above are suggestions — happy to align with whatever your data model already has.
+2. **Does CareFirst Patient have an "intake observations" surface** where these would land? Or would they need a new section?
+3. **POPIA / data-sharing implications.** Vitals are health data under POPIA. Forwarding them to your application creates joint-controller responsibilities — worth a separate compliance conversation if we go ahead.
+4. **Trending against history.** If you do receive them, would your clinician see them as standalone readings or as part of a longitudinal record?
+5. **Authority / overwrite rules.** If CareFirst captures vitals again during the consult, do ours stay as "pre-consult" and theirs as "in-consult", or do they overwrite? Affects how clinicians interpret them.
 
 </Section>
