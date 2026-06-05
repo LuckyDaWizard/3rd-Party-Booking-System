@@ -827,23 +827,8 @@
         <h2><span class="section-num">04 - Critical</span> Fix before next external release</h2>
         <p>Three items here. They are all known to the team; this audit confirms they remain the top priorities.</p>
 
-        <div class="finding crit done">
-          <h3><span class="done-tag">Complete</span>1. Site runs over plain HTTP, not HTTPS</h3>
-          <div class="resolution">
-            <span class="resolution-label">Resolved 2026-06-03</span>
-            IT provisioned the <code>bookings.carefirst.co.za</code> subdomain
-            (A-record &rarr; 187.127.135.11). Traefik configured with HTTP-01
-            ACME for Let's Encrypt — entrypoints <code>web:80</code> and
-            <code>websecure:443</code>, global HTTP&rarr;HTTPS redirect, cert
-            storage at <code>/letsencrypt/acme.json</code>. The booking-app's
-            docker-compose labels point a router at the <code>websecure</code>
-            entrypoint with <code>Host(`bookings.carefirst.co.za`)</code> +
-            <code>tls.certresolver=letsencrypt</code>. <code>NEXT_PUBLIC_APP_URL</code>
-            updated to <code>https://bookings.carefirst.co.za</code>. End-to-end
-            verified: clean HTTPS, HTTP/2, real Let's Encrypt cert, auto-renewing,
-            no port number. Side bonus: solved the FortiGuard "Unrated IP" block
-            at the First Care office.
-          </div>
+        <div class="finding crit">
+          <h3>1. Site runs over plain HTTP, not HTTPS</h3>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>Visitors connect to <code>http://187.127.135.11:3000</code> rather than <code>https://</code>. There is no TLS certificate, no encryption.</div>

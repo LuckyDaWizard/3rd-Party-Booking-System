@@ -14,12 +14,14 @@
 // =============================================================================
 
 /**
- * Fallback used only when NEXT_PUBLIC_APP_URL is completely unset.
- * In a normal deploy this env var is present (via docker-compose or the
- * Hostinger panel), so this fallback only matters for local dev started
- * without a .env.local.
+ * Legacy fallback used only when NEXT_PUBLIC_APP_URL is completely unset.
+ * In a normal deploy this env var is present (via docker-compose), so this
+ * fallback only matters for local dev started without a .env.local.
+ *
+ * Update this string when we move to a real domain + HTTPS and retire the
+ * raw-IP URL entirely.
  */
-const LEGACY_FALLBACK = "https://bookings.carefirst.co.za"
+const LEGACY_FALLBACK = "http://187.127.135.11:3000"
 
 /**
  * Returns the app's public base URL with no trailing slash.

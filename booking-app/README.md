@@ -5,7 +5,7 @@ hand off to the CareFirst Patient app for the actual consultation. This repo
 is the intake / payment gateway only — the consultation itself lives in a
 separate product.
 
-Live at **https://bookings.carefirst.co.za**.
+Live at **http://187.127.135.11:3000** (HTTPS migration pending).
 
 ## Stack
 
