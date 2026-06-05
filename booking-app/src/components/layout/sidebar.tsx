@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useSearchParams } from "next/navigation"
@@ -103,9 +103,16 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
   const collapsed = mode === "drawer" ? false : rawCollapsed
   const isDrawer = mode === "drawer"
 
-  // Filter nav items by user role
-  const visibleNavItems = navItems.filter(
-    (item) => !item.roles || (user && item.roles.includes(user.role))
+  // Filter nav items by user role. Memoised because the source array is
+  // a module-level constant and the role rarely changes — without this,
+  // the filter ran on every render (including every URL query-param change,
+  // since useSearchParams() above forces re-renders).
+  const visibleNavItems = useMemo(
+    () =>
+      navItems.filter(
+        (item) => !item.roles || (user && item.roles.includes(user.role))
+      ),
+    [user]
   )
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const sidebarRef = useRef<HTMLElement>(null)
@@ -113,7 +120,9 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
   // Open the user's default mail client pre-filled with context for support.
   // Uses mailto: for zero-backend simplicity — works as long as the user has
   // a mail client or browser-level mailto handler (Gmail, Outlook Web, etc).
-  function handleContactSupport() {
+  // Stable identity via useCallback so it doesn't trigger child re-renders
+  // when passed as a prop or used in dependency arrays.
+  const handleContactSupport = useCallback(() => {
     const name = user ? `${user.firstNames} ${user.surname}`.trim() : "Unknown user"
     const role = user?.role ?? "unknown role"
     const email = user?.email ?? "no email on file"
@@ -135,7 +144,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
 
     const href = `mailto:lehlohonolom@firstcare.solutions?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     window.location.href = href
-  }
+  }, [user])
 
   // Close dropdown when pathname changes to a non-matching page
   const prevPathnameRef = useRef(pathname)
@@ -160,9 +169,14 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [collapsed, openDropdown])
 
-  // Build full current URL path + search for child active matching
-  const currentSearch = searchParams.toString()
-  const currentFullPath = currentSearch ? `${pathname}?${currentSearch}` : pathname
+  // Build full current URL path + search for child active matching.
+  // Memoised so the pathname-only branch doesn't allocate a new string on
+  // every re-render — and so query-param changes that DO recompute it
+  // produce a stable identity for the duration of that render group.
+  const currentFullPath = useMemo(() => {
+    const currentSearch = searchParams.toString()
+    return currentSearch ? `${pathname}?${currentSearch}` : pathname
+  }, [pathname, searchParams])
 
   return (
     <aside

@@ -1,11 +1,21 @@
 "use client"
 
 import { useEffect } from "react"
+import dynamic from "next/dynamic"
 import { useRouter, usePathname } from "next/navigation"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { SessionIdleMonitor } from "@/components/session-idle-monitor"
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+
+// Mobile-drawer chunk. The Sheet primitives + base-ui dialog portal code
+// add ~15-25 kB to the bundle even though desktop visitors (lg: and up)
+// never open it. Loading on-demand via next/dynamic keeps that chunk out
+// of the initial bundle on desktop. ssr:false because Sheet hydrates a
+// portal — there's nothing useful to render on the server.
+const MobileDrawer = dynamic(
+  () => import("@/components/layout/mobile-drawer").then((m) => m.MobileDrawer),
+  { ssr: false }
+)
 import { ClientStoreProvider } from "@/lib/client-store"
 import { UnitStoreProvider } from "@/lib/unit-store"
 import { UserStoreProvider } from "@/lib/user-store"
@@ -119,16 +129,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <Sidebar />
       </div>
 
-      {/* Mobile slide-over drawer — hidden at lg: and up */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent
-          side="left"
-          className="w-60 p-0 lg:hidden"
-        >
-          <SheetTitle className="sr-only">Navigation menu</SheetTitle>
-          <Sidebar mode="drawer" />
-        </SheetContent>
-      </Sheet>
+      {/* Mobile slide-over drawer — hidden at lg: and up. Mounted only
+          once the user actually opens it (mobileOpen flips true), so
+          desktop visitors never download the Sheet / base-ui chunks. */}
+      {mobileOpen && (
+        <MobileDrawer open={mobileOpen} onOpenChange={setMobileOpen} />
+      )}
 
       {/* Main content area — offset by sidebar width only at lg: and up.
           Below lg: there is no fixed sidebar so no left padding is needed. */}

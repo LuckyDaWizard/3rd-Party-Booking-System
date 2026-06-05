@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react"
@@ -388,6 +389,23 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   }, [activeBookingId])
 
   // ------- Fetch bookings (filtered by unit for non-admins) -------
+  //
+  // ARCHITECTURAL NOTE — server pagination boundary, ~5k bookings/tenant.
+  //
+  // This pulls every booking visible to the caller in one shot with
+  // select("*"). At a typical row size, a year of activity (~10k rows on
+  // a busy tenant) is ~10 MB JSON in memory before Patient History maps
+  // it twice (once for display, once for CSV). Acceptable today; will
+  // become the load bottleneck before any other piece of the app.
+  //
+  // When a tenant crosses ~5k bookings or initial Patient History load
+  // breaks 1s on a mid-tier phone:
+  //   1. Switch to .range() driven by URL params + server-side filtering.
+  //   2. CSV export moves to a streaming /api/admin/patient-history/export
+  //      route (don't double-map a 10 MB array in the client).
+  //   3. Status counts move into a single COUNT() RPC instead of being
+  //      computed from the full array client-side.
+  // Until then, keep this select(*).
   const fetchBookings = useCallback(async () => {
     setLoading(true)
 
@@ -638,23 +656,45 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [])
 
+  // Memoised context value. Without this, the object passed to value={...}
+  // was a fresh reference on every render of the provider, which forced
+  // every component reading useBookingStore() to re-render even if the
+  // fields they actually use didn't change. Now consumers only re-render
+  // when one of the inputs below actually changes identity.
+  // (The five action callbacks are all stable from useCallback above, so
+  // they don't trigger re-memos on their own.)
+  const value = useMemo(
+    () => ({
+      bookings,
+      activeBookingId,
+      loading,
+      createBooking,
+      updateBooking,
+      discardBooking,
+      abandonBooking,
+      setActiveBookingId,
+      getBooking,
+      refreshBookings: fetchBookings,
+      lastError,
+      clearLastError,
+    }),
+    [
+      bookings,
+      activeBookingId,
+      loading,
+      createBooking,
+      updateBooking,
+      discardBooking,
+      abandonBooking,
+      getBooking,
+      fetchBookings,
+      lastError,
+      clearLastError,
+    ]
+  )
+
   return (
-    <BookingStoreContext.Provider
-      value={{
-        bookings,
-        activeBookingId,
-        loading,
-        createBooking,
-        updateBooking,
-        discardBooking,
-        abandonBooking,
-        setActiveBookingId,
-        getBooking,
-        refreshBookings: fetchBookings,
-        lastError,
-        clearLastError,
-      }}
-    >
+    <BookingStoreContext.Provider value={value}>
       {children}
     </BookingStoreContext.Provider>
   )
