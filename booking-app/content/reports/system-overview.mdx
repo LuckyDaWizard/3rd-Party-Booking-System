@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: System Overview
 tags: [overview, primer, architecture, ecosystem]
 date: 2026-05-11
-updated: 2026-06-02
+updated: 2026-06-05
 order: 10
 pills:
   - { label: Start here, variant: brand }
@@ -97,7 +97,7 @@ The boundary is the **`POST /api/external/client-sso/auto-register`** call. Ever
 | Auth + DB | Supabase (Postgres + Auth) | Real RLS — operators only see their unit's bookings, enforced server-side |
 | Payments | PayFast (sandbox + production) | Both ITN webhook and Transaction History API for reconcile |
 | Email | SMTP via `mail.carefirst.co.za:465` | Used for PIN reset / invite codes |
-| Hosting | Docker on Hostinger VPS | Traefik reverse proxy, currently HTTP-only (HTTPS pending domain rollout) |
+| Hosting | Docker on Hostinger VPS | Traefik reverse proxy; HTTPS live at [bookings.carefirst.co.za](https://bookings.carefirst.co.za) with auto-renewed Let's Encrypt cert |
 | Audit | `audit_log` table + cookie-based CSRF | Every state-changing action recorded with actor + IP |
 
 We're a fairly standard Next.js + Supabase application. Nothing exotic. The integration with CareFirst happens entirely through your HTTPS-only API — no shared database, no message queue, no shared file storage.

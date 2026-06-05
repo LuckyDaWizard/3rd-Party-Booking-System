@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: System Overview
 tags: [architecture, stack, deployment, nextjs, supabase]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-05
 order: 30
 pills:
   - { label: Reference, variant: brand }
@@ -18,6 +18,7 @@ sections:
   - { id: state,         label: Where state lives }
   - { id: external,      label: External dependencies }
   - { id: dev-cycle,     label: Build and release }
+  - { id: recent,        label: Recent shape changes }
 ---
 
 <Section id="stack" num="01 — Stack" title="Tech stack at a glance">
@@ -30,7 +31,7 @@ sections:
 | File storage | Supabase Storage | Used for client logos / favicons / user avatars |
 | Payments | PayFast (sandbox + production) | Both the ITN webhook *and* the Transaction History API for reconcile |
 | Email | nodemailer over SMTP | `mail.carefirst.co.za:465` — used for invite codes and PIN reset |
-| Hosting | Docker on Hostinger VPS | Traefik reverse proxy, currently HTTP-only |
+| Hosting | Docker on Hostinger VPS | Traefik reverse proxy with HTTPS auto-renewed via Let's Encrypt (HTTP-01 ACME). Public URL [bookings.carefirst.co.za](https://bookings.carefirst.co.za); HTTP &rarr; HTTPS auto-redirect at the entrypoint |
 | External APIs | CareFirst Patient SSO | Single outbound integration point — `POST /api/external/client-sso/auto-register` |
 
 </Section>
@@ -56,7 +57,7 @@ flowchart LR
       G[SMTP server<br/>mail.carefirst.co.za]
     end
 
-    A -->|HTTPS / HTTP*| B
+    A -->|HTTPS| B
     C -->|RLS-scoped queries| D
     C -->|payment initiate + reconcile| E
     E -->|ITN webhook| C
@@ -71,7 +72,7 @@ flowchart LR
     class D,E,G other;
 ```
 
-\* Currently HTTP-only — HTTPS rollout pending domain. See [Deployment & Hosting](/reports/deployment-hosting).
+All inbound traffic is HTTPS. See [Deployment & Hosting](/reports/deployment-hosting) for the Traefik + ACME details.
 
 </Section>
 
@@ -141,5 +142,33 @@ Note that CareFirst being down **doesn't block bookings from being created or pa
 | Health check | `GET /api/health` → `{ status: "ok", checks: { db: "ok" } }` |
 
 Every deploy tags the new image with the commit SHA, so the previous image stays available locally as a rollback target until pruned.
+
+</Section>
+
+<Section id="recent" num="07 — Recent" title="Recent shape changes (since 2026-06-02)">
+
+These changes don't alter the topology above, but they're material to how the system behaves under load and how a reader should reason about specific paths.
+
+<Grid2>
+<Card variant="brand" title="Coupons (shipped 2026-06-02)">
+Per-client discount codes on the PayFast payment step. WooCommerce-style — percent or fixed amount, optional client scope, usage limits, validity window, min-spend. R0 comp endpoint bypasses PayFast for 100%-off totals; <code>payment_type = "coupon_comp"</code> distinguishes them from gateway / self-collect / monthly. Postgres trigger releases the usage slot when a coupon-bearing booking flips to Abandoned or Discarded. Apply endpoint also accepts Abandoned bookings (2026-06-05 hotfix) and resumes them to In Progress in the same write.
+</Card>
+
+<Card variant="brand" title="HTTPS migration (shipped 2026-06-03)">
+<code>bookings.carefirst.co.za</code> with Let's Encrypt cert auto-renewed by Traefik via HTTP-01 ACME. Global HTTP &rarr; HTTPS redirect at the <code>web</code> entrypoint. <code>NEXT_PUBLIC_APP_URL</code> updated; cookie Secure flag now flips on automatically. Side bonus: First Care Solutions' FortiGuard categorises the subdomain as Business so it's reachable from the office network too.
+</Card>
+
+<Card variant="ok" title="Backend performance (2026-06-05)">
+Booking-flow round-trips reduced. <code>payment-mode</code> resolves booking + unit + 5 client flags in one nested embed; <code>audit-log/bookings</code> collapses bookings + units + clients into a single embed; <code>admin/users PATCH</code> consolidates legacy <code>unit_id</code> sync into the main UPDATE; coupon apply does one combined COUNT-friendly read instead of two <code>count: exact</code> head queries; coupon code lookups use a STORED GENERATED <code>code_lower</code> column with a plain unique index instead of <code>ILIKE</code> on a functional index. <code>record_incident</code> is now a single SECURITY DEFINER RPC replacing 2-3 sequential SELECT/UPDATE/INSERT calls.
+</Card>
+
+<Card variant="ok" title="Frontend performance (2026-06-05)">
+Patient History map / filter / count chains are memoised; search input is debounced 150ms; <code>bookingById</code> Map index replaces three inline <code>bookings.find()</code> calls (O(n&sup2;) &rarr; O(n) per visible page render); pagination is windowed (max 7 buttons + ellipses regardless of total pages); booking-store context value is memoised so consumers don't cascade on every store change; mobile drawer is lazily imported so desktop bundles drop ~15-25 kB.
+</Card>
+</Grid2>
+
+<Callout title="Outage-path improvements">
+<code>POST /api/payfast/reconcile</code> now processes its batch with a bounded-concurrency pool (5 in flight) instead of a serial loop. On the 1 vCPU box this changes the worst-case cron tick from blocking the event loop for ~30 seconds to ~6 seconds. <strong>Watch for PayFast rate-limit signals after this change</strong> — if their 429s appear in <code>/var/log/booking-cron.log</code>, drop <code>CONCURRENCY</code> from 5 to 2 or 3 in <code>src/app/api/payfast/reconcile/route.ts</code>.
+</Callout>
 
 </Section>

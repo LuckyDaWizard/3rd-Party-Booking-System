@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: CareFirst Integration
 tags: [lifecycle, status, state-machine, handoff, observability, coupons]
 date: 2026-05-11
-updated: 2026-06-02
+updated: 2026-06-05
 order: 20
 pills:
   - { label: Reference, variant: brand }
@@ -38,6 +38,7 @@ flowchart LR
     B -->|operator cancels| D[Discarded]
     B -->|idle &gt; 30 min| E[Abandoned]
     E -->|rescued by reconcile| C
+    E -->|operator resumes + applies coupon| B
     C -->|handoff failed retry| C
     C -->|CareFirst handoff ok| F[Successful]
     F --> G((End))
@@ -63,7 +64,7 @@ flowchart LR
 | <Pill variant="brand">In Progress</Pill> | Operator started a booking | Initial state |
 | <Pill variant="ok">Payment Complete</Pill> | Payment confirmed (PayFast ITN, self-collect mark, monthly auto-mark, R0 coupon-comp) OR rescue from Abandoned | In Progress, Abandoned, Payment Complete (failed handoff retry) |
 | <Pill variant="ok">Successful</Pill> | CareFirst auto-register returned 2xx | Payment Complete |
-| <Pill variant="mute">Abandoned</Pill> | No activity for &gt; 30 minutes mid-flow | In Progress |
+| <Pill variant="mute">Abandoned</Pill> | No activity for &gt; 30 minutes mid-flow | In Progress. **Can be resumed back to In Progress** when an operator applies a coupon on the payment page (since 2026-06-05) — `POST /api/coupons/apply` accepts Abandoned bookings and flips the status in the same write. |
 | <Pill variant="mute">Discarded</Pill> | Operator clicked Discard | In Progress |
 
 <Callout title="Payment-mode tint on Payment Complete">
