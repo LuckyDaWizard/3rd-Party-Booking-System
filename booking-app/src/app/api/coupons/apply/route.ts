@@ -134,30 +134,34 @@ export async function POST(request: Request) {
   }
   const c = coupon as DbCoupon
 
-  // 4. Count uses for the constraint check. Exclude any existing row for
-  // THIS booking — we replace it below, so it shouldn't count against the
-  // limits when the patient is re-applying / re-typing.
-  const { count: totalUsesRaw } = await admin
+  // 4. Pull every existing use for this coupon (excluding this booking's
+  // row — we replace it below, so it shouldn't count against the limits
+  // when the patient is re-applying / re-typing). Single round-trip
+  // returning the email column, then count in JS: replaces two separate
+  // `count: exact` head queries with one and lets the planner use the
+  // existing coupon_uses_coupon_idx covering index.
+  const { data: existingUsesData, error: usesErr } = await admin
     .from("coupon_uses")
-    .select("id", { count: "exact", head: true })
+    .select("patient_email")
     .eq("coupon_id", c.id)
     .neq("booking_id", bookingId)
-  const totalUses = totalUsesRaw ?? 0
+  if (usesErr) {
+    return apiError(`Failed to load coupon usage: ${usesErr.message}`, 500)
+  }
+  const existingUses = existingUsesData ?? []
+  const totalUses = existingUses.length
 
   const patientEmail = booking.email_address
     ? String(booking.email_address).trim().toLowerCase()
     : null
 
-  let usesForEmail = 0
-  if (patientEmail) {
-    const { count: emailUsesRaw } = await admin
-      .from("coupon_uses")
-      .select("id", { count: "exact", head: true })
-      .eq("coupon_id", c.id)
-      .ilike("patient_email", patientEmail)
-      .neq("booking_id", bookingId)
-    usesForEmail = emailUsesRaw ?? 0
-  }
+  const usesForEmail = patientEmail
+    ? existingUses.filter(
+        (u) =>
+          u.patient_email != null &&
+          String(u.patient_email).trim().toLowerCase() === patientEmail
+      ).length
+    : 0
 
   // 5. Run every WooCommerce-style constraint.
   const reason = checkCouponConstraints(c, {
@@ -178,18 +182,27 @@ export async function POST(request: Request) {
   // 6. Resolve the discount.
   const resolved = resolveDiscount(c, baseAmount)
 
-  // 7. Write coupon_uses (upsert by booking_id — unique index enforces 1
-  // row per booking). Replacing means a different coupon already there
-  // gets cleared too.
-  await admin.from("coupon_uses").delete().eq("booking_id", bookingId)
-  const { error: useErr } = await admin.from("coupon_uses").insert({
-    coupon_id: c.id,
-    booking_id: bookingId,
-    patient_email: patientEmail ?? "",
-    original_amount: resolved.originalAmount,
-    discount_amount: resolved.discountAmount,
-    final_amount: resolved.finalAmount,
-  })
+  // 7. Record / replace the coupon use atomically via upsert. The
+  // coupon_uses_booking_unique index (migration 033 — one row per
+  // booking_id) lets onConflict do the heavy lifting. This replaces the
+  // previous delete-then-insert sequence, which had a race window: two
+  // near-simultaneous applies for the same booking could both delete
+  // (each seeing zero rows), then both insert — one would win on the
+  // unique index, the other would surface a 500. The upsert collapses
+  // it to one statement and ON CONFLICT does the right thing.
+  const { error: useErr } = await admin
+    .from("coupon_uses")
+    .upsert(
+      {
+        coupon_id: c.id,
+        booking_id: bookingId,
+        patient_email: patientEmail ?? "",
+        original_amount: resolved.originalAmount,
+        discount_amount: resolved.discountAmount,
+        final_amount: resolved.finalAmount,
+      },
+      { onConflict: "booking_id" }
+    )
   if (useErr) return apiError(`Failed to record coupon use: ${useErr.message}`, 500)
 
   // 8. Update the booking row — denormalised fields for fast list + the

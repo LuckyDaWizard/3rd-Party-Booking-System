@@ -23,6 +23,7 @@ import { useUnitStore } from "@/lib/unit-store"
 import { useClientStore } from "@/lib/client-store"
 import { useAuth } from "@/lib/auth-store"
 import { DataCard } from "@/components/data-card"
+import { computePageWindow } from "@/components/list-pagination"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import {
   ConsultDeliveryModal,
@@ -104,27 +105,6 @@ function maskIdNumber(id: string | null): string {
 }
 
 type FilterType = "all" | "in-progress" | "incomplete" | "completed"
-
-function countByFilter(
-  patients: PatientRecord[],
-  filter: FilterType
-): number {
-  if (filter === "all") return patients.length
-  if (filter === "in-progress")
-    return patients.filter(
-      (p) =>
-        p.status === "Payment Complete" ||
-        p.status === "In Progress"
-    ).length
-  if (filter === "incomplete")
-    return patients.filter(
-      (p) => p.status === "Abandoned"
-    ).length
-  // completed
-  return patients.filter(
-    (p) => p.status === "Successful" || p.status === "Discarded"
-  ).length
-}
 
 function filterPatients(
   patients: PatientRecord[],
@@ -356,7 +336,19 @@ export default function PatientHistoryPage() {
   const [activeFilter, setActiveFilter] = React.useState<
     FilterType
   >("all")
-  const [searchQuery, setSearchQuery] = React.useState("")
+  // Two-state search: `searchInput` is what the user types (drives the
+  // controlled input), `debouncedSearch` is what actually filters the list.
+  // We sync `searchInput` → `debouncedSearch` after ~150ms of no typing.
+  // Without this, every keystroke ran the full map + 4× count + filter pass
+  // over `bookings`, which was visibly laggy for a touch typist past
+  // ~1k bookings on the 1-vCPU box.
+  const [searchInput, setSearchInput] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchInput), 150)
+    return () => window.clearTimeout(t)
+  }, [searchInput])
+  const searchQuery = debouncedSearch
 
   // Sync filter with URL tab param
   React.useEffect(() => {
@@ -505,41 +497,69 @@ export default function PatientHistoryPage() {
     runReconcile()
   }, [isSystemAdmin, runReconcile])
 
-  // Map booking records to patient records for display
-  const allPatients: PatientRecord[] = bookings.map((b) => {
-    const unitInfo = b.unitId ? unitInfoById.get(b.unitId) : undefined
-    return ({
-    id: b.id,
-    status: b.status,
-    patientName: [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
-    patientIdNumber: maskIdNumber(b.idNumber),
-    unitName: unitInfo?.unitName ?? "",
-    clientId: unitInfo?.clientId ?? null,
-    selfCollect: b.paymentType === "self_collect",
-    monthlyInvoice: b.paymentType === "monthly_invoice",
-    couponCode: b.couponCode,
-    discountAmount: b.discountAmount,
-    couponComp: b.paymentType === "coupon_comp",
-    emailAddress: b.emailAddress ?? null,
-    date: new Date(b.createdAt).toLocaleString("en-ZA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    })
-  })
+  // Map booking records to patient records for display. Memoised so it
+  // only re-runs when the underlying bookings array or the unit-info Map
+  // change — without this, every keystroke / store update re-ran the
+  // full map over `bookings`.
+  const allPatients: PatientRecord[] = React.useMemo(
+    () =>
+      bookings.map((b) => {
+        const unitInfo = b.unitId ? unitInfoById.get(b.unitId) : undefined
+        return {
+          id: b.id,
+          status: b.status,
+          patientName:
+            [b.firstNames, b.surname].filter(Boolean).join(" ") || "Unknown",
+          patientIdNumber: maskIdNumber(b.idNumber),
+          unitName: unitInfo?.unitName ?? "",
+          clientId: unitInfo?.clientId ?? null,
+          selfCollect: b.paymentType === "self_collect",
+          monthlyInvoice: b.paymentType === "monthly_invoice",
+          couponCode: b.couponCode,
+          discountAmount: b.discountAmount,
+          couponComp: b.paymentType === "coupon_comp",
+          emailAddress: b.emailAddress ?? null,
+          date: new Date(b.createdAt).toLocaleString("en-ZA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        }
+      }),
+    [bookings, unitInfoById]
+  )
 
-  const allCount = countByFilter(allPatients, "all")
-  const inProgressCount = countByFilter(allPatients, "in-progress")
-  const incompleteCount = countByFilter(allPatients, "incomplete")
-  const completedCount = countByFilter(allPatients, "completed")
+  // Single pass for all four filter counts. Previously this was four
+  // separate `countByFilter` calls, each doing a full filter on the same
+  // array — 4N work per render. Now N once, four counters incremented
+  // inline.
+  const { allCount, inProgressCount, incompleteCount, completedCount } =
+    React.useMemo(() => {
+      let inProgress = 0
+      let incomplete = 0
+      let completed = 0
+      for (const p of allPatients) {
+        if (p.status === "Payment Complete" || p.status === "In Progress") {
+          inProgress += 1
+        } else if (p.status === "Abandoned") {
+          incomplete += 1
+        } else if (p.status === "Successful" || p.status === "Discarded") {
+          completed += 1
+        }
+      }
+      return {
+        allCount: allPatients.length,
+        inProgressCount: inProgress,
+        incompleteCount: incomplete,
+        completedCount: completed,
+      }
+    }, [allPatients])
 
-  const filteredPatients = filterPatients(
-    allPatients,
-    activeFilter,
-    searchQuery
+  const filteredPatients = React.useMemo(
+    () => filterPatients(allPatients, activeFilter, searchQuery),
+    [allPatients, activeFilter, searchQuery]
   )
 
   // Pagination
@@ -556,6 +576,18 @@ export default function PatientHistoryPage() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   )
+
+  // Pre-indexed map of booking-id → BookingRecord. Two spots inside the
+  // visible-rows render loop need to read fields off the full booking
+  // (the Abandoned-reached-payment branch and the In-Progress current-
+  // step branch), and the PIN modal callback needs it once after verify.
+  // Before this map, those were inline `bookings.find(...)` calls — O(N)
+  // per row, O(N²) per render of the visible page. Now O(1) per lookup.
+  const bookingById = React.useMemo(() => {
+    const m = new Map<string, (typeof bookings)[number]>()
+    for (const b of bookings) m.set(b.id, b)
+    return m
+  }, [bookings])
 
   return (
     <div data-testid="patient-history-page" className="flex flex-col gap-8">
@@ -662,8 +694,8 @@ export default function PatientHistoryPage() {
         </div>
 
         <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
+          value={searchInput}
+          onChange={setSearchInput}
           placeholder="Search Patient Name or ID Number"
           testId="search-input"
           className="w-full sm:max-w-xs"
@@ -763,7 +795,7 @@ export default function PatientHistoryPage() {
                   // confirmed (PayFast may have completed the payment even
                   // though we never saw the ITN). Everyone else sees the
                   // normal Continue button.
-                  const fullBooking = bookings.find((b) => b.id === patient.id)
+                  const fullBooking = bookingById.get(patient.id)
                   const reachedPayment = Boolean(fullBooking?.paymentType)
                   const showOptions = canConfirmPayment && reachedPayment
 
@@ -798,7 +830,7 @@ export default function PatientHistoryPage() {
                         params.set("searchType", "id")
                         if (patient.patientIdNumber && patient.patientIdNumber !== "N/A") {
                           // Use the raw (unmasked) ID from the booking
-                          const booking = bookings.find((b) => b.id === patient.id)
+                          const booking = bookingById.get(patient.id)
                           if (booking?.idNumber) {
                             params.set("idNumber", booking.idNumber)
                           }
@@ -942,20 +974,30 @@ export default function PatientHistoryPage() {
               <ChevronLeft className="size-4" />
             </button>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                type="button"
-                onClick={() => setCurrentPage(page)}
-                className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                  page === currentPage
-                    ? "bg-[var(--client-primary)] text-white"
-                    : "border border-gray-300 text-ink-muted hover:bg-gray-100"
-                }`}
-              >
-                {page}
-              </button>
-            ))}
+            {computePageWindow(currentPage, totalPages).map((entry, idx) =>
+              entry === "ellipsis" ? (
+                <span
+                  key={`ellipsis-${idx}`}
+                  className="flex size-9 items-center justify-center text-sm text-gray-400"
+                  aria-hidden="true"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={entry}
+                  type="button"
+                  onClick={() => setCurrentPage(entry)}
+                  className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                    entry === currentPage
+                      ? "bg-[var(--client-primary)] text-white"
+                      : "border border-gray-300 text-ink-muted hover:bg-gray-100"
+                  }`}
+                >
+                  {entry}
+                </button>
+              )
+            )}
 
             <button
               type="button"
@@ -1057,7 +1099,7 @@ export default function PatientHistoryPage() {
           // flag. When OFF, skip the PIN modal and run the handoff
           // directly. Default TRUE (fail-safe) if the client row is
           // missing.
-          const patient = bookings.find((b) => b.id === bookingId)
+          const patient = bookingById.get(bookingId)
           const client = patient?.unitId
             ? units.find((u) => u.id === patient.unitId)
             : undefined

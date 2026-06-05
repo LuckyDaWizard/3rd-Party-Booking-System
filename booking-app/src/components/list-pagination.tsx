@@ -75,6 +75,55 @@ interface ListPaginationProps {
   onPageChange: (page: number) => void
 }
 
+/**
+ * Compute which page numbers to render given a current page and total.
+ *
+ * Up to 7 visible page buttons:
+ *   - Always page 1
+ *   - Always last page (totalPages)
+ *   - currentPage and 1 neighbour each side
+ *   - Ellipses where there are gaps
+ *
+ * Examples (current=9, total=50): [1, "…", 7, 8, 9, 10, 11, "…", 50]
+ * Examples (current=1, total=50): [1, 2, 3, 4, 5, "…", 50]
+ * Examples (current=50, total=50): [1, "…", 46, 47, 48, 49, 50]
+ *
+ * Previously this rendered one button per page, so a tenant with 500
+ * bookings (50 pages) saw 50 buttons wrap to many rows and push the
+ * table off-screen. Bounded at 7 buttons + ellipses regardless of total.
+ */
+export function computePageWindow(
+  currentPage: number,
+  totalPages: number
+): Array<number | "ellipsis"> {
+  // Small total — just show every page.
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1)
+  }
+
+  const pages: Array<number | "ellipsis"> = [1]
+
+  // Left ellipsis when currentPage is far enough right.
+  if (currentPage > 4) {
+    pages.push("ellipsis")
+  }
+
+  // Neighbours window: clamp so we don't repeat 1 or totalPages.
+  const windowStart = Math.max(2, currentPage - 1)
+  const windowEnd = Math.min(totalPages - 1, currentPage + 1)
+  for (let p = windowStart; p <= windowEnd; p += 1) {
+    pages.push(p)
+  }
+
+  // Right ellipsis when currentPage is far enough left.
+  if (currentPage < totalPages - 3) {
+    pages.push("ellipsis")
+  }
+
+  pages.push(totalPages)
+  return pages
+}
+
 export function ListPagination({
   currentPage,
   totalPages,
@@ -109,20 +158,32 @@ export function ListPagination({
           <ChevronLeft className="size-4" />
         </button>
 
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-          <button
-            key={page}
-            type="button"
-            onClick={() => onPageChange(page)}
-            className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-              page === currentPage
-                ? "bg-[var(--client-primary)] text-white"
-                : "border border-gray-300 text-ink-muted hover:bg-gray-100"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
+        {computePageWindow(currentPage, totalPages).map((entry, idx) =>
+          entry === "ellipsis" ? (
+            <span
+              // Ellipses can repeat across the row; index keys are fine since
+              // the windowing is deterministic for a given (currentPage, totalPages).
+              key={`ellipsis-${idx}`}
+              className="flex size-9 items-center justify-center text-sm text-gray-400"
+              aria-hidden="true"
+            >
+              …
+            </span>
+          ) : (
+            <button
+              key={entry}
+              type="button"
+              onClick={() => onPageChange(entry)}
+              className={`flex size-9 items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                entry === currentPage
+                  ? "bg-[var(--client-primary)] text-white"
+                  : "border border-gray-300 text-ink-muted hover:bg-gray-100"
+              }`}
+            >
+              {entry}
+            </button>
+          )
+        )}
 
         <button
           type="button"

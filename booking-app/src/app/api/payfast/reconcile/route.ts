@@ -132,19 +132,38 @@ export async function POST(request: Request) {
     return apiError(`Failed to load pending bookings: ${pendingErr.message}`, 500)
   }
 
+  // Bounded-concurrency pool. PayFast Transaction History calls average
+  // ~300ms each, so a serial loop over 100 bookings blocks the Node event
+  // loop for ~30s — bad on a 1-vCPU box hit every 15 min by cron. Running
+  // 5 in flight at a time gives us most of the wall-clock saving without
+  // hammering PayFast (their docs allow ~10 concurrent connections per
+  // merchant, we stay well under). Process in chunks of CONCURRENCY,
+  // awaiting each chunk before starting the next.
+  const CONCURRENCY = 5
+  const pendingRows = pending ?? []
   const results: ReconcileResult[] = []
-  for (const row of pending ?? []) {
-    // Best-effort: one failure shouldn't abort the batch.
-    try {
-      const r = await reconcileOne(admin, config, row.id)
-      results.push(r)
-    } catch (err) {
-      results.push({
-        bookingId: row.id,
-        updated: false,
-        reason:
-          err instanceof Error ? err.message : "Unknown error during reconcile",
-      })
+
+  for (let i = 0; i < pendingRows.length; i += CONCURRENCY) {
+    const chunk = pendingRows.slice(i, i + CONCURRENCY)
+    // Promise.allSettled means one failure doesn't abort the chunk; we
+    // still record a row for each result so the response counts add up.
+    const settled = await Promise.allSettled(
+      chunk.map((row) => reconcileOne(admin, config, row.id))
+    )
+    for (let j = 0; j < settled.length; j += 1) {
+      const result = settled[j]
+      if (result.status === "fulfilled") {
+        results.push(result.value)
+      } else {
+        results.push({
+          bookingId: chunk[j].id,
+          updated: false,
+          reason:
+            result.reason instanceof Error
+              ? result.reason.message
+              : "Unknown error during reconcile",
+        })
+      }
     }
   }
 
