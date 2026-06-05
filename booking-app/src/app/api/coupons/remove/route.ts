@@ -49,14 +49,10 @@ export async function POST(request: Request) {
     .maybeSingle()
   if (!booking) return apiError("Booking not found", 404)
 
-  // Only meaningful for in-progress bookings; once paid the coupon is
-  // part of the transaction record and shouldn't be retroactively dropped.
-  if (booking.status !== "In Progress") {
-    return apiError(
-      "Coupon can only be removed while the booking is in progress.",
-      409
-    )
-  }
+  // Idempotent short-circuit first: if there's nothing to remove, succeed.
+  // This is important for Abandoned bookings — the abandon-release trigger
+  // (migration 036) already cleared coupon_id, so a remove call here would
+  // otherwise hit the status check below and fail with a confusing error.
   if (!booking.coupon_id) {
     // Idempotent — already no coupon. Return success so the client doesn't
     // have to special-case it.
@@ -64,6 +60,15 @@ export async function POST(request: Request) {
       ok: true,
       paymentAmount: Number(booking.payment_amount ?? 0),
     })
+  }
+
+  // Once paid / handed off / discarded, the coupon is part of the booking's
+  // transaction record and shouldn't be retroactively dropped.
+  if (booking.status !== "In Progress") {
+    return apiError(
+      "Coupon can only be removed while the booking is in progress.",
+      409
+    )
   }
 
   // Restore: payment_amount → original_amount (or leave alone if unknown).

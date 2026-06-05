@@ -104,13 +104,27 @@ export async function POST(request: Request) {
     )
   }
 
-  // Once paid / discarded / abandoned a coupon can't be added or changed.
-  if (booking.status !== "In Progress") {
+  // Accept In Progress (normal flow) or Abandoned (operator resuming a
+  // booking the idle-timer flipped). The status flip back to In Progress
+  // happens as part of the booking update at the end of this function —
+  // by the time the patient sees the page, the booking reflects "actively
+  // being worked on".
+  //
+  // Paid / Discarded / Successful are NOT recoverable here — those need
+  // explicit operator actions (manual confirm, manager-PIN, etc.), and
+  // changing the discounted amount on a paid booking would silently break
+  // payment reconciliation.
+  if (booking.status !== "In Progress" && booking.status !== "Abandoned") {
     return NextResponse.json(
-      { ok: false, error: "Coupon can only be applied while the booking is in progress." },
+      {
+        ok: false,
+        error:
+          "Coupon can only be applied while the booking is in progress or pending resume.",
+      },
       { status: 409 }
     )
   }
+  const wasAbandoned = booking.status === "Abandoned"
 
   // 2. Resolve the BASE amount — what we'd have charged with no coupon.
   // Prefer the booking's stored original_amount; fall back to current
@@ -201,16 +215,28 @@ export async function POST(request: Request) {
 
   // 8. Update the booking row — denormalised fields for fast list + the
   // payment_amount column that PayFast initiate / ITN / reconcile all
-  // read from.
+  // read from. When the booking was Abandoned (operator resuming), also
+  // flip status back to In Progress so the booking is in a consistent
+  // state — the operator is actively working on it now.
+  const bookingPatch: {
+    coupon_id: string
+    coupon_code: string
+    original_amount: number
+    discount_amount: number
+    payment_amount: number
+    status?: "In Progress"
+  } = {
+    coupon_id: c.id,
+    coupon_code: c.code,
+    original_amount: resolved.originalAmount,
+    discount_amount: resolved.discountAmount,
+    payment_amount: resolved.finalAmount,
+  }
+  if (wasAbandoned) bookingPatch.status = "In Progress"
+
   const { error: bookUpdErr } = await admin
     .from("bookings")
-    .update({
-      coupon_id: c.id,
-      coupon_code: c.code,
-      original_amount: resolved.originalAmount,
-      discount_amount: resolved.discountAmount,
-      payment_amount: resolved.finalAmount,
-    })
+    .update(bookingPatch)
     .eq("id", bookingId)
   if (bookUpdErr) {
     // Rollback the coupon_uses insert so we don't end up with a phantom
@@ -233,6 +259,9 @@ export async function POST(request: Request) {
       "Original": { new: String(resolved.originalAmount) },
       "Discount": { new: String(resolved.discountAmount) },
       "Final": { new: String(resolved.finalAmount) },
+      ...(wasAbandoned
+        ? { "Status": { old: "Abandoned", new: "In Progress" } }
+        : {}),
     },
     ipAddress: getCallerIp(request),
   })
