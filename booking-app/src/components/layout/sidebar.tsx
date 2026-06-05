@@ -99,6 +99,7 @@ const navItems: NavItem[] = [
       { label: "Scheduling", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
       // Audit + decision records, kept at the bottom — referenced rarely.
       { section: "Records" },
+      { label: "Engineering Status", href: "/engineering-status.html", openInNewTab: true },
       { label: "System Audit", href: "/system-audit.html", openInNewTab: true },
       { label: "Management Decisions", href: "/management-decisions-2026-05-21.html", openInNewTab: true },
     ],

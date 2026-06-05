@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CareFirst Booking System — Engineering Status</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+    --mute-tint: #e5e7eb;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  header.doc-header {
+    border-bottom: 3px solid var(--brand);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  header.doc-header .meta {
+    color: var(--mute);
+    font-size: 13px;
+  }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brand);
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--brand);
+    border-radius: 6px;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: var(--ink-soft);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    background: var(--line-soft);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+  }
+  td.id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700;
+    color: var(--ink-soft);
+    width: 60px;
+  }
+  td.effort {
+    width: 100px;
+    color: var(--mute);
+    font-size: 13px;
+  }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .pill.done    { background: var(--ok-tint); color: var(--ok-ink); }
+  .pill.open    { background: var(--brand-tint); color: var(--brand); }
+  .pill.deferred { background: var(--mute-tint); color: var(--ink-soft); }
+  .pill.shipped { background: var(--ok-tint); color: var(--ok-ink); }
+
+  .sprint {
+    margin-top: 20px;
+    padding: 18px 22px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white;
+  }
+  .sprint-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 12px;
+  }
+  .sprint-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .sprint-header .commit {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--mute);
+  }
+  .sprint .desc {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .key-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 8px 0 14px;
+  }
+
+  ul { padding-left: 20px; }
+  li { margin: 4px 0; }
+
+  small { color: var(--mute); font-size: 12px; }
+
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; margin: 0; padding: 20mm; }
+    .sprint, table { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-header">
+    <div class="eyebrow">Internal · Living Document</div>
+    <h1>CareFirst Booking System &mdash; Engineering Status</h1>
+    <div class="meta">
+      Last updated <strong>2026-06-05</strong> · Production: <a href="https://bookings.carefirst.co.za">bookings.carefirst.co.za</a>
+    </div>
+  </header>
+
+  <p class="lede">
+    Snapshot of what just shipped, what's open, and what's deferred. Numbers in this doc map to commit SHAs and to findings from the system check on 2026-06-05. Memory and docs are the source of truth; this page is the index.
+  </p>
+
+  <!-- ============================================================ -->
+  <h2>Just shipped &mdash; 2026-06-05</h2>
+
+  <p>Five-sprint system check &plus; two hotfixes &plus; one UX fix. <strong>33 findings closed</strong>, <strong>2 database migrations</strong> applied to production, zero rollbacks.</p>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Sprint A &mdash; Critical performance <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">df75983</span>
+    </div>
+    <p class="desc">6 items. Coupon apply: 2 counts &rarr; 1 query &plus; upsert race fix. Reconcile cron concurrency pool (1 vCPU spike &sim;30s &rarr; &sim;6s). Patient History windowed pagination, memoise &plus; debounce, <code>bookingById</code> Map index.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Sprint C &mdash; Code hygiene <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">afd0f2c</span>
+    </div>
+    <p class="desc">5 items. <code>useSearchParams()</code> swap, <code>unwrapEmbed()</code> helper, <code>findCouponByCode()</code> helper, <code>PAYMENT_AMOUNT</code> shared, stale &ldquo;HTTP-only&rdquo; comments reworded.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Sprint D &mdash; Backend performance <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">446e596 &plus; migrations 038/039</span>
+    </div>
+    <p class="desc">5 items. <code>payment-mode</code> deepened embed (saves &sim;3-4 DB calls per booking). <code>admin/users PATCH</code> consolidation. <code>audit-log/bookings</code> deepened embed (4 round-trips &rarr; 2). <code>coupons.code_lower</code> generated column. <code>record_incident</code> SECURITY DEFINER RPC.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Sprint E &mdash; Frontend performance <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">0a50c50</span>
+    </div>
+    <p class="desc">5 items. <code>BookingStoreProvider</code> value memo. Sidebar memoisation. Coupons countByStatus memo. Mobile drawer via <code>next/dynamic</code> (&sim;15-25 kB off desktop bundle). Server-pagination architectural note added at the &sim;5k bookings threshold.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Sprint F &mdash; Polish <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">bdbdf05</span>
+    </div>
+    <p class="desc">8 items. <code>normaliseCode</code> inlined. <code>DbCoupon</code> ISO docs. <code>FILTER_TABS</code> hoisted. &ldquo;Audit trail&rdquo; wording fixed. Favicon w/h on Patient History. <code>transition-all</code> &rarr; <code>transition-colors</code> in 11 places. <code>await writeAuditLog</code> in cron paths. Mobile CSV button.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Hotfix &mdash; Coupon-on-Abandoned <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">50c9dbe</span>
+    </div>
+    <p class="desc">Production bug surfaced via screenshot. <code>POST /api/coupons/apply</code> now accepts Abandoned bookings &mdash; the operator&rsquo;s actively working on it again &mdash; and flips the status back to In Progress in the same write. <code>POST /api/coupons/remove</code> reordered so the &ldquo;nothing to remove&rdquo; idempotent path fires before the status guard.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Hotfix &mdash; Sidebar scroll re-revert <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">08f15d0</span>
+    </div>
+    <p class="desc">Earlier today the user requested &ldquo;undo all changes done today&rdquo;, which swept in the scrollable-nav fix and the Unit Email &plus; Coupons proposal links. Re-applied both after confirming the problem (resources submenu items hidden off-screen) reappeared.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>UX &mdash; Resources submenu grouping <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">ed6cbe6</span>
+    </div>
+    <p class="desc">The Resources submenu had grown to 10 flat links. Now grouped into 4 sections with uppercase headers: <strong>Manuals</strong> &middot; <strong>Reference</strong> &middot; <strong>Proposals</strong> &middot; <strong>Records</strong>. <code>NavChild</code> became a discriminated union; both render paths (collapsed popout &plus; expanded inline) updated.</p>
+  </div>
+
+  <h2>Production migrations applied today</h2>
+  <ul>
+    <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
+    <li><strong>039</strong> &mdash; <code>incidents_open_signature_unique</code> partial unique index &plus; <code>record_incident(...)</code> SECURITY DEFINER RPC. Collapses 2-3 sequential <code>recordIncident()</code> calls into 1 round-trip &mdash; especially valuable during outages when the function is hottest.</li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <h2>Open work &mdash; backlog</h2>
+
+  <p>None of these is on fire. Listed in rough priority order; pick up with a fresh head.</p>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Item</th><th>Effort</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="id">B1</td>
+        <td>
+          <strong>Multi-client <code>clientCode</code> routing</strong> &mdash; the only real architecture gap left. Every booking still lands in <em>one</em> CareFirst client account regardless of which client (Local Choice, etc.) owns the unit it was captured in. Solution sketch: add <code>carefirst_client_code</code> &plus; <code>carefirst_plan_code</code> to the <code>clients</code> table, UI on the Manage Client &middot; Settings tab, resolve per-booking via <code>unit.client_id</code>, env-var fallback for the transition period.
+        </td>
+        <td class="effort">Half-day</td>
+      </tr>
+      <tr>
+        <td class="id">B2</td>
+        <td>
+          <strong>HSTS via Traefik</strong> &mdash; so that visitors typing <code>bookings.carefirst.co.za</code> upgrade silently to HTTPS without a 308 round-trip. Sets a header in the Traefik dynamic config; one-line change.
+        </td>
+        <td class="effort">30 min</td>
+      </tr>
+      <tr>
+        <td class="id">B3</td>
+        <td>
+          <strong>Playwright happy-path for the coupon flow</strong> &mdash; first regression net for the R0 path. Catches the kind of bug (coupon-on-Abandoned) that surfaced today before it gets to production again.
+        </td>
+        <td class="effort">2-3h</td>
+      </tr>
+      <tr>
+        <td class="id">B4</td>
+        <td>
+          <strong>Hostinger UI compose-management replacement</strong> &mdash; the Docker Manager panel rewrites <code>docker-compose.yml</code> when env vars are saved, which has wiped Traefik labels twice during HTTPS rollout. Either commit to SSH-only deploys forever, or push labels through env-var-conditional config.
+        </td>
+        <td class="effort">Half-day</td>
+      </tr>
+      <tr>
+        <td class="id">B5</td>
+        <td>
+          <strong>Stashed WIP <code>stash@{0}</code></strong> &mdash; unknown changes from another session sitting in the local stash. Inspect with <code>git stash show -p stash@{0}</code>, then either pop or drop.
+        </td>
+        <td class="effort">15 min</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============================================================ -->
+  <h2>Deferred &mdash; revisit triggers</h2>
+
+  <p>Intentionally not on the backlog. Listed with the condition that should bring them back into scope.</p>
+
+  <table>
+    <thead>
+      <tr><th>#</th><th>Item</th><th>Revisit when</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="id">D1</td>
+        <td>Audit-log + incidents in-memory GROUP BY &rarr; Postgres stored procedure (audit #18)</td>
+        <td class="effort">At &sim;4k audit rows</td>
+      </tr>
+      <tr>
+        <td class="id">D2</td>
+        <td>Email transporter lazy-init locking (audit #27)</td>
+        <td class="effort">Only if duplicate-transport warnings appear in prod logs</td>
+      </tr>
+      <tr>
+        <td class="id">D3</td>
+        <td><code>admin/audit-log</code> <code>count: exact</code> &rarr; <code>count: planned</code> or cursor</td>
+        <td class="effort">At &sim;50k <code>audit_log</code> rows</td>
+      </tr>
+      <tr>
+        <td class="id">D4</td>
+        <td><code>admin/sessions</code> 500-row silent truncation cap</td>
+        <td class="effort">When <code>active_sessions</code> exceeds 500</td>
+      </tr>
+      <tr>
+        <td class="id">D5</td>
+        <td><code>coupons/apply</code> wraps booking &plus; <code>coupon_uses</code> writes in a Postgres transaction RPC</td>
+        <td class="effort">If a coupon-apply consistency bug surfaces</td>
+      </tr>
+      <tr>
+        <td class="id">D6</td>
+        <td>Modest backend tweaks N9-N12 (recordBookingValidator parallel, cleanup/sweep counting, etc.)</td>
+        <td class="effort">Pick up when next touching those routes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============================================================ -->
+  <h2>Cross-reference</h2>
+  <ul>
+    <li><a href="/system-audit.html">System Audit (2026-05-21)</a> &mdash; 28 Complete &plus; 2 Deferred. Earlier audit, mostly closed.</li>
+    <li><a href="/management-decisions-2026-05-21.html">Management Decisions Required (2026-05-21)</a> &mdash; stakeholder-facing.</li>
+    <li><a href="/reports">Reports (internal)</a> &mdash; system overview, payload references, runbook entries.</li>
+  </ul>
+
+  <p style="margin-top: 36px;"><small>This page is a living index. The authoritative sources for each item are commit messages on <code>main</code>, the migration files under <code>booking-app/supabase/migrations/</code>, and the memory notes for the next session.</small></p>
+
+</div>
+</body>
+</html>
