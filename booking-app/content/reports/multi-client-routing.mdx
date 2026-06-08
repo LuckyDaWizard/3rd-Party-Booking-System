@@ -28,9 +28,9 @@ sections:
 
 The 3rd Party Booking System is live and stable in production. We're preparing the system for use by Local Choice, with International SOS and Zoie to follow in future.
 
-Our SSO handoff currently uses the **single `clientCode` + `planCode` pair** you issued us — held in an environment variable on our side — so every booking lands in the same CareFirst account. To onboard International SOS and Zoie, we'd like to resolve `clientCode` + `planCode` **per booking** from the owning client record on our side, so each clinic group's patients are associated with the correct CareFirst account.
+Our SSO handoff currently uses the **single `clientCode` + `planCode` pair** we have on file — held in an environment variable on our side — so every booking lands in the same CareFirst account. As we prepare to bring Local Choice live, and International SOS and Zoie after them, we'd like to resolve `clientCode` + `planCode` **per booking** from the owning client record on our side, so each clinic group's patients are associated with the correct CareFirst account.
 
-The work on our side is small (~half a day of engineering). What we'd need from your team is **one `clientCode` + `planCode` pair per clinic group**, plus a quick confirmation on the auth model (one shared `x-api-key` vs. one per client).
+The work on our side is small (~half a day of engineering). What we'd need from your team is **one `clientCode` + `planCode` pair per clinic group** (one each for Local Choice, International SOS, and Zoie), plus a quick confirmation on the auth model (one shared `x-api-key` vs. one per client).
 
 <Callout title="Your API already supports per-request routing — thank you">
 The <code>auto-register</code> payload spec you shared shows <code>clientCode</code> and <code>planCode</code> as per-request fields, so the endpoint can already accept a different pair per call. That makes our side of the work very straightforward — we just need additional credentials issued so we can pass the right ones per booking.
@@ -196,7 +196,7 @@ A safe rollout that lets us pilot one client at a time without disrupting the ot
 
 1. **CareFirst** issues a `clientCode` + `planCode` pair per clinic group (and a per-client `x-api-key` if that's the preferred auth model). Delivered via a secure channel (encrypted email / shared vault).
 2. **We ship** the database migration, Settings UI, and resolver. Existing clients keep working off the environment-variable defaults because their per-client fields are still empty.
-3. **System admin populates** the codes on the Settings tab for one client first (e.g. Local Choice if those codes are confirmed as theirs).
+3. **System admin populates** the codes on the Settings tab for one client first (e.g. Local Choice as the first to go live).
 4. **Verify per client.** A test booking on that client should land in their CareFirst account. If anything looks off, clearing the codes reverts that client to the environment-variable defaults while we diagnose with your team.
 5. **Repeat** for International SOS, then Zoie.
 6. **Retire the environment-variable defaults** once every client has its own codes set — they'd become an emergency override only.
@@ -208,10 +208,10 @@ A safe rollout that lets us pilot one client at a time without disrupting the ot
 To enable per-client routing on our side, there are two things we'd like to discuss with your team. Both are quick to confirm, and once we have your guidance the work on our side is about half a day.
 
 <Callout title="1. A separate clientCode + planCode pair per clinic group">
-We currently have one pair (the one in the Postman collection you shared). To associate each clinic group's patients with the correct CareFirst account, we'd need a distinct <code>clientCode</code> + <code>planCode</code> pair for each:
+The pair we currently have on file (the one in the Postman collection) was for development / testing and isn't assigned to any of our production clinic groups. To associate each clinic group's patients with the correct CareFirst account, we'd need a distinct <code>clientCode</code> + <code>planCode</code> pair issued for each:
 
 <ul>
-<li><strong>Local Choice</strong> — the pair we already have (assuming it was issued for them; please confirm)</li>
+<li><strong>Local Choice</strong> — new pair</li>
 <li><strong>International SOS</strong> — new pair</li>
 <li><strong>Zoie</strong> — new pair</li>
 <li><strong>Future clinic groups</strong> — could you share the process for requesting new pairs as we onboard them?</li>
