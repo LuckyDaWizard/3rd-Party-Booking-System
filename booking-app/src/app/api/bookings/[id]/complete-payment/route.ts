@@ -123,8 +123,10 @@ export async function POST(request: Request, context: RouteContext) {
     )
   }
 
-  // Snapshot the supervisor who manually confirmed payment — best-effort.
-  await recordBookingValidator(admin, id, caller)
+  // Snapshot the supervisor who manually confirmed payment — best-effort,
+  // fire-and-forget. Helper swallows its own errors; booking is already in
+  // its final state.
+  void recordBookingValidator(admin, id, caller)
 
   // Audit log: manual payment confirmations are high-trust actions.
   const patientName =

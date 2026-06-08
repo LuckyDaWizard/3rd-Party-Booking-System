@@ -147,8 +147,10 @@ export async function POST(request: Request, context: RouteContext) {
     )
   }
 
-  // Snapshot the operator who triggered the auto-skip — best-effort.
-  await recordBookingValidator(admin, id, caller)
+  // Snapshot the operator who triggered the auto-skip — best-effort,
+  // fire-and-forget. Helper swallows its own errors; booking is already in
+  // its final state.
+  void recordBookingValidator(admin, id, caller)
 
   const patientName =
     [booking.first_names, booking.surname].filter(Boolean).join(" ") ||

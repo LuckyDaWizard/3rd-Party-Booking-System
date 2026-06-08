@@ -136,22 +136,22 @@ export async function POST(request: Request) {
     counts.pin_reset_tokens = (usedCount ?? 0) + (expiredCount ?? 0)
   } else {
     try {
-      const { data: usedDel, error: usedErr } = await admin
+      // count via Prefer: count=exact header — avoids transferring the
+      // deleted-row UUIDs over the wire just to call .length on them.
+      const { count: usedCount, error: usedErr } = await admin
         .from("pin_reset_tokens")
-        .delete()
+        .delete({ count: "exact" })
         .not("used_at", "is", null)
-        .select("id")
       if (usedErr) throw usedErr
-      counts.pin_reset_tokens += usedDel?.length ?? 0
+      counts.pin_reset_tokens += usedCount ?? 0
 
-      const { data: expiredDel, error: expiredErr } = await admin
+      const { count: expiredCount, error: expiredErr } = await admin
         .from("pin_reset_tokens")
-        .delete()
+        .delete({ count: "exact" })
         .is("used_at", null)
         .lt("expires_at", sevenDaysAgo)
-        .select("id")
       if (expiredErr) throw expiredErr
-      counts.pin_reset_tokens += expiredDel?.length ?? 0
+      counts.pin_reset_tokens += expiredCount ?? 0
     } catch (err) {
       errors.pin_reset_tokens =
         err instanceof Error ? err.message : "unknown error"
@@ -170,13 +170,12 @@ export async function POST(request: Request) {
     counts.auth_attempts = count ?? 0
   } else {
     try {
-      const { data, error } = await admin
+      const { count, error } = await admin
         .from("auth_attempts")
-        .delete()
+        .delete({ count: "exact" })
         .lt("attempted_at", ninetyDaysAgo)
-        .select("id")
       if (error) throw error
-      counts.auth_attempts = data?.length ?? 0
+      counts.auth_attempts = count ?? 0
     } catch (err) {
       errors.auth_attempts =
         err instanceof Error ? err.message : "unknown error"
@@ -196,14 +195,13 @@ export async function POST(request: Request) {
     counts.incidents = count ?? 0
   } else {
     try {
-      const { data, error } = await admin
+      const { count, error } = await admin
         .from("incidents")
-        .delete()
+        .delete({ count: "exact" })
         .eq("status", "resolved")
         .lt("last_seen_at", ninetyDaysAgo)
-        .select("id")
       if (error) throw error
-      counts.incidents = data?.length ?? 0
+      counts.incidents = count ?? 0
     } catch (err) {
       errors.incidents =
         err instanceof Error ? err.message : "unknown error"

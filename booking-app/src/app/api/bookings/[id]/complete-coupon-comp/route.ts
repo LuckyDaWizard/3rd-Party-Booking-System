@@ -135,7 +135,9 @@ export async function POST(request: Request, context: RouteContext) {
 
   // Snapshot the operator who comped the booking (mirrors PayFast initiate
   // + mark-self-collect — keeps the booking-validator chain populated).
-  await recordBookingValidator(admin, id, caller)
+  // Fire-and-forget: helper swallows its own errors and the booking row is
+  // already in its final state — no reason for the response to block on it.
+  void recordBookingValidator(admin, id, caller)
 
   const patientName =
     [booking.first_names, booking.surname].filter(Boolean).join(" ") ||

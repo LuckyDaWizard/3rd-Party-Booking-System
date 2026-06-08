@@ -352,8 +352,10 @@ export async function POST(request: Request, context: RouteContext) {
     )
   }
 
-  // Snapshot the operator who handed off to CareFirst — best-effort.
-  await recordBookingValidator(admin, id, caller)
+  // Snapshot the operator who handed off to CareFirst — best-effort,
+  // fire-and-forget. Helper swallows its own errors; the response runs the
+  // email-send + audit-log work in parallel below.
+  void recordBookingValidator(admin, id, caller)
 
   // If the operator asked us to email the link, do that now. The handoff
   // itself has already succeeded — the booking is marked Successful no

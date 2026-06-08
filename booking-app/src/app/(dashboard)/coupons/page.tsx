@@ -273,6 +273,27 @@ export default function CouponsListPage() {
                         </Button>
                       </Link>
                     }
+                    media={(() => {
+                      // Match the desktop row's favicon swatch so the mobile
+                      // card stays visually consistent with the management
+                      // pages (client/unit/user). "Any client" coupons have
+                      // no media block — same as how the desktop row hides
+                      // the favicon for unscoped coupons.
+                      if (!c.client_id) return undefined
+                      const favicon = faviconByClient.get(c.client_id) ?? null
+                      return favicon ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={favicon}
+                          alt=""
+                          className="size-10 shrink-0 rounded-md border border-gray-200 bg-white object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-[9px] font-medium uppercase tracking-wider text-gray-400">
+                          Icon
+                        </div>
+                      )
+                    })()}
                     fields={[
                       { label: "Code", value: c.code },
                       { label: "Discount", value: formatValue(c) },

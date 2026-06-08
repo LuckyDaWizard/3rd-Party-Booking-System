@@ -132,8 +132,10 @@ export async function POST(request: Request) {
       .eq("id", bookingId)
   }
 
-  // Snapshot the operator who emailed the payment link — best-effort.
-  await recordBookingValidator(admin, bookingId, caller)
+  // Snapshot the operator who emailed the payment link — best-effort,
+  // fire-and-forget. Helper swallows its own errors; the email-send below
+  // is independent of the validator row.
+  void recordBookingValidator(admin, bookingId, caller)
 
   // Build the payment link. The link points to our /pay/[bookingId] page,
   // which renders a form that auto-posts to PayFast. We don't link directly

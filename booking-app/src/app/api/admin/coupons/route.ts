@@ -107,25 +107,24 @@ export async function POST(request: Request) {
   }
 
   // Optional numeric fields — coerce to null for empty / non-numeric.
-  function optionalPositive(v: unknown, label: string): number | null | NextResponse {
+  // Sibling PATCH route uses the same "invalid" sentinel shape; keep them
+  // in sync so the validation rules don't drift between create and edit.
+  function optionalPositive(v: unknown): number | null | "invalid" {
     if (v === null || v === undefined || v === "") return null
     const n = Number(v)
-    if (!isFinite(n) || n <= 0) {
-      return apiError(`${label} must be a positive number`, 400)
-    }
+    if (!isFinite(n) || n <= 0) return "invalid"
     return n
   }
-  const minSpend = optionalPositive(body.min_spend, "min_spend")
-  if (minSpend instanceof NextResponse) return minSpend
-  const maxSpend = optionalPositive(body.max_spend, "max_spend")
-  if (maxSpend instanceof NextResponse) return maxSpend
-  const usageLimit = optionalPositive(body.usage_limit, "usage_limit")
-  if (usageLimit instanceof NextResponse) return usageLimit
-  const usageLimitPerEmail = optionalPositive(
-    body.usage_limit_per_email,
-    "usage_limit_per_email"
-  )
-  if (usageLimitPerEmail instanceof NextResponse) return usageLimitPerEmail
+  const minSpend = optionalPositive(body.min_spend)
+  if (minSpend === "invalid") return apiError("min_spend must be a positive number", 400)
+  const maxSpend = optionalPositive(body.max_spend)
+  if (maxSpend === "invalid") return apiError("max_spend must be a positive number", 400)
+  const usageLimit = optionalPositive(body.usage_limit)
+  if (usageLimit === "invalid") return apiError("usage_limit must be a positive number", 400)
+  const usageLimitPerEmail = optionalPositive(body.usage_limit_per_email)
+  if (usageLimitPerEmail === "invalid") {
+    return apiError("usage_limit_per_email must be a positive number", 400)
+  }
 
   if (minSpend !== null && maxSpend !== null && minSpend > maxSpend) {
     return apiError("min_spend can't exceed max_spend", 400)

@@ -146,8 +146,9 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   // Snapshot the operator who confirmed the self-collect — best-effort,
-  // failures don't abort the request.
-  await recordBookingValidator(admin, id, caller)
+  // fire-and-forget. Helper swallows its own errors; booking is already in
+  // its final state.
+  void recordBookingValidator(admin, id, caller)
 
   const patientName =
     [booking.first_names, booking.surname].filter(Boolean).join(" ") ||
