@@ -288,7 +288,15 @@
       <h3>B5 &mdash; Stash triage &plus; security &plus; perf follow-on <span class="pill shipped">Shipped</span></h3>
       <span class="commit">2026-06-08</span>
     </div>
-    <p class="desc">Inspected <code>stash@{0}</code>. Two of eight files were redundant (already shipped in Sprint C/E); six were valuable. Dropped the stash and re-applied the valuable parts as two focused commits. <strong>Security:</strong> added unit-scope IDOR guard on <code>POST /api/coupons/apply</code> and <code>POST /api/coupons/remove</code> &mdash; a non-admin caller now gets <code>403</code> if they enumerate a booking UUID outside their unit. Mirrors <code>mark-self-collect</code> route pattern. <strong>Perf:</strong> extended the Sprint E provider-value memoisation pattern to the remaining four stores (<code>client-store</code>, <code>unit-store</code>, <code>user-store</code>, <code>sidebar-store</code>) &mdash; callbacks wrapped in <code>useCallback</code>, provider value via <code>useMemo</code>. Cuts unnecessary re-renders in management pages.</p>
+    <p class="desc">Inspected <code>stash@{0}</code>. Two of eight files were redundant (already shipped in Sprint C/E); six were valuable. Dropped the stash and re-applied the valuable parts as two focused commits. <strong>Security:</strong> added unit-scope IDOR guard on <code>POST /api/coupons/apply</code> and <code>POST /api/coupons/remove</code> &mdash; a non-admin caller now gets <code>403</code> if they enumerate a booking UUID outside their unit. Mirrors <code>mark-self-collect</code> route pattern. <strong>Perf:</strong> extended the Sprint E provider-value memoisation pattern to the remaining four stores (<code>client-store</code>, <code>unit-store</code>, <code>user-store</code>, <code>sidebar-store</code>) &mdash; callbacks wrapped in <code>useCallback</code>, provider value via <code>useMemo</code>. <strong>Follow-up (9e5b0ba):</strong> Code Review caught that the toggle callbacks listed full list arrays as deps, defeating the memoisation. Converted to ref-based pattern matching <code>booking-store.tsx</code>; <code>addUnit</code> dep narrowed from <code>authUser</code> to <code>authUser?.id</code>.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>B2 &mdash; HSTS via Traefik <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">VPS docker-compose.yml labels &mdash; 2026-06-08</span>
+    </div>
+    <p class="desc">Added 4 Traefik labels to the <code>booking-app</code> service: <code>hsts.headers.stsSeconds=63072000</code>, <code>stsIncludeSubdomains=true</code>, <code>stsPreload=false</code>, and <code>routers.booking.middlewares=hsts</code>. Rolled out in two passes &mdash; <code>max-age=300</code> verify then ramped to 2 years. Response now carries <code>strict-transport-security: max-age=63072000; includeSubDomains</code>. <code>preload</code> intentionally left off; need a week of stable HSTS in production before submitting to the Chromium preload list (one-way change once submitted). <strong>Note:</strong> change is on the live VPS compose only &mdash; the repo's <code>docker-compose.yml</code> is already out-of-sync with live (TLS labels also live-only). Folded into B4 scope.</p>
   </div>
 
   <h2>Production migrations applied today</h2>
@@ -315,13 +323,6 @@
         <td class="effort">Half-day</td>
       </tr>
       <tr>
-        <td class="id">B2</td>
-        <td>
-          <strong>HSTS via Traefik</strong> &mdash; so that visitors typing <code>bookings.carefirst.co.za</code> upgrade silently to HTTPS without a 308 round-trip. Sets a header in the Traefik dynamic config; one-line change.
-        </td>
-        <td class="effort">30 min</td>
-      </tr>
-      <tr>
         <td class="id">B3</td>
         <td>
           <strong>Playwright happy-path for the coupon flow</strong> &mdash; first regression net for the R0 path. Catches the kind of bug (coupon-on-Abandoned) that surfaced today before it gets to production again.
@@ -331,7 +332,7 @@
       <tr>
         <td class="id">B4</td>
         <td>
-          <strong>Hostinger UI compose-management replacement</strong> &mdash; the Docker Manager panel rewrites <code>docker-compose.yml</code> when env vars are saved, which has wiped Traefik labels twice during HTTPS rollout. Either commit to SSH-only deploys forever, or push labels through env-var-conditional config.
+          <strong>Compose-drift &plus; Hostinger UI replacement</strong> &mdash; the repo's <code>booking-app/docker-compose.yml</code> is significantly out of sync with the live VPS file (live has Host-routed <code>websecure</code> entrypoint, Let&rsquo;s Encrypt cert resolver, TLS=true, and now HSTS labels &mdash; none of which are in git). If anyone runs the documented deploy one-liner with <code>git pull</code>, it overwrites live with the stale repo version and wipes every production label. <strong>Two-part fix:</strong> (a) pull the live compose into git as the new source of truth, (b) address the Hostinger Docker Manager UI rewriting compose on env-var save &mdash; either commit to SSH-only deploys forever, or push labels through env-var-conditional config. Same underlying problem as the original B4.
         </td>
         <td class="effort">Half-day</td>
       </tr>
