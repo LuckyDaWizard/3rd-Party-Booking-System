@@ -82,6 +82,23 @@ const ALLOWED_BODY_CONTENT_TYPES = [
 
 const BODY_METHODS = new Set(["POST", "PUT", "PATCH"])
 
+// Documentation HTML files (in /public) that should be PIN-gated. Every
+// item in the sidebar Resources menu — manuals, proposals, audit records,
+// management decisions — falls under this list. Add new docs as they're
+// added to /public. Asset files (favicons, OG images, robots.txt, etc.)
+// are intentionally NOT in this list so the app shell keeps loading for
+// anonymous visitors who hit /sign-in.
+const PROTECTED_DOC_PATTERNS: RegExp[] = [
+  // Operator / Unit Manager / System Admin manuals
+  /^\/user-manual-(user|unit-manager|system-admin)\.html$/,
+  // Feature proposals (shipped + pending)
+  /^\/(carefirst-unit-email-handoff|consultation-scheduling|coupon-codes)-proposal\.html$/,
+  // Audit + status records
+  /^\/(engineering-status|system-audit)\.html$/,
+  // Dated management-decision records (e.g. management-decisions-2026-05-21.html)
+  /^\/management-decisions-[\d-]+\.html$/,
+]
+
 function requestHasBody(request: NextRequest): boolean {
   const len = request.headers.get("content-length")
   if (len !== null && len !== "0") return true
@@ -139,13 +156,17 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Auth-gate the operator / unit-manager / system-admin manuals. These are
-  // static HTML files served from /public, but they document internal flows
-  // + role permissions + system internals — not material we want anonymous
-  // visitors reading just because they have the URL. Browser redirect to
-  // /sign-in (not a JSON 401 like /api/admin/*) so the user can sign in and
-  // navigate back.
-  if (/^\/user-manual-(user|unit-manager|system-admin)\.html$/.test(pathname)) {
+  // Auth-gate every internal documentation HTML file served from /public.
+  // These pages document operator flows, role permissions, system internals,
+  // shipped/pending feature proposals, audit history, and management
+  // decisions — not material we want anonymous visitors reading just
+  // because they have the URL. Browser redirect to /sign-in (not a JSON
+  // 401 like /api/admin/*) so the user can sign in and navigate back.
+  //
+  // Add new documentation HTML files here as they're created. Asset files
+  // (favicons, OG images, etc) are deliberately excluded by being kept off
+  // this list — only deliberate documentation pages get gated.
+  if (PROTECTED_DOC_PATTERNS.some((p) => p.test(pathname))) {
     const hasSupabaseAuthCookie = request.cookies
       .getAll()
       .some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"))
