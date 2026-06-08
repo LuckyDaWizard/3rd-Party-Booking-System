@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
@@ -127,7 +127,7 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
   // Province normalization moved to src/app/api/admin/units/route.ts where
   // all write paths now live. Client-side no longer needs the helper.
 
-  async function addUnit(unit: Omit<UnitRecord, "id" | "status">) {
+  const addUnit = useCallback(async (unit: Omit<UnitRecord, "id" | "status">) => {
     // Routed through /api/admin/units — under Phase 5 RLS, the authenticated
     // role has no INSERT policy on public.units, so direct writes fail
     // silently. The API route also handles the auto-assign-to-creator
@@ -162,9 +162,9 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
 
     await fetchUnits()
     return newUnitId
-  }
+  }, [authUser, refreshUser, fetchUnits])
 
-  async function updateUnit(id: string, updates: Partial<Omit<UnitRecord, "id">>) {
+  const updateUnit = useCallback(async (id: string, updates: Partial<Omit<UnitRecord, "id">>) => {
     const body: Record<string, unknown> = {}
     if (updates.unitName !== undefined) body.unitName = updates.unitName
     if (updates.contactPersonName !== undefined) body.contactPersonName = updates.contactPersonName
@@ -187,9 +187,9 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
     }
 
     await fetchUnits()
-  }
+  }, [fetchUnits])
 
-  async function deleteUnit(id: string) {
+  const deleteUnit = useCallback(async (id: string) => {
     const res = await fetch(`/api/admin/units/${id}`, { method: "DELETE" })
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: res.statusText }))
@@ -197,9 +197,9 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
       return
     }
     await fetchUnits()
-  }
+  }, [fetchUnits])
 
-  async function toggleUnitStatus(id: string) {
+  const toggleUnitStatus = useCallback(async (id: string) => {
     const unit = units.find((u) => u.id === id)
     if (!unit) return
 
@@ -214,16 +214,28 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling unit status:", error)
     }
     await fetchUnits()
-  }
+  }, [units, fetchUnits])
 
-  function getUnit(id: string) {
+  const getUnit = useCallback((id: string) => {
     return units.find((u) => u.id === id)
-  }
+  }, [units])
+
+  const value = useMemo(
+    () => ({
+      units,
+      loading,
+      addUnit,
+      updateUnit,
+      deleteUnit,
+      toggleUnitStatus,
+      getUnit,
+      refreshUnits: fetchUnits,
+    }),
+    [units, loading, addUnit, updateUnit, deleteUnit, toggleUnitStatus, getUnit, fetchUnits]
+  )
 
   return (
-    <UnitStoreContext.Provider value={{ units, loading, addUnit, updateUnit, deleteUnit, toggleUnitStatus, getUnit, refreshUnits: fetchUnits }}>
-      {children}
-    </UnitStoreContext.Provider>
+    <UnitStoreContext.Provider value={value}>{children}</UnitStoreContext.Provider>
   )
 }
 

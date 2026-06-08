@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
@@ -208,12 +208,12 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     fetchClients()
   }, [fetchClients])
 
-  async function addClient(
+  const addClient = useCallback(async (
     client: Omit<
       ClientRecord,
       "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
     >
-  ) {
+  ) => {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
     // role has no INSERT policy on public.clients, so direct writes fail
     // silently. All admin writes go through service-role API routes.
@@ -240,9 +240,9 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     const { id } = (await res.json()) as { id: string }
     await fetchClients()
     return id
-  }
+  }, [fetchClients])
 
-  async function updateClient(id: string, updates: Partial<Omit<ClientRecord, "id">>) {
+  const updateClient = useCallback(async (id: string, updates: Partial<Omit<ClientRecord, "id">>) => {
     // Routed through /api/admin/clients/[id] (see addClient note).
     const body: Record<string, unknown> = {}
     if (updates.clientName !== undefined) body.clientName = updates.clientName
@@ -276,9 +276,9 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     }
 
     await fetchClients()
-  }
+  }, [fetchClients])
 
-  async function updateClientUnit(id: string, unitName: string) {
+  const updateClientUnit = useCallback(async (id: string, unitName: string) => {
     // This mutates a related unit rather than the client itself. Look up the
     // first existing unit for this client and either PATCH it or POST a new
     // one via the admin units routes.
@@ -311,9 +311,9 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     }
 
     await fetchClients()
-  }
+  }, [fetchClients])
 
-  async function deleteClient(id: string) {
+  const deleteClient = useCallback(async (id: string) => {
     const res = await fetch(`/api/admin/clients/${id}`, { method: "DELETE" })
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: res.statusText }))
@@ -325,9 +325,9 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
       throw new Error(error || "Failed to delete client")
     }
     await fetchClients()
-  }
+  }, [fetchClients])
 
-  async function toggleClientStatus(id: string) {
+  const toggleClientStatus = useCallback(async (id: string) => {
     const client = clients.find((c) => c.id === id)
     if (!client) return
 
@@ -342,16 +342,39 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling client status:", error)
     }
     await fetchClients()
-  }
+  }, [clients, fetchClients])
 
-  function getClient(id: string) {
+  const getClient = useCallback((id: string) => {
     return clients.find((c) => c.id === id)
-  }
+  }, [clients])
+
+  const value = useMemo(
+    () => ({
+      clients,
+      loading,
+      addClient,
+      updateClient,
+      updateClientUnit,
+      deleteClient,
+      toggleClientStatus,
+      getClient,
+      refreshClients: fetchClients,
+    }),
+    [
+      clients,
+      loading,
+      addClient,
+      updateClient,
+      updateClientUnit,
+      deleteClient,
+      toggleClientStatus,
+      getClient,
+      fetchClients,
+    ]
+  )
 
   return (
-    <ClientStoreContext.Provider value={{ clients, loading, addClient, updateClient, updateClientUnit, deleteClient, toggleClientStatus, getClient, refreshClients: fetchClients }}>
-      {children}
-    </ClientStoreContext.Provider>
+    <ClientStoreContext.Provider value={value}>{children}</ClientStoreContext.Provider>
   )
 }
 

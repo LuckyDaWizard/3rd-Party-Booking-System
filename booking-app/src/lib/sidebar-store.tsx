@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react"
 
 interface SidebarContextValue {
   /** Desktop sidebar collapse state (only meaningful at lg: and up). */
@@ -19,32 +19,24 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  function toggle() {
+  const toggle = useCallback(() => {
     setCollapsed((prev) => !prev)
-  }
+  }, [])
 
-  function openMobile() {
+  const openMobile = useCallback(() => {
     setMobileOpen(true)
-  }
+  }, [])
 
-  function closeMobile() {
+  const closeMobile = useCallback(() => {
     setMobileOpen(false)
-  }
+  }, [])
 
-  return (
-    <SidebarContext.Provider
-      value={{
-        collapsed,
-        toggle,
-        mobileOpen,
-        setMobileOpen,
-        openMobile,
-        closeMobile,
-      }}
-    >
-      {children}
-    </SidebarContext.Provider>
+  const value = useMemo(
+    () => ({ collapsed, toggle, mobileOpen, setMobileOpen, openMobile, closeMobile }),
+    [collapsed, mobileOpen, toggle, openMobile, closeMobile]
   )
+
+  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
 }
 
 export function useSidebar() {

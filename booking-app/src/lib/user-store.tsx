@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
@@ -192,7 +192,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     fetchUsers()
   }, [fetchUsers])
 
-  async function addUser(user: AddUserInput): Promise<AddUserResult> {
+  const addUser = useCallback(async (user: AddUserInput): Promise<AddUserResult> => {
     // Routed through /api/admin/users so the server-side service-role client
     // can create both the auth.users entry and the public.users row atomically.
     // The server generates the PIN with crypto.randomInt() for security.
@@ -219,9 +219,9 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     const data = (await res.json()) as { id: string; pin: string }
     await fetchUsers()
     return { id: data.id, pin: data.pin }
-  }
+  }, [fetchUsers])
 
-  async function updateUser(id: string, updates: Partial<Omit<UserRecord, "id" | "unitName" | "clientName" | "units">>) {
+  const updateUser = useCallback(async (id: string, updates: Partial<Omit<UserRecord, "id" | "unitName" | "clientName" | "units">>) => {
     // Routed through /api/admin/users/[id] so PIN changes also update the
     // linked auth.users (email + password) atomically.
     const res = await fetch(`/api/admin/users/${id}`, {
@@ -237,9 +237,9 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     }
 
     await fetchUsers()
-  }
+  }, [fetchUsers])
 
-  async function updateUserUnits(userId: string, unitIds: string[]) {
+  const updateUserUnits = useCallback(async (userId: string, unitIds: string[]) => {
     // Routed through PATCH /api/admin/users/[id] which handles deleting old
     // user_units rows, inserting new ones, and updating the legacy unit_id column.
     const res = await fetch(`/api/admin/users/${userId}`, {
@@ -255,9 +255,9 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     }
 
     await fetchUsers()
-  }
+  }, [fetchUsers])
 
-  async function deleteUser(id: string) {
+  const deleteUser = useCallback(async (id: string) => {
     // Routed through DELETE /api/admin/users/[id] so the linked auth.users
     // entry is also removed.
     const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" })
@@ -267,9 +267,9 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
       return
     }
     await fetchUsers()
-  }
+  }, [fetchUsers])
 
-  async function toggleUserStatus(id: string) {
+  const toggleUserStatus = useCallback(async (id: string) => {
     const user = users.find((u) => u.id === id)
     if (!user) return
 
@@ -284,16 +284,39 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling user status:", error)
     }
     await fetchUsers()
-  }
+  }, [users, fetchUsers])
 
-  function getUser(id: string) {
+  const getUser = useCallback((id: string) => {
     return users.find((u) => u.id === id)
-  }
+  }, [users])
+
+  const value = useMemo(
+    () => ({
+      users,
+      loading,
+      addUser,
+      updateUser,
+      updateUserUnits,
+      deleteUser,
+      toggleUserStatus,
+      getUser,
+      refreshUsers: fetchUsers,
+    }),
+    [
+      users,
+      loading,
+      addUser,
+      updateUser,
+      updateUserUnits,
+      deleteUser,
+      toggleUserStatus,
+      getUser,
+      fetchUsers,
+    ]
+  )
 
   return (
-    <UserStoreContext.Provider value={{ users, loading, addUser, updateUser, updateUserUnits, deleteUser, toggleUserStatus, getUser, refreshUsers: fetchUsers }}>
-      {children}
-    </UserStoreContext.Provider>
+    <UserStoreContext.Provider value={value}>{children}</UserStoreContext.Provider>
   )
 }
 
