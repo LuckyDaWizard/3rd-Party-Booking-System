@@ -283,6 +283,14 @@
     <p class="desc">The Resources submenu had grown to 10 flat links. Now grouped into 4 sections with uppercase headers: <strong>Manuals</strong> &middot; <strong>Reference</strong> &middot; <strong>Proposals</strong> &middot; <strong>Records</strong>. <code>NavChild</code> became a discriminated union; both render paths (collapsed popout &plus; expanded inline) updated.</p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>B5 &mdash; Stash triage &plus; security &plus; perf follow-on <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-08</span>
+    </div>
+    <p class="desc">Inspected <code>stash@{0}</code>. Two of eight files were redundant (already shipped in Sprint C/E); six were valuable. Dropped the stash and re-applied the valuable parts as two focused commits. <strong>Security:</strong> added unit-scope IDOR guard on <code>POST /api/coupons/apply</code> and <code>POST /api/coupons/remove</code> &mdash; a non-admin caller now gets <code>403</code> if they enumerate a booking UUID outside their unit. Mirrors <code>mark-self-collect</code> route pattern. <strong>Perf:</strong> extended the Sprint E provider-value memoisation pattern to the remaining four stores (<code>client-store</code>, <code>unit-store</code>, <code>user-store</code>, <code>sidebar-store</code>) &mdash; callbacks wrapped in <code>useCallback</code>, provider value via <code>useMemo</code>. Cuts unnecessary re-renders in management pages.</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
     <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
@@ -326,13 +334,6 @@
           <strong>Hostinger UI compose-management replacement</strong> &mdash; the Docker Manager panel rewrites <code>docker-compose.yml</code> when env vars are saved, which has wiped Traefik labels twice during HTTPS rollout. Either commit to SSH-only deploys forever, or push labels through env-var-conditional config.
         </td>
         <td class="effort">Half-day</td>
-      </tr>
-      <tr>
-        <td class="id">B5</td>
-        <td>
-          <strong>Stashed WIP <code>stash@{0}</code></strong> &mdash; unknown changes from another session sitting in the local stash. Inspect with <code>git stash show -p stash@{0}</code>, then either pop or drop.
-        </td>
-        <td class="effort">15 min</td>
       </tr>
       <tr>
         <td class="id">B6</td>
