@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: Open Questions / RFCs
 tags: [webhook, consultation-outcome, rfc, observability, proposal]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-08
 order: 30
 pills:
   - { label: RFC, variant: warn }
@@ -63,7 +63,7 @@ Endpoint we'd expose:
 POST https://<our-app>/api/webhooks/carefirst/consultation-status
 ```
 
-Once HTTPS is live (see [Deployment & Hosting](/reports/deployment-hosting)), this endpoint can be secured with a shared secret + signature header — same pattern PayFast uses.
+With HTTPS + HSTS now live (see [Deployment & Hosting](/reports/deployment-hosting)), this endpoint can be secured with a shared secret + signature header — same pattern PayFast uses. The gating dependency has cleared; ready for CareFirst to build on their side.
 
 </Section>
 
@@ -130,8 +130,8 @@ x-cf-signature: <hex-encoded HMAC-SHA256 of raw body with shared secret>
 
 We'd also IP-allowlist your origin IPs at the Traefik layer as a third defence. Replay protection via the `occurredAt` timestamp (reject anything older than, say, 5 minutes).
 
-<Callout variant="warn" title="HTTPS prerequisite">
-This webhook can't go live until our HTTPS rollout is complete — see <a href="/reports/deployment-hosting">Deployment & Hosting</a>. Accepting your POST over plain HTTP would make the signature meaningless. We're targeting domain + TLS this quarter; happy to align release dates once we have a firm slot.
+<Callout variant="ok" title="HTTPS prerequisite — met">
+HTTPS + HSTS are live since 2026-06-08 (see <a href="/reports/deployment-hosting">Deployment & Hosting</a>). The security prerequisite for this webhook is now met — the receiving end is unblocked, ready for CareFirst to build on their side.
 </Callout>
 
 </Section>

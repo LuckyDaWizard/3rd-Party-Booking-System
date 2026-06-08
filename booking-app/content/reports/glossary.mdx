@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: System Overview
 tags: [glossary, terminology, definitions]
 date: 2026-05-11
-updated: 2026-06-02
+updated: 2026-06-08
 order: 20
 pills:
   - { label: Reference, variant: brand }
@@ -69,7 +69,7 @@ sections:
 | **Self-collect** | Payment mode where the unit takes payment directly (cash / card at the desk) and the operator confirms with a PIN. Skips PayFast. |
 | **Monthly invoice** | Payment mode where the client is invoiced at month-end. Operator never sees a payment step; booking auto-marks Payment Complete. |
 | **Coupon** | Per-client discount code — percentage or fixed amount — applied at the payment step. Tracked in `coupon_uses`; denormalised onto the booking. Gated by `clients.allow_coupons`. Mutually exclusive with self-collect / monthly. |
-| **Coupon comp** | The R0 path: when a coupon takes the booking total to R0, we skip PayFast (which rejects R0 transactions) and complete the booking via a dedicated endpoint. The booking gets `payment_type = "coupon_comp"`. |
+| **Coupon comp (R0 path)** | When an applied coupon totals the booking to R0 (100%-off or fixed discount ≥ fee), the operator hits the **Complete free booking** button on the Payment page, which calls `POST /api/bookings/[id]/complete-coupon-comp`. Status flips straight to **Payment Complete** with `payment_type = "coupon_comp"` — PayFast is bypassed entirely. The unique flow in the system where a paid status is reached without the gateway. |
 | **Abandon-release** | The Postgres BEFORE-UPDATE trigger that deletes the `coupon_uses` row + nulls denorm columns + resets `payment_amount` when a booking flips to Abandoned/Discarded. Stops a coupon's usage_limit being silently exhausted by abandoned carts. |
 | **Identity-lock banner** | Warning shown to the operator when identity fields are locked. Tells them why and who to escalate to. |
 | **Throttle** | Shared rate-limit keyed on (IP, unit). Applied to PIN attempts and forgot-PIN requests. Prevents brute-force and enumeration. |

@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: Patient Journey
 tags: [patient-journey, capture, payfast, carefirst, flow, coupons]
 date: 2026-05-11
-updated: 2026-06-02
+updated: 2026-06-08
 order: 10
 pills:
   - { label: Reference, variant: brand }
@@ -450,6 +450,16 @@ flowchart LR
 The trigger is `SECURITY DEFINER` so it works regardless of caller (browser JWT or server service-role). Without this, browser-side discards fail silently because `coupon_uses` is RLS-protected.
 
 **Result:** A 100-use coupon doesn't get silently exhausted by abandoned carts. The slot returns to the pool the moment the booking falls out of the active funnel.
+
+### Resuming an Abandoned booking via coupon apply (2026-06-05)
+
+The mirror case: an operator returns to a booking the idle-timer has flipped to `Abandoned` and applies a coupon to bring the patient back into the funnel. `POST /api/coupons/apply` accepts `status = "Abandoned"` (alongside `In Progress`) and, in the same atomic write:
+
+1. Records the coupon usage on the `coupon_uses` row
+2. Denormalises `coupon_id` / `coupon_code` / `discount_amount` / `payment_amount` on the booking
+3. **Flips `status` back to `In Progress`** — the operator is actively working on it again
+
+Pre-hotfix this returned 409 with "Coupon can only be applied while the booking is in progress", forcing the operator to manually un-abandon first. The regression net at `booking-app/tests/coupon-r0-happy-path.spec.ts` covers this path.
 
 ### R0 comp endpoint — why it exists
 

@@ -6,7 +6,7 @@ audience: CareFirst Patient development team
 category: CareFirst Integration
 tags: [webhook, security, signature, hmac, payfast, itn]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-08
 order: 70
 pills:
   - { label: Reference, variant: brand }
@@ -95,7 +95,7 @@ Recommended pattern for the Consultation Outcome Webhook:
 
 | Layer | What it does | Required? |
 |---|---|---|
-| HTTPS | TLS for transport security | **Required** — non-negotiable. Gated on our HTTPS rollout (see [Deployment](/reports/deployment-hosting)) |
+| HTTPS | TLS for transport security | **Required** — live since 2026-06-03 (Let's Encrypt via Traefik) with HSTS since 2026-06-08; the receiving-end security prerequisite for this webhook is now met (see [Deployment](/reports/deployment-hosting)) |
 | Source IP allowlist | We allowlist CareFirst's outbound IPs at Traefik | Recommended — cheap, effective |
 | HMAC-SHA256 signature | We share a secret; you compute `HMAC-SHA256(secret, raw body)`; send as `x-cf-signature` header | **Required** |
 | Replay protection | `occurredAt` timestamp in body; we reject anything &gt; 5 min old | **Required** |
