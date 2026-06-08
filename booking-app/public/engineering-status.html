@@ -149,6 +149,8 @@
   .pill.open    { background: var(--brand-tint); color: var(--brand); }
   .pill.deferred { background: var(--mute-tint); color: var(--ink-soft); }
   .pill.shipped { background: var(--ok-tint); color: var(--ok-ink); }
+  .pill.warn    { background: var(--warn-tint); color: var(--warn-ink); }
+  .pill.blocked { background: var(--danger-tint); color: var(--danger); }
 
   .sprint {
     margin-top: 20px;
@@ -326,9 +328,9 @@
       <tr>
         <td class="id">B1</td>
         <td>
-          <strong>Multi-client <code>clientCode</code> routing</strong> &mdash; the only real architecture gap left. Every booking still lands in <em>one</em> CareFirst client account regardless of which client (Local Choice, etc.) owns the unit it was captured in. Solution sketch: add <code>carefirst_client_code</code> &plus; <code>carefirst_plan_code</code> to the <code>clients</code> table, UI on the Manage Client &middot; Settings tab, resolve per-booking via <code>unit.client_id</code>, env-var fallback for the transition period.
+          <strong>Multi-client <code>clientCode</code> routing</strong> &mdash; <span class="pill warn">Blocked on CareFirst</span> Every booking still lands in <em>one</em> CareFirst client account regardless of which client owns the unit it was captured in. Solution sketch: add <code>carefirst_client_code</code> &plus; <code>carefirst_plan_code</code> to the <code>clients</code> table, UI on the Manage Client &middot; Settings tab, resolve per-booking via <code>unit.client_id</code>, env-var fallback for the transition period. <strong>Gating step:</strong> CareFirst dev team needs to answer the four questions in the <a href="/reports/multi-client-routing">multi-client routing RFC</a> before we can implement &mdash; specifically whether <code>auto-register</code> accepts arbitrary <code>clientCode</code> per request and whether we need per-client API keys. Once unblocked: ~4h engineering + Code Review.
         </td>
-        <td class="effort">Half-day</td>
+        <td class="effort">Half-day after unblock</td>
       </tr>
       <tr>
         <td class="id">B4</td>

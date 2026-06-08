@@ -1,0 +1,239 @@
+---
+title: Multi-Client Routing — RFC
+super: 3rd Party Booking System · Reference
+subtitle: An RFC for splitting the single-tenant CareFirst handoff into per-client routing, so each clinic's patients land in the correct CareFirst tenant rather than collapsing into one. Needs CareFirst dev-team confirmation before we can implement.
+audience: CareFirst Patient development team
+category: Open Questions / RFCs
+tags: [carefirst, sso, multi-client, multi-tenant, routing, rfc, proposal]
+date: 2026-06-08
+updated: 2026-06-08
+order: 35
+pills:
+  - { label: RFC, variant: warn }
+  - { label: Proposal, variant: brand }
+  - { label: Blocks B1, variant: mute }
+sections:
+  - { id: tl-dr,        label: TL;DR }
+  - { id: problem,      label: The problem }
+  - { id: current-flow, label: Current flow }
+  - { id: proposal,     label: Proposed flow }
+  - { id: data-model,   label: Data-model change }
+  - { id: payload-diff, label: Payload diff }
+  - { id: edge-cases,   label: Edge cases }
+  - { id: rollout,      label: Rollout }
+  - { id: questions,    label: Questions for CareFirst }
+  - { id: not-now,      label: Out of scope }
+---
+
+<Section id="tl-dr" num="01 — TL;DR" title="TL;DR">
+
+Today our SSO handoff sends a **single hard-coded `clientCode`** for every booking, regardless of which clinic captured it. As soon as a second clinic onboards, their patients silently land in the first clinic's CareFirst tenant. We need to switch to **per-clinic `clientCode`** resolved from the booking's owning client row.
+
+This RFC documents the proposed change and the **four questions** we need CareFirst's dev team to answer before we start implementation.
+
+<Callout variant="warn" title="Implementation gated">
+Until CareFirst confirms that the <code>auto-register</code> endpoint accepts arbitrary <code>clientCode</code> values per request (rather than deriving it from <code>x-api-key</code>), we can't safely build this. The answers also determine how we model the <code>uniqueReference</code> field and whether we need separate API keys per client.
+</Callout>
+
+</Section>
+
+<Section id="problem" num="02 — Problem" title="The problem">
+
+The 3rd Party Booking System is a **shared intake gateway** in front of CareFirst Patient. Multiple clinic groups use our UI to capture patient data, take payment, and hand off via SSO — Local Choice clinics, First Care Solutions clinics, and future partners. Each of them is a distinct **client** in our data model:
+
+| Clinic group | We track | They have on CareFirst |
+|---|---|---|
+| Local Choice | Their own `clients` row in our DB, with their units (branches) under it | Their own CareFirst tenant, their own patient list, their own billing |
+| First Care Solutions | Their own row, their own units | Their own CareFirst tenant |
+| (future partners) | New `clients` row when onboarded | New CareFirst tenant they'd need to provision |
+
+But our SSO handoff doesn't know any of this. The `clientCode` + `planCode` we send to CareFirst come from **environment variables** on the VPS:
+
+```
+CAREFIRST_CLIENT_CODE=<one-code-for-everyone>
+CAREFIRST_CLIENT_PLAN_CODE=<one-plan-for-everyone>
+```
+
+So every patient — regardless of which clinic captured them — currently routes to the same tenant on your side. Today this is "safe" because the pilot has been single-tenant. As soon as a second client goes live, patients leak into the wrong tenant on handoff.
+
+```mermaid
+flowchart LR
+    LC[Booking captured at<br/>Local Choice clinic] --> US[3rd Party Booking System]
+    FCS[Booking captured at<br/>First Care clinic] --> US
+    US -->|same clientCode<br/>for both| CF[CareFirst Patient<br/>ONE tenant]
+    CF -.->|all patients<br/>visible here| LCT[Local Choice<br/>tenant view]
+    CF -.->|all patients<br/>visible here| FCT[First Care<br/>tenant view]
+
+    classDef us    fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
+    classDef warn  fill:#fef3c7,stroke:#92400e,color:#0f172a;
+    classDef bad   fill:#fee2e2,stroke:#dc2626,color:#0f172a;
+    class LC,FCS,US us;
+    class CF warn;
+    class LCT,FCT bad;
+```
+
+</Section>
+
+<Section id="current-flow" num="03 — Current" title="Current handoff flow">
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Op as Operator
+    participant UI as Booking UI
+    participant API as start-consultation route
+    participant ENV as env vars
+    participant CF as CareFirst auto-register
+    participant DB as bookings row
+
+    Op->>UI: Click Start Consult
+    UI->>API: POST /api/bookings/{id}/start-consultation
+    API->>ENV: read CAREFIRST_CLIENT_CODE
+    API->>ENV: read CAREFIRST_CLIENT_PLAN_CODE
+    API->>CF: POST auto-register<br/>{ clientCode, planCode, user, uniqueReference }
+    CF-->>API: 200 { redirectUrl, externalReferenceId }
+    API->>DB: handoff_redirect_url, external_reference_id, status=Successful
+    API-->>UI: { redirectUrl }
+    UI-->>Op: open redirectUrl in new tab
+```
+
+The `clientCode` + `planCode` are fixed for the lifetime of the container. No per-booking variability today.
+
+</Section>
+
+<Section id="proposal" num="04 — Proposal" title="Proposed flow">
+
+Walk the existing booking → unit → client chain, read the `clientCode` + `planCode` off the client row, and pass those through to the auto-register payload.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Op as Operator
+    participant UI as Booking UI
+    participant API as start-consultation route
+    participant DB as bookings + units + clients
+    participant ENV as env vars (fallback)
+    participant CF as CareFirst auto-register
+    participant BK as bookings row
+
+    Op->>UI: Click Start Consult
+    UI->>API: POST /api/bookings/{id}/start-consultation
+    API->>DB: SELECT booking → unit.client_id → clients.carefirst_*
+    alt client row has carefirst_client_code AND carefirst_plan_code
+        DB-->>API: { clientCode, planCode } from client
+    else either field NULL (transition period)
+        DB-->>API: NULL
+        API->>ENV: fall back to CAREFIRST_CLIENT_CODE / _PLAN_CODE
+    else both NULL on client AND no env fallback
+        API-->>UI: 500 "no CareFirst routing configured"
+    end
+    API->>CF: POST auto-register<br/>{ clientCode (per-client), planCode, user, uniqueReference }
+    CF-->>API: 200 { redirectUrl, externalReferenceId }
+    API->>BK: handoff_redirect_url, external_reference_id, status=Successful
+    API-->>UI: { redirectUrl }
+    UI-->>Op: open redirectUrl in new tab
+```
+
+Crucially the **rest of the payload contract doesn't change** — only `clientCode` and `planCode` become per-booking-derived rather than env-derived. Same fields, same shape, same `x-api-key` header.
+
+</Section>
+
+<Section id="data-model" num="05 — Data model" title="Data-model change">
+
+A new migration (`040_clients_carefirst_codes.sql`) adds two nullable text columns on `public.clients`:
+
+```sql
+ALTER TABLE public.clients
+  ADD COLUMN IF NOT EXISTS carefirst_client_code TEXT,
+  ADD COLUMN IF NOT EXISTS carefirst_plan_code   TEXT;
+```
+
+| Column | Type | Why |
+|---|---|---|
+| `carefirst_client_code` | `text NULL` | The per-client identifier CareFirst issues us. Nullable so existing clients fall through to the env-var fallback during rollout. |
+| `carefirst_plan_code`  | `text NULL` | The plan code CareFirst issues per client (matches the `planCode` field in the payload). Same nullable rationale. |
+
+A new UI section on `Manage Client · Settings · CareFirst integration` exposes both fields to **system_admin only** (free-text inputs, since the codes are issued out-of-band by CareFirst). The Settings tab is the existing canonical pattern — see [Per-Client Configuration](/reports/per-client-configuration).
+
+</Section>
+
+<Section id="payload-diff" num="06 — Payload" title="Payload diff">
+
+The shape doesn't change — only the source of two values.
+
+| Field | Before | After |
+|---|---|---|
+| `clientCode` | `process.env.CAREFIRST_CLIENT_CODE` | `clients.carefirst_client_code` (fallback to env if NULL) |
+| `planCode`  | `process.env.CAREFIRST_CLIENT_PLAN_CODE` | `clients.carefirst_plan_code` (fallback to env if NULL) |
+| `uniqueReference` | `booking.id` (UUID) | `booking.id` — unchanged |
+| `user.*` | Patient details | Unchanged |
+| `returnUrl` | `${getAppUrl()}/patient-history` | Unchanged |
+| `x-api-key` header | `process.env.CAREFIRST_API_KEY` | **Unchanged** unless CareFirst requires per-client keys (Q4 below) |
+
+</Section>
+
+<Section id="edge-cases" num="07 — Edge cases" title="Edge cases and decisions">
+
+**Partial config on a client row.** If `carefirst_client_code` is set but `carefirst_plan_code` is NULL (or vice versa), we **fail closed** with `500 "CareFirst routing for this client is incompletely configured"`. We do NOT silently fall back to env for the missing field — silent partial config is exactly how cross-tenant leakage happens.
+
+**Both fields NULL on the client row.** Fall back to the env-var pair as a whole. This is the transition path: clients we haven't migrated yet keep working off the env defaults.
+
+**Both fields NULL and no env fallback set.** Fail fast with a clear error. Operator sees `"CareFirst routing not configured — contact support"`.
+
+**Codes changed on a client mid-pilot.** New bookings use the new codes; bookings already at `Successful` are unchanged (we don't replay handoffs). Bookings sitting at `Payment Complete` would use the new codes when the operator next clicks Start Consult. Audit-log row records every change to the client codes.
+
+**Unit moved between clients.** The booking carries its `unit_id` — moving the unit later doesn't retroactively change handoff codes on already-completed bookings, but new bookings on the moved unit pick up the new client's codes. This matches the existing semantics for self-collect, monthly-invoice, accent colour, etc.
+
+**Local Choice (or any client) doesn't have CareFirst at all.** Today this isn't a real case — every active client uses the SSO handoff. If it ever becomes one, we'd add a `carefirst_disabled` flag and short-circuit Start Consult to surface an operator message instead of attempting the handoff. Out of scope here.
+
+</Section>
+
+<Section id="rollout" num="08 — Rollout" title="Rollout sequence">
+
+1. **CareFirst confirms** the four questions below (gating step — see Callout at top of doc).
+2. **CareFirst issues** the per-client `clientCode` + `planCode` pairs for each currently-active client. They land in a secure channel (1Password vault / encrypted email).
+3. **We ship** migration 040 + Settings UI + resolver helper + tests, behind no flag. Live clients still use env fallback since their rows are NULL.
+4. **System admin populates** the codes on the Settings tab for each client (one-by-one, in coordination with CareFirst — pilot one client first, verify, then enable the rest).
+5. **Verify per client.** A test booking on each client should land in that client's CareFirst tenant. If anything is off, NULL out the codes on that client row and it reverts to env fallback while we diagnose.
+6. **Remove env-var defaults** once every client has codes set. The env vars become an emergency override only.
+
+</Section>
+
+<Section id="questions" num="09 — Questions" title="Questions for CareFirst">
+
+We need answers on these before we start. They each materially affect the implementation shape.
+
+<Callout title="Q1 — Does auto-register accept arbitrary clientCode per request?">
+Today we send <em>one</em> hard-coded <code>clientCode</code>. We want to send a different <code>clientCode</code> per booking (per the owning client of the unit the booking was captured at).
+
+<strong>Is the endpoint accepting <code>clientCode</code> from the request body authoritative?</strong> Or is it cross-checked against the <code>x-api-key</code> we authenticate with? If the latter, we'll need a separate API key per client (Q4) — which materially changes our deployment shape.
+</Callout>
+
+<Callout title="Q2 — uniqueReference scope">
+<code>uniqueReference</code> is currently our booking UUID. UUIDs are unique across our entire database (and therefore across all clientCodes we'd send), but we want to confirm:
+
+<strong>Does CareFirst dedupe <code>uniqueReference</code> globally, or per <code>clientCode</code>?</strong> If globally — fine, our UUIDs are already globally unique. If per-clientCode — also fine, but worth confirming so we can document the contract.
+</Callout>
+
+<Callout title="Q3 — Per-client codes — issuance + format">
+For each of our currently-active clients we'll need a <code>clientCode</code> and a <code>planCode</code>.
+
+<strong>What's the process for issuing them — does our partnerships contact send them over, or is there a self-service portal?</strong> Any format / case-sensitivity / character-set constraints we should validate against in the Settings UI?
+</Callout>
+
+<Callout title="Q4 — Separate API keys per client?">
+If the answer to Q1 is "<code>clientCode</code> is cross-checked against <code>x-api-key</code>", then we'll need one <code>x-api-key</code> per client.
+
+<strong>If so:</strong> can we store them on the client row alongside the codes (encrypted at the DB layer), or do we keep them in env vars keyed by client ID? <strong>Either is acceptable</strong> — we just need to know which shape your team is recommending.
+</Callout>
+
+</Section>
+
+<Section id="not-now" num="10 — Not now" title="Out of scope for this RFC">
+
+- **Existing bookings.** Already-Successful bookings stay where they landed. No retroactive re-routing.
+- **Per-unit routing.** We considered per-unit codes (rather than per-client), but units within a client always share the same downstream CareFirst tenant, so per-client is the right granularity. If that ever changes we'd extend the resolver to check `units.carefirst_*` first.
+- **Routing of returnUrl per client.** All clients use the same booking-system UI, so a single `returnUrl` is correct. If a client ever wants their patients to return to a client-specific page, that's a separate change to `getAppUrl()`.
+- **Per-client API key rotation policy.** Once we have multiple clients with their own keys, we'll want a documented rotation process. Defer until Q4 is answered.
+
+</Section>
