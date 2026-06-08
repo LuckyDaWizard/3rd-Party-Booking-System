@@ -44,10 +44,19 @@ export async function POST(request: Request) {
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, status, coupon_id, coupon_code, original_amount, payment_amount")
+    .select("id, status, unit_id, coupon_id, coupon_code, original_amount, payment_amount")
     .eq("id", bookingId)
     .maybeSingle()
   if (!booking) return apiError("Booking not found", 404)
+
+  // Unit-scope guard: a caller may only touch bookings in their own unit(s).
+  // system_admin bypasses scoping. Mirrors the booking-mutation routes
+  // (e.g. mark-self-collect) and prevents a cross-unit financial IDOR where
+  // a user enumerates another unit's booking UUID to alter its amount.
+  if (!booking.unit_id) return apiError("Booking has no unit assigned", 400)
+  if (caller.role !== "system_admin" && !caller.unitIds.includes(booking.unit_id)) {
+    return apiError("Forbidden", 403)
+  }
 
   // Idempotent short-circuit first: if there's nothing to remove, succeed.
   // This is important for Abandoned bookings — the abandon-release trigger

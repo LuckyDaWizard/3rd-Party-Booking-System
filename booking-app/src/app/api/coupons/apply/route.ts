@@ -81,6 +81,15 @@ export async function POST(request: Request) {
   if (bookErr) return apiError(bookErr.message, 500)
   if (!booking) return apiError("Booking not found", 404)
 
+  // Unit-scope guard: a caller may only touch bookings in their own unit(s).
+  // system_admin bypasses scoping. Mirrors the booking-mutation routes
+  // (e.g. mark-self-collect) and prevents a cross-unit financial IDOR where
+  // a user enumerates another unit's booking UUID to alter its amount.
+  if (!booking.unit_id) return apiError("Booking has no unit assigned", 400)
+  if (caller.role !== "system_admin" && !caller.unitIds.includes(booking.unit_id)) {
+    return apiError("Forbidden", 403)
+  }
+
   // Resolve the parent client. We need TWO things from it: the per-client
   // allow_coupons gate, AND the client_id used by per-coupon client-scope
   // restrictions inside the constraint check. Supabase embeds come back
