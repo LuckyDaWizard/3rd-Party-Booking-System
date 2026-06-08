@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
@@ -103,6 +103,13 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
   const { user: authUser, activeUnitId } = useAuth()
+
+  // Mirror `users` into a ref so toggle callbacks can read the latest list
+  // without listing `users` as a dep — otherwise every fetch would re-create
+  // those callbacks and churn the provider value identity, defeating the
+  // useMemo below. Same pattern as booking-store.tsx.
+  const usersRef = useRef(users)
+  useEffect(() => { usersRef.current = users }, [users])
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -270,7 +277,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchUsers])
 
   const toggleUserStatus = useCallback(async (id: string) => {
-    const user = users.find((u) => u.id === id)
+    const user = usersRef.current.find((u) => u.id === id)
     if (!user) return
 
     const newStatus: UserStatus = user.status === "Active" ? "Disabled" : "Active"
@@ -284,8 +291,9 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling user status:", error)
     }
     await fetchUsers()
-  }, [users, fetchUsers])
+  }, [fetchUsers])
 
+  // getUser stays dep'd on `users` — see client-store note.
   const getUser = useCallback((id: string) => {
     return users.find((u) => u.id === id)
   }, [users])

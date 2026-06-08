@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
@@ -146,6 +146,13 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<ClientRecord[]>([])
   const [loading, setLoading] = useState(true)
   const { user: authUser } = useAuth()
+
+  // Mirror `clients` into a ref so toggle / getter callbacks can read the
+  // latest list without listing `clients` as a dep — otherwise every fetch
+  // would re-create those callbacks and churn the provider value identity,
+  // defeating the useMemo below. Same pattern as booking-store.tsx.
+  const clientsRef = useRef(clients)
+  useEffect(() => { clientsRef.current = clients }, [clients])
 
   const fetchClients = useCallback(async () => {
     setLoading(true)
@@ -328,7 +335,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchClients])
 
   const toggleClientStatus = useCallback(async (id: string) => {
-    const client = clients.find((c) => c.id === id)
+    const client = clientsRef.current.find((c) => c.id === id)
     if (!client) return
 
     const newStatus: ClientStatus = client.status === "Active" ? "Disabled" : "Active"
@@ -342,8 +349,11 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling client status:", error)
     }
     await fetchClients()
-  }, [clients, fetchClients])
+  }, [fetchClients])
 
+  // getClient stays dep'd on `clients` — it's a list-derived selector,
+  // and consumers that call it during render expect to re-run when the
+  // list changes. That's the correct identity churn.
   const getClient = useCallback((id: string) => {
     return clients.find((c) => c.id === id)
   }, [clients])

@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react"
 import { supabase } from "./supabase"
 import { useAuth } from "./auth-store"
 
@@ -83,6 +83,13 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const { user: authUser, refreshUser } = useAuth()
 
+  // Mirror `units` into a ref so toggle / getter callbacks can read the
+  // latest list without listing `units` as a dep — otherwise every fetch
+  // would re-create those callbacks and churn the provider value identity,
+  // defeating the useMemo below. Same pattern as booking-store.tsx.
+  const unitsRef = useRef(units)
+  useEffect(() => { unitsRef.current = units }, [units])
+
   const fetchUnits = useCallback(async () => {
     setLoading(true)
 
@@ -162,7 +169,7 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
 
     await fetchUnits()
     return newUnitId
-  }, [authUser, refreshUser, fetchUnits])
+  }, [authUser?.id, refreshUser, fetchUnits])
 
   const updateUnit = useCallback(async (id: string, updates: Partial<Omit<UnitRecord, "id">>) => {
     const body: Record<string, unknown> = {}
@@ -200,7 +207,7 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
   }, [fetchUnits])
 
   const toggleUnitStatus = useCallback(async (id: string) => {
-    const unit = units.find((u) => u.id === id)
+    const unit = unitsRef.current.find((u) => u.id === id)
     if (!unit) return
 
     const newStatus: UnitStatus = unit.status === "Active" ? "Disabled" : "Active"
@@ -214,8 +221,9 @@ export function UnitStoreProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling unit status:", error)
     }
     await fetchUnits()
-  }, [units, fetchUnits])
+  }, [fetchUnits])
 
+  // getUnit stays dep'd on `units` — see client-store note.
   const getUnit = useCallback((id: string) => {
     return units.find((u) => u.id === id)
   }, [units])
