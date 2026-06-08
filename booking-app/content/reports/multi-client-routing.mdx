@@ -26,7 +26,7 @@ sections:
 
 <Section id="tl-dr" num="01 — TL;DR" title="TL;DR">
 
-The 3rd Party Booking System is live and stable in production. Local Choice is currently using it, and we have International SOS and Zoie set up to follow.
+The 3rd Party Booking System is live and stable in production. We're preparing the system for use by Local Choice, with International SOS and Zoie to follow in future.
 
 Our SSO handoff currently uses the **single `clientCode` + `planCode` pair** you issued us — held in an environment variable on our side — so every booking lands in the same CareFirst account. To onboard International SOS and Zoie, we'd like to resolve `clientCode` + `planCode` **per booking** from the owning client record on our side, so each clinic group's patients are associated with the correct CareFirst account.
 
