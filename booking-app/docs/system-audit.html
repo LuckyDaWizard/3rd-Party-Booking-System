@@ -827,8 +827,22 @@
         <h2><span class="section-num">04 - Critical</span> Fix before next external release</h2>
         <p>Three items here. They are all known to the team; this audit confirms they remain the top priorities.</p>
 
-        <div class="finding crit">
-          <h3>1. Site runs over plain HTTP, not HTTPS</h3>
+        <div class="finding crit done">
+          <h3><span class="done-tag">Complete</span>1. Site runs over plain HTTP, not HTTPS</h3>
+          <div class="resolution">
+            <span class="resolution-label">Resolved 2026-06-03 (HTTPS) + 2026-06-08 (HSTS)</span>
+            <code>bookings.carefirst.co.za</code> subdomain provisioned (IT-managed
+            A-record). Traefik configured with the <code>letsencrypt</code> cert resolver
+            via HTTP-01 ACME challenge; certificate auto-renews. Booking-app
+            router labels switched to <code>entrypoints=websecure</code> +
+            <code>tls.certresolver=letsencrypt</code> + <code>Host(\`bookings.carefirst.co.za\`)</code>.
+            HTTP→HTTPS redirect configured at the Traefik entrypoint level. As of
+            2026-06-08, HSTS is also live via Traefik headers middleware
+            (<code>max-age=63072000; includeSubDomains</code>); <code>preload</code>
+            deferred for a one-week soak before submission to the Chromium preload
+            list. Solved the FortiGuard "Unrated IP" office block as a bonus —
+            the subdomain is categorised Business.
+          </div>
           <div class="field">
             <div class="field-label">What it is</div>
             <div>Visitors connect to <code>http://187.127.135.11:3000</code> rather than <code>https://</code>. There is no TLS certificate, no encryption.</div>

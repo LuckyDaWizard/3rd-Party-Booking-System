@@ -478,11 +478,30 @@ What this does:
 4. The previous `booking-app:<old-sha>` stays in `docker images` until
    pruned — that's our rollback target.
 
+> ⚠️ **Compose-drift caveat (backlog B4).** The repo's
+> `booking-app/docker-compose.yml` does NOT currently contain the
+> production Traefik labels (Host rule, websecure entrypoint, Let's
+> Encrypt cert resolver, HSTS middleware). The live VPS file does.
+> The `git pull` step above is safe **only because** no commit on
+> `main` has overwritten the compose file — the live edits stay in
+> place. If you change the repo's compose, audit the live file first
+> or you'll wipe the production labels. Quick check:
+> ```bash
+> grep -c traefik /opt/3rd-Party-Booking-System/booking-app/docker-compose.yml
+> # Expect 10 (6 router + 4 HSTS middleware)
+> ```
+
 ### Verify the deploy
 
 ```bash
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
+
+# Local health (skips Traefik + TLS)
 curl -sf http://127.0.0.1:3000/api/health
+
+# External health (proves HTTPS + HSTS are intact)
+curl -sIf https://bookings.carefirst.co.za | grep -E '^(HTTP|strict-transport-security)'
+# Expect: HTTP/2 200 (or 307 redirect to /sign-in) + strict-transport-security: max-age=63072000; includeSubDomains
 ```
 
 You want `(healthy)` next to `booking-app` and a `{"status":"ok",...}`
@@ -507,6 +526,7 @@ docker compose up -d --no-build
 # 4. Verify
 docker ps --format "table {{.Names}}\t{{.Status}}"
 curl -sf http://127.0.0.1:3000/api/health
+curl -sIf https://bookings.carefirst.co.za | grep -E '^(HTTP|strict-transport-security)'
 ```
 
 The rollback takes ~10 seconds because no build runs. Only the
@@ -664,6 +684,52 @@ sudo mv /etc/cron.d/booking-app /etc/cron.d/booking-app.disabled
 ```
 
 Restore by moving back.
+
+---
+
+## Running the Playwright suite
+
+First end-to-end regression net shipped 2026-06-08 (B3). Chromium-only.
+
+```bash
+cd booking-app
+
+# First time on a fresh dev DB — creates the Playwright fixtures
+PLAYWRIGHT_SEED=1 npx playwright test
+
+# Every time after — seed survives, no extra DB writes from setup
+npx playwright test
+
+# Single spec
+npx playwright test coupon-r0-happy-path.spec.ts --project=chromium
+
+# After a failure
+npx playwright show-report
+```
+
+The seed creates rows labelled `Playwright Test Clinic`, `Playwright
+Test Unit`, `Playwright Tester` (PIN 900900, system_admin), and coupon
+`100OFF-PLAYWRIGHT` in the dev Supabase. All persist across runs (the
+seed is idempotent). Per-test bookings are cleaned up automatically.
+
+If you ever need to clean the fixtures out by hand:
+
+```sql
+delete from public.coupons where code = '100OFF-PLAYWRIGHT';
+delete from public.units where unit_name = 'Playwright Test Unit';
+delete from public.clients where client_name = 'Playwright Test Clinic';
+-- The Playwright Tester auth user can be deleted via the Supabase
+-- Studio Auth panel (email is `pin-900900@carefirst.local`).
+```
+
+Test infrastructure files:
+
+- `booking-app/playwright.config.ts` — runner config
+- `booking-app/tests/_setup/seed.ts` — idempotent service-role seed
+- `booking-app/tests/_setup/global-setup.ts` — gated globalSetup hook
+- `booking-app/tests/coupon-r0-happy-path.spec.ts` — coupon R0 + Abandoned-resume
+- `booking-app/tests/sign-in.spec.ts` — public-route smoke
+- `booking-app/tests/admin-auth-coverage.spec.ts` — every admin route returns 401/403 unauthenticated
 
 ---
 

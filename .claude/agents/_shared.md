@@ -17,7 +17,7 @@ The **3rd Party Booking System** is an **operator-facing intake + payment gatewa
 | "Payment amounts as integers (cents)" | We use **Rand strings with two decimals** (e.g. `"325.00"`) — PayFast's wire format. Source of truth: `PAYMENT_AMOUNT` in `src/lib/payfast.ts` |
 | "Patient accounts in Supabase Auth" | **There are no patient accounts**. Supabase Auth holds operator accounts only (system_admin, unit_manager, user). Patients never sign in |
 | "Native scheduling" | Deferred per management decision. Bookings are walk-in / same-day only |
-| "HTTPS pending" | Live at **https://bookings.carefirst.co.za** with Let's Encrypt auto-renewed by Traefik (2026-06-03) |
+| "HTTPS pending" | Live at **https://bookings.carefirst.co.za** with Let's Encrypt auto-renewed by Traefik (2026-06-03). HSTS live since 2026-06-08 — `Strict-Transport-Security: max-age=63072000; includeSubDomains`; `preload` deferred until ~2026-06-15 soak passes |
 | "PayFast in production" | Currently **sandbox during pilot** — `PAYFAST_TEST_MODE=true`. See memory `project_payfast_mode` and Engineering Status B7 for promotion checklist. **Do not flag the 401 reconcile error as a bug — sandbox quirk** |
 
 ---
@@ -82,6 +82,9 @@ Memorise this list. If you're tempted to do one of these, stop:
 | Re-flag system audit items already closed | Read `public/system-audit.html` + memory `project_audit_closeout` first |
 | Touch `docker-compose.yml` via the Hostinger UI | SSH-only deploys. The UI rewrites the file and wipes Traefik labels. See memory `project_deployment` |
 | Treat the PayFast reconcile 401 as a bug | It's expected in sandbox. See memory `project_payfast_mode` |
+| Skip the unit-scope IDOR guard on new booking-mutating routes | Mirror `mark-self-collect`: check `caller.unitIds.includes(booking.unit_id)` (system_admin bypasses). Coupons apply/remove got this guard 2026-06-08. |
+| List the whole list array (`clients`, `units`, `users`) as `useCallback` deps in store providers | Use the ref-based pattern from `booking-store.tsx` — mirror the list into a `useRef`, read `xRef.current` inside the callback, empty deps. Otherwise the `useMemo` provider value churns on every refresh |
+| Skip `Code Review` agent on hot-path changes because "it's just a small fix" | Hot-path changes (payment, coupon, CareFirst handoff, RLS, audit log) get `Code Review` before push per `/CLAUDE.md`. Last two times we skipped it, the review caught real issues |
 
 ---
 
@@ -102,12 +105,13 @@ Project memory lives at `~/.claude/projects/.../memory/`. The orchestrator reads
 - `project_pending_tasks` — current backlog
 - `project_audit_closeout` — what's done (don't re-flag)
 - `project_system_check_2026_06_05` — most recent audit + sprint summary
-- `project_coupons` — coupons architecture
+- `project_coupons` — coupons architecture (incl. IDOR guard + test coverage)
 - `project_payfast` + `project_payfast_mode` + `project_payfast_reconcile` — PayFast integration + sandbox status
 - `project_carefirst_handoff` — SSO contract
-- `project_deployment` — VPS + Hostinger gotchas
+- `project_deployment` — VPS, HTTPS, HSTS, Hostinger gotchas, compose-drift caution
 - `project_vps_cron` — 15-min cron jobs
 - `project_security_hardening` — security dashboard + do-not-break rules
+- `project_playwright_setup` — end-to-end test infrastructure + canonical patterns (2026-06-08)
 - `project_self_collect`, `project_branding_assets`, `project_client_management_tabs` — feature shape
 
 **Live status doc:**
@@ -157,4 +161,4 @@ This format lets the orchestrator parse your work, decide on memory + status upd
 
 ---
 
-*Last updated: 2026-06-05. If this file drifts from reality, the orchestrator should update it at the next milestone.*
+*Last updated: 2026-06-08. If this file drifts from reality, the orchestrator should update it at the next milestone.*

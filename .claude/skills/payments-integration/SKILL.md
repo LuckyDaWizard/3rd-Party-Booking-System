@@ -76,20 +76,22 @@ No third practice-management API. No Zod. No Supabase Edge Functions. The codeba
 
 Payment and SSO-handoff code must have Playwright coverage of, at minimum:
 
-| Scenario | Why |
-|---|---|
-| Successful PayFast payment → ITN → status flips to Payment Complete | Core revenue path |
-| Self-collect mark-as-paid (PIN-gated) | Alternate payment path |
-| Monthly invoice auto-mark | Alternate payment path |
-| Coupon apply normal (discount, still pays via PayFast) | Sprint A C4/C5 paths |
-| Coupon apply R0 (100%-off or fixed ≥ fee → `complete-coupon-comp` bypasses PayFast) | The unique flow that skips the gateway |
-| Coupon apply on an Abandoned ("Incomplete") booking → resumes to In Progress | 2026-06-05 hotfix |
-| Duplicate ITN → no double-status-flip | Idempotency |
-| Amount mismatch in ITN → rejected with audit-log entry | Forged-ITN defence |
-| PayFast Transaction History API timeout → incident recorded, batch continues | Reconcile error path |
-| CareFirst auto-register 5-second timeout → friendly message, booking stays Payment Complete | Handoff retry safety |
-| CareFirst returns 502 → operator-facing "unavailable" message | Gateway error handling |
-| Start Consult on already-Successful booking → returns cached redirect URL, no second outbound call | Handoff idempotency |
+| Scenario | Status | Why |
+|---|---|---|
+| Successful PayFast payment → ITN → status flips to Payment Complete | ❌ Not covered | Core revenue path |
+| Self-collect mark-as-paid (PIN-gated) | ❌ Not covered | Alternate payment path |
+| Monthly invoice auto-mark | ❌ Not covered | Alternate payment path |
+| Coupon apply normal (discount, still pays via PayFast) | ❌ Not covered | Sprint A C4/C5 paths |
+| **Coupon apply R0 → `complete-coupon-comp` bypasses PayFast** | ✅ **Covered** (B3, 2026-06-08, `tests/coupon-r0-happy-path.spec.ts`) | The unique flow that skips the gateway |
+| **Coupon apply on an Abandoned booking → resumes to In Progress** | ✅ **Covered** (B3, 2026-06-08, same spec) | 2026-06-05 hotfix |
+| Duplicate ITN → no double-status-flip | ❌ Not covered | Idempotency |
+| Amount mismatch in ITN → rejected with audit-log entry | ❌ Not covered | Forged-ITN defence |
+| PayFast Transaction History API timeout → incident recorded, batch continues | ❌ Not covered | Reconcile error path |
+| CareFirst auto-register 5-second timeout → friendly message, booking stays Payment Complete | ❌ Not covered | Handoff retry safety |
+| CareFirst returns 502 → operator-facing "unavailable" message | ❌ Not covered | Gateway error handling |
+| Start Consult on already-Successful booking → returns cached redirect URL, no second outbound call | ❌ Not covered | Handoff idempotency |
+
+The two ✅ rows shipped 2026-06-08 as B3. See [[project_playwright_setup]] for the test infrastructure (idempotent service-role seed, canonical sign-in pattern, CSRF on `page.request`). The rest are open follow-ups.
 
 Mock the PayFast and CareFirst APIs at the network boundary via Playwright's `page.route()`. Don't mock inside `src/lib/payfast.ts` or `src/lib/carefirst.ts` — that's testing implementation, not behaviour.
 
@@ -126,16 +128,17 @@ Block a merge if any of the following are missing on payment or SSO-handoff chan
 - Idempotency: ITN handler tolerates duplicates, Start Consult re-uses cached redirect URL on Successful
 - Rand-string format for all PayFast amounts (never floats, never cents)
 - Status changes go through `transitionStatus()`, not raw `.update({ status })`
+- **Unit-scope IDOR guard:** `caller.role !== "system_admin" && !caller.unitIds.includes(booking.unit_id)` → `403 Forbidden`. Mirrors `mark-self-collect`. Mandatory on any route that mutates a booking belonging to a unit. Coupons apply/remove got this 2026-06-08 (B5, commit `515f446`).
 - Audit-log entry on every state-changing payment / handoff event, with `bookingRef(id)` in entity_name (never raw UUIDs in console.log)
 - PII not logged to stderr (lessons from audit #2 — no `firstName`, `idNumber`, `nationality`, etc. in `console.error`)
 - Credentials read from env vars (never inline), and any new env var is documented in the deployment memory
-- Playwright coverage for the new code path: at minimum the happy path + one error path
+- Playwright coverage for the new code path: at minimum the happy path + one error path. See [[project_playwright_setup]] for the canonical patterns.
 - For migrations: idempotent (`IF NOT EXISTS` / `OR REPLACE FUNCTION`), forward-only, never rename an existing migration number
 
 ---
 
 ## Cross-references
 
-- Memory: `project_payfast`, `project_payfast_mode`, `project_payfast_reconcile`, `project_carefirst_handoff`, `project_security_hardening`
+- Memory: `project_payfast`, `project_payfast_mode`, `project_payfast_reconcile`, `project_carefirst_handoff`, `project_security_hardening`, `project_coupons`, `project_playwright_setup`
 - Reports KB: `/reports/sso-auto-register`, `/reports/payfast-payment-didnt-reflect`, `/reports/status-lifecycle`, `/reports/booking-flow`
-- Engineering Status: B1 (multi-client clientCode routing), B6 (sandbox reconcile 401 — not a bug), B7 (production cutover checklist)
+- Engineering Status: B1 (multi-client clientCode routing), B6 (sandbox reconcile 401 — not a bug), B7 (production cutover checklist), D10 (CareFirst SSO mock for end-to-end test coverage)

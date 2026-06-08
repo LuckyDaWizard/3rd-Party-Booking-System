@@ -1,12 +1,12 @@
 ---
 title: Deployment & Hosting
 super: 3rd Party Booking System · Reference
-subtitle: Where the app runs today, the planned HTTPS / domain rollout, and what the current HTTP-only constraint means for CareFirst webhooks and the PayFast ITN flow.
+subtitle: Where the app runs today (live HTTPS subdomain with auto-renewing Let's Encrypt + HSTS), the deploy + rollback flow, and the operational caveats around the Hostinger VPS.
 audience: CareFirst Patient development team
 category: System Overview
-tags: [deployment, vps, docker, traefik, https, domain]
+tags: [deployment, vps, docker, traefik, https, hsts, domain]
 date: 2026-05-11
-updated: 2026-05-11
+updated: 2026-06-08
 order: 50
 pills:
   - { label: Reference, variant: brand }
@@ -14,9 +14,10 @@ pills:
 sections:
   - { id: current,     label: Current state }
   - { id: stack,       label: Hosting stack }
-  - { id: http-only,   label: The HTTP-only constraint }
-  - { id: https-plan,  label: HTTPS / domain rollout plan }
+  - { id: tls-hsts,    label: TLS + HSTS }
   - { id: deploy,      label: Deploy + rollback }
+  - { id: tests,       label: Automated tests }
+  - { id: caveats,     label: Operational caveats }
   - { id: implications, label: Implications for CareFirst }
 ---
 
@@ -24,14 +25,16 @@ sections:
 
 | Item | Value |
 |---|---|
-| Provider | Hostinger VPS (Ubuntu 24.04 KVM 1) |
+| Provider | Hostinger VPS (Ubuntu 24.04, KVM 1: **1 vCPU**, ~4 GB RAM) |
 | Public IP | `187.127.135.11` |
-| App URL | `http://187.127.135.11:3000` |
-| Transport | HTTP (no TLS yet) |
-| Domain | Not yet — IP-only access |
-| SSL certificate | None — pending domain |
-| Reverse proxy | Traefik |
-| App runtime | Docker — single container, multi-stage build |
+| App URL | **`https://bookings.carefirst.co.za`** |
+| Transport | HTTPS (TLS 1.2/1.3 via Let's Encrypt) |
+| Auto-redirect | `http://` → `https://` at Traefik entrypoint level |
+| HSTS | `Strict-Transport-Security: max-age=63072000; includeSubDomains` |
+| Reverse proxy | Traefik (v3) — docker provider, HTTP-01 ACME challenge |
+| App runtime | Docker — single container, multi-stage build, standalone Next.js output |
+
+HTTPS migration shipped 2026-06-03. HSTS shipped 2026-06-08. `preload` is **not yet** in the header — a one-week soak runs through ~2026-06-15 before submitting to the Chromium preload list (preload is a one-way change once submitted).
 
 </Section>
 
@@ -39,13 +42,13 @@ sections:
 
 ```mermaid
 flowchart LR
-    A[Client browser] -->|HTTP :3000| B[Traefik]
+    A[Client browser] -->|HTTPS :443| B[Traefik]
     B --> C[Docker container<br/>booking-app:&lt;sha&gt;]
     C -->|HTTPS| D[Supabase]
     C -->|HTTPS| E[PayFast]
     C -->|HTTPS| F[CareFirst Patient]
     C -->|TLS :465| G[SMTP]
-    E -->|HTTP ITN webhook| B
+    E -->|HTTPS ITN webhook| B
 
     classDef us    fill:#e0f0fa,stroke:#1f6f9d,color:#0f172a;
     classDef ext   fill:#fef3c7,stroke:#92400e,color:#0f172a;
@@ -53,50 +56,73 @@ flowchart LR
     class D,E,F,G ext;
 ```
 
-We make outbound HTTPS calls to every external service. We only **receive** traffic over HTTP today, and only on port 3000.
+Every leg is encrypted. PayFast ITN webhooks now land over HTTPS, which has materially improved ITN delivery reliability — the pull-based reconcile loop is still in place as a safety net but is rarely triggered in practice.
 
 </Section>
 
-<Section id="http-only" num="03 — HTTP-only constraint" title="What HTTP-only means in practice">
+<Section id="tls-hsts" num="03 — TLS + HSTS" title="TLS termination and HSTS">
 
-We can't currently accept secure inbound webhooks because we have no TLS certificate. Specific consequences:
+**TLS** is terminated at Traefik. Configuration lives entirely in router labels on the `booking-app` service:
 
-| Constraint | Workaround |
-|---|---|
-| PayFast ITN delivery is unreliable on some networks | We rebuild state by polling PayFast's Transaction History API — see <a href="/reports/payfast-payment-didnt-reflect">PayFast</a> |
-| Some browsers warn users on the operator UI | We're an internal tool; operators dismiss the warning. Not acceptable for any patient-facing surface |
-| OAuth-style integrations from third parties typically refuse HTTP callback URLs | We don't have any of those yet, but it'd block future ones |
-| **A CareFirst-side webhook to us would have to land over HTTP** | This is the immediate blocker for the <a href="/reports/consultation-outcome-webhook">Consultation Outcome Webhook</a> proposal |
+```yaml
+- "traefik.enable=true"
+- "traefik.http.routers.booking.rule=Host(`bookings.carefirst.co.za`)"
+- "traefik.http.routers.booking.entrypoints=websecure"
+- "traefik.http.routers.booking.tls=true"
+- "traefik.http.routers.booking.tls.certresolver=letsencrypt"
+- "traefik.http.services.booking.loadbalancer.server.port=3000"
+```
+
+The `letsencrypt` cert resolver is defined on the Traefik container itself (HTTP-01 ACME challenge, auto-renewed). ACME storage lives in a named Docker volume so renewals survive container restarts.
+
+**HSTS** is enforced via a Traefik headers middleware, also defined via labels:
+
+```yaml
+- "traefik.http.middlewares.hsts.headers.stsSeconds=63072000"
+- "traefik.http.middlewares.hsts.headers.stsIncludeSubdomains=true"
+- "traefik.http.middlewares.hsts.headers.stsPreload=false"
+- "traefik.http.routers.booking.middlewares=hsts"
+```
+
+`max-age=63072000` is 2 years. `includeSubDomains=true` covers any subdomain we add later (`api.bookings.carefirst.co.za`, etc.). `preload=false` is deliberate until the soak window passes.
+
+**HTTP → HTTPS redirect** is configured at the Traefik entrypoint level, not as a per-router label:
+
+```
+--entrypoints.web.address=:80
+--entrypoints.websecure.address=:443
+--entrypoints.web.http.redirections.entrypoint.to=websecure
+--entrypoints.web.http.redirections.entrypoint.scheme=https
+```
+
+Verify with `curl -sI https://bookings.carefirst.co.za` — expect `strict-transport-security: max-age=63072000; includeSubDomains` in the response.
 
 </Section>
 
-<Section id="https-plan" num="04 — HTTPS plan" title="HTTPS / domain rollout plan">
+<Section id="deploy" num="04 — Deploy" title="Deploy and rollback">
 
-Planned steps, in order:
-
-1. **Provision a production domain** (e.g. `booking.carefirst.co.za`) and point DNS at `187.127.135.11`
-2. **Configure Traefik to terminate TLS** using Let's Encrypt — Traefik supports this natively, just needs the resolver block enabled
-3. **Update `NEXT_PUBLIC_APP_URL`** to the HTTPS domain so `returnUrl` and email links use it
-4. **Update PayFast merchant config** to use the new return / notify URLs
-5. **Re-provision the CareFirst auto-register `returnUrl`** to the HTTPS domain
-6. **Verify ITN delivery rate** improves once HTTPS is in place
-
-This is the prerequisite for the CareFirst consultation-outcome webhook. We can't accept inbound webhooks securely until this lands.
-
-</Section>
-
-<Section id="deploy" num="05 — Deploy" title="Deploy and rollback">
-
-We deploy by SSHing to the VPS and running the deploy one-liner. Every deploy tags the new image with the commit SHA, keeping the previous image available locally as a rollback target.
+Deploys are SSH-only. Image gets tagged with the commit SHA on every deploy so the previous image stays available for instant rollback.
 
 ```bash
-cd /opt/3rd-Party-Booking-System && \
-  git pull origin main && \
-  export IMAGE_TAG=$(git rev-parse --short HEAD) && \
-  cd booking-app && \
-  docker compose build && \
-  docker compose up -d
+ssh root@187.127.135.11
+cd /opt/3rd-Party-Booking-System
+git pull origin main
+export IMAGE_TAG=$(git rev-parse --short HEAD)
+cd booking-app
+docker compose build
+docker compose up -d
 ```
+
+<Callout variant="warn" title="docker-compose.yml drift between repo and VPS">
+The repo's `booking-app/docker-compose.yml` does **not** currently include the production Traefik labels (TLS resolver, Host rule, HSTS). The live VPS file has them; the git file doesn't. Until the drift is resolved (backlog B4), the simple `git pull` step above is safe **only because** the live compose has been edited via SSH and no commit on `main` has rewritten the compose file. If you change the repo's compose, audit the live file first or you'll wipe the production labels.
+
+Inspect the live compose before doing anything risky:
+
+```bash
+cat /opt/3rd-Party-Booking-System/booking-app/docker-compose.yml | grep traefik
+# Expect 10 traefik labels: 6 router + 4 HSTS middleware
+```
+</Callout>
 
 Rollback is a single command — no rebuild, ~10 seconds:
 
@@ -108,29 +134,73 @@ docker compose up -d --no-build
 Health check post-deploy:
 
 ```bash
-curl -sf http://127.0.0.1:3000/api/health
+curl -sf https://bookings.carefirst.co.za/api/health
 # → { "status": "ok", "time": "...", "checks": { "db": "ok" } }
 ```
 
 </Section>
 
-<Section id="implications" num="06 — Implications" title="Implications for CareFirst">
+<Section id="tests" num="05 — Tests" title="Automated tests (Playwright)">
 
-<Callout variant="warn" title="Inbound webhooks from CareFirst are gated on our HTTPS rollout">
-If your team builds the consultation-outcome webhook before we have a domain + TLS, we'd be accepting your POST over plain HTTP — that's an authentication signal you can't safely rely on, and a security surface neither of our compliance posture would tolerate.
+First end-to-end regression net shipped 2026-06-08 (backlog B3). Chromium-only; idempotent service-role seed gated on `PLAYWRIGHT_SEED=1`.
 
-The right sequence:
-<ol>
-<li>We complete HTTPS rollout (planned this quarter)</li>
-<li>You build the webhook against our HTTPS URL with shared-secret + signature validation</li>
-<li>We go live with the new states (<code>Consultation Complete</code>, <code>No-show</code>, etc.)</li>
-</ol>
+```bash
+cd booking-app
 
-In the meantime, the scheduling RFC's <b>slot-availability</b> ask (an <i>outbound</i> call from us to you) is unblocked — we can build that against your existing HTTPS-only endpoints today.
+# First time on a fresh dev DB — seeds Playwright Test Clinic / Unit / User / Coupon
+PLAYWRIGHT_SEED=1 npx playwright test
+
+# Every time after — seed survives, no DB writes from setup
+npx playwright test
+
+# HTML report (after a failure)
+npx playwright show-report
+```
+
+Current coverage:
+
+| Spec | What it asserts |
+|---|---|
+| `sign-in.spec.ts` | `/sign-in` renders + the OTP gate disables submit until full PIN entered |
+| `admin-auth-coverage.spec.ts` | Every `src/app/api/admin/*` route returns 401/403 unauthenticated (catches "forgot to add auth guard") |
+| `coupon-r0-happy-path.spec.ts` | (1) 100%-off coupon → `complete-coupon-comp` → Payment Complete with `payment_type = "coupon_comp"` (proves PayFast was bypassed). (2) Apply on Abandoned → flips back to In Progress (2026-06-05 hotfix regression) |
+
+See `project_playwright_setup` memory for the seed schema and canonical patterns.
+
+</Section>
+
+<Section id="caveats" num="06 — Caveats" title="Operational caveats">
+
+<Callout variant="warn" title="Don't touch the Hostinger Docker Manager UI for compose edits">
+Saving anything via Hostinger's hPanel compose-edit form (including env vars) regenerates `docker-compose.yml` and wipes the manual Traefik labels. The team has been bitten twice during HTTPS rollout. Always SSH + nano; never click Save in the Docker Manager panel after manual edits. Env vars can be set via the Hostinger Environment panel (which doesn't touch the compose file).
 </Callout>
 
-<Callout title="One-way HTTPS is fine for outbound calls">
-We can call your HTTPS API freely from our HTTP-served app — the outbound TLS is independent of our inbound transport. So the SSO auto-register call, plus any new outbound calls you expose, work today.
+<Callout variant="warn" title="FortiGuard block at the First Care Solutions office">
+The office FortiGate categorises the raw IP `187.127.135.11` as "Unrated" and blocks it. The `bookings.carefirst.co.za` subdomain is categorised as Business and is unblocked. Always smoke-test against the subdomain, not the IP. Corporate MDM may push the same filtering to managed phones even on cellular.
+</Callout>
+
+<Callout title="1 vCPU constraints">
+The Hostinger KVM 1 plan is 1 vCPU. Any `docker-compose cpus:` value must be `< 1.0`. The current setting is `cpus: 0.9` which leaves a sliver for Traefik + the host kernel. Bumping to ≥ 1.0 causes Docker to refuse with `range of CPUs is from 0.01 to 1.00`. The reconcile cron uses a 5-in-flight concurrency pool for the same reason (Sprint A C6).
+</Callout>
+
+</Section>
+
+<Section id="implications" num="07 — Implications" title="Implications for CareFirst">
+
+<Callout title="Inbound CareFirst webhooks are unblocked">
+HTTPS + HSTS means we can now safely accept signed webhooks from your team — for example a consultation-outcome webhook that tells us when a session completed, was a no-show, etc. The right sequence:
+
+<ol>
+<li>You build the webhook against <code>https://bookings.carefirst.co.za</code> with shared-secret + signature validation</li>
+<li>We add the receiving endpoint, validator, and the corresponding booking state transition</li>
+<li>We deploy in one direction and you fire test traffic before going live</li>
+</ol>
+
+This was the gating dependency in the consultation-outcome webhook RFC — it's now cleared.
+</Callout>
+
+<Callout title="One-way HTTPS for outbound calls — unchanged">
+Outbound HTTPS calls (SSO auto-register and any future endpoints you expose) have always worked. Nothing changes here.
 </Callout>
 
 </Section>
