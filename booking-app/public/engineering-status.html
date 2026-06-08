@@ -299,6 +299,14 @@
     <p class="desc">Added 4 Traefik labels to the <code>booking-app</code> service: <code>hsts.headers.stsSeconds=63072000</code>, <code>stsIncludeSubdomains=true</code>, <code>stsPreload=false</code>, and <code>routers.booking.middlewares=hsts</code>. Rolled out in two passes &mdash; <code>max-age=300</code> verify then ramped to 2 years. Response now carries <code>strict-transport-security: max-age=63072000; includeSubDomains</code>. <code>preload</code> intentionally left off; need a week of stable HSTS in production before submitting to the Chromium preload list (one-way change once submitted). <strong>Note:</strong> change is on the live VPS compose only &mdash; the repo's <code>docker-compose.yml</code> is already out-of-sync with live (TLS labels also live-only). Folded into B4 scope.</p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>B3 &mdash; Playwright coupon R0 regression net <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-08</span>
+    </div>
+    <p class="desc">First end-to-end coverage of the unique coupon flow that bypasses PayFast: a 100%-off coupon goes through <code>complete-coupon-comp</code> directly to Payment Complete, never touching the gateway. Two tests in <code>booking-app/tests/coupon-r0-happy-path.spec.ts</code> &mdash; the R0 happy path itself, plus the 2026-06-05 coupon-on-Abandoned hotfix regression (apply on Abandoned flips back to In Progress). Both drive sign-in through the real <code>/sign-in</code> UI to engage CSRF + Supabase Auth exactly as production does. Backed by an idempotent service-role seed (<code>tests/_setup/seed.ts</code>) gated on <code>PLAYWRIGHT_SEED=1</code> that creates <em>Playwright Test Clinic</em>, <em>Playwright Test Unit</em>, user <em>Playwright Tester</em> (PIN 900900, system_admin), and coupon <code>100OFF-PLAYWRIGHT</code>. Code Review caught one comment-level should-fix (input-otp focus delegation note); applied as comments. CareFirst SSO handoff coverage deferred &mdash; server-side fetch can't be intercepted by <code>page.route()</code>; needs a stand-in mock server. <strong>Follow-up D10:</strong> stand-in CareFirst mock for end-to-end Successful coverage.</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
     <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
@@ -321,13 +329,6 @@
           <strong>Multi-client <code>clientCode</code> routing</strong> &mdash; the only real architecture gap left. Every booking still lands in <em>one</em> CareFirst client account regardless of which client (Local Choice, etc.) owns the unit it was captured in. Solution sketch: add <code>carefirst_client_code</code> &plus; <code>carefirst_plan_code</code> to the <code>clients</code> table, UI on the Manage Client &middot; Settings tab, resolve per-booking via <code>unit.client_id</code>, env-var fallback for the transition period.
         </td>
         <td class="effort">Half-day</td>
-      </tr>
-      <tr>
-        <td class="id">B3</td>
-        <td>
-          <strong>Playwright happy-path for the coupon flow</strong> &mdash; first regression net for the R0 path. Catches the kind of bug (coupon-on-Abandoned) that surfaced today before it gets to production again.
-        </td>
-        <td class="effort">2-3h</td>
       </tr>
       <tr>
         <td class="id">B4</td>
@@ -429,6 +430,14 @@
           Currently <code>.select("id")</code> returns the deleted-row list just to call <code>.length</code> on it. A head-count via RPC + <code>DELETE ... RETURNING count(*)</code> would save the wire transfer of (potentially many) UUIDs on each 15-min cron tick.
         </td>
         <td class="effort">30 min</td>
+      </tr>
+      <tr>
+        <td class="id">D10</td>
+        <td>
+          <strong>Stand-in CareFirst SSO mock for end-to-end Successful coverage.</strong>
+          The B3 Playwright spec stops at <em>Payment Complete</em> because <code>callSsoAutoRegister()</code> is a server-side <code>fetch()</code> &mdash; <code>page.route()</code> only intercepts browser-originated requests. Two options to unblock full Successful coverage: (a) run a tiny stand-in HTTP server on a free port and override <code>CAREFIRST_API_DOMAIN</code> for the test run, or (b) add a server-side mocking seam. Worth doing once we have a second test that needs the same shape.
+        </td>
+        <td class="effort">~2h</td>
       </tr>
     </tbody>
   </table>
