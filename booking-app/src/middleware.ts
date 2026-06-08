@@ -139,6 +139,21 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Auth-gate the operator / unit-manager / system-admin manuals. These are
+  // static HTML files served from /public, but they document internal flows
+  // + role permissions + system internals — not material we want anonymous
+  // visitors reading just because they have the URL. Browser redirect to
+  // /sign-in (not a JSON 401 like /api/admin/*) so the user can sign in and
+  // navigate back.
+  if (/^\/user-manual-(user|unit-manager|system-admin)\.html$/.test(pathname)) {
+    const hasSupabaseAuthCookie = request.cookies
+      .getAll()
+      .some((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"))
+    if (!hasSupabaseAuthCookie) {
+      return NextResponse.redirect(new URL("/sign-in", request.url))
+    }
+  }
+
   // Read the existing cookie (may be undefined on a fresh browser).
   const existing = request.cookies.get(CSRF_COOKIE_NAME)?.value
 
