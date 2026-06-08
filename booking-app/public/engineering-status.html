@@ -317,6 +317,14 @@
     <p class="desc">Four small low-risk cleanups while CareFirst's response on the multi-client RFC pends. <strong>D6 (N9):</strong> unified <code>optionalPositive</code> helper in <code>admin/coupons</code> POST to match the sibling PATCH's <code>"invalid"</code> sentinel pattern &mdash; create + edit forms now share identical validation strings. <strong>D7 (N10):</strong> added client-favicon swatch to the mobile coupon <code>DataCard</code> via the existing <code>media</code> slot &mdash; same shape as <code>client-management</code> / <code>unit-management</code>. <strong>D8 (N11):</strong> <code>recordBookingValidator()</code> switched from <code>await</code> to <code>void</code> fire-and-forget across <em>all 5</em> sequential call-sites (<code>complete-coupon-comp</code>, <code>complete-payment</code>, <code>start-consultation</code>, <code>mark-self-collect</code>, <code>mark-monthly-invoice</code>, <code>payfast/send-link</code>) &mdash; Code Review flagged that I'd only done 3 of 5 originally and the inconsistency would have confused future devs. <strong>D9 (N12):</strong> <code>cleanup/sweep</code> deletes use <code>{ count: "exact" }</code> instead of <code>.select("id")</code> + <code>.length</code> &mdash; no more transferring deleted-row UUIDs over the wire on each 15-min cron tick.</p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>D10 &mdash; CareFirst SSO mock + end-to-end Successful coverage <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-08</span>
+    </div>
+    <p class="desc">Stand-in HTTP server (<code>tests/_setup/carefirst-mock-server.ts</code>, Node <code>http</code>, port 4747) boots in <code>globalSetup</code>, dies in <code>globalTeardown</code>. <code>playwright.config.ts</code> pins the dev server's <code>CAREFIRST_API_DOMAIN</code> at it via <code>webServer.env</code> so the production <code>callSsoAutoRegister()</code> fetch lands on the mock. New 3rd test in <code>coupon-r0-happy-path.spec.ts</code> walks R0 coupon &rarr; Start Consult &rarr; CareFirst handoff &rarr; <em>Successful</em>, asserting both the booking row (<code>handoff_status="sent"</code>, populated <code>handoff_redirect_url</code> / <code>external_reference_id</code>) and the recorded mock payload (<code>uniqueReference === booking.id</code>, user email + ID match fixture). <strong>Production-code touch:</strong> <code>callSsoAutoRegister()</code> now accepts <code>CAREFIRST_API_DOMAIN</code> as either a bare hostname (production, unchanged) or a full URL with scheme (mock). Boot-time validation in <code>getCareFirstConfig()</code> rejects malformed values fast. Pre-commit Code Review caught 1 blocker (URL validation gap), 3 should-fix; blocker + 2 easy wins applied, 2 deferred as <strong>D11 / D12</strong> (mock parallelism + <code>reuseExistingServer</code> foot-gun). 3 / 3 Playwright tests passing.</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
     <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
@@ -410,12 +418,20 @@
         <td class="effort">If a coupon-apply consistency bug surfaces</td>
       </tr>
       <tr>
-        <td class="id">D10</td>
+        <td class="id">D11</td>
         <td>
-          <strong>Stand-in CareFirst SSO mock for end-to-end Successful coverage.</strong>
-          The B3 Playwright spec stops at <em>Payment Complete</em> because <code>callSsoAutoRegister()</code> is a server-side <code>fetch()</code> &mdash; <code>page.route()</code> only intercepts browser-originated requests. Two options to unblock full Successful coverage: (a) run a tiny stand-in HTTP server on a free port and override <code>CAREFIRST_API_DOMAIN</code> for the test run, or (b) add a server-side mocking seam. Worth doing once we have a second test that needs the same shape.
+          <strong>CareFirst mock: shared <code>received</code> state across parallel Playwright workers.</strong>
+          Today only one spec/test calls Start Consult so there's no collision &mdash; the module-level <code>received</code> array in <code>tests/_setup/carefirst-mock-server.ts</code> is fine. When a second spec adds Start-Consult coverage, <code>clearMockReceived()</code> in one worker will wipe another's recorded requests mid-flight. Fix: tag requests with a per-test correlation header (e.g. <code>x-test-id</code>) and filter by it, OR force Start-Consult specs to <code>describe.configure({ mode: "serial" })</code>.
         </td>
-        <td class="effort">~2h</td>
+        <td class="effort">~30 min</td>
+      </tr>
+      <tr>
+        <td class="id">D12</td>
+        <td>
+          <strong>CareFirst mock: <code>reuseExistingServer</code> silently bypasses <code>webServer.env</code>.</strong>
+          If a dev has <code>npm run dev</code> running before launching Playwright, the dev server keeps its <code>.env.local</code> values and the SSO call hits real CareFirst staging instead of the mock. The new D10 test then fails confusingly. Fix: a boot-time guard in the spec that asserts the dev server is wired to the mock (e.g. an admin-only debug route + a <code>beforeAll</code> probe), OR force <code>reuseExistingServer: false</code> for the SSO-touching specs.
+        </td>
+        <td class="effort">~30 min</td>
       </tr>
     </tbody>
   </table>

@@ -59,8 +59,29 @@ services:
       # /api/payfast/reconcile, /api/admin/cleanup/sweep, /api/admin/incidents.
       # Must match the X-Cron-Secret header in /etc/cron.d/booking-app.
       - CRON_SECRET=${CRON_SECRET}
+    # Traefik labels — production routing on bookings.carefirst.co.za with
+    # HTTPS (Let's Encrypt) + HSTS (max-age=63072000; includeSubDomains).
+    #
+    # This file is the production deployment artefact. Local development
+    # uses `npm run dev` directly (no docker-compose). If you DO run this
+    # compose locally, you'll need a Traefik instance with the `letsencrypt`
+    # cert resolver configured the same way the VPS Traefik is — otherwise
+    # the container starts fine but Traefik can't route to it.
+    #
+    # Source of truth for these labels. Edits here propagate to the VPS on
+    # next `git pull && docker compose up -d --build`. Manual SSH edits to
+    # /opt/3rd-Party-Booking-System/booking-app/docker-compose.yml on the
+    # VPS will be clobbered on the next pull. Keep them in sync.
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.booking.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.booking.entrypoints=web"
+      - "traefik.http.routers.booking.rule=Host(`bookings.carefirst.co.za`)"
+      - "traefik.http.routers.booking.entrypoints=websecure"
+      - "traefik.http.routers.booking.tls=true"
+      - "traefik.http.routers.booking.tls.certresolver=letsencrypt"
       - "traefik.http.services.booking.loadbalancer.server.port=3000"
+      # HSTS middleware. preload=false intentionally until a one-week soak
+      # passes — preload is a one-way change once submitted to Chromium.
+      - "traefik.http.middlewares.hsts.headers.stsSeconds=63072000"
+      - "traefik.http.middlewares.hsts.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.hsts.headers.stsPreload=false"
+      - "traefik.http.routers.booking.middlewares=hsts"
