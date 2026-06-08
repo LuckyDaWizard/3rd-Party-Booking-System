@@ -1,6 +1,6 @@
 ---
 name: Backend / Integration Developer
-description: Implements Supabase backend, GoodX API integration, payment processing, and edge functions
+description: Implements Supabase backend, CareFirst SSO integration, PayFast payment processing, and server-side API routes
 model: opus
 ---
 

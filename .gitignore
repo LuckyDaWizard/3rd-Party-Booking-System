@@ -14,14 +14,18 @@
 Project Files/
 
 # Claude Code / AI tooling scratch — should never be committed.
-# Exception: subagent definitions in .claude/agents/ ARE project-team
-# configuration (model + role + lessons learned), so they're tracked.
-# Everything else under .claude/ (transcripts, scratch, settings.local) stays
-# local. settings.json is also tracked because it defines tool permissions
-# the whole team relies on.
+# Exceptions: agent + skill definitions and the team tool-permissions
+# allowlist are project team config — track them so the whole team
+# uses the same Claude Code setup. Everything else under .claude/
+# (transcripts, scratch, settings.local) stays local.
 .claude/*
 !.claude/agents/
 !.claude/agents/*.md
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/*/
+!.claude/skills/*/SKILL.md
+!.claude/skills/*/*.md
 !.claude/settings.json
 
 # Ad-hoc test notes.

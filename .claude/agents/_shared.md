@@ -13,7 +13,7 @@ The **3rd Party Booking System** is an **operator-facing intake + payment gatewa
 | Wrong (don't say) | Right (current reality) |
 |---|---|
 | "Patient-facing booking platform" | **Operator-facing** — clinic staff at workstations or tablets are the primary users; patients only see our UI during the intake flow |
-| "GoodX API integration" | We **do not integrate with GoodX**. The downstream integration is **CareFirst Patient** via the SSO `/api/external/client-sso/auto-register` endpoint |
+| "Practice-management API integration" | The downstream integration is **CareFirst Patient** via the SSO `/api/external/client-sso/auto-register` endpoint. There is no separate practice-management API — CareFirst is the only outbound integration besides PayFast |
 | "Payment amounts as integers (cents)" | We use **Rand strings with two decimals** (e.g. `"325.00"`) — PayFast's wire format. Source of truth: `PAYMENT_AMOUNT` in `src/lib/payfast.ts` |
 | "Patient accounts in Supabase Auth" | **There are no patient accounts**. Supabase Auth holds operator accounts only (system_admin, unit_manager, user). Patients never sign in |
 | "Native scheduling" | Deferred per management decision. Bookings are walk-in / same-day only |
