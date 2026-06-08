@@ -309,6 +309,14 @@
     <p class="desc">First end-to-end coverage of the unique coupon flow that bypasses PayFast: a 100%-off coupon goes through <code>complete-coupon-comp</code> directly to Payment Complete, never touching the gateway. Two tests in <code>booking-app/tests/coupon-r0-happy-path.spec.ts</code> &mdash; the R0 happy path itself, plus the 2026-06-05 coupon-on-Abandoned hotfix regression (apply on Abandoned flips back to In Progress). Both drive sign-in through the real <code>/sign-in</code> UI to engage CSRF + Supabase Auth exactly as production does. Backed by an idempotent service-role seed (<code>tests/_setup/seed.ts</code>) gated on <code>PLAYWRIGHT_SEED=1</code> that creates <em>Playwright Test Clinic</em>, <em>Playwright Test Unit</em>, user <em>Playwright Tester</em> (PIN 900900, system_admin), and coupon <code>100OFF-PLAYWRIGHT</code>. Code Review caught one comment-level should-fix (input-otp focus delegation note); applied as comments. CareFirst SSO handoff coverage deferred &mdash; server-side fetch can't be intercepted by <code>page.route()</code>; needs a stand-in mock server. <strong>Follow-up D10:</strong> stand-in CareFirst mock for end-to-end Successful coverage.</p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>Sprint G &mdash; D-series hygiene batch <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-08</span>
+    </div>
+    <p class="desc">Four small low-risk cleanups while CareFirst's response on the multi-client RFC pends. <strong>D6 (N9):</strong> unified <code>optionalPositive</code> helper in <code>admin/coupons</code> POST to match the sibling PATCH's <code>"invalid"</code> sentinel pattern &mdash; create + edit forms now share identical validation strings. <strong>D7 (N10):</strong> added client-favicon swatch to the mobile coupon <code>DataCard</code> via the existing <code>media</code> slot &mdash; same shape as <code>client-management</code> / <code>unit-management</code>. <strong>D8 (N11):</strong> <code>recordBookingValidator()</code> switched from <code>await</code> to <code>void</code> fire-and-forget across <em>all 5</em> sequential call-sites (<code>complete-coupon-comp</code>, <code>complete-payment</code>, <code>start-consultation</code>, <code>mark-self-collect</code>, <code>mark-monthly-invoice</code>, <code>payfast/send-link</code>) &mdash; Code Review flagged that I'd only done 3 of 5 originally and the inconsistency would have confused future devs. <strong>D9 (N12):</strong> <code>cleanup/sweep</code> deletes use <code>{ count: "exact" }</code> instead of <code>.select("id")</code> + <code>.length</code> &mdash; no more transferring deleted-row UUIDs over the wire on each 15-min cron tick.</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
     <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
@@ -400,38 +408,6 @@
         <td class="id">D5</td>
         <td><code>coupons/apply</code> wraps booking &plus; <code>coupon_uses</code> writes in a Postgres transaction RPC</td>
         <td class="effort">If a coupon-apply consistency bug surfaces</td>
-      </tr>
-      <tr>
-        <td class="id">D6</td>
-        <td>
-          <strong>N9 &mdash; <code>optionalPositive</code> helper conventions disagree.</strong>
-          <code>admin/coupons/route.ts:111</code> returns <code>NextResponse &vert; number &vert; null</code>; sibling <code>admin/coupons/[id]/route.ts:155</code> returns the string <code>"invalid"</code>. Two patterns for the same task inside the same feature &mdash; pick one and unify.
-        </td>
-        <td class="effort">15 min</td>
-      </tr>
-      <tr>
-        <td class="id">D7</td>
-        <td>
-          <strong>N10 &mdash; Coupon favicon swatch inconsistent across viewports.</strong>
-          The client favicon thumbnail renders on the desktop coupon-list row but not in the mobile <code>DataCard</code>. Coupons is system-admin only so impact is low, but it&rsquo;s a visual inconsistency with the other management pages.
-        </td>
-        <td class="effort">15 min</td>
-      </tr>
-      <tr>
-        <td class="id">D8</td>
-        <td>
-          <strong>N11 &mdash; <code>recordBookingValidator()</code> sequential after status update.</strong>
-          Three routes (<code>complete-coupon-comp</code>, <code>payfast/initiate</code>, <code>complete-payment</code>) call the validator after the booking transition and await it before building the response. The validator is fire-and-forget already &mdash; can run in parallel with the response build instead.
-        </td>
-        <td class="effort">~45 min total (3 &times; 15 min)</td>
-      </tr>
-      <tr>
-        <td class="id">D9</td>
-        <td>
-          <strong>N12 &mdash; <code>cleanup/sweep</code> deletes return full ID list for counting.</strong>
-          Currently <code>.select("id")</code> returns the deleted-row list just to call <code>.length</code> on it. A head-count via RPC + <code>DELETE ... RETURNING count(*)</code> would save the wire transfer of (potentially many) UUIDs on each 15-min cron tick.
-        </td>
-        <td class="effort">30 min</td>
       </tr>
       <tr>
         <td class="id">D10</td>
