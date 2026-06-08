@@ -276,9 +276,22 @@
 
     <h2>The Decisions</h2>
 
-    <div class="decision">
+    <div class="decision is-resolved">
       <span class="decision-number">1</span>
       <h3>Choose a production domain and switch the site to HTTPS<span class="impact high">High</span></h3>
+
+      <div class="resolved-banner">
+        <span class="label">Resolved 2026-06-03 (HTTPS) &plus; 2026-06-08 (HSTS)</span>
+        Decision taken: subdomain <code>bookings.carefirst.co.za</code> provisioned by IT
+        (A-record at <code>187.127.135.11</code>). Traefik configured with the
+        <code>letsencrypt</code> cert resolver via HTTP-01 ACME challenge; certificate
+        auto-renews. HTTP&rarr;HTTPS redirect at the Traefik entrypoint level. As of
+        2026-06-08, HSTS is also live (<code>max-age=63072000; includeSubDomains</code>);
+        <code>preload</code> deferred for a one-week soak before submission to the
+        Chromium preload list. Solved the FortiGuard &ldquo;Unrated IP&rdquo; office block as
+        a bonus &mdash; the subdomain is categorised Business. No further action needed
+        from leadership.
+      </div>
 
       <div class="field">
         <span class="field-label">What we&rsquo;re asking</span>
