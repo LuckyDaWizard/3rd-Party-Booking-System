@@ -22,8 +22,10 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
 
 export default defineConfig({
   testDir: "./tests",
-  // No globalSetup — kept intentionally minimal. Add when we have auth /
-  // seeded data needs.
+  // globalSetup is a no-op unless PLAYWRIGHT_SEED=1 is set in the env. The
+  // seed creates the test client / unit / user / coupon used by the coupon
+  // R0 happy-path spec (B3). Idempotent — safe to re-run.
+  globalSetup: "./tests/_setup/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
