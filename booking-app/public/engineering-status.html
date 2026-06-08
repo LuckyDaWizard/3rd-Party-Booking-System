@@ -398,8 +398,35 @@
       </tr>
       <tr>
         <td class="id">D6</td>
-        <td>Modest backend tweaks N9-N12 (recordBookingValidator parallel, cleanup/sweep counting, etc.)</td>
-        <td class="effort">Pick up when next touching those routes</td>
+        <td>
+          <strong>N9 &mdash; <code>optionalPositive</code> helper conventions disagree.</strong>
+          <code>admin/coupons/route.ts:111</code> returns <code>NextResponse &vert; number &vert; null</code>; sibling <code>admin/coupons/[id]/route.ts:155</code> returns the string <code>"invalid"</code>. Two patterns for the same task inside the same feature &mdash; pick one and unify.
+        </td>
+        <td class="effort">15 min</td>
+      </tr>
+      <tr>
+        <td class="id">D7</td>
+        <td>
+          <strong>N10 &mdash; Coupon favicon swatch inconsistent across viewports.</strong>
+          The client favicon thumbnail renders on the desktop coupon-list row but not in the mobile <code>DataCard</code>. Coupons is system-admin only so impact is low, but it&rsquo;s a visual inconsistency with the other management pages.
+        </td>
+        <td class="effort">15 min</td>
+      </tr>
+      <tr>
+        <td class="id">D8</td>
+        <td>
+          <strong>N11 &mdash; <code>recordBookingValidator()</code> sequential after status update.</strong>
+          Three routes (<code>complete-coupon-comp</code>, <code>payfast/initiate</code>, <code>complete-payment</code>) call the validator after the booking transition and await it before building the response. The validator is fire-and-forget already &mdash; can run in parallel with the response build instead.
+        </td>
+        <td class="effort">~45 min total (3 &times; 15 min)</td>
+      </tr>
+      <tr>
+        <td class="id">D9</td>
+        <td>
+          <strong>N12 &mdash; <code>cleanup/sweep</code> deletes return full ID list for counting.</strong>
+          Currently <code>.select("id")</code> returns the deleted-row list just to call <code>.length</code> on it. A head-count via RPC + <code>DELETE ... RETURNING count(*)</code> would save the wire transfer of (potentially many) UUIDs on each 15-min cron tick.
+        </td>
+        <td class="effort">30 min</td>
       </tr>
     </tbody>
   </table>
