@@ -27,12 +27,12 @@ sections:
 
 <Section id="tl-dr" num="01 — TL;DR" title="TL;DR">
 
-Today our SSO handoff sends a **single hard-coded `clientCode`** for every booking, regardless of which clinic captured it. As soon as a second clinic onboards, their patients silently land in the first clinic's CareFirst tenant. We need to switch to **per-clinic `clientCode`** resolved from the booking's owning client row.
+Today our SSO handoff hard-codes the **single `clientCode` + `planCode` pair** CareFirst issued us into an environment variable, so every booking — regardless of which clinic captured it — lands in the same CareFirst tenant. To onboard International SOS and Zoie alongside Local Choice (and future clients), we need to resolve `clientCode` + `planCode` **per booking** from the owning client row.
 
-This RFC documents the proposed change and the **four questions** we need CareFirst's dev team to answer before we start implementation.
+The implementation on our side is small (~half a day). The blocker is that we need CareFirst to **issue us one `clientCode` + `planCode` pair per clinic group** and confirm whether each requires its own `x-api-key`.
 
-<Callout variant="warn" title="Implementation gated">
-Until CareFirst confirms that the <code>auto-register</code> endpoint accepts arbitrary <code>clientCode</code> values per request (rather than deriving it from <code>x-api-key</code>), we can't safely build this. The answers also determine how we model the <code>uniqueReference</code> field and whether we need separate API keys per client.
+<Callout title="The CareFirst API already supports per-request routing">
+The <code>auto-register</code> payload spec CareFirst sent us shows <code>clientCode</code> and <code>planCode</code> as per-request fields. The endpoint already accepts a different pair per call. The reason every booking goes to one tenant today is purely that we've only been issued one pair — not a limitation of the API.
 </Callout>
 
 </Section>
@@ -152,6 +152,7 @@ ALTER TABLE public.clients
 |---|---|---|
 | `carefirst_client_code` | `text NULL` | The per-client identifier CareFirst issues us. Nullable so existing clients fall through to the env-var fallback during rollout. |
 | `carefirst_plan_code`  | `text NULL` | The plan code CareFirst issues per client (matches the `planCode` field in the payload). Same nullable rationale. |
+| `carefirst_api_key`     | `text NULL` | **Only added if CareFirst confirms one `x-api-key` per client** (see Q2). Stored encrypted at the DB layer; nullable so the global env-var key applies otherwise. |
 
 A new UI section on `Manage Client · Settings · CareFirst integration` exposes both fields to **system_admin only** (free-text inputs, since the codes are issued out-of-band by CareFirst). The Settings tab is the existing canonical pattern — see [Per-Client Configuration](/reports/per-client-configuration).
 
@@ -190,8 +191,8 @@ The shape doesn't change — only the source of two values.
 
 <Section id="rollout" num="08 — Rollout" title="Rollout sequence">
 
-1. **CareFirst confirms** the four questions below (gating step — see Callout at top of doc).
-2. **CareFirst issues** the per-client `clientCode` + `planCode` pairs for each currently-active client. They land in a secure channel (1Password vault / encrypted email).
+1. **CareFirst answers** the two questions below — issues us per-client `clientCode` + `planCode` pairs, and confirms the auth model (one shared `x-api-key` vs. one per client).
+2. **CareFirst delivers** the per-client `clientCode` + `planCode` pairs (and per-client `x-api-key` if applicable) via a secure channel (1Password vault / encrypted email).
 3. **We ship** migration 040 + Settings UI + resolver helper + tests, behind no flag. Live clients still use env fallback since their rows are NULL.
 4. **System admin populates** the codes on the Settings tab for each client (one-by-one, in coordination with CareFirst — pilot one client first, verify, then enable the rest).
 5. **Verify per client.** A test booking on each client should land in that client's CareFirst tenant. If anything is off, NULL out the codes on that client row and it reverts to env fallback while we diagnose.
@@ -201,30 +202,31 @@ The shape doesn't change — only the source of two values.
 
 <Section id="questions" num="09 — Questions" title="Questions for CareFirst">
 
-We need answers on these before we start. They each materially affect the implementation shape.
+Just two questions. Both unblock our implementation as soon as we have answers.
 
-<Callout title="Q1 — Does auto-register accept arbitrary clientCode per request?">
-Today we send <em>one</em> hard-coded <code>clientCode</code>. We want to send a different <code>clientCode</code> per booking (per the owning client of the unit the booking was captured at).
+<Callout title="Q1 — Issue us one clientCode + planCode pair per clinic group">
+We currently have a single pair (the one in the Postman collection). To route bookings correctly, we need a distinct <code>clientCode</code> + <code>planCode</code> pair for each clinic group:
 
-<strong>Is the endpoint accepting <code>clientCode</code> from the request body authoritative?</strong> Or is it cross-checked against the <code>x-api-key</code> we authenticate with? If the latter, we'll need a separate API key per client (Q4) — which materially changes our deployment shape.
+<ul>
+<li><strong>Local Choice</strong> — the pair we already have (assuming it was issued for them)</li>
+<li><strong>International SOS</strong> — new pair needed</li>
+<li><strong>Zoie</strong> — new pair needed</li>
+<li><strong>Future clients</strong> — process for requesting new pairs</li>
+</ul>
+
+<strong>Can you issue these and confirm the process for requesting more in future?</strong> Any format / case-sensitivity / character-set constraints we should validate against in our Settings UI?
 </Callout>
 
-<Callout title="Q2 — uniqueReference scope">
-<code>uniqueReference</code> is currently our booking UUID. UUIDs are unique across our entire database (and therefore across all clientCodes we'd send), but we want to confirm:
+<Callout title="Q2 — One x-api-key for all clients, or one per client?">
+Today we authenticate every call with a single <code>x-api-key</code>. The payload spec shows <code>clientCode</code> as a per-request field, but we want to confirm the auth model:
 
-<strong>Does CareFirst dedupe <code>uniqueReference</code> globally, or per <code>clientCode</code>?</strong> If globally — fine, our UUIDs are already globally unique. If per-clientCode — also fine, but worth confirming so we can document the contract.
+<strong>Do we keep using one <code>x-api-key</code> for all clinic groups (with the <code>clientCode</code> in the payload determining routing), or do you issue a separate <code>x-api-key</code> per client?</strong>
+
+If the latter, we'll add a third secret column on the client row (encrypted at the DB layer). Either model is acceptable; we just need to know which you're recommending.
 </Callout>
 
-<Callout title="Q3 — Per-client codes — issuance + format">
-For each of our currently-active clients we'll need a <code>clientCode</code> and a <code>planCode</code>.
-
-<strong>What's the process for issuing them — does our partnerships contact send them over, or is there a self-service portal?</strong> Any format / case-sensitivity / character-set constraints we should validate against in the Settings UI?
-</Callout>
-
-<Callout title="Q4 — Separate API keys per client?">
-If the answer to Q1 is "<code>clientCode</code> is cross-checked against <code>x-api-key</code>", then we'll need one <code>x-api-key</code> per client.
-
-<strong>If so:</strong> can we store them on the client row alongside the codes (encrypted at the DB layer), or do we keep them in env vars keyed by client ID? <strong>Either is acceptable</strong> — we just need to know which shape your team is recommending.
+<Callout variant="warn" title="Minor follow-up (non-blocking)">
+<strong>Scope of <code>uniqueReference</code> deduplication.</strong> Our <code>uniqueReference</code> is the booking UUID — globally unique across our entire system, so it never collides regardless of which <code>clientCode</code> it's sent with. If you dedupe <code>uniqueReference</code> globally, we're already fine. If per-<code>clientCode</code>, we're also fine. Worth confirming so we can document the contract on our side, but not blocking implementation.
 </Callout>
 
 </Section>
