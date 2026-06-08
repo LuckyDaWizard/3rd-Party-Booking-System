@@ -16,14 +16,31 @@
 // =============================================================================
 
 import { seedForCouponR0Test } from "./seed"
+import { startCareFirstMockServer } from "./carefirst-mock-server"
 
 export default async function globalSetup() {
+  // 1. Seed Supabase fixtures (gated). Independent of the mock server below.
   if (process.env.PLAYWRIGHT_SEED !== "1") {
     console.log(
       "[global-setup] PLAYWRIGHT_SEED not set — skipping seed. Pass PLAYWRIGHT_SEED=1 to seed."
     )
-    return
+  } else {
+    console.log("[global-setup] PLAYWRIGHT_SEED=1 — running seed...")
+    await seedForCouponR0Test()
   }
-  console.log("[global-setup] PLAYWRIGHT_SEED=1 — running seed...")
-  await seedForCouponR0Test()
+
+  // 2. Start the CareFirst SSO mock server. The dev server (started by
+  // Playwright's webServer block) reads CAREFIRST_API_DOMAIN from its env;
+  // playwright.config.ts pins that to http://localhost:4747 so the
+  // production callSsoAutoRegister() fetch lands on this mock instead of
+  // a real CareFirst endpoint. The mock is ALWAYS started — tests that
+  // don't exercise Start Consult just leave it idle (no DB writes, no
+  // side effects).
+  //
+  // The API key the mock validates must match what the dev server sends
+  // as x-api-key. We pull it from process.env so it tracks whatever
+  // playwright.config.ts injected.
+  await startCareFirstMockServer({
+    apiKey: process.env.CAREFIRST_API_KEY ?? "playwright-mock-key",
+  })
 }

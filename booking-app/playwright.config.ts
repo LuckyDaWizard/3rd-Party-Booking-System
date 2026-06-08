@@ -20,12 +20,26 @@ import { defineConfig, devices } from "@playwright/test"
 const PORT = Number(process.env.PORT ?? 3000)
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
 
+// CareFirst SSO mock server (backlog D10). Boots in globalSetup, dies in
+// globalTeardown. The dev server's CAREFIRST_API_DOMAIN is pinned to the
+// mock's URL via webServer.env below so server-side fetch() lands on the
+// mock instead of a real CareFirst endpoint. Port 4747 was picked because
+// it's well outside common dev-tool ranges; if it collides with something
+// on your box, set CAREFIRST_MOCK_PORT in your shell AND update the value
+// here in lockstep (they must match — there's no shared discovery channel
+// between globalSetup and webServer, since webServer.command runs in a
+// child process before globalSetup completes).
+const CAREFIRST_MOCK_PORT = Number(process.env.CAREFIRST_MOCK_PORT ?? 4747)
+const CAREFIRST_MOCK_API_KEY = process.env.CAREFIRST_API_KEY ?? "playwright-mock-key"
+
 export default defineConfig({
   testDir: "./tests",
-  // globalSetup is a no-op unless PLAYWRIGHT_SEED=1 is set in the env. The
-  // seed creates the test client / unit / user / coupon used by the coupon
-  // R0 happy-path spec (B3). Idempotent — safe to re-run.
+  // globalSetup seeds Supabase fixtures (gated on PLAYWRIGHT_SEED=1, B3) and
+  // ALWAYS boots the CareFirst SSO mock server on CAREFIRST_MOCK_PORT (D10).
+  // globalTeardown stops the mock — Supabase seed is left in place across
+  // runs (idempotent).
   globalSetup: "./tests/_setup/global-setup.ts",
+  globalTeardown: "./tests/_setup/global-teardown.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -49,10 +63,28 @@ export default defineConfig({
   // Auto-start `npm run dev` if no server is listening. Skipped when the dev
   // server is already up (the harness reuses it). `reuseExistingServer` is
   // TRUE locally and FALSE on CI so failures are reproducible from scratch.
+  //
+  // env: overrides for the spawned Next.js process. CAREFIRST_API_DOMAIN
+  // points the production callSsoAutoRegister() at the local mock; the
+  // accompanying CAREFIRST_API_KEY / CLIENT_CODE / PLAN_CODE are set to
+  // benign test values so getCareFirstConfig() doesn't throw on missing
+  // env. These ONLY take effect when Playwright starts the dev server —
+  // if you `npm run dev` separately and then run tests, your shell env
+  // wins. That's fine for the existing B3 tests (they never call
+  // CareFirst); the D10 SSO test below will fail loudly if the dev
+  // server isn't pointed at the mock.
   webServer: {
     command: "npm run dev",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      CAREFIRST_API_DOMAIN: `http://localhost:${CAREFIRST_MOCK_PORT}`,
+      CAREFIRST_API_KEY: CAREFIRST_MOCK_API_KEY,
+      CAREFIRST_CLIENT_CODE:
+        process.env.CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT",
+      CAREFIRST_CLIENT_PLAN_CODE:
+        process.env.CAREFIRST_CLIENT_PLAN_CODE ?? "PLAYWRIGHT-PLAN",
+    },
   },
 })

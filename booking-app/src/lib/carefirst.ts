@@ -24,15 +24,38 @@ export interface CareFirstConfig {
 }
 
 export function getCareFirstConfig(): CareFirstConfig {
-  const apiDomain = process.env.CAREFIRST_API_DOMAIN
-  const apiKey = process.env.CAREFIRST_API_KEY
-  const clientCode = process.env.CAREFIRST_CLIENT_CODE
-  const clientPlanCode = process.env.CAREFIRST_CLIENT_PLAN_CODE || null
+  // .trim() defends against leading / trailing whitespace from .env files
+  // with quoted values, copy-paste artefacts, or Docker env injection bugs.
+  // Empty after trimming is treated as missing.
+  const apiDomain = process.env.CAREFIRST_API_DOMAIN?.trim()
+  const apiKey = process.env.CAREFIRST_API_KEY?.trim()
+  const clientCode = process.env.CAREFIRST_CLIENT_CODE?.trim()
+  const clientPlanCode = process.env.CAREFIRST_CLIENT_PLAN_CODE?.trim() || null
   const appUrl = getAppUrl()
 
   if (!apiDomain || !apiKey || !clientCode) {
     throw new Error(
       "Missing CareFirst env vars. Set CAREFIRST_API_DOMAIN, CAREFIRST_API_KEY, CAREFIRST_CLIENT_CODE."
+    )
+  }
+
+  // Validate apiDomain at boot, not at first handoff. callSsoAutoRegister()
+  // accepts either a bare hostname (production: gets https:// prepended) or
+  // a full URL with scheme (Playwright mock: http://localhost:4747). Either
+  // way, the result must parse as a URL with a non-empty host. Without this
+  // check, a malformed env like "https://" (no host) would silently produce
+  // requests like "https:/api/..." that fail in confusing ways at runtime.
+  const normalised = /^https?:\/\//i.test(apiDomain)
+    ? apiDomain
+    : `https://${apiDomain}`
+  try {
+    const parsed = new URL(normalised)
+    if (!parsed.host) {
+      throw new Error("no host")
+    }
+  } catch {
+    throw new Error(
+      `CAREFIRST_API_DOMAIN is malformed: "${apiDomain}". Must be either a bare hostname (e.g. "stage-patient.care-first.co.za") or a full http(s) URL with a non-empty host.`
     )
   }
 
@@ -248,7 +271,16 @@ export async function callSsoAutoRegister(
   config: CareFirstConfig,
   payload: SsoAutoRegisterPayload
 ): Promise<SsoAutoRegisterResult> {
-  const url = `https://${config.apiDomain}/api/external/client-sso/auto-register`
+  // Accept either a bare hostname (production usage, e.g. "api.carefirst.co.za"
+  // — gets https:// prepended) or a full URL including scheme (used by the
+  // Playwright suite to point at the local CareFirst mock over http). The
+  // production env var continues to work unchanged; this only adds tolerance
+  // for an explicit scheme so the test runner can override the env without
+  // forcing TLS on a localhost stand-in.
+  const base = /^https?:\/\//i.test(config.apiDomain)
+    ? config.apiDomain.replace(/\/+$/, "")
+    : `https://${config.apiDomain}`
+  const url = `${base}/api/external/client-sso/auto-register`
 
   let res: Response
   try {
