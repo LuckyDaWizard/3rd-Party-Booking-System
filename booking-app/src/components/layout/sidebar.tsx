@@ -92,9 +92,11 @@ const navItems: NavItem[] = [
       { section: "Reference" },
       { label: "Reports", href: "/reports", openInNewTab: true },
       { label: "Design System", href: "/design-system" },
-      // Feature design docs — both shipped and pending.
+      // Feature design docs — pending / under discussion. Shipped proposals
+      // (e.g. coupons) are removed from the menu once delivered; the proposal
+      // page itself is preserved at its original URL for historical reference
+      // and linked from the relevant manual section.
       { section: "Proposals" },
-      { label: "Coupons", href: "/coupon-codes-proposal.html", openInNewTab: true },
       { label: "Unit Email Handoff", href: "/carefirst-unit-email-handoff-proposal.html", openInNewTab: true },
       { label: "Scheduling", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
       { label: "Multi-Client Routing (RFC)", href: "/reports/multi-client-routing", openInNewTab: true },
