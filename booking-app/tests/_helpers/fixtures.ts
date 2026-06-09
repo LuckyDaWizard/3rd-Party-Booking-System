@@ -94,6 +94,7 @@ export interface BookingRow {
   discount_amount: number | null
   payment_type: string | null
   payment_confirmed_at: string | null
+  pf_payment_id: string | null
   coupon_id: string | null
   coupon_code: string | null
   handoff_status: string | null
@@ -106,7 +107,7 @@ export interface BookingRow {
 }
 
 const READ_COLUMNS =
-  "status, payment_amount, original_amount, discount_amount, payment_type, payment_confirmed_at, coupon_id, coupon_code, handoff_status, handoff_redirect_url, external_reference_id, handoff_attempt_count, email_address, validated_by_user_id, validated_by_name"
+  "status, payment_amount, original_amount, discount_amount, payment_type, payment_confirmed_at, pf_payment_id, coupon_id, coupon_code, handoff_status, handoff_redirect_url, external_reference_id, handoff_attempt_count, email_address, validated_by_user_id, validated_by_name"
 
 /**
  * Reads every commonly-asserted column from a booking row. Returns null
