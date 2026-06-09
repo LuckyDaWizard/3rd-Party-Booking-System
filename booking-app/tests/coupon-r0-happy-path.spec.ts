@@ -58,6 +58,7 @@ import { createClient } from "@supabase/supabase-js"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { SEED } from "./_setup/seed"
+import type { MockModeKind } from "./_setup/carefirst-mock-server"
 
 // CSRF cookie + header names — kept in sync with src/lib/csrf.ts. Hard-coded
 // here rather than imported so the test file stays free of @/lib paths
@@ -194,7 +195,7 @@ async function readBooking(bookingId: string) {
   const { data } = await admin
     .from("bookings")
     .select(
-      "status, payment_amount, payment_type, coupon_id, coupon_code, handoff_status, handoff_redirect_url, external_reference_id, email_address"
+      "status, payment_amount, payment_type, coupon_id, coupon_code, handoff_status, handoff_redirect_url, external_reference_id, email_address, handoff_attempt_count"
     )
     .eq("id", bookingId)
     .single()
@@ -208,6 +209,7 @@ async function readBooking(bookingId: string) {
     handoff_redirect_url: string | null
     external_reference_id: string | null
     email_address: string | null
+    handoff_attempt_count: number | null
   } | null
 }
 
@@ -238,6 +240,48 @@ async function clearMockReceived(): Promise<void> {
   if (!res.ok) {
     throw new Error(
       `Failed to clear CareFirst mock state: ${res.status}. Is the mock running on port ${MOCK_PORT}? (See playwright.config.ts.)`
+    )
+  }
+}
+
+// ----- Mock response-mode override (D13) -------------------------------------
+//
+// The mock defaults to "happy" (200 + redirectUrl). Tests that want to
+// exercise CareFirst error paths flip the mode for the duration of the
+// call, then reset. The introspection endpoints live on the same mock
+// server as /__received; see carefirst-mock-server.ts.
+
+// MockModeKind imported from carefirst-mock-server.ts — keeps the spec
+// in lockstep with the mock's canonical type definition.
+
+interface SetMockModeOpts {
+  kind: MockModeKind
+  /** For "http-error": HTTP status to return. */
+  status?: number
+  /** For "http-error": JSON body to return. */
+  body?: unknown
+  /** For "timeout": ms to sleep before responding (default 6000, > prod 5s abort). */
+  delayMs?: number
+}
+
+async function setMockMode(opts: SetMockModeOpts): Promise<void> {
+  const res = await fetch(`${MOCK_URL}/__mode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+  })
+  if (!res.ok) {
+    throw new Error(
+      `Failed to set CareFirst mock mode: ${res.status}. Is the mock running on port ${MOCK_PORT}?`
+    )
+  }
+}
+
+async function resetMockMode(): Promise<void> {
+  const res = await fetch(`${MOCK_URL}/__mode`, { method: "DELETE" })
+  if (!res.ok) {
+    throw new Error(
+      `Failed to reset CareFirst mock mode: ${res.status}. Is the mock running on port ${MOCK_PORT}?`
     )
   }
 }
@@ -352,6 +396,13 @@ async function readCsrfToken(context: BrowserContext): Promise<string> {
 test.describe.configure({ mode: "serial" })
 
 test.describe("Coupon R0 (100%-off) bypasses PayFast", () => {
+  // Belt-and-braces against missed try/finally resets in the D13 error-
+  // path tests. Each test sets the mode it expects; this self-heals at
+  // the boundary if a prior test threw before its finally block ran.
+  test.beforeEach(async () => {
+    await resetMockMode()
+  })
+
   test("apply 100%-off coupon then complete-coupon-comp flips booking to Payment Complete", async ({
     page,
   }) => {
@@ -616,6 +667,314 @@ test.describe("Coupon R0 (100%-off) bypasses PayFast", () => {
       expect(sentBody.user.userProfile.firstName).toBe("Playwright")
       expect(sentBody.user.userProfile.surname).toBe("Patient")
     } finally {
+      await booking.cleanup()
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // D13: CareFirst Start Consult error-path coverage
+  //
+  // Builds on the D10 happy-path infrastructure (mock server + booking-ID
+  // filter from D11). Three error paths the operator should see degrade
+  // gracefully:
+  //
+  //   A) CareFirst returns 502 (service unavailable) — the call must NOT
+  //      flip the booking to Successful; handoff_status = "failed"; the
+  //      response surfaces CareFirst's displayMessage so the operator can
+  //      retry without losing payment state.
+  //   B) CareFirst times out (>5s, the AbortSignal in callSsoAutoRegister
+  //      fires) — the response shape is the same as (A), and the operator
+  //      sees the friendly "didn't respond in time" string instead of a
+  //      30-second hang.
+  //   C) Start Consult called twice on a booking that's already Successful
+  //      — the second call must short-circuit BEFORE hitting CareFirst,
+  //      returning the cached redirectUrl. Critical: a real CareFirst call
+  //      a second time would either re-register the patient or fail an
+  //      uniqueness check — both bad.
+  //
+  // Each test sets the mock mode it expects, then resets in a finally
+  // block. Mock modes are module-level in the mock server; a missed reset
+  // would poison the next test in the same worker.
+  // ---------------------------------------------------------------------------
+
+  test("Start Consult: CareFirst 502 keeps booking at Payment Complete with handoff_status=failed", async ({
+    page,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    const { unitId } = await getSeededIds()
+    const booking = await createBookingForUnit(unitId, "In Progress")
+    await clearMockReceived()
+    await resetMockMode()
+
+    try {
+      await signInAsSeededUser(page)
+      const csrf = await readCsrfToken(page.context())
+      const csrfHeaders = { [CSRF_HEADER_NAME]: csrf }
+
+      // Walk to Payment Complete via the R0 coupon path.
+      await page.request.post("/api/coupons/apply", {
+        headers: csrfHeaders,
+        data: { code: SEED.couponCode, bookingId: booking.id },
+      })
+      await page.request.post(
+        `/api/bookings/${booking.id}/complete-coupon-comp`,
+        { headers: csrfHeaders, data: {} }
+      )
+      const beforeStartConsult = await readBooking(booking.id)
+      expect(beforeStartConsult?.status).toBe("Payment Complete")
+
+      // Flip the mock to 502 with CareFirst's real-world error shape.
+      // displayMessage is what callSsoAutoRegister's extractErrorMessage()
+      // pulls out — production handles 502/503/504 specially in carefirst.ts
+      // and substitutes its own "currently unavailable" string, so we expect
+      // THAT message in the response (not the raw displayMessage).
+      await setMockMode({
+        kind: "http-error",
+        status: 502,
+        body: {
+          result: false,
+          displayMessage: "Service temporarily unavailable",
+        },
+      })
+
+      // Clear any noise so the assertion sees only this test's call.
+      await clearMockReceived()
+
+      // ----- Act --------------------------------------------------------------
+      const startRes = await page.request.post(
+        `/api/bookings/${booking.id}/start-consultation`,
+        { headers: csrfHeaders, data: {} }
+      )
+
+      // ----- Assert -----------------------------------------------------------
+      // start-consultation returns 502 on CareFirst failure; the body is
+      // { ok: false, error } where error is callSsoAutoRegister's mapped
+      // string. For an upstream 502/503/504, that string is the friendly
+      // "currently unavailable" variant, NOT raw "Service temporarily
+      // unavailable" (which would expose CareFirst's wording to the
+      // operator).
+      expect(
+        startRes.status(),
+        "start-consultation should return 502 when CareFirst returns 502"
+      ).toBe(502)
+      const startBody = (await startRes.json()) as { ok: boolean; error: string }
+      expect(startBody.ok).toBe(false)
+      expect(startBody.error).toMatch(/currently unavailable/i)
+      expect(startBody.error).toContain("HTTP 502")
+
+      // DB state: booking still recoverable. Payment Complete preserves the
+      // retry-able state; Successful would mean we lost the redirect URL.
+      const final = await readBooking(booking.id)
+      expect(final?.status).toBe("Payment Complete")
+      expect(final?.handoff_status).toBe("failed")
+      expect(final?.handoff_redirect_url).toBeFalsy()
+      expect(final?.external_reference_id).toBeFalsy()
+
+      // Mock side: exactly one POST landed (the lock acquired, payload built,
+      // CareFirst called once — no retries inside start-consultation).
+      const received = await getMockReceivedForBooking(booking.id)
+      expect(
+        received.length,
+        "mock should have received exactly one auto-register call"
+      ).toBe(1)
+    } finally {
+      await resetMockMode()
+      await booking.cleanup()
+    }
+  })
+
+  test("Start Consult: CareFirst timeout shows friendly 'didn't respond' message", async ({
+    page,
+  }) => {
+    // Production callSsoAutoRegister aborts at 5s; the mock waits ~6s; the
+    // test naturally takes 5-6s in this case. Bump Playwright's per-test
+    // budget so a slow dev server compile + the 6s timeout don't compound
+    // into a flaky timeout.
+    test.setTimeout(45_000)
+
+    // ----- Arrange ------------------------------------------------------------
+    const { unitId } = await getSeededIds()
+    const booking = await createBookingForUnit(unitId, "In Progress")
+    await clearMockReceived()
+    await resetMockMode()
+
+    try {
+      await signInAsSeededUser(page)
+      const csrf = await readCsrfToken(page.context())
+      const csrfHeaders = { [CSRF_HEADER_NAME]: csrf }
+
+      await page.request.post("/api/coupons/apply", {
+        headers: csrfHeaders,
+        data: { code: SEED.couponCode, bookingId: booking.id },
+      })
+      await page.request.post(
+        `/api/bookings/${booking.id}/complete-coupon-comp`,
+        { headers: csrfHeaders, data: {} }
+      )
+      expect((await readBooking(booking.id))?.status).toBe("Payment Complete")
+
+      // Flip to timeout mode. 6000ms > 5000ms abort, so the production
+      // AbortSignal.timeout in callSsoAutoRegister fires first.
+      await setMockMode({ kind: "timeout", delayMs: 6000 })
+      await clearMockReceived()
+
+      // ----- Act --------------------------------------------------------------
+      const t0 = Date.now()
+      const startRes = await page.request.post(
+        `/api/bookings/${booking.id}/start-consultation`,
+        { headers: csrfHeaders, data: {} }
+      )
+      const elapsed = Date.now() - t0
+
+      // ----- Assert -----------------------------------------------------------
+      expect(
+        startRes.status(),
+        "start-consultation should return 502 on CareFirst timeout"
+      ).toBe(502)
+      const startBody = (await startRes.json()) as { ok: boolean; error: string }
+      expect(startBody.ok).toBe(false)
+      // callSsoAutoRegister maps the AbortSignal timeout to a specific
+      // user-facing string; assert that wording so a regression there
+      // (silent fallback to "Network error" or similar) fails this test.
+      expect(startBody.error).toMatch(/did not respond within 5 seconds/i)
+
+      // Sanity check: we did NOT hang for 30s. The production abort at 5s
+      // means total elapsed should be well below the previous "hang"
+      // behaviour; leave a generous ceiling to absorb dev-server compile
+      // jitter.
+      expect(
+        elapsed,
+        "timeout should fire near the 5s production abort, not hang for 30s"
+      ).toBeLessThan(20_000)
+
+      // DB state: same retry-able shape as the 502 case.
+      const final = await readBooking(booking.id)
+      expect(final?.status).toBe("Payment Complete")
+      expect(final?.handoff_status).toBe("failed")
+      expect(final?.handoff_redirect_url).toBeFalsy()
+
+      // The mock STILL records the request (we record before checking mode).
+      const received = await getMockReceivedForBooking(booking.id)
+      expect(received.length).toBe(1)
+    } finally {
+      await resetMockMode()
+      await booking.cleanup()
+    }
+  })
+
+  test("Start Consult: retry on Successful booking is idempotent (no second CareFirst call)", async ({
+    page,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    const { unitId } = await getSeededIds()
+    const booking = await createBookingForUnit(unitId, "In Progress")
+    await clearMockReceived()
+    await resetMockMode()
+
+    try {
+      await signInAsSeededUser(page)
+      const csrf = await readCsrfToken(page.context())
+      const csrfHeaders = { [CSRF_HEADER_NAME]: csrf }
+
+      // Walk to Payment Complete then Successful via the happy path.
+      await page.request.post("/api/coupons/apply", {
+        headers: csrfHeaders,
+        data: { code: SEED.couponCode, bookingId: booking.id },
+      })
+      await page.request.post(
+        `/api/bookings/${booking.id}/complete-coupon-comp`,
+        { headers: csrfHeaders, data: {} }
+      )
+      const firstStart = await page.request.post(
+        `/api/bookings/${booking.id}/start-consultation`,
+        { headers: csrfHeaders, data: {} }
+      )
+      expect(
+        firstStart.status(),
+        "first start-consultation should succeed (happy mode)"
+      ).toBe(200)
+      const firstBody = (await firstStart.json()) as {
+        ok: boolean
+        redirectUrl: string | null
+      }
+      expect(firstBody.ok).toBe(true)
+      expect(firstBody.redirectUrl).toBeTruthy()
+      const firstRedirect = firstBody.redirectUrl
+
+      // Confirm the booking is now Successful with the cached redirect.
+      const afterFirst = await readBooking(booking.id)
+      expect(afterFirst?.status).toBe("Successful")
+      expect(afterFirst?.handoff_status).toBe("sent")
+      expect(afterFirst?.handoff_redirect_url).toBe(firstRedirect)
+
+      // Sanity check: the first call DID hit CareFirst.
+      const receivedAfterFirst = await getMockReceivedForBooking(booking.id)
+      if (receivedAfterFirst.length === 0) {
+        // D12 actionable error — same diagnostic as the D10 test so an
+        // operator running this spec sees the same remediation if the
+        // dev server bypassed CAREFIRST_API_DOMAIN.
+        throw new Error(
+          "CareFirst mock received no requests on the first Start Consult. " +
+            "Most likely cause: `npm run dev` was already running when " +
+            "Playwright started, and `reuseExistingServer: true` skipped " +
+            "the webServer.env overrides. Stop your local dev server and " +
+            "let Playwright spawn its own. See tests/_setup/carefirst-mock-server.ts."
+        )
+      }
+      expect(receivedAfterFirst.length).toBe(1)
+
+      // Clear received so the second call's assertion is unambiguous.
+      await clearMockReceived()
+
+      // ----- Act --------------------------------------------------------------
+      const secondStart = await page.request.post(
+        `/api/bookings/${booking.id}/start-consultation`,
+        { headers: csrfHeaders, data: {} }
+      )
+
+      // ----- Assert -----------------------------------------------------------
+      expect(
+        secondStart.status(),
+        "retry on Successful booking should return 200 with cached redirect"
+      ).toBe(200)
+      const secondBody = (await secondStart.json()) as {
+        ok: boolean
+        alreadyHandedOff?: boolean
+        redirectUrl: string | null
+      }
+      expect(secondBody.ok).toBe(true)
+      expect(secondBody.alreadyHandedOff).toBe(true)
+      // The cached redirect — IDENTICAL to the first call. If this drifts,
+      // the route is making a NEW CareFirst call and risking duplicate
+      // patient registration.
+      expect(secondBody.redirectUrl).toBe(firstRedirect)
+
+      // The idempotency invariant: the second call short-circuits BEFORE
+      // touching CareFirst. Zero requests for this booking after clear.
+      const receivedAfterSecond = await getMockReceivedForBooking(booking.id)
+      expect(
+        receivedAfterSecond.length,
+        "retry on Successful booking must NOT call CareFirst again"
+      ).toBe(0)
+
+      // Booking row should look identical to after-first (no clobbered
+      // fields, no incremented attempt count).
+      const afterSecond = await readBooking(booking.id)
+      expect(afterSecond?.status).toBe("Successful")
+      expect(afterSecond?.handoff_status).toBe("sent")
+      expect(afterSecond?.handoff_redirect_url).toBe(firstRedirect)
+      expect(afterSecond?.external_reference_id).toBe(
+        afterFirst?.external_reference_id
+      )
+      // handoff_attempt_count must NOT increment on cached short-circuit —
+      // if it does, the route is making the outbound CareFirst call before
+      // detecting the cache (which would risk duplicate registration).
+      expect(
+        afterSecond?.handoff_attempt_count,
+        "cached short-circuit must not increment handoff_attempt_count"
+      ).toBe(afterFirst?.handoff_attempt_count)
+    } finally {
+      await resetMockMode()
       await booking.cleanup()
     }
   })

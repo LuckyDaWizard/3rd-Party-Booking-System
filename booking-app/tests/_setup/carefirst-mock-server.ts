@@ -19,8 +19,17 @@
 //
 // SCOPE
 // ------
-// - Single happy-path endpoint: POST /api/external/client-sso/auto-register
-//   returns 200 + { redirectUrl, referenceId } for any well-formed body.
+// - SSO endpoint: POST /api/external/client-sso/auto-register
+//   - Default ("happy") mode: returns 200 + { redirectUrl, referenceId } for
+//     any well-formed body.
+//   - "http-error" mode: returns the configured status + body (used to drive
+//     the 502 / displayMessage error path in start-consultation).
+//   - "timeout" mode: sleeps `delayMs` (default 6000) before responding. The
+//     production code aborts after 5s via AbortSignal.timeout(5000), so 6s
+//     reliably triggers the timeout path. The request is still recorded.
+// - Mode override endpoint (D13): POST /__mode { kind, status?, body?,
+//   delayMs? } sets the next mode; DELETE /__mode resets to "happy"; GET
+//   /__mode returns the current mode (introspection / debugging).
 // - Introspection endpoint: GET /__received returns the recorded requests
 //   (JSON). DELETE /__received clears them. Workers that import this file
 //   directly can also call getReceivedRequests() / clearReceivedRequests()
@@ -29,6 +38,15 @@
 // - No persistent state, no DB writes, no external deps. Pure Node http.
 // - Fixed port (default 4747) so playwright.config.ts can set the env var
 //   statically. Override with CAREFIRST_MOCK_PORT if 4747 is in use.
+//
+// MODE LIFECYCLE
+// ---------------
+// Mode is module-level state. Tests that set a non-happy mode MUST reset it
+// (DELETE /__mode) in a try/finally or afterEach, otherwise the next test
+// in the same worker inherits the override. To make missed resets less
+// dangerous, startCareFirstMockServer() forces mode back to "happy" — so a
+// test run that starts fresh always starts at "happy". Tests that care
+// should still reset explicitly.
 //
 // CROSS-WORKER SAFETY
 // --------------------
@@ -88,7 +106,26 @@ export interface RecordedRequest {
 
 let server: Server | null = null
 let received: RecordedRequest[] = []
-let expectedApiKey: string | null = null
+
+// ----- Mock response-mode state (D13) ---------------------------------------
+//
+// Default is "happy". Tests can override via POST /__mode and reset via
+// DELETE /__mode. Resets are also enforced at server boot for safety.
+
+export type MockModeKind = "happy" | "http-error" | "timeout"
+
+export interface MockMode {
+  kind: MockModeKind
+  /** For "http-error": status to return (default 502). Clamped to 400-599. */
+  status?: number
+  /** For "http-error": JSON body to return. */
+  body?: unknown
+  /** For "timeout": delay in ms before responding (default 6000). */
+  delayMs?: number
+}
+
+const HAPPY_MODE: MockMode = { kind: "happy" }
+let currentMode: MockMode = HAPPY_MODE
 
 // ----- Public API ------------------------------------------------------------
 
@@ -126,7 +163,13 @@ export async function startCareFirstMockServer(
   }
 
   const port = opts.port ?? Number(process.env.CAREFIRST_MOCK_PORT ?? 4747)
-  expectedApiKey = opts.apiKey ?? process.env.CAREFIRST_API_KEY ?? "playwright-mock-key"
+  // opts.apiKey accepted for legacy callers but no longer used — we
+  // moved to a presence-only check (see handleAutoRegister).
+  void opts.apiKey
+
+  // Reset mode at every boot so a stale module-level value from a prior
+  // run (only possible under in-process re-use) can't leak through.
+  currentMode = HAPPY_MODE
 
   server = createServer(handleRequest)
 
@@ -187,6 +230,21 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     return
   }
 
+  // Mode override (D13). GET introspects, POST sets, DELETE resets.
+  if (method === "GET" && path === "/__mode") {
+    sendJson(res, 200, currentMode)
+    return
+  }
+  if (method === "DELETE" && path === "/__mode") {
+    currentMode = HAPPY_MODE
+    sendJson(res, 200, { ok: true, mode: currentMode })
+    return
+  }
+  if (method === "POST" && path === "/__mode") {
+    handleSetMode(req, res)
+    return
+  }
+
   // SSO endpoint.
   if (method === "POST" && path === "/api/external/client-sso/auto-register") {
     handleAutoRegister(req, res)
@@ -194,6 +252,59 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   }
 
   sendJson(res, 404, { error: `Mock CareFirst: no handler for ${method} ${path}` })
+}
+
+function handleSetMode(req: IncomingMessage, res: ServerResponse): void {
+  // Same 256 KiB cap + JSON helper as the SSO endpoint so a stuck or
+  // malformed test body can't OOM the worker.
+  readJsonBody(req)
+    .then((body) => {
+      if (!body || typeof body !== "object") {
+        sendJson(res, 400, {
+          error: "POST /__mode requires a JSON body with { kind }.",
+        })
+        return
+      }
+      const raw = body as Record<string, unknown>
+      const kind = raw.kind
+      if (kind !== "happy" && kind !== "http-error" && kind !== "timeout") {
+        sendJson(res, 400, {
+          error: `Unknown mode kind: ${String(kind)}. Expected "happy" | "http-error" | "timeout".`,
+        })
+        return
+      }
+      const next: MockMode = { kind }
+      if (kind === "http-error") {
+        // Clamp status to the 4xx/5xx error range. We deliberately reject
+        // 2xx/3xx (would mean "happy" mode, just use kind: "happy") and
+        // out-of-range values (caller typo). Catches test-author bugs early
+        // rather than letting them silently fail somewhere downstream.
+        const rawStatus = typeof raw.status === "number" ? raw.status : 502
+        if (rawStatus < 400 || rawStatus > 599) {
+          sendJson(res, 400, {
+            error: `Invalid status ${rawStatus} for http-error mode. Expected 400-599.`,
+          })
+          return
+        }
+        next.status = rawStatus
+        // body is opaque — pass through whatever the test set.
+        next.body = raw.body ?? {
+          result: false,
+          displayMessage: `Mock CareFirst: simulated HTTP ${rawStatus}.`,
+        }
+      } else if (kind === "timeout") {
+        next.delayMs = typeof raw.delayMs === "number" ? raw.delayMs : 6000
+      }
+      currentMode = next
+      sendJson(res, 200, { ok: true, mode: currentMode })
+    })
+    .catch((err: unknown) => {
+      sendJson(res, 400, {
+        error: `Failed to parse mode body — ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      })
+    })
 }
 
 function handleAutoRegister(req: IncomingMessage, res: ServerResponse): void {
@@ -204,10 +315,6 @@ function handleAutoRegister(req: IncomingMessage, res: ServerResponse): void {
   // What we DO want to catch is "production code forgot to send the header
   // at all" — that fails the booking on the real CareFirst side and we'd
   // want the test to fail too. Presence check covers it.
-  //
-  // The expectedApiKey module-level var is still set during start() for
-  // backwards-compat / introspection, but isn't enforced here.
-  void expectedApiKey
   const headerKey = req.headers["x-api-key"]
   const apiKey = Array.isArray(headerKey) ? headerKey[0] : headerKey
   if (!apiKey || apiKey.length === 0) {
@@ -221,7 +328,7 @@ function handleAutoRegister(req: IncomingMessage, res: ServerResponse): void {
 
   // Read body.
   readJsonBody(req)
-    .then((body) => {
+    .then(async (body) => {
       const recorded: RecordedRequest = {
         method: req.method ?? "POST",
         path: req.url ?? "/",
@@ -231,6 +338,44 @@ function handleAutoRegister(req: IncomingMessage, res: ServerResponse): void {
       }
       received.push(recorded)
 
+      // Snapshot the active mode for THIS request so a concurrent /__mode
+      // change can't swap behaviour mid-flight.
+      const mode = currentMode
+
+      if (mode.kind === "http-error") {
+        const status = mode.status ?? 502
+        const errorBody = mode.body ?? {
+          result: false,
+          displayMessage: `Mock CareFirst: simulated HTTP ${status}.`,
+        }
+        sendJson(res, status, errorBody)
+        return
+      }
+
+      if (mode.kind === "timeout") {
+        // Sleep past the production AbortSignal.timeout(5000) so the client
+        // aborts before we respond. We DO eventually respond — once the
+        // client has aborted, sendJson() will just write into a closed
+        // socket, which Node handles gracefully (the response body is
+        // discarded, no crash). This keeps the mock idle and ready for the
+        // next request without leaking a hanging response.
+        const delayMs = mode.delayMs ?? 6000
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+        // Same shape as happy path so any post-abort observer (e.g. a debug
+        // session manually calling /__received) sees a sensible response.
+        const referenceId = randomUUID()
+        const uniqueReference =
+          (body && typeof body === "object" && (body as Record<string, unknown>).uniqueReference) ||
+          "unknown"
+        sendJson(res, 200, {
+          result: true,
+          redirectUrl: `https://patient.carefirst.test/start/${String(uniqueReference)}`,
+          referenceId,
+        })
+        return
+      }
+
+      // Default: happy path.
       // Derive a deterministic-ish redirect URL from the uniqueReference so
       // the test can correlate the response to the request without depending
       // on call order.
@@ -257,12 +402,20 @@ function handleAutoRegister(req: IncomingMessage, res: ServerResponse): void {
 // ----- Utilities --------------------------------------------------------------
 
 function sendJson(res: ServerResponse, status: number, payload: unknown): void {
+  // The timeout mode deliberately responds after the client has aborted, so
+  // the socket can be already destroyed. Bail without throwing — the abort
+  // case is the assertion in the timeout test, not a real error.
+  if (res.writableEnded || res.destroyed) return
   const body = JSON.stringify(payload)
-  res.writeHead(status, {
-    "Content-Type": "application/json",
-    "Content-Length": Buffer.byteLength(body),
-  })
-  res.end(body)
+  try {
+    res.writeHead(status, {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(body),
+    })
+    res.end(body)
+  } catch {
+    // Socket closed mid-write — same reason as above. No-op.
+  }
 }
 
 // Cap body size at 256 KiB. SSO payloads are ~2 KiB so this is generous;
