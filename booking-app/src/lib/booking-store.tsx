@@ -384,6 +384,16 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   // concurrent rendering (the render may be discarded but the ref mutation
   // would persist).
   const activeBookingIdRef = useRef(activeBookingId)
+  // Defence-in-depth against duplicate booking creation. The create-booking
+  // page has a synchronous double-click guard, but if a future caller forgets
+  // to add one — or if React event-batching changes — concurrent calls to
+  // createBooking() would otherwise both run the insert. With this ref, the
+  // SECOND caller returns the SAME Promise as the first and resolves with
+  // the same id. Cleared in `finally` once the original resolves (success
+  // or error) so the next legitimate create can proceed. Production
+  // incident: a double-click on submit created two identical bookings for
+  // the same patient at the same minute (Lucky Mokoena, 2026/06/01 14:14).
+  const createBookingInFlightRef = useRef<Promise<string> | null>(null)
   useEffect(() => {
     activeBookingIdRef.current = activeBookingId
   }, [activeBookingId])
@@ -445,65 +455,90 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
   // refetch approach caused at higher volumes.
   const createBooking = useCallback(
     async (data: Partial<BookingRecord>): Promise<string> => {
-      // Abandon any existing "In Progress" bookings before creating a new one
-      const oldId = activeBookingIdRef.current
-      if (oldId) {
-        await supabase
+      // Promise-level dedup. If a create is already in-flight, return its
+      // Promise instead of starting a second one. Catches the rare race
+      // where two concurrent callers slip past the page-level
+      // submittingRef guard (e.g. a future caller that forgets to add one).
+      if (createBookingInFlightRef.current) {
+        return createBookingInFlightRef.current
+      }
+
+      const inFlight = (async (): Promise<string> => {
+        // Abandon any existing "In Progress" bookings before creating a new
+        // one. `oldId` is captured once when the IIFE starts; concurrent
+        // callers that dedup onto this Promise share the same `oldId`
+        // snapshot. Intentional — the second caller would have captured the
+        // same value anyway since both clicks happen within milliseconds.
+        const oldId = activeBookingIdRef.current
+        if (oldId) {
+          await supabase
+            .from("bookings")
+            .update({ status: "Abandoned" })
+            .eq("id", oldId)
+            .eq("status", "In Progress")
+        }
+
+        const dbData = mapBookingToDb({
+          status: "In Progress",
+          currentStep: "search",
+          ...data,
+        })
+
+        const { data: row, error } = await supabase
           .from("bookings")
-          .update({ status: "Abandoned" })
-          .eq("id", oldId)
-          .eq("status", "In Progress")
+          .insert(dbData)
+          .select("*")
+          .single()
+
+        if (error) {
+          console.error("Error creating booking:", error)
+          setLastError("Couldn't start a new booking. Please try again — if it keeps failing, sign out and back in.")
+          throw error
+        }
+
+        const newBooking = mapDbToBooking(row as DbBooking)
+        const id = newBooking.id
+        setActiveBookingId(id)
+
+        // Patch local state: prepend the new booking + flip the previous
+        // active booking (if any) to Abandoned. Order matches the server
+        // fetch (created_at DESC) so the new row sits at the top.
+        setBookings((prev) => {
+          const updated = oldId
+            ? prev.map((b) =>
+                b.id === oldId && b.status === "In Progress"
+                  ? { ...b, status: "Abandoned" as const }
+                  : b
+              )
+            : prev
+          return [newBooking, ...updated]
+        })
+
+        const patientName =
+          [data.firstNames, data.surname].filter(Boolean).join(" ").trim()
+        postBookingAudit({
+          bookingId: id,
+          action: "create",
+          entityName: patientName
+            ? `Booking for ${patientName}`
+            : "Booking (no patient info yet)",
+          changes: {
+            Status: { new: "In Progress" },
+          },
+        })
+        return id
+      })()
+
+      createBookingInFlightRef.current = inFlight
+      try {
+        return await inFlight
+      } finally {
+        // Reset on both success AND error so the next legitimate create
+        // can proceed. Note: clears unconditionally — we don't try to
+        // preserve the failed Promise for retry, because the caller's
+        // error handler will get the original rejection and decide.
+        createBookingInFlightRef.current = null
       }
-
-      const dbData = mapBookingToDb({
-        status: "In Progress",
-        currentStep: "search",
-        ...data,
-      })
-
-      const { data: row, error } = await supabase
-        .from("bookings")
-        .insert(dbData)
-        .select("*")
-        .single()
-
-      if (error) {
-        console.error("Error creating booking:", error)
-        setLastError("Couldn't start a new booking. Please try again — if it keeps failing, sign out and back in.")
-        throw error
-      }
-
-      const newBooking = mapDbToBooking(row as DbBooking)
-      const id = newBooking.id
-      setActiveBookingId(id)
-
-      // Patch local state: prepend the new booking + flip the previous
-      // active booking (if any) to Abandoned. Order matches the server
-      // fetch (created_at DESC) so the new row sits at the top.
-      setBookings((prev) => {
-        const updated = oldId
-          ? prev.map((b) =>
-              b.id === oldId && b.status === "In Progress"
-                ? { ...b, status: "Abandoned" as const }
-                : b
-            )
-          : prev
-        return [newBooking, ...updated]
-      })
-
-      const patientName =
-        [data.firstNames, data.surname].filter(Boolean).join(" ").trim()
-      postBookingAudit({
-        bookingId: id,
-        action: "create",
-        entityName: patientName
-          ? `Booking for ${patientName}`
-          : "Booking (no patient info yet)",
-        changes: {
-          Status: { new: "In Progress" },
-        },
-      })
-      return id
     },
     []
   )

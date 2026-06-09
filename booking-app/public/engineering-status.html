@@ -391,6 +391,14 @@
 
   <div class="sprint">
     <div class="sprint-header">
+      <h3>D19 &mdash; Duplicate-booking safeguard (double-click defence) <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-09</span>
+    </div>
+    <p class="desc">Production incident closed: two identical bookings for the same patient at the same minute (Lucky Mokoena, 2026/06/01 14:14, Elizabeth Street unit) traced to a double-click on the create-booking page's <em>Next</em> button. React's batched state updates meant the second click landed BEFORE the <code>disabled={submitting}</code> prop applied; two concurrent <code>createBooking()</code> calls both ran the Supabase insert. <strong>Two-layer defence-in-depth fix:</strong> <strong>(1) Page-level synchronous guard</strong> &mdash; <code>useRef&lt;boolean&gt;</code> read+written at the very top of the onClick handler, BEFORE any await. Synchronous = blocks the second invocation even within the same render frame as the first. <strong>(2) Store-level Promise dedup</strong> &mdash; <code>useRef&lt;Promise&lt;string&gt; | null&gt;</code> in <code>useBookingStore.createBooking()</code>. If a create is already in-flight, the second caller returns the SAME Promise and resolves with the SAME id. Audit log fires exactly once. <strong>Latent bug also fixed:</strong> original onClick had inline <code>setSubmitting(false)</code> at each early-return but NONE in the error path &mdash; a thrown <code>createBooking()</code> would leave the button stuck disabled forever. New <code>try/finally</code> wrap resets state on every exit (success, return, throw). Code Review caught a related fix (clear <code>verificationCode</code> on PIN failure so a retry can't silently resubmit the same wrong PIN) and flagged D20 follow-up (move to server-authority insert endpoint with rate limit + idempotency key). Pattern captured in <code>feedback_double_click_guard</code> memory for reuse on any future interactive submit handler. 45 / 45 Playwright tests still passing in 3.1m; tsc + lint clean.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
       <h3>D17/C2 &mdash; PayFast ITN happy path + signature helper <span class="pill shipped">Shipped</span></h3>
       <span class="commit">2026-06-09 &middot; 0134706</span>
     </div>
@@ -463,6 +471,13 @@
           Each commit leaves the suite green. Total ~2 hours mechanical work; the hard part (signature math + first end-to-end proof) shipped in C2.
         </td>
         <td class="effort">~2 hours mechanical</td>
+      </tr>
+      <tr>
+        <td class="id">D20</td>
+        <td>
+          <strong>Server-authority booking insert endpoint.</strong> Follow-up to D19. Currently the booking create is a direct Supabase insert from the browser &mdash; bypassing the API layer entirely. Means no server-side rate limit, no <code>X-Idempotency-Key</code> support, no central audit hook for create events. D20 would: (a) add <code>POST /api/bookings/create</code> with <code>requireAuthenticated()</code> + per-user rate limit (10/min like PayFast initiate) + optional idempotency-key header, (b) move the booking-store's direct insert to call this route, (c) keep the D19 client guards as belt-and-braces. A DB-level partial unique index on <code>(id_number, unit_id, status)</code> is a separate, riskier decision (blocks legitimate re-bookings). Flagged by Code Review on D19; not blocking.
+        </td>
+        <td class="effort">Half-day</td>
       </tr>
       <tr>
         <td class="id">D18</td>

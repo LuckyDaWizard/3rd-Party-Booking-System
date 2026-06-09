@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -92,6 +92,15 @@ export default function CreateBookingPage() {
   const [verificationCode, setVerificationCode] = useState("")
   const [verificationError, setVerificationError] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  // Synchronous double-click guard. The `submitting` state + the button's
+  // disabled prop are the primary defence, but React batches state updates
+  // and a second click within the same frame as the first can re-enter
+  // this handler BEFORE the disabled prop applies. The ref is read+written
+  // synchronously, so a second concurrent invocation short-circuits at the
+  // top of the handler. Production incident: a double-click on submit
+  // created two identical bookings for the same patient at the same minute
+  // (Lucky Mokoena, 2026/06/01 14:14).
+  const submittingRef = useRef(false)
 
   const isCodeComplete = verificationCode.length === PIN_LENGTH
 
@@ -264,9 +273,17 @@ export default function CreateBookingPage() {
           )}
           <Button
             onClick={async () => {
+              // SYNCHRONOUS double-click guard — must come BEFORE any await.
+              // React's batched state updates mean a second click can land
+              // before the disabled prop applies; this ref blocks it
+              // synchronously.
+              if (submittingRef.current) return
+              submittingRef.current = true
+
               setVerificationError("")
               setSubmitting(true)
 
+              try {
               // Two-person sign-off: ask the server to verify the PIN belongs
               // to a unit_manager assigned to activeUnitId, or any system_admin.
               // Direct supabase lookup is forbidden under Phase 5 RLS — only
@@ -285,7 +302,11 @@ export default function CreateBookingPage() {
                 }
                 if (!verifyRes.ok || !verifyData.valid) {
                   setVerificationError("Invalid verification code")
-                  setSubmitting(false)
+                  // Clear the rejected PIN so the operator must re-enter.
+                  // D19 fixed the error-path button-stuck bug; without this
+                  // clear, a retry click would silently re-submit the same
+                  // wrong PIN.
+                  setVerificationCode("")
                   return
                 }
               }
@@ -322,7 +343,6 @@ export default function CreateBookingPage() {
                   selParams.set("firstName", firstName)
                   selParams.set("surname", surname)
                   selParams.set("dob", dob)
-                  setSubmitting(false)
                   router.push(`/create-booking/select-patient?${selParams.toString()}`)
                   return
                 } else if (existing && existing.length === 1) {
@@ -384,8 +404,14 @@ export default function CreateBookingPage() {
                 params.set("surname", surname)
                 params.set("dob", dob)
               }
-              setSubmitting(false)
               router.push(`/create-booking/patient-details?${params.toString()}`)
+              } finally {
+                // Reset both guards on every exit path — success, early
+                // return, or thrown error. Without this, a thrown
+                // createBooking() would leave the button disabled forever.
+                submittingRef.current = false
+                setSubmitting(false)
+              }
             }}
             className={`h-12 w-full gap-2 rounded-xl text-base font-semibold transition-colors ${
               isFormValid && !submitting
