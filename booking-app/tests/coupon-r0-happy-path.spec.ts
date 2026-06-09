@@ -53,165 +53,24 @@
 //   - The Abandoned -> apply -> In Progress hotfix still holds.
 // =============================================================================
 
-import { test, expect, type BrowserContext } from "@playwright/test"
-import { createClient } from "@supabase/supabase-js"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { test, expect } from "@playwright/test"
 import { SEED } from "./_setup/seed"
 import type { MockModeKind } from "./_setup/carefirst-mock-server"
+import {
+  CSRF_HEADER_NAME,
+  readCsrfToken,
+  signInAsSeededUser,
+} from "./_helpers/auth"
+import {
+  createBookingForUnit,
+  getSeededIds,
+  readBooking,
+} from "./_helpers/fixtures"
 
-// CSRF cookie + header names — kept in sync with src/lib/csrf.ts. Hard-coded
-// here rather than imported so the test file stays free of @/lib paths
-// (Playwright runs from booking-app/, no path-alias resolver in the test
-// context).
-const CSRF_COOKIE_NAME = "cf_csrf"
-const CSRF_HEADER_NAME = "x-csrf-token"
-
-// ----- Helpers: load env, build admin client ---------------------------------
-
-function loadEnvLocal(): void {
-  try {
-    const p = join(process.cwd(), ".env.local")
-    const txt = readFileSync(p, "utf8")
-    for (const rawLine of txt.split(/\r?\n/)) {
-      const line = rawLine.trim()
-      if (!line || line.startsWith("#")) continue
-      const eq = line.indexOf("=")
-      if (eq < 0) continue
-      const key = line.slice(0, eq).trim()
-      const value = line.slice(eq + 1).trim()
-      if (!key || process.env[key] !== undefined) continue
-      process.env[key] = value
-    }
-  } catch {
-    // Surfaced as a missing-env error below.
-  }
-}
-
-function getAdmin() {
-  loadEnvLocal()
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const sr = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !sr) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env."
-    )
-  }
-  return createClient(url, sr, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
-
-// ----- Fixture: a booking in the seeded test unit ----------------------------
-//
-// We create the booking directly via service-role rather than walking the
-// 5-step UI form. The unique invariant under test (R0 bypasses PayFast) is
-// owned by the apply + complete-coupon-comp routes — walking the form adds
-// flakiness without adding signal. A separate UI-driven test can pick that
-// up later.
-
-interface CreatedBooking {
-  id: string
-  cleanup: () => Promise<void>
-}
-
-async function createBookingForUnit(
-  unitId: string,
-  initialStatus: "In Progress" | "Abandoned" = "In Progress"
-): Promise<CreatedBooking> {
-  const admin = getAdmin()
-  const { data, error } = await admin
-    .from("bookings")
-    .insert({
-      unit_id: unitId,
-      status: initialStatus,
-      current_step: "payment",
-      first_names: "Playwright",
-      surname: "Patient",
-      id_type: "SA ID",
-      // Canonical Luhn-valid SA ID per the payments-integration skill.
-      id_number: "8701015800084",
-      title: "Mr",
-      nationality: "South African",
-      gender: "Male",
-      date_of_birth: "1987-01-01",
-      address: "1 Test Lane",
-      suburb: "Testville",
-      city: "Johannesburg",
-      province: "Gauteng",
-      country: "South Africa",
-      postal_code: "2000",
-      country_code: "+27",
-      contact_number: "0710000000",
-      email_address: "patient.playwright@example.test",
-      payment_amount: 325.0,
-      original_amount: 325.0,
-    })
-    .select("id")
-    .single()
-  if (error || !data) {
-    throw new Error(`Failed to seed booking: ${error?.message}`)
-  }
-  const id = (data as { id: string }).id
-
-  return {
-    id,
-    async cleanup() {
-      // coupon_uses cascades on booking delete (migration 033 FK ON DELETE
-      // CASCADE). booking_validator is a denormalised column on bookings
-      // itself, not a separate table — no separate cleanup needed.
-      await admin.from("bookings").delete().eq("id", id)
-    },
-  }
-}
-
-// ----- Helpers: resolve seeded ids + read booking state -----------------------
-
-async function getSeededIds() {
-  const admin = getAdmin()
-  const { data: client } = await admin
-    .from("clients")
-    .select("id")
-    .eq("client_name", SEED.clientName)
-    .maybeSingle()
-  const { data: unit } = await admin
-    .from("units")
-    .select("id")
-    .eq("unit_name", SEED.unitName)
-    .maybeSingle()
-  if (!client || !unit) {
-    throw new Error(
-      "Seeded client/unit not found. Run once with PLAYWRIGHT_SEED=1 to create them."
-    )
-  }
-  return {
-    clientId: (client as { id: string }).id,
-    unitId: (unit as { id: string }).id,
-  }
-}
-
-async function readBooking(bookingId: string) {
-  const admin = getAdmin()
-  const { data } = await admin
-    .from("bookings")
-    .select(
-      "status, payment_amount, payment_type, coupon_id, coupon_code, handoff_status, handoff_redirect_url, external_reference_id, email_address, handoff_attempt_count"
-    )
-    .eq("id", bookingId)
-    .single()
-  return data as {
-    status: string
-    payment_amount: number
-    payment_type: string | null
-    coupon_id: string | null
-    coupon_code: string | null
-    handoff_status: string | null
-    handoff_redirect_url: string | null
-    external_reference_id: string | null
-    email_address: string | null
-    handoff_attempt_count: number | null
-  } | null
-}
+// Shared admin/auth/fixtures helpers extracted to tests/_helpers/ —
+// see the imports above. The mock-driving helpers below are
+// spec-specific (the CareFirst mock + mode override only matter to
+// the R0 spec's Start Consult tests).
 
 // ----- Helpers: drive the CareFirst SSO mock server --------------------------
 //
@@ -322,52 +181,6 @@ async function getMockReceivedForBooking(
     if (!body || typeof body !== "object") return false
     return (body as { uniqueReference?: string }).uniqueReference === bookingId
   })
-}
-
-// ----- Helper: drive sign-in via the real UI to populate session cookies ----
-
-async function signInAsSeededUser(page: import("@playwright/test").Page) {
-  await page.goto("/sign-in")
-  await expect(page.getByTestId("sign-in-heading")).toBeVisible()
-
-  // The OTP input is wired so typing fills hidden digit inputs. The simplest
-  // robust approach is to focus the first slot and type the digits — works
-  // across the wrapper's autofocus/advance behaviour without depending on
-  // its internal markup.
-  //
-  // NOTE: `.click()` on the testid resolves to a visual slot (input-otp's
-  // wrapper), not the underlying hidden <input>. Focus reaches the input
-  // via input-otp's pointer-down focus delegation — library behaviour we
-  // rely on. If input-otp changes its focus model or we swap libraries,
-  // change to: `await page.getByTestId('sign-in-pin-input').locator('input').focus()`.
-  const otp = page.getByTestId("sign-in-pin-input")
-  await otp.click()
-  await page.keyboard.type(SEED.user.pin)
-
-  const submit = page.getByTestId("sign-in-submit")
-  await expect(submit).toBeEnabled()
-  await submit.click()
-
-  // Successful sign-in pushes to /home.
-  await page.waitForURL(/\/home(\?|$)/, { timeout: 15_000 })
-}
-
-// ----- Helper: read the CSRF cookie from the browser context ----------------
-//
-// The dashboard's proxy enforces double-submit cookie CSRF (see
-// src/proxy.ts + src/lib/csrf.ts): every state-changing API call
-// must include `x-csrf-token` header matching the `cf_csrf` cookie. The
-// browser app reads it via document.cookie; here we pluck it off the
-// context and pass it through on `page.request` calls.
-async function readCsrfToken(context: BrowserContext): Promise<string> {
-  const cookies = await context.cookies()
-  const csrf = cookies.find((c) => c.name === CSRF_COOKIE_NAME)
-  if (!csrf || !csrf.value) {
-    throw new Error(
-      `CSRF cookie (${CSRF_COOKIE_NAME}) not present — middleware should have set it on /sign-in.`
-    )
-  }
-  return csrf.value
 }
 
 // ----- Note: how we assert "PayFast was never touched" -----------------------

@@ -70,78 +70,24 @@
 // handoff.
 // =============================================================================
 
-import { test, expect, type BrowserContext } from "@playwright/test"
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-import { SEED, pinToEmail } from "./_setup/seed"
+import { test, expect } from "@playwright/test"
+import { SEED } from "./_setup/seed"
+import { getAdmin } from "./_helpers/admin"
+import {
+  CSRF_HEADER_NAME,
+  readCsrfToken,
+  signInAsSeededUser,
+} from "./_helpers/auth"
+import {
+  createBookingForUnit,
+  createDiscountCoupon,
+  getSeededUserId,
+  readBooking,
+} from "./_helpers/fixtures"
 
-// CSRF cookie + header names — kept in sync with src/lib/csrf.ts. Hard-coded
-// here rather than imported so the test file stays free of @/lib paths
-// (Playwright runs from booking-app/, no path-alias resolver in the test
-// context — same pattern as the coupon specs).
-const CSRF_COOKIE_NAME = "cf_csrf"
-const CSRF_HEADER_NAME = "x-csrf-token"
-
-// ----- Helpers: load env, build admin client ---------------------------------
-
-function loadEnvLocal(): void {
-  try {
-    const p = join(process.cwd(), ".env.local")
-    const txt = readFileSync(p, "utf8")
-    for (const rawLine of txt.split(/\r?\n/)) {
-      const line = rawLine.trim()
-      if (!line || line.startsWith("#")) continue
-      const eq = line.indexOf("=")
-      if (eq < 0) continue
-      const key = line.slice(0, eq).trim()
-      const value = line.slice(eq + 1).trim()
-      if (!key || process.env[key] !== undefined) continue
-      process.env[key] = value
-    }
-  } catch {
-    // Surfaced as a missing-env error below.
-  }
-}
-
-function getAdmin(): SupabaseClient {
-  loadEnvLocal()
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const sr = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !sr) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env."
-    )
-  }
-  return createClient(url, sr, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
-
-// ----- Helper: read the booking row (everything we assert on) ----------------
-
-interface BookingState {
-  status: string
-  payment_amount: number | null
-  payment_type: string | null
-  payment_confirmed_at: string | null
-  validated_by_user_id: string | null
-  validated_by_name: string | null
-  coupon_id: string | null
-  coupon_code: string | null
-}
-
-async function readBooking(bookingId: string): Promise<BookingState | null> {
-  const admin = getAdmin()
-  const { data } = await admin
-    .from("bookings")
-    .select(
-      "status, payment_amount, payment_type, payment_confirmed_at, validated_by_user_id, validated_by_name, coupon_id, coupon_code"
-    )
-    .eq("id", bookingId)
-    .single()
-  return (data as BookingState | null) ?? null
-}
+// Shared admin/auth/fixtures helpers extracted to tests/_helpers/ — see
+// the imports above. The self-collect FIXTURE below (one-off client +
+// unit with collect_payment_at_unit=true) is spec-specific.
 
 // ----- Fixture: a one-off self-collect client + unit -------------------------
 //
@@ -225,7 +171,7 @@ async function createSelfCollectFixture(): Promise<SelfCollectFixture> {
       // Order matters — no FK cascade on these tables. Each step is
       // wrapped so a failure (e.g. a future migration adds an unmet
       // constraint) doesn't strand the later steps and leak the fixture.
-      const safeDelete = async (label: string, fn: () => Promise<unknown>) => {
+      const safeDelete = async (label: string, fn: () => PromiseLike<unknown>) => {
         try {
           await fn()
         } catch (err) {
@@ -249,160 +195,6 @@ async function createSelfCollectFixture(): Promise<SelfCollectFixture> {
       )
     },
   }
-}
-
-// ----- Fixture: a booking under the given unit -------------------------------
-
-interface CreatedBooking {
-  id: string
-  cleanup: () => Promise<void>
-}
-
-async function createBookingForUnit(
-  unitId: string,
-  initialStatus: "In Progress" | "Abandoned" = "In Progress"
-): Promise<CreatedBooking> {
-  const admin = getAdmin()
-  const { data, error } = await admin
-    .from("bookings")
-    .insert({
-      unit_id: unitId,
-      status: initialStatus,
-      current_step: "payment",
-      first_names: "Playwright",
-      surname: "SelfCollectPatient",
-      id_type: "SA ID",
-      // Canonical Luhn-valid SA ID per the payments-integration skill.
-      id_number: "8701015800084",
-      title: "Mr",
-      nationality: "South African",
-      gender: "Male",
-      date_of_birth: "1987-01-01",
-      address: "1 Test Lane",
-      suburb: "Testville",
-      city: "Johannesburg",
-      province: "Gauteng",
-      country: "South Africa",
-      postal_code: "2000",
-      country_code: "+27",
-      contact_number: "0710000000",
-      email_address: "patient.self-collect@example.test",
-      payment_amount: 325.0,
-      original_amount: 325.0,
-    })
-    .select("id")
-    .single()
-  if (error || !data) {
-    throw new Error(`Failed to seed booking: ${error?.message}`)
-  }
-  const id = (data as { id: string }).id
-  return {
-    id,
-    async cleanup() {
-      await getAdmin().from("bookings").delete().eq("id", id)
-    },
-  }
-}
-
-// ----- Fixture: a one-off coupon scoped to ANOTHER client --------------------
-//
-// Used by Test C to prove the coupon apply route rejects a self-collect
-// booking on the allow_coupons gate even when the coupon itself is otherwise
-// valid. We don't need the coupon to "match" the self-collect booking — the
-// route refuses before checking client_id scoping when allow_coupons=false.
-
-interface CreatedCoupon {
-  id: string
-  code: string
-  cleanup: () => Promise<void>
-}
-
-async function createDiscountCoupon(
-  clientId: string,
-  createdBy: string,
-  spec: {
-    discount_type: "percentage" | "fixed"
-    discount_value: number
-    codePrefix: string
-  }
-): Promise<CreatedCoupon> {
-  const admin = getAdmin()
-  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-  const code = `${spec.codePrefix}-${suffix}`
-  const { data, error } = await admin
-    .from("coupons")
-    .insert({
-      code,
-      description: `Playwright one-off (${spec.codePrefix})`,
-      discount_type: spec.discount_type,
-      discount_value: spec.discount_value,
-      client_id: clientId,
-      status: "active",
-      created_by: createdBy,
-    })
-    .select("id")
-    .single()
-  if (error || !data) {
-    throw new Error(`Failed to seed coupon: ${error?.message}`)
-  }
-  const id = (data as { id: string }).id
-  return {
-    id,
-    code,
-    async cleanup() {
-      // coupon_uses cascades on coupon delete (migration 033 FK ON DELETE
-      // CASCADE) so anything attached goes with this row.
-      await getAdmin().from("coupons").delete().eq("id", id)
-    },
-  }
-}
-
-// ----- Helper: resolve the seeded user id (for coupon `created_by`) ---------
-
-async function getSeededUserId(): Promise<string> {
-  const admin = getAdmin()
-  const email = pinToEmail(SEED.user.pin)
-  const { data } = await admin
-    .from("users")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle()
-  if (!data) {
-    throw new Error(
-      "Seeded user not found. Run once with PLAYWRIGHT_SEED=1 to create them."
-    )
-  }
-  return (data as { id: string }).id
-}
-
-// ----- Helper: drive sign-in via the real UI to populate session cookies ----
-
-async function signInAsSeededUser(page: import("@playwright/test").Page) {
-  await page.goto("/sign-in")
-  await expect(page.getByTestId("sign-in-heading")).toBeVisible()
-
-  const otp = page.getByTestId("sign-in-pin-input")
-  await otp.click()
-  await page.keyboard.type(SEED.user.pin)
-
-  const submit = page.getByTestId("sign-in-submit")
-  await expect(submit).toBeEnabled()
-  await submit.click()
-
-  await page.waitForURL(/\/home(\?|$)/, { timeout: 15_000 })
-}
-
-// ----- Helper: read the CSRF cookie from the browser context ----------------
-
-async function readCsrfToken(context: BrowserContext): Promise<string> {
-  const cookies = await context.cookies()
-  const csrf = cookies.find((c) => c.name === CSRF_COOKIE_NAME)
-  if (!csrf || !csrf.value) {
-    throw new Error(
-      `CSRF cookie (${CSRF_COOKIE_NAME}) not present — middleware should have set it on /sign-in.`
-    )
-  }
-  return csrf.value
 }
 
 // =============================================================================
@@ -463,7 +255,7 @@ test.describe("Self-collect payment path", () => {
       // Validator audit trail. recordBookingValidator is best-effort
       // fire-and-forget; the route returns before it resolves. Poll briefly
       // so a slow service-role write doesn't flake the assertion.
-      let validated: BookingState | null = after
+      let validated = after
       for (let i = 0; i < 10 && !validated?.validated_by_user_id; i++) {
         await new Promise((r) => setTimeout(r, 100))
         validated = await readBooking(booking.id)
