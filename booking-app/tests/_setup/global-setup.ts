@@ -17,9 +17,10 @@
 
 import { seedForCouponR0Test } from "./seed"
 import { startCareFirstMockServer } from "./carefirst-mock-server"
+import { startPayfastMockServer } from "./payfast-mock-server"
 
 export default async function globalSetup() {
-  // 1. Seed Supabase fixtures (gated). Independent of the mock server below.
+  // 1. Seed Supabase fixtures (gated). Independent of the mock servers below.
   if (process.env.PLAYWRIGHT_SEED !== "1") {
     console.log(
       "[global-setup] PLAYWRIGHT_SEED not set — skipping seed. Pass PLAYWRIGHT_SEED=1 to seed."
@@ -43,4 +44,12 @@ export default async function globalSetup() {
   await startCareFirstMockServer({
     apiKey: process.env.CAREFIRST_API_KEY ?? "playwright-mock-key",
   })
+
+  // 3. Start the PayFast mock server (D17 / C1). Sits on port 4748 alongside
+  // the CareFirst mock on 4747. The dev server's PAYFAST_VALIDATE_URL_OVERRIDE
+  // and PAYFAST_API_BASE_OVERRIDE (set by playwright.config.ts) point the
+  // production validateItnServerConfirmation() and fetchPayfastTransactions()
+  // fetches at this mock. Always started — C1 doesn't add tests that use it
+  // yet (C2-C5 will), so it boots idle (~50ms cost, no DB writes).
+  await startPayfastMockServer()
 }

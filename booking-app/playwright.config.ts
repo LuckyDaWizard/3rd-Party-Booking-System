@@ -32,6 +32,15 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`
 const CAREFIRST_MOCK_PORT = Number(process.env.CAREFIRST_MOCK_PORT ?? 4747)
 const CAREFIRST_MOCK_API_KEY = process.env.CAREFIRST_API_KEY ?? "playwright-mock-key"
 
+// PayFast mock server (D17 / C1). Same fixed-port pattern as the CareFirst
+// mock — must match payfast-mock-server.ts's default of 4748. The dev server
+// reads PAYFAST_VALIDATE_URL_OVERRIDE / PAYFAST_API_BASE_OVERRIDE from its
+// env to redirect the ITN server-confirmation POST and the Transaction
+// History GET at this mock instead of real PayFast endpoints. Merchant
+// credentials (PAYFAST_MERCHANT_ID/KEY/PASSPHRASE) are already in .env.local
+// — we don't override them here.
+const PAYFAST_MOCK_PORT = Number(process.env.PAYFAST_MOCK_PORT ?? 4748)
+
 export default defineConfig({
   testDir: "./tests",
   // globalSetup seeds Supabase fixtures (gated on PLAYWRIGHT_SEED=1, B3) and
@@ -85,6 +94,13 @@ export default defineConfig({
         process.env.CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT",
       CAREFIRST_CLIENT_PLAN_CODE:
         process.env.CAREFIRST_CLIENT_PLAN_CODE ?? "PLAYWRIGHT-PLAN",
+      // PayFast mock overrides. Read at CALL TIME by getValidateUrl() and
+      // getPayfastApiBase() so module-load order doesn't bypass them. Same
+      // caveat as the CareFirst block: only takes effect when Playwright
+      // starts the dev server — if you `npm run dev` separately, your shell
+      // env wins and PayFast calls hit real sandbox / production URLs.
+      PAYFAST_VALIDATE_URL_OVERRIDE: `http://localhost:${PAYFAST_MOCK_PORT}/eng/query/validate`,
+      PAYFAST_API_BASE_OVERRIDE: `http://localhost:${PAYFAST_MOCK_PORT}`,
     },
   },
 })

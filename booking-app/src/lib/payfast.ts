@@ -58,6 +58,42 @@ export function getPayfastConfig(): PayfastConfig {
     )
   }
 
+  // Validate the test-only URL overrides at boot, not at first call. These
+  // env vars exist only to redirect the ITN server-confirmation POST and the
+  // Transaction History GET at a Playwright mock; they should never be set
+  // in production. When they ARE set (test runs, dev investigations), a
+  // malformed value would otherwise produce confusing runtime errors deep in
+  // the fetch stack. Mirrors the CareFirst pattern in `getCareFirstConfig()`.
+  //
+  // When both an override AND the `testMode` flag are set in a dev/test env,
+  // the override wins for the validate URL — see `getValidateUrl()`. The
+  // overrides themselves are gated on `NODE_ENV !== "production"` so a stale
+  // env var leaking into prod is a no-op rather than a silent redirect.
+  const validateOverride = process.env.PAYFAST_VALIDATE_URL_OVERRIDE?.trim()
+  if (validateOverride) {
+    try {
+      const parsed = new URL(validateOverride)
+      if (!parsed.host) throw new Error("no host")
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      throw new Error(
+        `PAYFAST_VALIDATE_URL_OVERRIDE is set but malformed: ${reason}. Expected a full URL with scheme + host (e.g. http://localhost:4748/eng/query/validate).`
+      )
+    }
+  }
+  const apiBaseOverride = process.env.PAYFAST_API_BASE_OVERRIDE?.trim()
+  if (apiBaseOverride) {
+    try {
+      const parsed = new URL(apiBaseOverride)
+      if (!parsed.host) throw new Error("no host")
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err)
+      throw new Error(
+        `PAYFAST_API_BASE_OVERRIDE is set but malformed: ${reason}. Expected a full URL with scheme + host (e.g. http://localhost:4748).`
+      )
+    }
+  }
+
   return { merchantId, merchantKey, passphrase, testMode, appUrl }
 }
 
@@ -65,8 +101,46 @@ export function getProcessUrl(testMode: boolean): string {
   return testMode ? SANDBOX_PROCESS_URL : PRODUCTION_PROCESS_URL
 }
 
+/**
+ * Returns the URL used for the PayFast ITN server-confirmation POST (step 4
+ * of ITN validation — `validateItnServerConfirmation`).
+ *
+ * Honours `PAYFAST_VALIDATE_URL_OVERRIDE` when set, so the Playwright suite
+ * can redirect this server-side fetch at a local mock without touching the
+ * production / sandbox endpoints. Read at CALL TIME (not at module load) so
+ * `playwright.config.ts` webServer.env injection isn't bypassed by Node's
+ * module-cache ordering.
+ *
+ * IMPORTANT: the override is gated on `NODE_ENV !== "production"` as a
+ * defence-in-depth measure. If a stale env var ever leaks into a prod VPS
+ * shell (sloppy `.bashrc`, env-file copy-paste, etc.) it silently no-ops
+ * rather than redirecting real ITN traffic at localhost — which would
+ * otherwise fail every confirmation and mark every payment as fraudulent.
+ */
 export function getValidateUrl(testMode: boolean): string {
+  if (process.env.NODE_ENV !== "production") {
+    const override = process.env.PAYFAST_VALIDATE_URL_OVERRIDE?.trim()
+    if (override) return override
+  }
   return testMode ? SANDBOX_VALIDATE_URL : PRODUCTION_VALIDATE_URL
+}
+
+/**
+ * Returns the base URL for PayFast's Transaction History Query API. Defaults
+ * to https://api.payfast.co.za but honours `PAYFAST_API_BASE_OVERRIDE` so
+ * the Playwright suite can redirect reconcile-flow fetches at a local mock.
+ * Read at CALL TIME (not at module load) so playwright.config.ts webServer.env
+ * injection isn't bypassed by Node's module-cache ordering.
+ *
+ * Same `NODE_ENV !== "production"` gate as `getValidateUrl()` — see that
+ * function's comment block for the rationale.
+ */
+function getPayfastApiBase(): string {
+  if (process.env.NODE_ENV !== "production") {
+    const override = process.env.PAYFAST_API_BASE_OVERRIDE?.trim()
+    if (override) return override.replace(/\/+$/, "")
+  }
+  return PAYFAST_API_BASE
 }
 
 // ---------------------------------------------------------------------------
@@ -486,7 +560,7 @@ export async function fetchPayfastTransactions(
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&")
 
-  const url = `${PAYFAST_API_BASE}/transactions/history?${qs}`
+  const url = `${getPayfastApiBase()}/transactions/history?${qs}`
 
   const res = await fetch(url, {
     method: "GET",
