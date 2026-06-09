@@ -252,6 +252,29 @@ async function getMockReceived(): Promise<MockRecordedRequest[]> {
   return (await res.json()) as MockRecordedRequest[]
 }
 
+/**
+ * Filter mock-received requests down to those whose `uniqueReference` matches
+ * the given booking ID. This is the cross-spec / cross-worker safe way to
+ * query the mock — the `received` array in the mock is module-level and
+ * shared across all Playwright workers, so when a second spec adds Start
+ * Consult coverage, a bare `getMockReceived()` would race against the other
+ * worker's clear / append cycle.
+ *
+ * Since every Start Consult call sends `uniqueReference = booking.id`, and
+ * every test creates its own booking with its own UUID, filtering by booking
+ * ID gives each test a per-test view of the mock without needing any
+ * test-correlation plumbing on the production side.
+ */
+async function getMockReceivedForBooking(
+  bookingId: string
+): Promise<MockRecordedRequest[]> {
+  const all = await getMockReceived()
+  return all.filter((r) => {
+    const body = r.body as { uniqueReference?: string } | null
+    return body?.uniqueReference === bookingId
+  })
+}
+
 // ----- Helper: drive sign-in via the real UI to populate session cookies ----
 
 async function signInAsSeededUser(page: import("@playwright/test").Page) {
@@ -520,11 +543,33 @@ test.describe("Coupon R0 (100%-off) bypasses PayFast", () => {
       expect(final?.handoff_redirect_url).toContain(booking.id)
       expect(final?.external_reference_id).toBeTruthy()
 
-      // Mock side: exactly one POST with the expected shape.
-      const received = await getMockReceived()
+      // Mock side: exactly one POST with the expected shape, filtered to
+      // this test's booking so we're safe against cross-spec / cross-worker
+      // sharing of the mock's `received` array (D11).
+      const received = await getMockReceivedForBooking(booking.id)
+      if (received.length === 0) {
+        // D12: most common cause of "expected 1, got 0" here is that a dev
+        // server was already running before Playwright launched, and
+        // `reuseExistingServer: true` (the local default) silently bypassed
+        // the `webServer.env` overrides. The reused dev server still uses
+        // its .env.local CAREFIRST_API_DOMAIN, which means the SSO call
+        // went to real CareFirst staging instead of our mock. Surface the
+        // likely fix in the error message rather than a bare "expected
+        // 1, got 0".
+        throw new Error(
+          "CareFirst mock received no requests for this booking. " +
+            "Most likely cause: `npm run dev` was already running when " +
+            "Playwright started, and `reuseExistingServer: true` skipped " +
+            "the webServer.env overrides. Stop your local dev server and " +
+            "let Playwright spawn its own (or set CAREFIRST_API_DOMAIN=" +
+            `http://localhost:${MOCK_PORT} in your shell before starting ` +
+            "`npm run dev`). See tests/_setup/carefirst-mock-server.ts " +
+            "header for details."
+        )
+      }
       expect(
         received.length,
-        "mock should have received exactly one auto-register call"
+        "mock should have received exactly one auto-register call for this booking"
       ).toBe(1)
       const call = received[0]
       expect(call.method).toBe("POST")

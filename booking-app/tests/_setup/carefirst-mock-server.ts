@@ -30,26 +30,35 @@
 // - Fixed port (default 4747) so playwright.config.ts can set the env var
 //   statically. Override with CAREFIRST_MOCK_PORT if 4747 is in use.
 //
-// KNOWN LIMITATIONS (deferred — file in Engineering Status backlog if hit)
-// ------------------------------------------------------------------------
-// 1. RECEIVED-STATE IS SHARED ACROSS WORKERS. `received` is module-level,
-//    and playwright.config.ts has fullyParallel=true. Today only one
-//    spec/test calls clearMockReceived() + getMockReceived() so there's
-//    no collision. The moment a second spec calls Start Consult, those
-//    workers will race — clearing in one wipes the other's recorded
-//    requests mid-flight. Fixes: tag requests with a per-test
-//    correlation header (e.g. x-test-id) and filter by it, OR force
-//    Start-Consult specs to run serial via
-//    test.describe.configure({ mode: "serial" }).
+// CROSS-WORKER SAFETY
+// --------------------
+// `received` is module-level and the introspection endpoint serves it over
+// HTTP, so all Playwright workers share the same array. Two specs calling
+// clearMockReceived() + getMockReceived() concurrently would race.
 //
-// 2. webServer.reuseExistingServer=true (the local default) silently
-//    bypasses webServer.env. If a dev had `npm run dev` running before
-//    Playwright launched, the dev server keeps its .env.local values and
-//    the SSO call hits real CareFirst staging — not the mock. The new
-//    D10 test will then fail (status mismatch) but the failure mode is
-//    confusing. Fixes: a boot-time guard in the spec that asserts the
-//    dev server is wired to the mock, OR force reuseExistingServer=false
-//    for the D10 spec.
+// The mitigation is on the SPEC side, not the mock side: tests filter the
+// mock's full received-array by their own booking ID, since
+// uniqueReference === booking.id in every Start Consult payload. See
+// getMockReceivedForBooking() in coupon-r0-happy-path.spec.ts. As long as
+// every spec follows that pattern, the shared array is safe — each test
+// only sees its own requests.
+//
+// If a future test needs to assert "the mock received N requests total"
+// rather than "received N requests for booking X", it'll need to either
+// (a) serialise via test.describe.configure({ mode: "serial" }) + a
+// project-level workers: 1, or (b) accept that the total is a
+// best-effort floor rather than an exact count.
+//
+// DEV-SERVER WIRING CHECK
+// -----------------------
+// reuseExistingServer=true (the local default) silently bypasses
+// webServer.env. If a dev had `npm run dev` running before Playwright
+// launched, the SSO call hits real CareFirst staging — not the mock.
+// The coupon-r0-happy-path spec catches this with an explicit error
+// message when getMockReceivedForBooking() returns empty after a Start
+// Consult call. The error tells the operator the likely cause and the
+// remediation. If a NEW spec adds Start Consult coverage, copy that
+// pattern so the same diagnostic surfaces.
 //
 // LIFECYCLE
 // ----------
