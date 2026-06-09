@@ -305,8 +305,8 @@ async function signInAsSeededUser(page: import("@playwright/test").Page) {
 
 // ----- Helper: read the CSRF cookie from the browser context ----------------
 //
-// The dashboard's middleware enforces double-submit cookie CSRF (see
-// src/middleware.ts + src/lib/csrf.ts): every state-changing API call
+// The dashboard's proxy enforces double-submit cookie CSRF (see
+// src/proxy.ts + src/lib/csrf.ts): every state-changing API call
 // must include `x-csrf-token` header matching the `cf_csrf` cookie. The
 // browser app reads it via document.cookie; here we pluck it off the
 // context and pass it through on `page.request` calls.
@@ -363,7 +363,7 @@ test.describe("Coupon R0 (100%-off) bypasses PayFast", () => {
       // Apply the seeded 100%-off coupon. page.request carries the auth
       // cookies set by the UI sign-in above, so this hits the route as the
       // signed-in operator. The CSRF header mirrors the cf_csrf cookie per
-      // the double-submit pattern enforced in src/middleware.ts.
+      // the double-submit pattern enforced in src/proxy.ts.
       const applyRes = await page.request.post("/api/coupons/apply", {
         headers: csrfHeaders,
         data: { code: SEED.couponCode, bookingId: booking.id },

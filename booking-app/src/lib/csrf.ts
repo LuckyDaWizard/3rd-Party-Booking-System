@@ -4,13 +4,13 @@
 // Double-submit cookie CSRF protection (audit item #14).
 //
 // How it works:
-//   1. Middleware (src/middleware.ts) writes a random token to the
-//      CSRF_COOKIE_NAME cookie on every response. The cookie is NOT
+//   1. Proxy (src/proxy.ts, formerly middleware) writes a random token to
+//      the CSRF_COOKIE_NAME cookie on every response. The cookie is NOT
 //      httpOnly so client JS can read it.
 //   2. Client-side fetch interceptor (src/app/providers.tsx) reads the
 //      cookie on every state-changing request (POST/PUT/PATCH/DELETE)
 //      and sends the value back in the CSRF_HEADER_NAME header.
-//   3. Middleware validates that the header matches the cookie. An
+//   3. Proxy validates that the header matches the cookie. An
 //      attacker on a different origin can't read our cookie (Same-Origin
 //      Policy) so they can't forge the header. Legitimate same-origin
 //      JS can.

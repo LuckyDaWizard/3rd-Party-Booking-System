@@ -13,8 +13,8 @@ import {
 //
 // Installs a global fetch interceptor that attaches the CSRF token header
 // to every state-changing request (POST/PUT/PATCH/DELETE). This pairs with
-// the middleware in src/middleware.ts which validates the header against
-// the cookie (double-submit cookie pattern — audit #14).
+// the proxy in src/proxy.ts which validates the header against the cookie
+// (double-submit cookie pattern — audit #14).
 //
 // The interceptor is a one-time monkey-patch of window.fetch. We do it here
 // (not at module top level) because it has to run in the browser after

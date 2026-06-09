@@ -8,7 +8,7 @@ import {
 } from "@/lib/csrf"
 
 // =============================================================================
-// Next.js middleware — edge runtime
+// Next.js proxy (formerly middleware)
 //
 // Implements the double-submit cookie CSRF defence for audit item #14.
 // Runs on every request that matches the `matcher` config below.
@@ -38,8 +38,10 @@ import {
 // Safe methods (GET/HEAD/OPTIONS) are never validated — they shouldn't
 // be state-changing anyway, and blocking them would break normal browsing.
 //
-// Runs on edge runtime — no Node crypto, use the Web Crypto API's
-// crypto.getRandomValues() for the token.
+// Runs on the Node.js runtime (Next.js 16 changed the default from Edge
+// when middleware was renamed to proxy). `crypto.getRandomValues()` is
+// available as a Web Crypto API global in Node 20+ — same shape as
+// before. The `runtime` config option is not allowed in proxy files.
 // =============================================================================
 
 function generateToken(): string {
@@ -114,8 +116,10 @@ function requestHasBody(request: NextRequest): boolean {
  * /api/admin/cleanup/sweep, and /api/admin/incidents. Constant-time
  * compare. Returns false if CRON_SECRET isn't configured (cron disabled).
  *
- * Mirrors `isAuthorizedCronCall` in lib/api-auth.ts but runs on edge
- * runtime, so it uses the local constantTimeEqual rather than node:crypto.
+ * Mirrors `isAuthorizedCronCall` in lib/api-auth.ts. Kept inline using the
+ * local constantTimeEqual rather than node:crypto's timingSafeEqual to
+ * preserve the prior Edge-runtime implementation — keeping it portable
+ * means a future move back to Edge would be a no-op.
  */
 function isCronCall(request: NextRequest): boolean {
   const expected = process.env.CRON_SECRET
@@ -125,7 +129,7 @@ function isCronCall(request: NextRequest): boolean {
   return constantTimeEqual(provided, expected)
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const method = request.method.toUpperCase()
 
