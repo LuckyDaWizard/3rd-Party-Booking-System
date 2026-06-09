@@ -86,6 +86,7 @@ The list pagination component (`components/list-pagination.tsx`) exports `usePag
 | New entity management page | Copy the **client-management** triad as the template (list `/[entity]/page.tsx`, add `/[entity]/add/page.tsx`, manage `/[entity]/manage/page.tsx`). See memory `feedback_pattern_reuse` |
 | Notification banners after delete / status change | Pass via URL search params (`?deleted=Name` / `?statusChanged=disabled&unitName=Name`), read via `useSearchParams()` on the list page, render with `<Banner>`, then `window.history.replaceState` to clean the URL |
 | Sidebar dropdown auto-close on nav | Use `prevPathnameRef` to detect actual pathname changes; don't close on every render of a non-matching route |
+| Interactive submit button that creates / mutates a row | **Two-layer double-click guard.** Layer 1: synchronous `useRef<boolean>` at the top of the onClick handler (BEFORE any await) — `disabled={submitting}` alone is NOT enough because React batches state updates. Layer 2: Promise-level dedup in the store action (concurrent callers share the same Promise). Wrap the handler body in `try/finally` so state resets on every exit path including thrown errors. See memory `feedback_double_click_guard` for the canonical pattern; D19 (`booking-store.tsx:createBooking`) is the reference implementation. |
 
 ## Brand tokens
 
