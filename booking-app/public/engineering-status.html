@@ -381,6 +381,22 @@
     <p class="desc">New spec <code>tests/monthly-invoice.spec.ts</code> covers the <code>bill_monthly = true</code> auto-skip payment path &mdash; the final payment branch without regression coverage. Three tests in serial mode mirror the self-collect spec shape: (a) <strong>Authenticated mark-monthly-invoice happy path</strong> &mdash; status flips to <em>Payment Complete</em>, <code>payment_type = "monthly_invoice"</code> (path-distinguishing &mdash; NOT <code>payfast</code>, <code>coupon_comp</code>, or <code>self_collect</code>), <code>payment_confirmed_at</code> stamped, <code>validated_by_user_id</code> / <code>validated_by_name</code> populated via fire-and-forget <code>recordBookingValidator()</code>. (b) <strong>Unauthenticated request is rejected</strong> &mdash; CSRF proxy returns 403 before route auth runs; booking row fully unchanged. (c) <strong>Coupon-on-monthly-invoice is rejected</strong> &mdash; <code>allow_coupons = false</code> gate fires at <code>/api/coupons/apply</code>; <code>payment_type</code> stays <code>"monthly_invoice"</code>. First spec to fully consume the just-extracted <code>tests/_helpers/</code> modules &mdash; clean import-only consumption proves the extraction. 453 LOC (~25% smaller than the comparable self-collect spec before the extraction). Source-of-truth verified pre-write: <code>requireAuthenticated()</code> + unit-scope guard, no PIN gate (it's the auto-skip path), <code>payment_amount</code> preserved on non-null bookings. <strong>15 / 15</strong> Playwright tests passing across all 4 spec files (coupon-r0 + coupon-normal-discount + self-collect + monthly-invoice) in 2.5m &mdash; full coverage of all 5 production payment paths. <em>(Only remaining gap: PayFast ITN simulation, which needs a PayFast mock similar to the CareFirst one. Logged as a future ticket.)</em></p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>D17/C1 &mdash; PayFast mock infrastructure (idle plumbing) <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-09 &middot; 4189adc</span>
+    </div>
+    <p class="desc">First of 5 planned commits to close the PayFast ITN coverage gap flagged in D16. <strong>Production code changes</strong> (<code>src/lib/payfast.ts</code>): <code>getValidateUrl()</code> honours <code>PAYFAST_VALIDATE_URL_OVERRIDE</code> at call time so Playwright's <code>webServer.env</code> injection isn't bypassed by Node module-cache ordering; new <code>getPayfastApiBase()</code> honours <code>PAYFAST_API_BASE_OVERRIDE</code> the same way for the reconcile flow; <strong>both overrides gated on <code>NODE_ENV !== "production"</code></strong> as defence-in-depth (Code Review S1 &mdash; a stale env var leaking into a prod VPS shell is a no-op rather than silently redirecting real ITN confirmations at localhost, which would mark every payment as fraudulent); boot-time URL validation mirrors the CareFirst pattern. <strong>Mock server</strong> at <code>tests/_setup/payfast-mock-server.ts</code> on port 4748 implements <code>POST /eng/query/validate</code> (plain-text VALID/INVALID matching production's contract), <code>GET /transactions/history</code> (<code>{data:{response:[]}}</code> shape; C5 will add per-test seeding), and introspection endpoints. <code>PayfastMockMode</code> discriminator covers <code>valid</code> (default, implemented), <code>invalid</code> (C4, implemented), and <code>timeout</code> (C4, implemented). Lifecycle wired into <code>global-setup.ts</code> + <code>global-teardown.ts</code> via <code>Promise.allSettled</code>. 44 / 44 Playwright tests still passing &mdash; mock boots/dies cleanly with the suite but idle (no spec uses it).</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>D17/C2 &mdash; PayFast ITN happy path + signature helper <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-09 &middot; 0134706</span>
+    </div>
+    <p class="desc">First test to exercise the PayFast mock from C1. New <code>tests/_helpers/payfast.ts</code>: <code>signItn()</code> mirrors production's <code>computeItnSignature()</code> <strong>byte-for-byte</strong> (Code Review verified line-by-line: <code>Object.entries</code> insertion order, <code>encodeURIComponent</code> + <code>%20</code>&rarr;<code>+</code>, empties included, no trim, MD5 hex lowercase, passphrase only if non-empty, <code>signature</code> field excluded from signing string). <code>postItnToApp()</code> sends form-encoded body with <code>x-forwarded-for: 127.0.0.1</code> so <code>validateItnSourceIp()</code>'s non-production carve-out accepts it. Mock-control helpers (<code>setPayfastMockMode</code>, <code>clearPayfastMockReceived</code>, <code>getPayfastMockReceivedForBooking</code>) follow the D11 booking-ID filter pattern (CR S1: filter also pins on <code>r.path === "/eng/query/validate"</code> so future routes through the mock can't inflate the count). New <code>tests/payfast-itn-happy-path.spec.ts</code> walks a signed COMPLETE ITN through <code>/api/payfast/notify</code> &rarr; mock <code>/eng/query/validate</code> &rarr; state-machine flip. <strong>Critical correction</strong> by the test-writing agent: production's notify route does NOT stamp <code>payment_type</code> (only the three bypass routes do &mdash; <code>self_collect</code>, <code>coupon_comp</code>, <code>monthly_invoice</code>). The PayFast path discriminator is the inverse: <code>pf_payment_id IS NOT NULL AND payment_type IS NULL</code>. Test pins both halves. Audit log row verified by polling for the exact production strings (<code>actor_role="system"</code>, <code>action="update"</code>, <code>changes["Payment Status"].new="Payment Complete (ITN)"</code>, <code>actor_id=SYSTEM_ACTOR_ID</code>). 45 / 45 tests passing. <strong>Open architectural question (D18):</strong> should the notify route also stamp <code>payment_type = "payfast"</code> for symmetry across all 5 paths? Would eliminate the fragile "negative space" invariant. Deferred for separate decision + backfill migration.</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
     <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
@@ -434,6 +450,33 @@
           </ol>
         </td>
         <td class="effort">Half-day &plus; business sign-off</td>
+      </tr>
+      <tr>
+        <td class="id">D17/C3-C5</td>
+        <td>
+          <strong>PayFast mock &mdash; remaining 5 tests.</strong> Infrastructure (C1+C2) shipped today. Remaining work is mechanical:
+          <ul style="margin-top: 8px;">
+            <li><strong>C3</strong> &mdash; Failed ITN (status flips to remain <em>In Progress</em>) + duplicate ITN (idempotency: second POST short-circuits at the <code>pf_payment_id</code> check, then at the state-machine guard).</li>
+            <li><strong>C4</strong> &mdash; Bad signature (tampered field with original signature &rarr; 400, no state change) + amount tamper (re-signed payload with wrong <code>amount_gross</code> &rarr; 400 from <code>validateItnAmount</code>). Mock's <code>invalid</code> + <code>timeout</code> modes already wired in C1.</li>
+            <li><strong>C5</strong> &mdash; Reconcile flow via <code>GET /transactions/history</code> mock seeding. Adds <code>setMockTransactions()</code> helper on the mock side. Booking stuck <em>In Progress</em> &rarr; reconcile route hits mock &rarr; finds the COMPLETE txn &rarr; booking flips.</li>
+          </ul>
+          Each commit leaves the suite green. Total ~2 hours mechanical work; the hard part (signature math + first end-to-end proof) shipped in C2.
+        </td>
+        <td class="effort">~2 hours mechanical</td>
+      </tr>
+      <tr>
+        <td class="id">D18</td>
+        <td>
+          <strong>Production <code>payment_type = "payfast"</code> on notify route &mdash; symmetry across all 5 paths.</strong>
+          Flagged by Code Review on D17/C2. Production's <code>/api/payfast/notify</code> does NOT stamp <code>payment_type</code> on success &mdash; only the three bypass routes do (<code>self_collect</code>, <code>coupon_comp</code>, <code>monthly_invoice</code>). PayFast bookings are currently detected by negative space (<code>pf_payment_id IS NOT NULL AND payment_type IS NULL</code>), which is fragile: a future bypass route that forgets to stamp <code>payment_type</code> would silently look like a PayFast booking. D18 would:
+          <ol style="margin-top: 8px;">
+            <li>Add <code>payment_type: "payfast"</code> to the <code>transitionStatus</code> patch in <code>notify/route.ts:223-227</code> (one line).</li>
+            <li>Write migration 040 to backfill: <code>UPDATE bookings SET payment_type = 'payfast' WHERE pf_payment_id IS NOT NULL AND payment_type IS NULL</code>.</li>
+            <li>Update <code>tests/payfast-itn-happy-path.spec.ts</code> to pin the positive assertion (<code>payment_type = "payfast"</code> instead of <code>IS NULL</code>).</li>
+          </ol>
+          Optional cleanup; not blocking. Defer until user decides; the test as written correctly pins current production behaviour.
+        </td>
+        <td class="effort">Half-day incl. migration</td>
       </tr>
     </tbody>
   </table>
