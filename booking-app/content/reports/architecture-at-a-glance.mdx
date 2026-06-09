@@ -78,7 +78,7 @@ All inbound traffic is HTTPS. See [Deployment & Hosting](/reports/deployment-hos
 
 <Section id="request-life" num="03 — Request lifecycle" title="Lifecycle of one booking">
 
-A single booking flows through these stages — each is a request to our Next.js server, validated by middleware, RLS-scoped at the DB, and audit-logged.
+A single booking flows through these stages — each is a request to our Next.js server, validated by the proxy (CSRF + admin-route auth), RLS-scoped at the DB, and audit-logged.
 
 ```mermaid
 flowchart LR

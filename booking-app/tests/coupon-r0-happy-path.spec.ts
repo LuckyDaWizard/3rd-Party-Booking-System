@@ -270,8 +270,13 @@ async function getMockReceivedForBooking(
 ): Promise<MockRecordedRequest[]> {
   const all = await getMockReceived()
   return all.filter((r) => {
-    const body = r.body as { uniqueReference?: string } | null
-    return body?.uniqueReference === bookingId
+    // The mock's readJsonBody() falls back to returning the raw string
+    // when JSON.parse fails, so r.body may be string | null | object.
+    // A non-object body intentionally fails the filter — a malformed
+    // body isn't a request we're trying to count for any booking.
+    const body = r.body
+    if (!body || typeof body !== "object") return false
+    return (body as { uniqueReference?: string }).uniqueReference === bookingId
   })
 }
 

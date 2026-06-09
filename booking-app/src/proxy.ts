@@ -259,7 +259,7 @@ export function proxy(request: NextRequest) {
 }
 
 // Match everything EXCEPT static assets and image optimiser output. This
-// keeps the middleware off the hot path for CSS/JS/font/image requests
+// keeps the proxy off the hot path for CSS/JS/font/image requests
 // while still running on all API routes and page loads.
 export const config = {
   matcher: [

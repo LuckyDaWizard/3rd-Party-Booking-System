@@ -64,10 +64,10 @@ function installCsrfFetchInterceptor() {
 
     const token = getCsrfToken()
     if (!token) {
-      // No cookie yet — the middleware will set it on the response, so
+      // No cookie yet — the proxy will set it on the response, so
       // subsequent requests will have it. Send this one without a token
       // so the original request surface (error messages, status codes)
-      // remains unchanged. The middleware will 403 it, which matches
+      // remains unchanged. The proxy will 403 it, which matches
       // the intended behaviour.
       return originalFetch(input, init)
     }

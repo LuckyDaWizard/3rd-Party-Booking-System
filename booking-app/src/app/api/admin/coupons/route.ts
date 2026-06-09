@@ -16,7 +16,7 @@ import {
 // GET  /api/admin/coupons — list all coupons (system_admin)
 // POST /api/admin/coupons — create a coupon (system_admin)
 //
-// Both gated to system_admin only. The middleware also default-denies
+// Both gated to system_admin only. The proxy also default-denies
 // /api/admin/* without a session, so this is belt + braces.
 // =============================================================================
 

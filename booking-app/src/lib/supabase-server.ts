@@ -37,7 +37,7 @@ export async function getSupabaseServer() {
         } catch {
           // Called from a Server Component — cookies() is read-only there.
           // Safe to ignore: any session refresh will be picked up on the next
-          // request, or by middleware if/when we add one.
+          // request, or by the proxy in src/proxy.ts.
         }
       },
     },

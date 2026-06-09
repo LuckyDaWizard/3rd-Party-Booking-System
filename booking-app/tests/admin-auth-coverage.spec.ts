@@ -68,7 +68,7 @@ test.describe("/api/admin/* requires authentication", () => {
       const ctx = await playwrightRequest.newContext()
 
       // Hit the endpoint with every method that might carry meaning. The
-      // middleware default-deny fires regardless of method; the role check
+      // proxy default-deny fires regardless of method; the role check
       // inside the handler matches the audit's failure mode.
       const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const
       const observedStatuses: number[] = []
