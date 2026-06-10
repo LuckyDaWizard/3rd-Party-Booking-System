@@ -431,6 +431,14 @@
 
   <div class="sprint">
     <div class="sprint-header">
+      <h3>Retention sweep &mdash; now anonymises Discarded bookings too (POPIA &sect;14) <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-10 &middot; 83a41cc</span>
+    </div>
+    <p class="desc">Closed a POPIA &sect;14 gap. The privacy retention-sweep only anonymised <code>Abandoned</code> bookings &mdash; <code>Discarded</code> bookings carry the same patient PII (operator entered details, then discarded) but were never aged out by any sweep, so they persisted indefinitely. Abandoned and Discarded are privacy-equivalent (PII, no completed consultation), so both now share the 30-day anonymise clock: candidate query went from <code>.eq("status","Abandoned")</code> to <code>.in("status", ["Abandoned","Discarded"])</code>; <code>RETENTION_ABANDONED_DAYS</code> &rarr; <code>RETENTION_INCOMPLETE_DAYS</code> (value unchanged). Still <strong>anonymises</strong> (nulls PII + stamps <code>erased_at</code> tombstone), not hard-delete; same idempotency guard + awaited audit row. Code Review verified via the state machine that <code>Discarded</code> is reachable only from <em>In Progress</em> and is terminal &mdash; structurally pre-payment, so HPCSA medical-records retention never applies. <strong>Requires deploy</strong> (production code change; no migration). Surfaced follow-up D22 (the doc says 90 days + "not yet enforced"; code enforces 30 days and has run via cron since 2026-05-29 &mdash; reconcile the window).</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
       <h3>B4 Part B &mdash; Env-var management decoupled from the Hostinger panel <span class="pill shipped">Resolved</span></h3>
       <span class="commit">2026-06-10</span>
     </div>
@@ -468,6 +476,13 @@
           <strong>Multi-client <code>clientCode</code> routing</strong> &mdash; <span class="pill warn">Blocked on CareFirst</span> Every booking still lands in <em>one</em> CareFirst client account regardless of which client owns the unit it was captured in. Solution sketch: add <code>carefirst_client_code</code> &plus; <code>carefirst_plan_code</code> to the <code>clients</code> table, UI on the Manage Client &middot; Settings tab, resolve per-booking via <code>unit.client_id</code>, env-var fallback for the transition period. <strong>Gating step:</strong> CareFirst dev team needs to answer the four questions in the <a href="/reports/multi-client-routing">multi-client routing RFC</a> before we can implement &mdash; specifically whether <code>auto-register</code> accepts arbitrary <code>clientCode</code> per request and whether we need per-client API keys. Once unblocked: ~4h engineering + Code Review.
         </td>
         <td class="effort">Half-day after unblock</td>
+      </tr>
+      <tr>
+        <td class="id">D22</td>
+        <td>
+          <strong>POPIA retention doc&harr;code reconciliation.</strong> <code>content/reports/popia-data-retention.mdx</code> states incomplete bookings are retained <strong>90 days</strong> and the sweep is "designed, not yet enforced." Reality: the sweep enforces <strong>30 days</strong>, has run via cron since 2026-05-29, and (as of <code>83a41cc</code>) covers Abandoned <em>and</em> Discarded. Decide the canonical window (30 vs 90), then align <code>RETENTION_INCOMPLETE_DAYS</code> + the mdx + the "enforced" wording. Not urgent &mdash; 30 &lt; 90 is the more conservative (POPIA-safe) direction. Policy call.
+        </td>
+        <td class="effort">~30 min</td>
       </tr>
       <tr>
         <td class="id">B6</td>
