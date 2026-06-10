@@ -431,6 +431,14 @@
 
   <div class="sprint">
     <div class="sprint-header">
+      <h3>B4 Part B &mdash; Env-var management decoupled from the Hostinger panel <span class="pill shipped">Resolved</span></h3>
+      <span class="commit">2026-06-10</span>
+    </div>
+    <p class="desc">Closes the compose-label-wipe risk. <strong>Part A</strong> (2026-06-08) already made the repo <code>docker-compose.yml</code> the source of truth with the full Traefik/HSTS config, so <code>git pull</code> brings the labels rather than wiping them &mdash; the setup is self-healing (if the live compose is ever clobbered, <code>git pull &amp;&amp; docker compose up -d</code> restores the labels). <strong>Part B</strong> chose Option (b): all env vars live in a single SSH-managed <code>/opt/3rd-Party-Booking-System/booking-app/.env</code> that Docker Compose auto-reads for <code>${VAR}</code> build-args + runtime interpolation. Verified on the VPS: the <code>.env</code> already existed (since 2026-06-03), is git-ignored, and carries every key (CAREFIRST_*, CRON_SECRET, NEXT_PUBLIC_*, PAYFAST_*, SMTP_*, SUPABASE_SERVICE_ROLE_KEY); backed it up before relying on it. <strong>Policy:</strong> manage env by editing <code>.env</code> over SSH then <code>docker compose up -d</code> &mdash; <strong>never</strong> the Hostinger Docker Manager Environment panel (it regenerates compose and wipes labels). Documented in OPERATIONS.md &rarr; "Environment variables", added a tracked <code>booking-app/.env.example</code>, and corrected stale <code>.env.local</code> references in the cron-secret docs. No VPS change needed &mdash; the infra was already in shape; this was verification + documentation.</p>
+  </div>
+
+  <div class="sprint">
+    <div class="sprint-header">
       <h3>D18 &mdash; Investigated &amp; closed without a production change <span class="pill shipped">Resolved</span></h3>
       <span class="commit">2026-06-10</span>
     </div>
@@ -460,13 +468,6 @@
           <strong>Multi-client <code>clientCode</code> routing</strong> &mdash; <span class="pill warn">Blocked on CareFirst</span> Every booking still lands in <em>one</em> CareFirst client account regardless of which client owns the unit it was captured in. Solution sketch: add <code>carefirst_client_code</code> &plus; <code>carefirst_plan_code</code> to the <code>clients</code> table, UI on the Manage Client &middot; Settings tab, resolve per-booking via <code>unit.client_id</code>, env-var fallback for the transition period. <strong>Gating step:</strong> CareFirst dev team needs to answer the four questions in the <a href="/reports/multi-client-routing">multi-client routing RFC</a> before we can implement &mdash; specifically whether <code>auto-register</code> accepts arbitrary <code>clientCode</code> per request and whether we need per-client API keys. Once unblocked: ~4h engineering + Code Review.
         </td>
         <td class="effort">Half-day after unblock</td>
-      </tr>
-      <tr>
-        <td class="id">B4</td>
-        <td>
-          <strong>Compose-drift &plus; Hostinger UI replacement</strong> &mdash; the repo's <code>booking-app/docker-compose.yml</code> is significantly out of sync with the live VPS file (live has Host-routed <code>websecure</code> entrypoint, Let&rsquo;s Encrypt cert resolver, TLS=true, and now HSTS labels &mdash; none of which are in git). If anyone runs the documented deploy one-liner with <code>git pull</code>, it overwrites live with the stale repo version and wipes every production label. <strong>Two-part fix:</strong> (a) pull the live compose into git as the new source of truth, (b) address the Hostinger Docker Manager UI rewriting compose on env-var save &mdash; either commit to SSH-only deploys forever, or push labels through env-var-conditional config. Same underlying problem as the original B4.
-        </td>
-        <td class="effort">Half-day</td>
       </tr>
       <tr>
         <td class="id">B6</td>

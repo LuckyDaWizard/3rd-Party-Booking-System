@@ -478,18 +478,50 @@ What this does:
 4. The previous `booking-app:<old-sha>` stays in `docker images` until
    pruned — that's our rollback target.
 
-> ⚠️ **Compose-drift caveat (backlog B4).** The repo's
-> `booking-app/docker-compose.yml` does NOT currently contain the
-> production Traefik labels (Host rule, websecure entrypoint, Let's
-> Encrypt cert resolver, HSTS middleware). The live VPS file does.
-> The `git pull` step above is safe **only because** no commit on
-> `main` has overwritten the compose file — the live edits stay in
-> place. If you change the repo's compose, audit the live file first
-> or you'll wipe the production labels. Quick check:
+> ✅ **Compose drift — resolved (backlog B4).** The repo's
+> `booking-app/docker-compose.yml` IS now the source of truth and
+> contains the full production Traefik config (Host rule, websecure
+> entrypoint, Let's Encrypt cert resolver, HSTS middleware) — Part A,
+> 2026-06-08. So `git pull` is safe: it brings the labels rather than
+> wiping them. If the live compose ever gets clobbered (see the env-var
+> warning below), a plain `git pull && docker compose up -d` restores
+> the labels from git. Quick check after any deploy:
 > ```bash
 > grep -c traefik /opt/3rd-Party-Booking-System/booking-app/docker-compose.yml
 > # Expect 10 (6 router + 4 HSTS middleware)
 > ```
+
+### Environment variables (backlog B4 Part B — resolved 2026-06-10)
+
+**All runtime + build env vars live in a single SSH-managed file on the VPS:**
+`/opt/3rd-Party-Booking-System/booking-app/.env`. Docker Compose reads it
+automatically (same directory as `docker-compose.yml`) for both `${VAR}`
+build-args and runtime `environment:` interpolation. The file is **git-ignored**
+(`.env` in `.gitignore`), so `git pull` never touches it.
+
+**To change an env var:**
+```bash
+cd /opt/3rd-Party-Booking-System/booking-app
+cp .env .env.backup-$(date +%Y%m%d)      # always back up first
+nano .env                                 # edit the value
+docker compose up -d                      # recreate the container with new env
+# If you changed a NEXT_PUBLIC_* var (a build arg), rebuild instead:
+#   docker compose build && docker compose up -d
+```
+
+> 🚫 **NEVER use the Hostinger Docker Manager "Environment" panel (or its
+> compose-edit form).** Saving anything there regenerates
+> `docker-compose.yml` and **wipes the Traefik/HSTS labels** (it has done so
+> twice during the HTTPS rollout). Manage env exclusively via the `.env` file
+> over SSH. If the panel ever does clobber the compose, recover with
+> `cd /opt/3rd-Party-Booking-System && git pull && cd booking-app && docker compose up -d`
+> — the labels live in git (Part A) and will be restored.
+
+The required keys are documented (names only, no secrets) in
+`booking-app/.env.example` in the repo. `NODE_ENV` and `PORT` are NOT in `.env`
+— `NODE_ENV=production` is hardcoded in `docker-compose.yml` and `PORT` comes
+from the image. Note: `.env.local` is the LOCAL-DEV file (developer machines);
+the VPS uses `.env`. Don't confuse the two.
 
 ### Verify the deploy
 
@@ -617,16 +649,18 @@ constant-time, the secret must be at least 16 chars.
 
 ### One-time setup on the VPS
 
-1. Make sure `CRON_SECRET` is set in the app's env (the `.env.local` the
-   container is started with). Generate one if needed:
+1. Make sure `CRON_SECRET` is set in the VPS env file (see "Environment
+   variables" above — the container reads
+   `/opt/3rd-Party-Booking-System/booking-app/.env`, NOT `.env.local`).
+   Generate one if needed:
    ```bash
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
-   Add to `/opt/3rd-Party-Booking-System/booking-app/.env.local`:
+   Add to `/opt/3rd-Party-Booking-System/booking-app/.env`:
    ```
    CRON_SECRET=<paste the generated value>
    ```
-   Redeploy so the running container picks it up.
+   Then `docker compose up -d` so the running container picks it up.
 
 2. Create `/etc/cron.d/booking-app` (replace `<SECRET>` with the same value):
    ```cron
@@ -673,7 +707,8 @@ constant-time, the secret must be at least 16 chars.
 
 ### Rotating the secret
 
-If the secret leaks, regenerate, update both `.env.local` (redeploy) and
+If the secret leaks, regenerate, update both the VPS `.env` (then
+`docker compose up -d`) and
 `/usr/local/bin/booking-cron.sh`, then `systemctl reload cron` (or just wait
 — the new schedule reads it on the next tick).
 
