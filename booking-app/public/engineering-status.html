@@ -421,8 +421,17 @@
     <p class="desc"><strong>Production hardening</strong> surfaced by the D17/C4 work. <code>validateItnServerConfirmation()</code> (step 4 of ITN validation &mdash; the POST back to PayFast's <code>/eng/query/validate</code>) used a bare <code>fetch()</code> with no timeout; a hung PayFast endpoint would hold the ITN handler open for Node's ~30s default or longer, starving the single-vCPU box. Added <code>AbortSignal.timeout(PAYFAST_CONFIRM_TIMEOUT_MS = 5000)</code> &mdash; the existing catch swallows the <code>TimeoutError</code> into a <code>false</code> return, which the notify route already maps to a transient <strong>502</strong> (PayFast retries on non-2xx). Mirrors <code>CAREFIRST_TIMEOUT_MS</code> on the SSO call; no distinct timeout message since the path is server-to-server. <strong>Requires deploy</strong> (production code change). Unblocks the timeout&rarr;502 test C4 had to skip: Test 4 in <code>payfast-itn-rejections.spec.ts</code> (mock holds 8s, production aborts at 5s) asserts 502 + booking untouched <strong>and elapsed time in [4s, 7.5s)</strong> &mdash; the timing assertion is load-bearing: it proves the abort actually fired and distinguishes this from Test 3's INVALID path, which returns the identical 502 + reason string near-instantly (Code Review flagged the conflation; this closes it). 53 &rarr; 54 tests. Code Review: approve, no blockers.</p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>D20 &mdash; Server-authority booking create (POST /api/bookings/create) <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-10 &middot; 2edc658 &middot; migration 040</span>
+    </div>
+    <p class="desc">The real fix behind D19's client-side band-aid. Booking creation moves off the direct browser&rarr;Supabase insert and behind a server route, so the duplicate-booking incident (Lucky Mokoena) is now defended server-side. The D19 guards stay belt-and-braces. <strong>Route:</strong> <code>requireAuthenticated</code> + per-user rate limit (10/min, matches PayFast initiate); DB-backed idempotency via <code>X-Idempotency-Key</code> &rarr; <code>bookings.idempotency_key</code> (pre-check + 23505 race catch, both <strong>caller-scoped</strong> so a crafted/replayed key can't resolve to another user's booking &mdash; CR); server-forced <code>status="In Progress"</code> + <code>current_step="search"</code>; a snake_case column whitelist so a client can't smuggle <code>id</code>/<code>payment_*</code>/<code>coupon_*</code>/audit columns; in-code replication of the migration-016 RLS INSERT guarantees (status + unit membership; system_admin bypass) since service role bypasses RLS; abandon-prior <strong>scoped to <code>created_by = caller</code></strong> (not unit-wide) so a shared-unit peer's draft is never clobbered; create audit row <strong>awaited</strong> so the central-audit guarantee actually holds (CR). <strong>Migration 040:</strong> nullable <code>idempotency_key</code> + <code>created_by</code> columns, partial unique index on the key, partial index on <code>created_by WHERE In Progress</code>. No RLS change, no backfill, <code>IF NOT EXISTS</code> throughout &mdash; <strong>already applied to prod</strong>. <strong>Store:</strong> <code>createBooking()</code> direct insert/abandon &rarr; one fetch; key minted once inside the D19 in-flight dedup closure; CSRF via the global fetch interceptor; throw-on-error contract preserved. <strong>Caught pre-ship:</strong> an initial camelCase/snake_case contract mismatch between route and store that would have 400'd every create. 54 &rarr; 58 Playwright tests (happy path + audit, idempotent replay, no-unit 400, rate-limit 429; unit-scope 403 skipped &mdash; seeded user is system_admin). Code Review: approve, no critical findings. <strong>Requires deploy</strong> (production code change; migration already live).</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
+    <li><strong>040</strong> &mdash; <code>bookings.idempotency_key</code> + <code>bookings.created_by</code> + partial unique index (idempotency) + partial index (created_by WHERE In Progress). Backs D20's server-authority create. Applied to prod 2026-06-10.</li>
     <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
     <li><strong>039</strong> &mdash; <code>incidents_open_signature_unique</code> partial unique index &plus; <code>record_incident(...)</code> SECURITY DEFINER RPC. Collapses 2-3 sequential <code>recordIncident()</code> calls into 1 round-trip &mdash; especially valuable during outages when the function is hottest.</li>
   </ul>
@@ -474,13 +483,6 @@
           </ol>
         </td>
         <td class="effort">Half-day &plus; business sign-off</td>
-      </tr>
-      <tr>
-        <td class="id">D20</td>
-        <td>
-          <strong>Server-authority booking insert endpoint.</strong> Follow-up to D19. Currently the booking create is a direct Supabase insert from the browser &mdash; bypassing the API layer entirely. Means no server-side rate limit, no <code>X-Idempotency-Key</code> support, no central audit hook for create events. D20 would: (a) add <code>POST /api/bookings/create</code> with <code>requireAuthenticated()</code> + per-user rate limit (10/min like PayFast initiate) + optional idempotency-key header, (b) move the booking-store's direct insert to call this route, (c) keep the D19 client guards as belt-and-braces. A DB-level partial unique index on <code>(id_number, unit_id, status)</code> is a separate, riskier decision (blocks legitimate re-bookings). Flagged by Code Review on D19; not blocking.
-        </td>
-        <td class="effort">Half-day</td>
       </tr>
       <tr>
         <td class="id">D18</td>
