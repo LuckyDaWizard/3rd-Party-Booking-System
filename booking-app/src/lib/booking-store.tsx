@@ -463,45 +463,86 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
         return createBookingInFlightRef.current
       }
 
+      // Generate the idempotency key ONCE per in-flight operation, inside
+      // the IIFE that the dedup ref captures. A second caller that dedups
+      // onto this Promise reuses the SAME key — so even if the network
+      // layer retries, the server collapses both to a single booking.
+      // (D20: create moved behind POST /api/bookings/create for server-side
+      //  rate limiting, idempotency, and audit. The D19 dedup guards above
+      //  are kept belt-and-braces.)
       const inFlight = (async (): Promise<string> => {
-        // Abandon any existing "In Progress" bookings before creating a new
-        // one. `oldId` is captured once when the IIFE starts; concurrent
-        // callers that dedup onto this Promise share the same `oldId`
-        // snapshot. Intentional — the second caller would have captured the
-        // same value anyway since both clicks happen within milliseconds.
+        // `oldId` is captured once when the IIFE starts; concurrent callers
+        // that dedup onto this Promise share the same `oldId` snapshot. The
+        // server route now flips the prior In-Progress booking to Abandoned
+        // (we no longer do the supabase update here), but we still need the
+        // value to patch local state below.
         const oldId = activeBookingIdRef.current
-        if (oldId) {
-          await supabase
-            .from("bookings")
-            .update({ status: "Abandoned" })
-            .eq("id", oldId)
-            .eq("status", "In Progress")
-        }
 
-        const dbData = mapBookingToDb({
-          status: "In Progress",
-          currentStep: "search",
-          ...data,
-        })
+        const idempotencyKey = crypto.randomUUID()
 
-        const { data: row, error } = await supabase
-          .from("bookings")
-          .insert(dbData)
-          .select("*")
-          .single()
+        // Body = the same field object the old .insert() received, MINUS
+        // server-controlled fields. mapBookingToDb already omits id /
+        // timestamps / payment / coupon columns; we additionally drop
+        // status + current_step since the server forces those.
+        const body = mapBookingToDb(data)
+        delete body.status
+        delete body.current_step
 
-        if (error) {
-          console.error("Error creating booking:", error)
+        let res: Response
+        try {
+          res = await fetch("/api/bookings/create", {
+            method: "POST",
+            // CSRF: the global fetch interceptor in app/providers.tsx
+            // attaches the x-csrf-token header to all same-origin
+            // state-changing requests, so we don't set it manually here.
+            headers: {
+              "Content-Type": "application/json",
+              "X-Idempotency-Key": idempotencyKey,
+            },
+            body: JSON.stringify(body),
+          })
+        } catch (err) {
+          console.error("Error creating booking:", err)
           setLastError("Couldn't start a new booking. Please try again — if it keeps failing, sign out and back in.")
-          throw error
+          throw err
         }
 
-        const newBooking = mapDbToBooking(row as DbBooking)
-        const id = newBooking.id
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as {
+            error?: string
+          }
+          console.error("Error creating booking:", res.status, payload.error)
+          setLastError("Couldn't start a new booking. Please try again — if it keeps failing, sign out and back in.")
+          throw new Error(payload.error ?? `Create booking failed (HTTP ${res.status})`)
+        }
+
+        const result = (await res.json()) as {
+          ok: boolean
+          bookingId: string
+        }
+        const id = result.bookingId
+
+        // Reconstruct the local booking object. The route returns only the
+        // id, so we rebuild the row from the data we sent + the known
+        // server defaults. mapBookingToDb→mapDbToBooking round-trips the
+        // patient/clinical fields; we layer the server-forced defaults
+        // (status "In Progress", currentStep "search") on top. Timestamps
+        // are approximated client-side — the next fetch reconciles them.
+        const now = new Date().toISOString()
+        const sentBooking = mapDbToBooking({
+          ...(mapBookingToDb(data) as Partial<DbBooking>),
+          id,
+          created_at: now,
+          updated_at: now,
+          status: "In Progress",
+          current_step: "search",
+        } as DbBooking)
+
         setActiveBookingId(id)
 
         // Patch local state: prepend the new booking + flip the previous
-        // active booking (if any) to Abandoned. Order matches the server
+        // active booking (if any) to Abandoned (the server already did this
+        // server-side; we mirror it locally). Order matches the server
         // fetch (created_at DESC) so the new row sits at the top.
         setBookings((prev) => {
           const updated = oldId
@@ -511,21 +552,11 @@ export function BookingStoreProvider({ children }: { children: ReactNode }) {
                   : b
               )
             : prev
-          return [newBooking, ...updated]
+          return [sentBooking, ...updated]
         })
 
-        const patientName =
-          [data.firstNames, data.surname].filter(Boolean).join(" ").trim()
-        postBookingAudit({
-          bookingId: id,
-          action: "create",
-          entityName: patientName
-            ? `Booking for ${patientName}`
-            : "Booking (no patient info yet)",
-          changes: {
-            Status: { new: "In Progress" },
-          },
-        })
+        // NOTE: the create-path audit row is now written server-side by the
+        // route, so we no longer call postBookingAudit("create") here.
         return id
       })()
 
