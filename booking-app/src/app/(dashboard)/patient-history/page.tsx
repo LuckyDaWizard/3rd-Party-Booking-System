@@ -36,6 +36,16 @@ function toCsv(rows: Record<string, string>[]): string {
   if (rows.length === 0) return ""
   const headers = Object.keys(rows[0])
   const escape = (val: string) => {
+    // Excel/Sheets formula-injection + mangling guard. A field that begins with
+    // =, +, -, @ (or a leading control char) is evaluated as a formula on open:
+    // an E.164 number like "+27821234567" would be coerced to the number
+    // 27821234567, silently losing its leading "+", and a hostile value could
+    // execute. Emit such fields as an Excel string-formula ="value" so they
+    // render as literal text and can never run. (Targets Excel, which this
+    // export is built for — see the BOM below.)
+    if (/^[=+\-@\t\r]/.test(val)) {
+      return `"=""${val.replace(/"/g, '""')}"""`
+    }
     if (/[",\r\n]/.test(val)) return `"${val.replace(/"/g, '""')}"`
     return val
   }
