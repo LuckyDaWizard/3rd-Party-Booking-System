@@ -12,14 +12,20 @@ import { apiError } from "@/lib/api-response"
 // POST /api/admin/privacy/retention-sweep
 //
 // POPIA §14 — information must not be retained longer than necessary for
-// the purpose it was collected for. This endpoint anonymises abandoned
-// bookings older than RETENTION_ABANDONED_DAYS. The CareFirst T&Cs state
-// a general 12-month retention, but abandoned bookings never completed
-// the original purpose (consultation) so their retention clock is tighter.
+// the purpose it was collected for. This endpoint anonymises INCOMPLETE
+// bookings (Abandoned OR Discarded) older than RETENTION_INCOMPLETE_DAYS.
+// The CareFirst T&Cs state a general 12-month retention, but an incomplete
+// booking never completed the original purpose (consultation) so its
+// retention clock is tighter.
 //
-// Scope: only Abandoned bookings with no completed payment. Completed
-// bookings ("Payment Complete" / "Successful") are out of scope here
-// because they're covered by medical-records retention rules (HPCSA) —
+// Scope: Abandoned AND Discarded bookings (both reached the patient-details
+// step — so they carry PII — but never resulted in a consultation). A
+// Discarded booking is the operator explicitly walking away; an Abandoned
+// one is the flow being left open. Privacy-wise they're identical: PII with
+// no completed purpose, so both age out on the same clock.
+//
+// Completed bookings ("Payment Complete" / "Successful") are out of scope
+// here because they're covered by medical-records retention rules (HPCSA) —
 // those should be handled by a separate medical-records cleanup process
 // that runs on a multi-year schedule, not this one.
 //
@@ -36,7 +42,15 @@ import { apiError } from "@/lib/api-response"
 // visit is fine (covers a small team with no scheduler).
 // =============================================================================
 
-const RETENTION_ABANDONED_DAYS = 30
+// Abandoned + Discarded bookings share this clock — both carry PII with no
+// completed consultation. (Renamed from RETENTION_ABANDONED_DAYS when the
+// sweep was extended to Discarded; value unchanged.)
+const RETENTION_INCOMPLETE_DAYS = 30
+
+/** Statuses this sweep anonymises — incomplete bookings that carry PII but
+ *  never completed the consultation purpose. Completed bookings are governed
+ *  by HPCSA medical-records retention, not this policy. */
+const SWEEPABLE_STATUSES = ["Abandoned", "Discarded"] as const
 
 /** Columns cleared during retention anonymisation. Mirrors the erasure
  *  endpoint's set so both code paths produce consistent tombstones. */
@@ -94,16 +108,16 @@ export async function POST(request: Request) {
   }
 
   const cutoff = new Date(
-    Date.now() - RETENTION_ABANDONED_DAYS * 24 * 60 * 60 * 1000
+    Date.now() - RETENTION_INCOMPLETE_DAYS * 24 * 60 * 60 * 1000
   ).toISOString()
 
-  // Find candidates — abandoned bookings older than the cutoff, not
-  // already erased. Limit to 500 per sweep to keep the transaction
-  // small; subsequent sweeps will catch the rest.
+  // Find candidates — incomplete (Abandoned/Discarded) bookings older than
+  // the cutoff, not already erased. Limit to 500 per sweep to keep the
+  // transaction small; subsequent sweeps will catch the rest.
   const { data: candidates, error: findErr } = await admin
     .from("bookings")
     .select("id")
-    .eq("status", "Abandoned")
+    .in("status", SWEEPABLE_STATUSES)
     .lt("created_at", cutoff)
     .is("erased_at", null)
     .limit(500)
@@ -124,7 +138,7 @@ export async function POST(request: Request) {
 
   const patch: Record<string, unknown> = {
     erased_at: new Date().toISOString(),
-    erased_reason: `Retention sweep (${RETENTION_ABANDONED_DAYS}d abandoned-booking policy)`,
+    erased_reason: `Retention sweep (${RETENTION_INCOMPLETE_DAYS}d incomplete-booking policy: abandoned/discarded)`,
   }
   for (const col of PII_COLUMNS_TO_CLEAR) {
     patch[col] = null
@@ -154,7 +168,7 @@ export async function POST(request: Request) {
     entityId: caller.id,
     entityName: `POPIA retention sweep (${count} booking(s) anonymised)`,
     changes: {
-      "Policy": { new: `${RETENTION_ABANDONED_DAYS}d abandoned-booking retention` },
+      "Policy": { new: `${RETENTION_INCOMPLETE_DAYS}d incomplete-booking retention (abandoned/discarded)` },
       "Cutoff": { new: cutoff },
       "Bookings Anonymised": { new: String(count) },
     },
