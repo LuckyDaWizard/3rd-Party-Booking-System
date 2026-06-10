@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { apiError } from "@/lib/api-response"
+import { normalizeToE164 } from "@/lib/phone"
+import { deriveCountryFromNumber } from "@/lib/phone-server"
 
 // =============================================================================
 // POST /api/admin/clients
@@ -71,6 +73,22 @@ export async function POST(request: Request) {
     return apiError(err instanceof Error ? err.message : "Invalid accent colour", 400)
   }
 
+  // Server-authority contact-number normalization. The clients table has no
+  // country_code column, so derive the country from the number itself, then
+  // normalize to canonical E.164. Present-but-invalid → 400; empty/absent
+  // stays allowed (the field is optional).
+  let normalizedContact: string | null = body.contactNumber ?? null
+  if (typeof body.contactNumber === "string" && body.contactNumber.trim() !== "") {
+    const normalized = normalizeToE164(
+      deriveCountryFromNumber(body.contactNumber),
+      body.contactNumber
+    )
+    if (normalized === null) {
+      return apiError("Invalid contact number", 400)
+    }
+    normalizedContact = normalized
+  }
+
   let admin
   try {
     admin = getSupabaseAdmin()
@@ -85,7 +103,7 @@ export async function POST(request: Request) {
       contact_person_name: body.contactPersonName ?? null,
       contact_person_surname: body.contactPersonSurname ?? null,
       email: body.email ?? null,
-      contact_number: body.contactNumber ?? null,
+      contact_number: normalizedContact,
       status: "Active",
       accent_color: accentColor,
     })

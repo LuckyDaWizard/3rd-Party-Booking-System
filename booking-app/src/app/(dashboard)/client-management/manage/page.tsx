@@ -13,6 +13,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
+import { CountryCodeSelect } from "@/components/ui/CountryCodeSelect"
+import {
+  COUNTRY_CODES,
+  validatePhone,
+  formatPhoneInput,
+  normalizeToE164,
+} from "@/lib/phone"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { TabStrip } from "@/components/ui/tab-strip"
@@ -29,6 +36,25 @@ import { checkAccentAgainstWhite } from "@/lib/color-contrast"
 // System default accent — used as the picker's starting value when a client
 // has no accent_color set yet. Matches globals.css `--brand`.
 const DEFAULT_ACCENT = "#3ea3db"
+
+/**
+ * Re-derive the country dropdown selection from a stored E.164 number by
+ * matching the longest dial prefix (so "+264…" picks NA, not a shorter code).
+ * Falls back to "ZA" for empty or unrecognised values.
+ */
+function deriveCountryCode(stored: string | null | undefined): string {
+  const value = (stored ?? "").trim()
+  if (!value.startsWith("+")) return "ZA"
+  let best: string | null = null
+  let bestLen = 0
+  for (const c of COUNTRY_CODES) {
+    if (value.startsWith(c.dial) && c.dial.length > bestLen) {
+      best = c.code
+      bestLen = c.dial.length
+    }
+  }
+  return best ?? "ZA"
+}
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const LOGO_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml"
@@ -74,7 +100,9 @@ export default function ManageClientPage() {
   const [contactPersonName, setContactPersonName] = useState("")
   const [contactPersonSurname, setContactPersonSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
+  const [countryCode, setCountryCode] = useState("ZA")
   const [contactNumber, setContactNumber] = useState("")
+  const [contactError, setContactError] = useState("")
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoBusy, setLogoBusy] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
@@ -145,6 +173,9 @@ export default function ManageClientPage() {
       setContactPersonSurname(client.contactPersonSurname)
       setEmailAddress(client.email)
       setContactNumber(client.number)
+      // Re-derive the country dropdown from the stored number's dial prefix;
+      // keep the raw stored value in the input.
+      setCountryCode(deriveCountryCode(client.number))
       setLogoUrl(client.logoUrl)
       setFaviconUrl(client.faviconUrl)
       setAccentColor(client.accentColor ?? DEFAULT_ACCENT)
@@ -262,6 +293,12 @@ export default function ManageClientPage() {
     )
   }
 
+  // A non-empty contact number must be valid for the selected country before
+  // we let the admin save.
+  const contactValid =
+    contactNumber.trim() === "" ||
+    validatePhone(countryCode, contactNumber).valid
+
   async function handleUpdateInformation() {
     setSaving(true)
     setSaveError("")
@@ -271,7 +308,8 @@ export default function ManageClientPage() {
         contactPersonName,
         contactPersonSurname,
         email: emailAddress,
-        number: contactNumber,
+        // Send the canonical E.164 form; the server remains the authority.
+        number: normalizeToE164(countryCode, contactNumber) ?? contactNumber,
         // Send null when the picker is back at the system default — keeps
         // the row clean and means future bumps to the system default
         // automatically apply.
@@ -462,15 +500,36 @@ export default function ManageClientPage() {
                 onClear={() => setEmailAddress("")}
               />
 
-              <FloatingInput
-                id="contact-number"
-                data-testid="input-contact-number"
-                label="Contact Number"
-                type="tel"
-                value={contactNumber}
-                onChange={setContactNumber}
-                onClear={() => setContactNumber("")}
-              />
+              {/* Contact Number (country code + number) */}
+              <div className="flex gap-4">
+                <CountryCodeSelect
+                  id="client-country-code"
+                  value={countryCode}
+                  onChange={(v) => {
+                    setCountryCode(v)
+                    if (contactError) setContactError("")
+                  }}
+                />
+                <FloatingInput
+                  id="contact-number"
+                  data-testid="input-contact-number"
+                  label="Contact Number"
+                  type="tel"
+                  value={contactNumber}
+                  onChange={(v) => {
+                    setContactNumber(formatPhoneInput(v))
+                    if (contactError) setContactError("")
+                  }}
+                  onClear={() => { setContactNumber(""); setContactError("") }}
+                  onBlur={() => {
+                    if (contactNumber.trim() === "") { setContactError(""); return }
+                    const validation = validatePhone(countryCode, contactNumber)
+                    setContactError(validation.valid ? "" : (validation.error ?? "Invalid contact number"))
+                  }}
+                  error={contactError}
+                  className="flex-1"
+                />
+              </div>
             </div>
           )}
 
@@ -978,7 +1037,7 @@ export default function ManageClientPage() {
           {activeTab !== "units" && activeTab !== "users" && (
             <Button
               data-testid="update-button"
-              disabled={saving}
+              disabled={saving || !contactValid}
               onClick={handleUpdateInformation}
               className="h-11 w-full rounded-xl bg-gray-300 text-ink-muted hover:bg-gray-900 hover:text-white"
             >

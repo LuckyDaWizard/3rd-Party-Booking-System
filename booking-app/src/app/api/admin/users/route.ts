@@ -7,6 +7,8 @@ import { generateSecurePin } from "@/lib/pin"
 import { getAppUrl } from "@/lib/app-url"
 import type { User } from "@supabase/supabase-js"
 import { apiError } from "@/lib/api-response"
+import { normalizeToE164 } from "@/lib/phone"
+import { deriveCountryFromNumber } from "@/lib/phone-server"
 
 // =============================================================================
 // POST /api/admin/users
@@ -80,6 +82,22 @@ export async function POST(request: Request) {
     return apiError(errors.join("; "), 400)
   }
 
+  // Server-authority contact-number normalization. The users table has no
+  // country_code column, so derive the country from the number itself, then
+  // normalize to canonical E.164. Present-but-invalid → 400; empty/absent
+  // stays allowed (matches the prior pass-through behaviour).
+  let normalizedContact: string = body.contactNumber ?? ""
+  if (typeof body.contactNumber === "string" && body.contactNumber.trim() !== "") {
+    const normalized = normalizeToE164(
+      deriveCountryFromNumber(body.contactNumber),
+      body.contactNumber
+    )
+    if (normalized === null) {
+      return apiError("Invalid contact number", 400)
+    }
+    normalizedContact = normalized
+  }
+
   let admin
   try {
     admin = getSupabaseAdmin()
@@ -141,7 +159,7 @@ export async function POST(request: Request) {
       first_names: body.firstNames,
       surname: body.surname,
       email: body.email,
-      contact_number: body.contactNumber,
+      contact_number: normalizedContact,
       role: body.role,
       unit_id: body.unitIds[0] ?? null,
       client_id: body.clientId ?? null,

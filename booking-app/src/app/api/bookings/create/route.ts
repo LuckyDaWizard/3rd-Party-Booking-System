@@ -4,6 +4,7 @@ import { requireAuthenticated } from "@/lib/api-auth"
 import { createRateLimiter } from "@/lib/rate-limit"
 import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { apiError } from "@/lib/api-response"
+import { normalizeToE164 } from "@/lib/phone"
 
 // Per-user rate limit on booking creation. A legitimate operator starts one
 // booking at a time; 10/min leaves room for honest retries on flaky networks
@@ -218,6 +219,25 @@ export async function POST(request: Request) {
   insertRow.unit_id = unitId // authoritative — already validated above
   insertRow.created_by = caller.id // ownership — scopes future abandon-prior
   if (idempotencyKey) insertRow.idempotency_key = idempotencyKey
+
+  // 7b. Server-authority contact-number normalization. Numbers are PII that
+  //     flow to CareFirst on handoff, so the server is the authority on their
+  //     canonical E.164 form. If a contact number is present and non-empty,
+  //     normalize it to "+<dial><national>" against the row's country (default
+  //     ZA) and REJECT 400 when it's present-but-invalid. Empty/absent stays
+  //     allowed (the field is optional at intake).
+  const rawContact = insertRow.contact_number
+  if (typeof rawContact === "string" && rawContact.trim() !== "") {
+    const countryCode =
+      typeof insertRow.country_code === "string" && insertRow.country_code.trim() !== ""
+        ? insertRow.country_code
+        : "ZA"
+    const normalized = normalizeToE164(countryCode, rawContact)
+    if (normalized === null) {
+      return apiError("Invalid contact number for the selected country", 400)
+    }
+    insertRow.contact_number = normalized
+  }
 
   const { data: inserted, error: insertErr } = await admin
     .from("bookings")

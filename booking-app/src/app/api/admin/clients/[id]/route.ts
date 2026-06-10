@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdminWithCaller } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { apiError } from "@/lib/api-response"
+import { normalizeToE164 } from "@/lib/phone"
+import { deriveCountryFromNumber } from "@/lib/phone-server"
 
 // =============================================================================
 // PATCH /api/admin/clients/[id]  — update a client
@@ -104,6 +106,26 @@ export async function PATCH(request: Request, context: RouteContext) {
     normalisedAccent = normaliseAccent(body.accentColor)
   } catch (err) {
     return apiError(err instanceof Error ? err.message : "Invalid accent colour", 400)
+  }
+
+  // Server-authority contact-number normalization (only when contactNumber is
+  // part of this patch). The clients table has no country_code column, so
+  // derive the country from the number itself, then normalize to canonical
+  // E.164. Present-but-invalid → 400; an explicit empty string is left as-is
+  // (clears the field). Reassign in place so the DB write AND the audit diff
+  // below both use the canonical value.
+  if (
+    typeof body.contactNumber === "string" &&
+    body.contactNumber.trim() !== ""
+  ) {
+    const normalized = normalizeToE164(
+      deriveCountryFromNumber(body.contactNumber),
+      body.contactNumber
+    )
+    if (normalized === null) {
+      return apiError("Invalid contact number", 400)
+    }
+    body.contactNumber = normalized
   }
 
   let admin

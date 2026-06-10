@@ -2,8 +2,15 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, ArrowRight, X, ChevronDown } from "lucide-react"
+import { ArrowLeft, ArrowRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { CountryCodeSelect } from "@/components/ui/CountryCodeSelect"
+import {
+  COUNTRY_CODES,
+  validatePhone,
+  formatPhoneInput,
+  normalizeToE164,
+} from "@/lib/phone"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { SubNav } from "@/components/ui/sub-nav"
 import { StepPill } from "@/components/ui/step-pill"
@@ -82,81 +89,6 @@ const PROVINCES = [
   "Northern Cape",
   "Western Cape",
 ]
-
-const COUNTRY_CODES = [
-  { code: "ZA", dial: "+27" },
-  { code: "BW", dial: "+267" },
-  { code: "MZ", dial: "+258" },
-  { code: "NA", dial: "+264" },
-  { code: "ZW", dial: "+263" },
-  { code: "SZ", dial: "+268" },
-  { code: "LS", dial: "+266" },
-  { code: "NG", dial: "+234" },
-  { code: "KE", dial: "+254" },
-  { code: "GH", dial: "+233" },
-  { code: "GB", dial: "+44" },
-  { code: "US", dial: "+1" },
-]
-
-function CountryCodeSelect({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (code: string) => void
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const selected = COUNTRY_CODES.find((c) => c.code === value) ?? COUNTRY_CODES[0]
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative w-24">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3"
-      >
-        <span className="text-sm font-medium text-ink">{selected.code}</span>
-        <ChevronDown className={`size-3 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-      </button>
-      <label className="pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-white px-1 text-xs text-ink-muted">
-        Country
-      </label>
-      {isOpen && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-52 w-32 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
-          <div className="overflow-y-auto max-h-52 mr-1">
-            {COUNTRY_CODES.map((country) => (
-              <button
-                key={country.code}
-                type="button"
-                onClick={() => {
-                  onChange(country.code)
-                  setIsOpen(false)
-                }}
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-[var(--client-primary-15)] ${
-                  value === country.code ? "bg-[var(--client-primary-15)] font-medium" : "text-ink"
-                }`}
-              >
-                <span className="font-medium">{country.code}</span>
-                <span className="text-ink-muted">{country.dial}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // SA ID Number Validation & Extraction
@@ -252,30 +184,23 @@ function extractFromSaId(id: string): {
 }
 
 // ---------------------------------------------------------------------------
-// SA Phone Number Validation
+// Phone helpers
 // ---------------------------------------------------------------------------
 
-function validateSaPhone(phone: string): { valid: boolean; error?: string } {
-  if (!phone || phone === "+27") return { valid: false }
-  const cleaned = phone.replace(/[\s-]/g, "")
-  // +27 format: +27XXXXXXXXX (12 chars)
-  if (cleaned.startsWith("+27")) {
-    if (cleaned.length !== 12) return { valid: false, error: "Contact number must be 12 digits with +27" }
-    if (!/^\+27[0-9]{9}$/.test(cleaned)) return { valid: false, error: "Invalid South African contact number" }
-    return { valid: true }
+/**
+ * When the operator switches the country dropdown, keep the visible "+dial"
+ * prefix in sync: strip the old country's dial prefix (if present) and apply
+ * the new one. Mirrors the legacy inline dial-swap UX, now sourcing dial codes
+ * from the shared COUNTRY_CODES table.
+ */
+function reprefixForCountry(oldCode: string, newCode: string, current: string): string {
+  const oldCountry = COUNTRY_CODES.find((c) => c.code === oldCode)
+  const newCountry = COUNTRY_CODES.find((c) => c.code === newCode)
+  if (!newCountry) return current
+  if (oldCountry && current.startsWith(oldCountry.dial)) {
+    return newCountry.dial + current.slice(oldCountry.dial.length)
   }
-  // 0 format: 0XXXXXXXXX (10 chars)
-  if (cleaned.startsWith("0")) {
-    if (cleaned.length !== 10) return { valid: false, error: "Contact number must be 10 digits" }
-    if (!/^0[0-9]{9}$/.test(cleaned)) return { valid: false, error: "Invalid South African contact number" }
-    return { valid: true }
-  }
-  return { valid: false, error: "Contact number must start with 0 or +27" }
-}
-
-function formatSaPhone(value: string): string {
-  // Only allow digits and leading +
-  return value.replace(/[^0-9+]/g, "").replace(/(?!^)\+/g, "")
+  return newCountry.dial + current
 }
 
 // ---------------------------------------------------------------------------
@@ -966,20 +891,28 @@ export default function PatientDetailsPage() {
   }
 
   async function checkContactExists(contact: string) {
-    if (!contact.trim() || contact.trim() === "+27") { setContactError(""); return }
-
-    // Validate SA format first
-    const validation = validateSaPhone(contact)
+    // Validate against the selected country first. validatePhone returns
+    // {valid:false} with NO error for the "not yet filled in" states (empty,
+    // a bare "+", or just the country's dial code, e.g. "+27"/"+267") — treat
+    // those as "clear and bail", country-agnostically (no hardcoded "+27").
+    const validation = validatePhone(contactInfo.countryCode, contact)
+    if (!validation.valid && !validation.error) { setContactError(""); return }
     if (!validation.valid) {
       setContactError(validation.error ?? "Invalid contact number")
       return
     }
 
+    // Normalize to E.164 so the dedup query compares apples to apples — stored
+    // numbers are canonical "+<dial><national>", so a raw "082…" must be
+    // normalized before the .eq() or it would never match.
+    const normalized = normalizeToE164(contactInfo.countryCode, contact)
+    if (!normalized) return
+
     // Then check for duplicates
     const { data } = await supabase
       .from("bookings")
       .select("id")
-      .eq("contact_number", contact.trim())
+      .eq("contact_number", normalized)
       .neq("id", bookingId || "")
       .limit(1)
     if (data && data.length > 0) {
@@ -990,9 +923,7 @@ export default function PatientDetailsPage() {
   }
 
   const isStep3Complete =
-    contactInfo.contactNumber.trim() !== "" &&
-    contactInfo.contactNumber.trim() !== "+27" &&
-    validateSaPhone(contactInfo.contactNumber).valid &&
+    validatePhone(contactInfo.countryCode, contactInfo.contactNumber).valid &&
     contactInfo.emailAddress.trim() !== "" &&
     !emailError &&
     !contactError &&
@@ -1348,16 +1279,12 @@ export default function PatientDetailsPage() {
                 <CountryCodeSelect
                   value={contactInfo.countryCode}
                   onChange={(v) => {
-                    const country = COUNTRY_CODES.find((c) => c.code === v)
-                    const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
-                    let newNumber = contactInfo.contactNumber
-                    // Replace old dial code with new one
-                    if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
-                      newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
-                    } else if (country) {
-                      newNumber = country.dial + newNumber
-                    }
-                    setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
+                    setContactInfo({
+                      ...contactInfo,
+                      countryCode: v,
+                      contactNumber: reprefixForCountry(contactInfo.countryCode, v, contactInfo.contactNumber),
+                    })
+                    if (contactError) setContactError("")
                   }}
                 />
                 <FloatingInput
@@ -1365,7 +1292,7 @@ export default function PatientDetailsPage() {
                   label="Contact Number"
                   value={contactInfo.contactNumber}
                   onChange={(v) => {
-                    setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
+                    setContactInfo({ ...contactInfo, contactNumber: formatPhoneInput(v) })
                     if (contactError) setContactError("")
                   }}
                   onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}
@@ -1579,15 +1506,12 @@ export default function PatientDetailsPage() {
                   <CountryCodeSelect
                     value={contactInfo.countryCode}
                     onChange={(v) => {
-                      const country = COUNTRY_CODES.find((c) => c.code === v)
-                      const oldCountry = COUNTRY_CODES.find((c) => c.code === contactInfo.countryCode)
-                      let newNumber = contactInfo.contactNumber
-                      if (oldCountry && newNumber.startsWith(oldCountry.dial)) {
-                        newNumber = (country?.dial ?? "") + newNumber.slice(oldCountry.dial.length)
-                      } else if (country) {
-                        newNumber = country.dial + newNumber
-                      }
-                      setContactInfo({ ...contactInfo, countryCode: v, contactNumber: newNumber })
+                      setContactInfo({
+                        ...contactInfo,
+                        countryCode: v,
+                        contactNumber: reprefixForCountry(contactInfo.countryCode, v, contactInfo.contactNumber),
+                      })
+                      if (contactError) setContactError("")
                     }}
                   />
                   <FloatingInput
@@ -1595,7 +1519,7 @@ export default function PatientDetailsPage() {
                     label="Contact Number"
                     value={contactInfo.contactNumber}
                     onChange={(v) => {
-                      setContactInfo({ ...contactInfo, contactNumber: formatSaPhone(v) })
+                      setContactInfo({ ...contactInfo, contactNumber: formatPhoneInput(v) })
                       if (contactError) setContactError("")
                     }}
                     onClear={() => { setContactInfo({ ...contactInfo, contactNumber: "" }); setContactError("") }}

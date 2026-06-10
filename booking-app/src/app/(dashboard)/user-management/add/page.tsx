@@ -7,6 +7,8 @@ import { ArrowLeft, ArrowRight, X, ChevronDown, User as UserIcon } from "lucide-
 import { Button } from "@/components/ui/button"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { CountryCodeSelect } from "@/components/ui/CountryCodeSelect"
+import { validatePhone, formatPhoneInput, normalizeToE164 } from "@/lib/phone"
 import { useUnitStore } from "@/lib/unit-store"
 import { useUserStore } from "@/lib/user-store"
 import { useAuth } from "@/lib/auth-store"
@@ -171,6 +173,7 @@ export default function AddUserPage() {
   const [firstNames, setFirstNames] = useState("")
   const [surname, setSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
+  const [countryCode, setCountryCode] = useState("ZA")
   const [contactNumber, setContactNumber] = useState("")
   const [role, setRole] = useState("")
   const [emailError, setEmailError] = useState("")
@@ -190,10 +193,17 @@ export default function AddUserPage() {
         { value: "user", label: "User" },
       ]
 
+  // A non-empty contact number must be valid for the selected country. An
+  // empty contact is allowed (the field is optional on the user form).
+  const contactValid =
+    contactNumber.trim() === "" ||
+    validatePhone(countryCode, contactNumber).valid
+
   const isFormComplete =
     firstNames.trim() !== "" &&
     surname.trim() !== "" &&
     role.trim() !== "" &&
+    contactValid &&
     !emailError &&
     !contactError
 
@@ -220,10 +230,21 @@ export default function AddUserPage() {
       setContactError("")
       return
     }
+
+    // Validate against the selected country, then dedup against the canonical
+    // E.164 form so we compare stored "+27…" values to a normalized input.
+    const validation = validatePhone(countryCode, contact)
+    if (!validation.valid) {
+      setContactError(validation.error ?? "Invalid contact number")
+      return
+    }
+    const normalized = normalizeToE164(countryCode, contact)
+    if (!normalized) return
+
     const { data } = await supabase
       .from("users")
       .select("id")
-      .eq("contact_number", contact.trim())
+      .eq("contact_number", normalized)
       .limit(1)
 
     if (data && data.length > 0) {
@@ -249,13 +270,19 @@ export default function AddUserPage() {
       // Get client from first selected unit
       const firstUnit = units.find((u) => u.id === selectedUnitIds[0])
 
+      // Send the canonical E.164 form when a contact was captured; the server
+      // remains the authority and re-normalizes / rejects bad values.
+      const normalizedContact = contactNumber.trim()
+        ? normalizeToE164(countryCode, contactNumber) ?? contactNumber
+        : ""
+
       // The server generates a cryptographically secure PIN with crypto.randomInt()
       // and returns it so we can show it once to the admin in the success banner.
       const { id: newUserId, pin: newPin } = await addUser({
         firstNames,
         surname,
         email: emailAddress,
-        contactNumber,
+        contactNumber: normalizedContact,
         role,
         unitIds: selectedUnitIds,
         clientId: firstUnit?.clientId ?? "",
@@ -444,21 +471,32 @@ export default function AddUserPage() {
             error={emailError}
           />
 
-          {/* Contact Number */}
-          <FloatingInput
-            id="contactNumber"
-            data-testid="contact-number-input"
-            label="Contact Number"
-            value={contactNumber}
-            onChange={(v) => {
-              setContactNumber(v)
-              if (contactError) setContactError("")
-            }}
-            onClear={() => { setContactNumber(""); setContactError("") }}
-            onBlur={() => checkContactExists(contactNumber)}
-            type="tel"
-            error={contactError}
-          />
+          {/* Contact Number (country code + number) */}
+          <div className="flex gap-4">
+            <CountryCodeSelect
+              id="countryCode"
+              value={countryCode}
+              onChange={(v) => {
+                setCountryCode(v)
+                if (contactError) setContactError("")
+              }}
+            />
+            <FloatingInput
+              id="contactNumber"
+              data-testid="contact-number-input"
+              label="Contact Number"
+              value={contactNumber}
+              onChange={(v) => {
+                setContactNumber(formatPhoneInput(v))
+                if (contactError) setContactError("")
+              }}
+              onClear={() => { setContactNumber(""); setContactError("") }}
+              onBlur={() => checkContactExists(contactNumber)}
+              type="tel"
+              error={contactError}
+              className="flex-1"
+            />
+          </div>
 
           {/* Access Role */}
           <FloatingSelect

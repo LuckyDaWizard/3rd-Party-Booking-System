@@ -76,7 +76,7 @@ function validBody(unitId: string): Record<string, unknown> {
     gender: "Male",
     date_of_birth: "1987-01-01",
     contact_number: "0710000000",
-    country_code: "+27",
+    country_code: "ZA",
     email_address: "thabo.mokoena@example.test",
   }
 }

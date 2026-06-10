@@ -13,6 +13,13 @@ import {
 } from "@/components/ui/dialog"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { CountryCodeSelect } from "@/components/ui/CountryCodeSelect"
+import {
+  COUNTRY_CODES,
+  validatePhone,
+  formatPhoneInput,
+  normalizeToE164,
+} from "@/lib/phone"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { OtpInput } from "@/components/ui/otp-input"
@@ -28,6 +35,25 @@ import { compressImage } from "@/lib/compress-image"
 // would scale up unattractively in the header. SVG / ICO skip the check.
 const AVATAR_MIN_WIDTH = 80
 const AVATAR_MIN_HEIGHT = 80
+
+/**
+ * Re-derive the country dropdown selection from a stored E.164 number by
+ * matching the longest dial prefix (so "+264…" picks NA, not a shorter code).
+ * Falls back to "ZA" for empty or unrecognised values.
+ */
+function deriveCountryCode(stored: string | null | undefined): string {
+  const value = (stored ?? "").trim()
+  if (!value.startsWith("+")) return "ZA"
+  let best: string | null = null
+  let bestLen = 0
+  for (const c of COUNTRY_CODES) {
+    if (value.startsWith(c.dial) && c.dial.length > bestLen) {
+      best = c.code
+      bestLen = c.dial.length
+    }
+  }
+  return best ?? "ZA"
+}
 
 // ---------------------------------------------------------------------------
 // Multi-Select Unit Dropdown with Chips
@@ -198,7 +224,9 @@ export default function ManageUserPage() {
   const [firstNames, setFirstNames] = useState("")
   const [surname, setSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
+  const [countryCode, setCountryCode] = useState("ZA")
   const [contactNumber, setContactNumber] = useState("")
+  const [contactError, setContactError] = useState("")
   const [userRole, setUserRole] = useState("")
 
   const { isSystemAdmin } = useAuth()
@@ -226,6 +254,9 @@ export default function ManageUserPage() {
       setSurname(user.surname)
       setEmailAddress(user.email)
       setContactNumber(user.contactNumber)
+      // Re-derive the country dropdown from the stored number's dial prefix;
+      // keep the raw stored value in the input.
+      setCountryCode(deriveCountryCode(user.contactNumber))
       setSelectedUnitIds(user.units.map((u) => u.unitId))
       setUserRole(user.role)
       setAvatarUrl(user.avatarUrl)
@@ -318,6 +349,11 @@ export default function ManageUserPage() {
     )
   }
 
+  // A non-empty contact number must be valid for the selected country.
+  const contactValid =
+    contactNumber.trim() === "" ||
+    validatePhone(countryCode, contactNumber).valid
+
   // Check if any field has changed from the original
   const originalUnitIds = user.units.map((u) => u.unitId)
   const hasChanges =
@@ -334,11 +370,16 @@ export default function ManageUserPage() {
   async function doUpdateUser() {
     setSaving(true)
     try {
+      // Send the canonical E.164 form when a contact is present; the server is
+      // the authority and re-normalizes / rejects bad values.
+      const normalizedContact = contactNumber.trim()
+        ? normalizeToE164(countryCode, contactNumber) ?? contactNumber
+        : ""
       await updateUser(userId, {
         firstNames,
         surname,
         email: emailAddress,
-        contactNumber,
+        contactNumber: normalizedContact,
         role: userRole,
       })
       await updateUserUnits(userId, selectedUnitIds)
@@ -648,16 +689,36 @@ export default function ManageUserPage() {
             onClear={() => setEmailAddress("")}
           />
 
-          {/* Contact Number */}
-          <FloatingInput
-            id="contact-number"
-            data-testid="input-contact-number"
-            label="Contact Number"
-            type="tel"
-            value={contactNumber}
-            onChange={setContactNumber}
-            onClear={() => setContactNumber("")}
-          />
+          {/* Contact Number (country code + number) */}
+          <div className="flex gap-4">
+            <CountryCodeSelect
+              id="country-code"
+              value={countryCode}
+              onChange={(v) => {
+                setCountryCode(v)
+                if (contactError) setContactError("")
+              }}
+            />
+            <FloatingInput
+              id="contact-number"
+              data-testid="input-contact-number"
+              label="Contact Number"
+              type="tel"
+              value={contactNumber}
+              onChange={(v) => {
+                setContactNumber(formatPhoneInput(v))
+                if (contactError) setContactError("")
+              }}
+              onClear={() => { setContactNumber(""); setContactError("") }}
+              onBlur={() => {
+                if (contactNumber.trim() === "") { setContactError(""); return }
+                const validation = validatePhone(countryCode, contactNumber)
+                setContactError(validation.valid ? "" : (validation.error ?? "Invalid contact number"))
+              }}
+              error={contactError}
+              className="flex-1"
+            />
+          </div>
 
           {/* Access Role — system_admin only. Unit-managers and regular
               users can't change roles, so the field is hidden entirely
@@ -679,7 +740,7 @@ export default function ManageUserPage() {
           <Button
             data-testid="update-button"
             onClick={handleUpdateInformation}
-            disabled={!hasChanges || saving}
+            disabled={!hasChanges || !contactValid || saving}
             variant="primary"
             size="cta"
             className="w-full"

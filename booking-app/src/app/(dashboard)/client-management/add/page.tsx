@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
+import { CountryCodeSelect } from "@/components/ui/CountryCodeSelect"
+import { validatePhone, formatPhoneInput, normalizeToE164 } from "@/lib/phone"
 import { StepPill } from "@/components/ui/step-pill"
 import { SubNav } from "@/components/ui/sub-nav"
 import { Banner } from "@/components/ui/banner"
@@ -33,6 +35,8 @@ interface ClientDetails {
   contactPersonName: string
   contactPersonSurname: string
   emailAddress: string
+  /** ISO-2 country code for the contact number's dropdown. */
+  countryCode: string
   contactNumber: string
   /** Logo file selected by the user; uploaded after the client is created. */
   logoFile: File | null
@@ -153,15 +157,31 @@ function StepClientDetails({
           onClear={() => handleClear("emailAddress")}
         />
 
-        <FloatingInput
-          id="contact-number"
-          data-testid="input-contact-number"
-          label="Contact Number"
-          type="tel"
-          value={data.contactNumber}
-          onChange={(v) => handleChange("contactNumber", v)}
-          onClear={() => handleClear("contactNumber")}
-        />
+        {/* Contact Number (country code + number) */}
+        <div className="flex gap-4">
+          <CountryCodeSelect
+            id="client-country-code"
+            value={data.countryCode}
+            onChange={(v) => handleChange("countryCode", v)}
+          />
+          <FloatingInput
+            id="contact-number"
+            data-testid="input-contact-number"
+            label="Contact Number"
+            type="tel"
+            value={data.contactNumber}
+            onChange={(v) => handleChange("contactNumber", formatPhoneInput(v))}
+            onClear={() => handleClear("contactNumber")}
+            error={
+              data.contactNumber.trim() !== "" &&
+              !validatePhone(data.countryCode, data.contactNumber).valid
+                ? validatePhone(data.countryCode, data.contactNumber).error ??
+                  "Invalid contact number"
+                : ""
+            }
+            className="flex-1"
+          />
+        </div>
       </div>
     </div>
   )
@@ -573,6 +593,8 @@ interface UserDetails {
   firstNames: string
   surname: string
   emailAddress: string
+  /** ISO-2 country code for the contact number's dropdown. */
+  countryCode: string
   contactNumber: string
   role: string
   unitIds: string[]
@@ -874,17 +896,26 @@ function StepUserDetails({
           error={emailError}
         />
 
-        <FloatingInput
-          id="user-contact-number"
-          data-testid="input-user-contact-number"
-          label="Contact Number"
-          type="tel"
-          value={data.contactNumber}
-          onChange={(v) => onChange({ ...data, contactNumber: v })}
-          onClear={() => onChange({ ...data, contactNumber: "" })}
-          onBlur={() => onCheckContact(data.contactNumber)}
-          error={contactError}
-        />
+        {/* Contact Number (country code + number) */}
+        <div className="flex gap-4">
+          <CountryCodeSelect
+            id="user-country-code"
+            value={data.countryCode}
+            onChange={(v) => onChange({ ...data, countryCode: v })}
+          />
+          <FloatingInput
+            id="user-contact-number"
+            data-testid="input-user-contact-number"
+            label="Contact Number"
+            type="tel"
+            value={data.contactNumber}
+            onChange={(v) => onChange({ ...data, contactNumber: formatPhoneInput(v) })}
+            onClear={() => onChange({ ...data, contactNumber: "" })}
+            onBlur={() => onCheckContact(data.contactNumber)}
+            error={contactError}
+            className="flex-1"
+          />
+        </div>
 
         <FloatingSelect
           id="user-role"
@@ -931,6 +962,7 @@ export default function AddNewClientPage() {
     contactPersonName: "",
     contactPersonSurname: "",
     emailAddress: "",
+    countryCode: "ZA",
     contactNumber: "",
     logoFile: null,
     logoPreviewUrl: null,
@@ -951,6 +983,7 @@ export default function AddNewClientPage() {
     firstNames: "",
     surname: "",
     emailAddress: "",
+    countryCode: "ZA",
     contactNumber: "",
     role: "",
     unitIds: [],
@@ -999,10 +1032,19 @@ export default function AddNewClientPage() {
       setUserContactError("")
       return
     }
+    // Validate against the selected country, then dedup against the canonical
+    // E.164 form so we compare stored "+27…" values to a normalized input.
+    const validation = validatePhone(userDetails.countryCode, contact)
+    if (!validation.valid) {
+      setUserContactError(validation.error ?? "Invalid contact number")
+      return
+    }
+    const normalized = normalizeToE164(userDetails.countryCode, contact)
+    if (!normalized) return
     const { data } = await supabase
       .from("users")
       .select("id")
-      .eq("contact_number", contact.trim())
+      .eq("contact_number", normalized)
       .limit(1)
     setUserContactError(
       data && data.length > 0
@@ -1023,12 +1065,19 @@ export default function AddNewClientPage() {
     userDetails.unitIds.length > 0 ||
     userDetails.avatarFile !== null
 
+  // A non-empty user contact must be valid for its country (the field itself
+  // is optional on this wizard step).
+  const userContactValid =
+    userDetails.contactNumber.trim() === "" ||
+    validatePhone(userDetails.countryCode, userDetails.contactNumber).valid
+
   const isUserFormValid =
     userDetails.firstNames.trim() !== "" &&
     userDetails.surname.trim() !== "" &&
     userDetails.role.trim() !== "" &&
     userRoleAllowed &&
     userDetails.unitIds.length > 0 &&
+    userContactValid &&
     !userEmailError &&
     !userContactError
 
@@ -1037,7 +1086,7 @@ export default function AddNewClientPage() {
     clientDetails.contactPersonName.trim() !== "" &&
     clientDetails.contactPersonSurname.trim() !== "" &&
     clientDetails.emailAddress.trim() !== "" &&
-    clientDetails.contactNumber.trim() !== ""
+    validatePhone(clientDetails.countryCode, clientDetails.contactNumber).valid
 
   async function handleNext() {
     setSubmitting(true)
@@ -1057,7 +1106,10 @@ export default function AddNewClientPage() {
           contactPersonSurname: clientDetails.contactPersonSurname,
           units: "-",
           email: clientDetails.emailAddress,
-          number: clientDetails.contactNumber,
+          // Send the canonical E.164 form; the server remains the authority.
+          number:
+            normalizeToE164(clientDetails.countryCode, clientDetails.contactNumber) ??
+            clientDetails.contactNumber,
           logoUrl: null,
           faviconUrl: null,
           // Send null when left at the system default so the row stays
@@ -1132,11 +1184,15 @@ export default function AddNewClientPage() {
           }
           const firstUnitId = userDetails.unitIds[0]
           const firstUnit = allUnits.find((u) => u.id === firstUnitId)
+          const normalizedUserContact = userDetails.contactNumber.trim()
+            ? normalizeToE164(userDetails.countryCode, userDetails.contactNumber) ??
+              userDetails.contactNumber
+            : ""
           const { id: newUserId, pin: newPin } = await addUser({
             firstNames: userDetails.firstNames,
             surname: userDetails.surname,
             email: userDetails.emailAddress,
-            contactNumber: userDetails.contactNumber,
+            contactNumber: normalizedUserContact,
             role: userDetails.role,
             unitIds: userDetails.unitIds,
             clientId: firstUnit?.clientId ?? newClientId,
