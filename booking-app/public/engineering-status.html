@@ -429,6 +429,14 @@
     <p class="desc">The real fix behind D19's client-side band-aid. Booking creation moves off the direct browser&rarr;Supabase insert and behind a server route, so the duplicate-booking incident (Lucky Mokoena) is now defended server-side. The D19 guards stay belt-and-braces. <strong>Route:</strong> <code>requireAuthenticated</code> + per-user rate limit (10/min, matches PayFast initiate); DB-backed idempotency via <code>X-Idempotency-Key</code> &rarr; <code>bookings.idempotency_key</code> (pre-check + 23505 race catch, both <strong>caller-scoped</strong> so a crafted/replayed key can't resolve to another user's booking &mdash; CR); server-forced <code>status="In Progress"</code> + <code>current_step="search"</code>; a snake_case column whitelist so a client can't smuggle <code>id</code>/<code>payment_*</code>/<code>coupon_*</code>/audit columns; in-code replication of the migration-016 RLS INSERT guarantees (status + unit membership; system_admin bypass) since service role bypasses RLS; abandon-prior <strong>scoped to <code>created_by = caller</code></strong> (not unit-wide) so a shared-unit peer's draft is never clobbered; create audit row <strong>awaited</strong> so the central-audit guarantee actually holds (CR). <strong>Migration 040:</strong> nullable <code>idempotency_key</code> + <code>created_by</code> columns, partial unique index on the key, partial index on <code>created_by WHERE In Progress</code>. No RLS change, no backfill, <code>IF NOT EXISTS</code> throughout &mdash; <strong>already applied to prod</strong>. <strong>Store:</strong> <code>createBooking()</code> direct insert/abandon &rarr; one fetch; key minted once inside the D19 in-flight dedup closure; CSRF via the global fetch interceptor; throw-on-error contract preserved. <strong>Caught pre-ship:</strong> an initial camelCase/snake_case contract mismatch between route and store that would have 400'd every create. 54 &rarr; 58 Playwright tests (happy path + audit, idempotent replay, no-unit 400, rate-limit 429; unit-scope 403 skipped &mdash; seeded user is system_admin). Code Review: approve, no critical findings. <strong>Requires deploy</strong> (production code change; migration already live).</p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>D18 &mdash; Investigated &amp; closed without a production change <span class="pill shipped">Resolved</span></h3>
+      <span class="commit">2026-06-10</span>
+    </div>
+    <p class="desc">D18 proposed stamping <code>payment_type = "payfast"</code> on the notify route to replace a supposed "negative space" discriminator (<code>pf_payment_id NOT NULL AND payment_type IS NULL</code>). <strong>Investigation found the premise was false in production.</strong> A real gateway booking already carries <code>payment_type = "device"</code> or <code>"link"</code> &mdash; <code>create-booking/patient-details</code> step 5 stamps it BEFORE PayFast runs. So production PayFast bookings are NOT null; the <code>IS NULL</code> belief was a test artifact (the C2/C5 specs created bookings directly, skipping the form). Stamping <code>"payfast"</code> would have OVERWRITTEN the meaningful device-vs-link distinction (visible in the CSV export) to fix a fragility that doesn't exist. <strong>Resolution:</strong> no production/route/migration change. Corrected the misleading docs + memory, and made the test fixtures realistic &mdash; <code>createBookingForUnit</code> now takes an optional <code>payment_type</code>; the PayFast specs pass <code>"device"</code> and assert the notify/reconcile routes PRESERVE it (not <code>IS NULL</code>). The accurate "paid via PayFast" tell is simply <code>pf_payment_id IS NOT NULL</code>. C2 + C5 green.</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
     <li><strong>040</strong> &mdash; <code>bookings.idempotency_key</code> + <code>bookings.created_by</code> + partial unique index (idempotency) + partial index (created_by WHERE In Progress). Backs D20's server-authority create. Applied to prod 2026-06-10.</li>
@@ -483,20 +491,6 @@
           </ol>
         </td>
         <td class="effort">Half-day &plus; business sign-off</td>
-      </tr>
-      <tr>
-        <td class="id">D18</td>
-        <td>
-          <strong>Production <code>payment_type = "payfast"</code> on notify route &mdash; symmetry across all 5 paths.</strong>
-          Flagged by Code Review on D17/C2. Production's <code>/api/payfast/notify</code> does NOT stamp <code>payment_type</code> on success &mdash; only the three bypass routes do (<code>self_collect</code>, <code>coupon_comp</code>, <code>monthly_invoice</code>). PayFast bookings are currently detected by negative space (<code>pf_payment_id IS NOT NULL AND payment_type IS NULL</code>), which is fragile: a future bypass route that forgets to stamp <code>payment_type</code> would silently look like a PayFast booking. D18 would:
-          <ol style="margin-top: 8px;">
-            <li>Add <code>payment_type: "payfast"</code> to the <code>transitionStatus</code> patch in <code>notify/route.ts:223-227</code> (one line).</li>
-            <li>Write migration 040 to backfill: <code>UPDATE bookings SET payment_type = 'payfast' WHERE pf_payment_id IS NOT NULL AND payment_type IS NULL</code>.</li>
-            <li>Update <code>tests/payfast-itn-happy-path.spec.ts</code> to pin the positive assertion (<code>payment_type = "payfast"</code> instead of <code>IS NULL</code>).</li>
-          </ol>
-          Optional cleanup; not blocking. Defer until user decides; the test as written correctly pins current production behaviour.
-        </td>
-        <td class="effort">Half-day incl. migration</td>
       </tr>
     </tbody>
   </table>

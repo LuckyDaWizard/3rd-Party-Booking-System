@@ -30,10 +30,19 @@ export interface CreatedBooking {
  * 5-step UI form. The invariants under test in the coupon / self-collect /
  * monthly-invoice specs are owned by API routes, not form steps — walking
  * the form would add flakiness without adding signal.
+ *
+ * `paymentType` lets a spec reflect production reality: a real gateway booking
+ * reaches the payment step with `payment_type` already set to "device" or
+ * "link" (patient-details step 5 stamps it BEFORE PayFast). The PayFast specs
+ * pass "device" so their assertions match production, where a completed PayFast
+ * booking carries device/link — NOT null. Defaults to null for the bypass-path
+ * specs (self_collect / coupon_comp / monthly_invoice), which set their own
+ * value via the mark-* routes.
  */
 export async function createBookingForUnit(
   unitId: string,
-  initialStatus: "In Progress" | "Abandoned" = "In Progress"
+  initialStatus: "In Progress" | "Abandoned" = "In Progress",
+  paymentType: string | null = null
 ): Promise<CreatedBooking> {
   const admin = getAdmin()
   const { data, error } = await admin
@@ -42,6 +51,7 @@ export async function createBookingForUnit(
       unit_id: unitId,
       status: initialStatus,
       current_step: "payment",
+      payment_type: paymentType,
       first_names: "Playwright",
       surname: "Patient",
       id_type: "SA ID",

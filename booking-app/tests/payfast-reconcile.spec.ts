@@ -25,8 +25,9 @@
 //
 // WHAT EACH TEST GUARDS:
 //   1. A COMPLETE matching transaction flips the booking to Payment Complete,
-//      stamps pf_payment_id from the txn, leaves payment_type NULL (PayFast
-//      path tell), and writes a "Payment Complete (reconciled)" audit row —
+//      stamps pf_payment_id from the txn, PRESERVES the gateway payment_type
+//      (device/link — production bookings carry it; reconcile must not
+//      overwrite it), and writes a "Payment Complete (reconciled)" audit row —
 //      the parenthetical distinguishes reconcile flips from ITN flips.
 //   2. No matching transaction → updated:false, booking untouched.
 //   3. Amount mismatch on the matched txn → updated:false, booking untouched
@@ -96,7 +97,9 @@ test.describe("PayFast reconcile (single booking)", () => {
   }) => {
     // ----- Arrange ------------------------------------------------------------
     const { unitId } = await getSeededIds()
-    const booking = await createBookingForUnit(unitId, "In Progress")
+    // "device" reflects production — a gateway booking reaches reconcile with
+    // payment_type already set; reconcile must preserve it, not overwrite it.
+    const booking = await createBookingForUnit(unitId, "In Progress", "device")
     await signInAsSeededUser(page)
     const csrf = await readCsrfToken(context)
 
@@ -144,9 +147,10 @@ test.describe("PayFast reconcile (single booking)", () => {
         final?.pf_payment_id,
         "reconcile must stamp the pf_payment_id from the matched transaction"
       ).toBe(pfPaymentId)
-      // PayFast path leaves payment_type NULL — only the three bypass routes
-      // ever stamp it. Same cross-wiring guard as the ITN happy path.
-      expect(final?.payment_type).toBeNull()
+      // Reconcile PRESERVES the gateway payment_type (device/link) — it must
+      // not overwrite it, and never with a bypass value. Production gateway
+      // bookings carry device/link (set at patient-details step 5), not null.
+      expect(final?.payment_type).toBe("device")
       expect(
         final?.payment_confirmed_at,
         "reconcile must stamp payment_confirmed_at"

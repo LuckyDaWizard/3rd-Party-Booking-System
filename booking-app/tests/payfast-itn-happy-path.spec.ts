@@ -44,13 +44,18 @@
 // The unique invariants vs the other coupon / self-collect / monthly_invoice
 // paths:
 //
-//   1. STATUS FLIPS to Payment Complete. `payment_type` STAYS NULL — only
-//      the three PayFast-BYPASS paths (self_collect, coupon_comp,
-//      monthly_invoice) stamp a value into that column. The PayFast path's
-//      in-DB tell is the inverse: payment_type IS NULL AND pf_payment_id
-//      IS NOT NULL. Asserting on both catches accidental cross-wiring with
-//      any of the bypass paths (any of which setting payment_type would
-//      mean the wrong route ran).
+//   1. STATUS FLIPS to Payment Complete. `payment_type` is PRESERVED at its
+//      gateway value — production bookings reach the payment step with
+//      payment_type already "device" or "link" (patient-details step 5 stamps
+//      it before PayFast). The notify route must NOT overwrite it, and must
+//      never turn it into a BYPASS value (self_collect, coupon_comp,
+//      monthly_invoice). The affirmative PayFast tell is pf_payment_id IS NOT
+//      NULL; the cross-wiring guard is that payment_type stays the gateway
+//      value we set ("device"), never a bypass string.
+//      (Historical note: an earlier version of this spec asserted payment_type
+//      IS NULL — that was a test artifact from creating the booking directly
+//      without walking the form. It did NOT reflect production, where gateway
+//      bookings carry device/link. Corrected when D18 was investigated.)
 //
 //   2. pf_payment_id is stored on the booking — used for idempotency on
 //      duplicate ITNs (notify route line 181) AND for reconciliation
@@ -128,7 +133,10 @@ test.describe("PayFast ITN happy path", () => {
     // Order matters — signItn() falls back to env when no passphrase arg is
     // passed.
     const { unitId } = await getSeededIds()
-    const booking = await createBookingForUnit(unitId, "In Progress")
+    // payment_type "device" reflects production: a real gateway booking reaches
+    // the payment step with device/link already stamped (patient-details step 5).
+    // The notify route must PRESERVE this value — it does not stamp its own.
+    const booking = await createBookingForUnit(unitId, "In Progress", "device")
 
     // Sign in the seeded operator. The ITN itself is server-to-server (no
     // session needed — trust is signature + IP + server confirmation), but
@@ -194,18 +202,20 @@ test.describe("PayFast ITN happy path", () => {
       // path:
       //   (a) pf_payment_id IS set — the affirmative tell that the ITN
       //       route is the one that flipped the row.
-      //   (b) payment_type IS NULL — only the three bypass routes
-      //       (self_collect, coupon_comp, monthly_invoice) ever stamp a
-      //       value into payment_type. If any of those strings show up
-      //       here the routes got cross-wired.
+      //   (b) payment_type is PRESERVED at its gateway value ("device" here;
+      //       "link" for the payment-link flow). The notify route must NOT
+      //       overwrite it — and must never turn it into a bypass value
+      //       (self_collect / coupon_comp / monthly_invoice), which would mean
+      //       the routes got cross-wired. (Production gateway bookings carry
+      //       device/link, set at patient-details step 5 — NOT null.)
       expect(
         final?.pf_payment_id,
         "PayFast ITN must store pf_payment_id on the booking"
       ).toBe(pfPaymentId)
       expect(
         final?.payment_type,
-        "PayFast path must leave payment_type NULL (only bypass paths stamp it)"
-      ).toBeNull()
+        "PayFast ITN must preserve the gateway payment_type (device/link), not overwrite it"
+      ).toBe("device")
       // payment_amount preserved (the ITN check only validates equality;
       // the row keeps its original value, NOT amount_gross).
       expect(Number(final?.payment_amount)).toBe(325)
