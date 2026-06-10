@@ -34,11 +34,12 @@
 import crypto from "node:crypto"
 import {
   type PayfastMockMode,
+  type PayfastTransaction,
   type RecordedRequest,
 } from "../_setup/payfast-mock-server"
 
 // Re-export the mock types so specs only import from one path.
-export type { PayfastMockMode, RecordedRequest }
+export type { PayfastMockMode, PayfastTransaction, RecordedRequest }
 
 // ----- Mock control ---------------------------------------------------------
 
@@ -113,6 +114,47 @@ export async function resetPayfastMockMode(): Promise<void> {
   if (!res.ok) {
     throw new Error(
       `Failed to reset PayFast mock mode: ${res.status}. Is the mock running on port ${MOCK_PORT}?`
+    )
+  }
+}
+
+// ----- Transaction History seeding (C5) -------------------------------------
+
+/**
+ * Seed the mock's GET /transactions/history list. Each row is returned
+ * verbatim inside `{ data: { response: [...] } }`; production's
+ * findCompletedPayfastTransaction() filters by m_payment_id + status, so a
+ * spec only needs to set the four fields it reads:
+ *
+ *   { m_payment_id, pf_payment_id, payment_status: "COMPLETE", amount_gross }
+ *
+ * MUST be cleared via clearMockTransactions() in a finally block — the
+ * mock's list is module-level and shared across workers (forks the
+ * setPayfastMockMode pattern).
+ */
+export async function setMockTransactions(
+  txns: PayfastTransaction[]
+): Promise<void> {
+  const res = await fetch(`${PAYFAST_MOCK_URL}/__transactions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(txns),
+  })
+  if (!res.ok) {
+    throw new Error(
+      `Failed to seed PayFast mock transactions: ${res.status}. Is the mock running on port ${MOCK_PORT}?`
+    )
+  }
+}
+
+/** Clear the mock's seeded transaction list back to empty. */
+export async function clearMockTransactions(): Promise<void> {
+  const res = await fetch(`${PAYFAST_MOCK_URL}/__transactions`, {
+    method: "DELETE",
+  })
+  if (!res.ok) {
+    throw new Error(
+      `Failed to clear PayFast mock transactions: ${res.status}. Is the mock running on port ${MOCK_PORT}?`
     )
   }
 }

@@ -80,6 +80,18 @@
 // booking ID or m_payment_id. ITN-flow tests will key off m_payment_id;
 // reconcile tests will key off the start_date/end_date query window. See
 // the CareFirst mock's CROSS-WORKER SAFETY block for the broader rationale.
+//
+// SEEDED-TRANSACTION CAVEAT (C5): unlike `received`, the `seededTransactions`
+// list (GET /transactions/history) is returned WHOLESALE with no per-booking
+// keying — there is no in-test filter as a second line of defence. The match
+// tests survive a cross-worker leak because production's
+// findCompletedPayfastTransaction() filters client-side by m_payment_id, but
+// a "no completed transaction" negative test would FALSE-FAIL if another
+// worker's seeded matching row leaked in. Seeded-txn specs therefore DEPEND on
+// single-worker execution (already required suite-wide: every spec is
+// `mode: "serial"` and the single-process dev server serialises compilation
+// anyway). If the harness ever moves to multi-worker, add per-booking keying
+// to setMockTransactions / handleTransactionsHistory before doing so.
 // =============================================================================
 
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http"
@@ -111,6 +123,16 @@ export type PayfastMockMode =
   | { kind: "invalid" }                     // C4 — /eng/query/validate returns "INVALID"
   | { kind: "timeout"; delayMs?: number }   // C4 — 6s default exceeds production's 5s abort
 
+/**
+ * A single seeded transaction row for GET /transactions/history. Loose by
+ * design — the production parser (extractTransactionsFromResponse +
+ * findCompletedPayfastTransaction) only reads m_payment_id, pf_payment_id,
+ * payment_status, amount_gross, so a spec only needs to seed those. Extra
+ * keys are passed through verbatim, mirroring real PayFast rows which carry
+ * many more fields than the reconcile path inspects.
+ */
+export type PayfastTransaction = Record<string, unknown>
+
 // ----- Module-level state ----------------------------------------------------
 
 let server: Server | null = null
@@ -118,6 +140,13 @@ let received: RecordedRequest[] = []
 
 const DEFAULT_MODE: PayfastMockMode = { kind: "valid" }
 let currentMode: PayfastMockMode = DEFAULT_MODE
+
+// Seeded transaction list for GET /transactions/history (C5). Defaults to
+// empty — handleTransactionsHistory returns `{ data: { response: [] } }`
+// until a spec POSTs rows to /__transactions. Reset to empty at every boot
+// and on DELETE /__transactions, same lifecycle discipline as currentMode.
+const DEFAULT_TRANSACTIONS: PayfastTransaction[] = []
+let seededTransactions: PayfastTransaction[] = DEFAULT_TRANSACTIONS
 
 // ----- Public API ------------------------------------------------------------
 
@@ -157,6 +186,8 @@ export async function startPayfastMockServer(
   // Reset mode at every boot so a stale module-level value from a prior
   // run (only possible under in-process re-use) can't leak through.
   currentMode = DEFAULT_MODE
+  // Same reasoning for the seeded transaction list — start every run empty.
+  seededTransactions = DEFAULT_TRANSACTIONS
 
   server = createServer(handleRequest)
 
@@ -191,6 +222,7 @@ export async function stopPayfastMockServer(): Promise<void> {
   })
   server = null
   received = []
+  seededTransactions = DEFAULT_TRANSACTIONS
   console.log("[payfast-mock] Stopped")
 }
 
@@ -232,6 +264,24 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   }
   if (method === "POST" && path === "/__mode") {
     handleSetMode(req, res)
+    return
+  }
+
+  // Seeded-transactions override (C5). GET introspects, POST sets the list
+  // from a JSON array body, DELETE clears back to empty. Same lifecycle as
+  // /__mode — specs MUST clear in a try/finally so the next test in the
+  // worker doesn't inherit the seeded rows.
+  if (method === "GET" && path === "/__transactions") {
+    sendJson(res, 200, seededTransactions)
+    return
+  }
+  if (method === "DELETE" && path === "/__transactions") {
+    seededTransactions = DEFAULT_TRANSACTIONS
+    sendJson(res, 200, { ok: true, count: 0 })
+    return
+  }
+  if (method === "POST" && path === "/__transactions") {
+    handleSetTransactions(req, res)
     return
   }
 
@@ -280,6 +330,28 @@ function handleSetMode(req: IncomingMessage, res: ServerResponse): void {
     .catch((err: unknown) => {
       sendJson(res, 400, {
         error: `Failed to parse mode body — ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      })
+    })
+}
+
+function handleSetTransactions(req: IncomingMessage, res: ServerResponse): void {
+  readJsonBody(req)
+    .then((body) => {
+      if (!Array.isArray(body)) {
+        sendJson(res, 400, {
+          error:
+            "POST /__transactions requires a JSON array of transaction rows.",
+        })
+        return
+      }
+      seededTransactions = body as PayfastTransaction[]
+      sendJson(res, 200, { ok: true, count: seededTransactions.length })
+    })
+    .catch((err: unknown) => {
+      sendJson(res, 400, {
+        error: `Failed to parse transactions body — ${
           err instanceof Error ? err.message : String(err)
         }`,
       })
@@ -374,11 +446,13 @@ function handleTransactionsHistory(
     receivedAt: new Date().toISOString(),
   })
 
-  // TODO(C5): replace the empty array with a per-test seeded list. The
-  // helper signature will be roughly `setMockTransactions(txns)`, with
-  // each spec calling it inside test() and clearing in afterEach.
-  // For C1, returning empty is correct — no test exercises this path yet.
-  sendJson(res, 200, { data: { response: [] } })
+  // Return the per-test seeded list (C5), defaulting to empty. We return
+  // ALL seeded rows regardless of the start_date/end_date query window —
+  // production's findCompletedPayfastTransaction() filters client-side by
+  // m_payment_id + status, so returning the full list and letting the
+  // production parser do the matching exercises the real code path. Specs
+  // seed only the rows relevant to their booking and clear in finally.
+  sendJson(res, 200, { data: { response: seededTransactions } })
 }
 
 // ----- Utilities --------------------------------------------------------------
