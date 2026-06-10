@@ -405,6 +405,14 @@
     <p class="desc">First test to exercise the PayFast mock from C1. New <code>tests/_helpers/payfast.ts</code>: <code>signItn()</code> mirrors production's <code>computeItnSignature()</code> <strong>byte-for-byte</strong> (Code Review verified line-by-line: <code>Object.entries</code> insertion order, <code>encodeURIComponent</code> + <code>%20</code>&rarr;<code>+</code>, empties included, no trim, MD5 hex lowercase, passphrase only if non-empty, <code>signature</code> field excluded from signing string). <code>postItnToApp()</code> sends form-encoded body with <code>x-forwarded-for: 127.0.0.1</code> so <code>validateItnSourceIp()</code>'s non-production carve-out accepts it. Mock-control helpers (<code>setPayfastMockMode</code>, <code>clearPayfastMockReceived</code>, <code>getPayfastMockReceivedForBooking</code>) follow the D11 booking-ID filter pattern (CR S1: filter also pins on <code>r.path === "/eng/query/validate"</code> so future routes through the mock can't inflate the count). New <code>tests/payfast-itn-happy-path.spec.ts</code> walks a signed COMPLETE ITN through <code>/api/payfast/notify</code> &rarr; mock <code>/eng/query/validate</code> &rarr; state-machine flip. <strong>Critical correction</strong> by the test-writing agent: production's notify route does NOT stamp <code>payment_type</code> (only the three bypass routes do &mdash; <code>self_collect</code>, <code>coupon_comp</code>, <code>monthly_invoice</code>). The PayFast path discriminator is the inverse: <code>pf_payment_id IS NOT NULL AND payment_type IS NULL</code>. Test pins both halves. Audit log row verified by polling for the exact production strings (<code>actor_role="system"</code>, <code>action="update"</code>, <code>changes["Payment Status"].new="Payment Complete (ITN)"</code>, <code>actor_id=SYSTEM_ACTOR_ID</code>). 45 / 45 tests passing. <strong>Open architectural question (D18):</strong> should the notify route also stamp <code>payment_type = "payfast"</code> for symmetry across all 5 paths? Would eliminate the fragile "negative space" invariant. Deferred for separate decision + backfill migration.</p>
   </div>
 
+  <div class="sprint">
+    <div class="sprint-header">
+      <h3>D17/C3-C5 &mdash; PayFast mock test arc complete (failed/duplicate, rejections, reconcile) <span class="pill shipped">Shipped</span></h3>
+      <span class="commit">2026-06-10 &middot; f8d3397 &middot; b07235f &middot; b0898a3</span>
+    </div>
+    <p class="desc">Closes the PayFast coverage gap opened in D16 &mdash; <strong>8 new tests, 45 &rarr; 53</strong>, all test-only (no production change). <strong>C3</strong> (<code>payfast-itn-failed-and-duplicate.spec.ts</code>): a non-COMPLETE (FAILED) ITN is accepted 200 but does NOT flip the booking; a duplicate COMPLETE ITN is idempotent &mdash; the second hits the <code>booking.pf_payment_id</code> guard (<code>notify/route.ts:181</code>), and the test pins that the stored <code>pf_payment_id</code> stays the FIRST id plus exactly one <code>"Payment Complete (ITN)"</code> audit row. <strong>C4</strong> (<code>payfast-itn-rejections.spec.ts</code>): bad signature &rarr; 400, amount mismatch &rarr; 400, server-confirm INVALID &rarr; 502. Navigates the test-mode dual-accept trap (route accepts the sig with OR without passphrase when <code>PAYFAST_TEST_MODE=true</code>) by mutating a field <em>after</em> signing for the bad-sig case and validly-signing the wrong amount for the mismatch case &mdash; Code Review verified the two are provably not interchangeable against the route's short-circuit order. <strong>C5</strong> (<code>payfast-reconcile.spec.ts</code> + mock/helper infra): adds a seedable <code>seededTransactions</code> store + <code>/__transactions</code> introspection + <code>setMockTransactions()</code>/<code>clearMockTransactions()</code> helpers; reconcile flips an In-Progress booking from a seeded COMPLETE txn (stamps <code>pf_payment_id</code> from the txn, leaves <code>payment_type</code> NULL, writes <code>"Payment Complete (reconciled)"</code> audit row), and refuses on no-match + amount-mismatch. Auth via <code>page.request</code> session cookie + double-submit CSRF header. <strong>Code Review: approve, no critical findings.</strong> <strong>Trap deliberately not tested:</strong> timeout&rarr;502 is impossible against current code &mdash; <code>validateItnServerConfirmation()</code> uses a bare <code>fetch()</code> with no <code>AbortSignal</code>, so the mock's delay can't produce a 502; flagged as a small future hardening (add <code>AbortSignal.timeout()</code> so a hanging PayFast validate endpoint can't block the ITN handler). All 9 PayFast specs green single-worker (seeded + idempotent re-run); tsc clean.</p>
+  </div>
+
   <h2>Production migrations applied today</h2>
   <ul>
     <li><strong>038</strong> &mdash; <code>coupons.code_lower</code> STORED GENERATED column &plus; regular unique index. Drops the functional index from 033. Coupon lookups go from <code>ILIKE</code>-on-<code>code</code> (planner-dependent) to <code>.eq</code>-on-<code>code_lower</code> (always picks the index).</li>
@@ -458,19 +466,6 @@
           </ol>
         </td>
         <td class="effort">Half-day &plus; business sign-off</td>
-      </tr>
-      <tr>
-        <td class="id">D17/C3-C5</td>
-        <td>
-          <strong>PayFast mock &mdash; remaining 5 tests.</strong> Infrastructure (C1+C2) shipped today. Remaining work is mechanical:
-          <ul style="margin-top: 8px;">
-            <li><strong>C3</strong> &mdash; Failed ITN (status flips to remain <em>In Progress</em>) + duplicate ITN (idempotency: second POST short-circuits at the <code>pf_payment_id</code> check, then at the state-machine guard).</li>
-            <li><strong>C4</strong> &mdash; Bad signature (tampered field with original signature &rarr; 400, no state change) + amount tamper (re-signed payload with wrong <code>amount_gross</code> &rarr; 400 from <code>validateItnAmount</code>). Mock's <code>invalid</code> + <code>timeout</code> modes already wired in C1.</li>
-            <li><strong>C5</strong> &mdash; Reconcile flow via <code>GET /transactions/history</code> mock seeding. Adds <code>setMockTransactions()</code> helper on the mock side. Booking stuck <em>In Progress</em> &rarr; reconcile route hits mock &rarr; finds the COMPLETE txn &rarr; booking flips.</li>
-          </ul>
-          Each commit leaves the suite green. Total ~2 hours mechanical work; the hard part (signature math + first end-to-end proof) shipped in C2.
-        </td>
-        <td class="effort">~2 hours mechanical</td>
       </tr>
       <tr>
         <td class="id">D20</td>
