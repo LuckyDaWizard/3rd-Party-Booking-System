@@ -408,8 +408,23 @@ export function validateItnAmount(
   return Math.abs(received - expected) < 0.01
 }
 
+// Abort the ITN server-confirmation POST after this many ms. PayFast's
+// /eng/query/validate normally answers in well under a second; without a
+// timeout a hung endpoint would block the ITN handler for Node's ~30s default
+// (or longer), holding the request open and starving the single-vCPU box.
+// PayFast retries on any non-2xx, so a fast 502 is strictly better than a
+// stuck request. Mirrors CAREFIRST_TIMEOUT_MS on the SSO call (carefirst.ts).
+const PAYFAST_CONFIRM_TIMEOUT_MS = 5000
+
 /**
  * Step 4: Server confirmation — POST back to PayFast to verify the ITN.
+ *
+ * Bounded by PAYFAST_CONFIRM_TIMEOUT_MS: AbortSignal.timeout fires a
+ * DOMException ("TimeoutError" on Node 18.16+, "AbortError" older) which the
+ * catch below swallows into a `false` return — the notify route then maps
+ * that to a transient 502 and PayFast retries. No human is on this path
+ * (server-to-server), so we don't need a distinct timeout message the way the
+ * CareFirst SSO call does.
  */
 export async function validateItnServerConfirmation(
   postData: Record<string, string>,
@@ -431,6 +446,7 @@ export async function validateItnServerConfirmation(
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params,
+      signal: AbortSignal.timeout(PAYFAST_CONFIRM_TIMEOUT_MS),
     })
 
     const text = await res.text()

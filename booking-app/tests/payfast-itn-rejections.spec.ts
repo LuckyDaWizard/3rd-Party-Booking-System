@@ -2,14 +2,15 @@
 // =============================================================================
 // PayFast ITN — rejection paths (backlog C4)
 //
-// Sibling of payfast-itn-happy-path.spec.ts (C2). Covers the three currently-
-// testable reject paths of /api/payfast/notify. In every case the booking
-// must remain UNTOUCHED (In Progress, pf_payment_id null, payment_type null) —
-// a reject that nonetheless mutated the row would be the worst kind of bug.
+// Sibling of payfast-itn-happy-path.spec.ts (C2). Covers the four reject
+// paths of /api/payfast/notify. In every case the booking must remain
+// UNTOUCHED (In Progress, pf_payment_id null, payment_type null) — a reject
+// that nonetheless mutated the row would be the worst kind of bug.
 //
 //   1. Bad signature → 400 "Invalid signature".
 //   2. Amount mismatch → 400 "Amount mismatch".
 //   3. Server confirmation INVALID → 502 (transient).
+//   4. Server confirmation TIMEOUT → 502 (transient). Unblocked by D21.
 //
 // TWO TRAPS THIS FILE NAVIGATES (see C4 brief):
 //
@@ -29,12 +30,13 @@
 //   tests would become indistinguishable.) We assert the reason strings to
 //   keep the two cases honest.
 //
-//   Trap 3 (NOT tested here): a timeout→502 test is impossible against current
-//   production code — validateItnServerConfirmation() uses a bare fetch() with
-//   no AbortSignal, so the mock's 6s delay just makes production wait and then
-//   succeed. For the 502 path we use the `invalid` mock mode (returns
-//   "INVALID" → serverValid=false → 502), which is a real, testable 502 today.
-//   See the C4 report for the AbortSignal finding.
+//   Trap 3 (RESOLVED by D21): a timeout→502 test used to be impossible —
+//   validateItnServerConfirmation() had a bare fetch() with no AbortSignal,
+//   so the mock's 6s delay just made production wait and then succeed. D21
+//   added AbortSignal.timeout(5000) to that fetch, so a mock delay > 5s now
+//   aborts → serverValid=false → 502. Test 4 below exercises that path with
+//   the mock's `timeout` mode (6s default > the 5s production abort). The
+//   `invalid` mock mode (Test 3) is the other route to a 502.
 //
 // HOW TO RUN — identical to C2:
 //     cd booking-app
@@ -245,6 +247,79 @@ test.describe("PayFast ITN — rejections", () => {
       const body = (await res.json()) as { ok: boolean; reason: string }
       expect(body.ok).toBe(false)
       expect(body.reason).toMatch(/server confirmation|non-valid/i)
+
+      await expectBookingUntouched(booking.id)
+    } finally {
+      await resetPayfastMockMode()
+      await booking.cleanup()
+      await clearPayfastMockReceived()
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 4 — server confirmation TIMEOUT → 502 (mock `timeout` mode; D21).
+  // ---------------------------------------------------------------------------
+  test("server confirmation that hangs past the abort window yields a 502 and leaves the booking untouched", async ({
+    page,
+  }) => {
+    // The mock holds /eng/query/validate for 6s; production's
+    // AbortSignal.timeout(5000) (added in D21) fires first, the fetch throws,
+    // validateItnServerConfirmation() swallows it into `false`, and the route
+    // returns a transient 502 so PayFast retries. Give the test room to absorb
+    // the ~5s wait plus dev-server compile.
+    test.setTimeout(45_000)
+
+    // ----- Arrange ------------------------------------------------------------
+    const { unitId } = await getSeededIds()
+    const booking = await createBookingForUnit(unitId, "In Progress")
+    await signInAsSeededUser(page)
+
+    try {
+      // Mock holds for 8s; production aborts at 5s. The wide 3s margin keeps
+      // the elapsed-time assertion below reliable on a slow single-vCPU box.
+      await setPayfastMockMode({ kind: "timeout", delayMs: 8000 })
+
+      const fields: Record<string, string> = {
+        merchant_id: requireMerchantId(),
+        m_payment_id: booking.id,
+        pf_payment_id: uniquePfId(),
+        payment_status: "COMPLETE",
+        item_name: PAYMENT_ITEM_NAME,
+        amount_gross: "325.00",
+        amount_fee: "-10.00",
+        amount_net: "315.00",
+      }
+      const signature = signItn(fields)
+
+      // ----- Act --------------------------------------------------------------
+      const startedAt = Date.now()
+      const res = await postItnToApp(BASE_URL, fields, signature)
+      const elapsedMs = Date.now() - startedAt
+
+      // ----- Assert -----------------------------------------------------------
+      // Same transient class as the INVALID case — an unreachable/hung
+      // confirmation endpoint must NOT be a definitive accept or reject.
+      expect(
+        res.status,
+        "a hung server confirmation must abort into a transient 502, not hang or accept"
+      ).toBe(502)
+      const body = (await res.json()) as { ok: boolean; reason: string }
+      expect(body.ok).toBe(false)
+      expect(body.reason).toMatch(/server confirmation|non-valid/i)
+
+      // CRITICAL — distinguishes this from Test 3 (INVALID), which returns the
+      // IDENTICAL 502 + reason string near-instantly. Asserting the timing
+      // proves the AbortSignal actually fired: the request must take roughly
+      // the 5s abort window (not return early like INVALID would), and must
+      // NOT wait the full 8s mock delay (which would mean the abort never
+      // fired and the mock's eventual "VALID" was what we saw). Lower bound is
+      // 4s to tolerate clock granularity; upper bound 7.5s sits between the 5s
+      // abort and the 8s mock delay.
+      expect(
+        elapsedMs,
+        `expected the abort (~5s) to fire, got ${elapsedMs}ms — <4s means it 502'd for another reason (not the timeout), >=7.5s means the abort never fired`
+      ).toBeGreaterThanOrEqual(4000)
+      expect(elapsedMs).toBeLessThan(7500)
 
       await expectBookingUntouched(booking.id)
     } finally {
