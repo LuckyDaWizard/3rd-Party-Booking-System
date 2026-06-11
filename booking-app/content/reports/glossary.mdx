@@ -63,7 +63,7 @@ sections:
 | **SSO handoff** / **auto-register** | Our single outbound call to `POST /api/external/client-sso/auto-register` on CareFirst Patient. The boundary between our system and yours. |
 | **Start Consult** | Operator-initiated action that triggers the SSO handoff. PIN-gated; manager+ only. |
 | **ITN** (Instant Transaction Notification) | PayFast's webhook to us when a payment resolves. The mechanism by which gateway-paid bookings advance from In Progress to Payment Complete. |
-| **Reconcile** | Our fallback when ITN doesn't arrive — we poll PayFast's Transaction History API and match by `m_payment_id` (our booking UUID). |
+| **Reconcile** | Our fallback when ITN doesn't arrive — we poll PayFast's Transaction History API and match by `m_payment_id`. Since 2026-06-11 `m_payment_id` is `<CLIENT_CODE>-<booking-UUID>` (or the bare UUID for clients without a code); the matcher strips a recognised code prefix before comparing, so both formats resolve. |
 | **Identity-lock** | A defensive UI behaviour on Step 1: if a prior booking with the same `id_number` has a populated name, we lock the identity fields read-only on the new booking. Prevents most CareFirst "already registered" rejections. |
 | **Nurse verification** | A per-client flag (`nurse_verification`) that inserts PIN gates at search, verification, and handoff steps. Used by clinics that require a nurse's sign-off on each booking. |
 | **Self-collect** | Payment mode where the unit takes payment directly (cash / card at the desk) and the operator confirms with a PIN. Skips PayFast. |
@@ -85,7 +85,8 @@ sections:
 | **CareFirst Patient** | The downstream application — your consultation app. The destination of the SSO handoff. |
 | **PayFast** | South African payment gateway. Used for the `gateway` payment mode. |
 | **POPIA** | Protection of Personal Information Act (SA). Our compliance framework for handling patient data. |
-| **Client code** | The `clientCode` we send in the auto-register payload. Configured via `CAREFIRST_CLIENT_CODE` env var. |
+| **Client code (CareFirst)** | The `clientCode` we send in the auto-register payload. Configured via `CAREFIRST_CLIENT_CODE` env var. Distinct from the PayFast client code below. |
+| **Client code (PayFast)** | `clients.client_code` — a short (3–5 uppercase alnum) per-client identifier set in Client Management. Used as the `m_payment_id` prefix so a shared PayFast merchant account's transactions are attributable per client. Reserved as the future multi-client routing key. Added 2026-06-11 (migration 041). |
 | **Return URL** | `returnUrl` field in the SSO payload. Where CareFirst is asked to redirect the patient after the consult ends. See [returnUrl Contract](/reports/return-url-contract). |
 
 </Section>

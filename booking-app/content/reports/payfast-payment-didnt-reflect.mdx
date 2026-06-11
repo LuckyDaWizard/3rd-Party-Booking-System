@@ -78,7 +78,7 @@ flowchart LR
     class E,F,G,H,K warn;
 ```
 
-**Step 0 in every case** — log in to PayFast's merchant dashboard and search for the payment by our **booking ID** (used as PayFast's `m_payment_id`). The state column tells you which branch to take below.
+**Step 0 in every case** — log in to PayFast's merchant dashboard and search for the payment by our `m_payment_id`. Since 2026-06-11 that's `<CLIENT_CODE>-<booking-ID>` (e.g. `LCH-a1b2c3d4-…`) for bookings under a client that has a code, or the bare **booking ID** for clients without one — so search by the booking ID either way (it's the part after the `-`). The state column tells you which branch to take below.
 
 </Section>
 
