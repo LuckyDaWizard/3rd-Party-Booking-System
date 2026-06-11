@@ -223,6 +223,70 @@
       vertical-align: middle;
     }
 
+    /* Open — follow-up audit item not yet actioned. Amber pill, consistent
+       with the existing .deferred-tag / .pill.warn conventions, used for the
+       11 June 2026 findings that are still outstanding. Distinct from
+       "deferred" (which is intentionally not-now) — "open" means actionable. */
+    .open-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    /* Open finding card — amber left border (reuses --r-warn like .finding.high)
+       with the Open pill before the heading. */
+    .finding.open-finding {
+      border-left: 4px solid var(--r-warn);
+      background: linear-gradient(to right, #fffbeb, #ffffff 30%);
+    }
+    .finding.open-finding h3 .open-tag { margin-right: 10px; }
+    .finding .corrob-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: none;
+      letter-spacing: 0.04em;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    /* Severity scorecard for the follow-up (built from existing tokens). */
+    .scorecard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 14px;
+      margin: 16px 0 8px;
+    }
+    .score {
+      border: 1px solid var(--r-line);
+      border-radius: var(--r-radius);
+      padding: 16px 18px;
+      text-align: center;
+      background: var(--r-bg);
+    }
+    .score .score-n { font-family: "Mulish", sans-serif; font-size: 32px; font-weight: 900; line-height: 1; }
+    .score .score-lbl {
+      font-family: "Mulish", sans-serif;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--r-mute); margin-top: 6px;
+    }
+    .score.crit  .score-n { color: var(--r-err); }
+    .score.high  .score-n { color: var(--r-warn); }
+    .score.med   .score-n { color: var(--r-brand-dark); }
+    .score.low   .score-n { color: var(--r-mute); }
+
     /* Completed finding card (Critical / High priority sections). Adds a
        green left border + Complete pill before the heading. Used to mark
        the items 1-9 findings as they get worked through. */
@@ -659,23 +723,31 @@
       <div class="pills">
         <span class="pill brand">Internal</span>
         <span class="pill ok">Read-only review</span>
+        <span class="pill warn">Follow-up open</span>
       </div>
     </div>
     <p class="lede">
-      A full-system review covering security, code health, performance and
-      operations. Findings are sorted by business impact with effort estimates
-      and a recommended three-sprint action plan. Every claim references a real
-      file in the codebase so any item can be verified independently.
+      A living, full-system review covering security, code health, performance
+      and operations. This page now holds <b>two efforts</b>: the original
+      <b>18 May 2026 baseline</b> (~90 findings, worked to closure &mdash; the
+      record of what was fixed) and the <b>11 June 2026 follow-up</b> (35 fresh
+      findings, currently open &mdash; the current-state view). Read the June
+      section first for where the system stands today; the May section below it
+      is the closure log. Every claim references a real file in the codebase so
+      any item can be verified independently.
     </p>
     <p class="meta">
       <span class="meta-label">Published</span>
       <time datetime="2026-05-18">18 May 2026</time>
       <span class="meta-sep">&middot;</span>
+      <span class="meta-label">Last updated</span>
+      <time datetime="2026-06-11">11 June 2026</time>
+      <span class="meta-sep">&middot;</span>
       <span class="meta-label">Scope</span>
       Full codebase + dev server logs + database migrations
       <span class="meta-sep">&middot;</span>
       <span class="meta-label">Findings</span>
-      ~90 captured
+      ~90 (May, closed) + 35 (June, open)
     </p>
   </header>
 
@@ -683,7 +755,15 @@
     <aside class="toc" aria-label="On this page">
       <div class="toc-title">On this page</div>
       <ol>
-        <li><a href="#context">Context</a></li>
+        <li><a href="#followup-2026-06-11"><b>Follow-up &mdash; 11 Jun 2026 (open)</b></a></li>
+        <li><a href="#followup-findings">&nbsp;&nbsp;&middot; Findings at a glance</a></li>
+        <li><a href="#followup-high">&nbsp;&nbsp;&middot; High priority (open)</a></li>
+        <li><a href="#followup-medium">&nbsp;&nbsp;&middot; Medium priority</a></li>
+        <li><a href="#followup-low">&nbsp;&nbsp;&middot; Low priority</a></li>
+        <li><a href="#followup-solid">&nbsp;&nbsp;&middot; What's solid</a></li>
+        <li><a href="#followup-plan">&nbsp;&nbsp;&middot; Action plan (P0/P1/P2)</a></li>
+        <li><a href="#followup-payfast">&nbsp;&nbsp;&middot; PayFast go-live</a></li>
+        <li style="margin-top:10px;border-top:1px solid var(--r-line);padding-top:10px;"><a href="#context"><b>Baseline &mdash; 18 May 2026 (closed)</b></a></li>
         <li><a href="#summary">Executive summary</a></li>
         <li><a href="#positives">What's working well</a></li>
         <li><a href="#critical">Critical issues</a></li>
@@ -699,6 +779,14 @@
     <main>
       <section id="context">
         <h2><span class="section-num">01 - Context</span> Why this audit was done</h2>
+        <div class="card ok" style="margin-bottom:18px;">
+          <div class="card-title">Closure record &mdash; 18 May 2026 baseline</div>
+          Everything from here down is the original May 2026 audit, worked to
+          closure over the following weeks. Findings are marked <b>Complete</b> or
+          <b>Deferred</b> and are kept as the historical record. For the current
+          state of the system see the
+          <a href="#followup-2026-06-11">11 June 2026 follow-up</a> above.
+        </div>
         <p>
           The CareFirst handoff outage that triggered this review has since been
           resolved on the upstream side. With the system back to a steady state,
@@ -776,6 +864,319 @@
         </table>
       </section>
 
+      <!-- ============================================================ -->
+      <!-- 11 JUNE 2026 FOLLOW-UP AUDIT — current-state view (OPEN).     -->
+      <!-- Content lifted verbatim from the standalone follow-up page,   -->
+      <!-- re-rendered in this page's design idiom (finding-cards,       -->
+      <!-- tables, pills). All items OPEN unless otherwise noted.        -->
+      <!-- ============================================================ -->
+      <section id="followup-2026-06-11">
+        <h2><span class="section-num">Follow-up &middot; 11 Jun 2026</span> Current-state review <span class="open-tag" style="margin-left:auto;">Open</span></h2>
+        <div class="card warn" style="margin-bottom:18px;">
+          <div class="card-title">This is the current view</div>
+          The findings below are from the <b>11 June 2026</b> follow-up audit and are
+          <b>open</b>. The May 2026 baseline that follows (sections 01&ndash;10) is the
+          historical closure record &mdash; its items are already fixed or deferred and are
+          kept for the audit trail. Full write-up:
+          <code>booking-app/SYSTEM-AUDIT-2026-06-11.md</code>.
+        </div>
+        <p>
+          A full-system review of the production codebase (<code>main</code>) at
+          <a href="https://bookings.carefirst.co.za">bookings.carefirst.co.za</a>.
+          Six specialist reviews ran in parallel, read-only &mdash;
+          <b>no code was changed during the audit</b>.
+        </p>
+        <p>
+          The system is in <b>strong shape for a live pilot</b>. There are
+          <b>no Critical vulnerabilities</b> and no data-loss bug in the awaited server
+          paths. The high-trust mechanisms &mdash; real RLS, server-authority booking
+          create, idempotent payment confirmation, SECURITY DEFINER triggers,
+          PII-redacted logging, POPIA erasure &mdash; are correctly built and consistently
+          applied. The findings form a short, high-leverage punch-list (&approx;1&ndash;2
+          days) concentrated in three areas: <b>authorization edges</b>,
+          <b>audit-trail durability</b>, and <b>operational visibility</b>. None block the
+          pilot.
+        </p>
+
+        <h3 id="followup-findings"><span class="h3-num">A</span>Findings at a glance</h3>
+        <div class="scorecard">
+          <div class="score crit"><div class="score-n">0</div><div class="score-lbl">Critical</div></div>
+          <div class="score high"><div class="score-n">8</div><div class="score-lbl">High</div></div>
+          <div class="score med"><div class="score-n">14</div><div class="score-lbl">Medium</div></div>
+          <div class="score low"><div class="score-n">13</div><div class="score-lbl">Low</div></div>
+        </div>
+        <p><small>Audited dimensions: Security &amp; Compliance &middot; Payments &amp; Integrations &middot; Backend Correctness &amp; Data Integrity &middot; Database / RLS / Migrations &middot; Frontend / UX / Accessibility &middot; Performance &amp; Operations. Findings <b>H1</b> and <b>H2</b> were independently surfaced by two auditors, which raises confidence they're real.</small></p>
+
+        <h3 id="followup-high"><span class="h3-num">B</span>High-priority findings</h3>
+        <p>Eight items, all open. Each won't break the pilot tomorrow, but each is a real liability concentrated in authorization, audit durability, or operational visibility.</p>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H1. Money-path audit writes are fire-and-forget<span class="corrob-tag">corroborated &times;2</span></h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>api/payfast/notify/route.ts:255</code> &middot; <code>reconcile/route.ts:318</code> &middot; <code>start-consultation/route.ts:386</code></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div><code>writeAuditLog()</code> isn't <code>await</code>ed on these payment-confirmation / successful-handoff paths. On standalone Next.js the runtime can tear the request down after the response flushes, dropping the audit insert.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>A confirmed payment or successful handoff may have <b>no audit row</b> &mdash; exactly the events most needed for POPIA / financial accountability.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div><code>await</code> all three writes (they're already inside awaited handlers).</div>
+          </div>
+        </div>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H2. ITN accepts a COMPLETE payment with no <code>amount_gross</code><span class="corrob-tag">corroborated &times;2</span></h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>api/payfast/notify/route.ts:191-197</code> &middot; mirror in <code>reconcile/route.ts:264-271</code></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>Amount validation is gated on <code>if (amountGross &amp;&amp; &hellip;)</code>, so a COMPLETE ITN that omits the amount skips the tamper check. In sandbox the signature step accepts without passphrase, so steps 1+3 are weaker than they look.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>Defence-in-depth hole on payment integrity. <b>Must close before real money flows.</b></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>Reject when <code>payment_status === "COMPLETE"</code> and amount is missing. Same for reconcile.</div>
+          </div>
+        </div>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H3. A unit-manager can assign a user to units they don't own</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>api/admin/users/[id]/route.ts:118-153</code></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>The guard checks the target's <i>current</i> units, but the <code>unitIds</code> in the PATCH body is applied wholesale with no check the caller belongs to each requested unit.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>A unit-manager can move staff into a foreign unit, expanding their reach beyond their authority.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>For non-admins, intersect <code>body.unitIds</code> with <code>caller.unitIds</code> and reject anything outside it.</div>
+          </div>
+        </div>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H4. Browser-side discard can discard <i>terminal</i> (paid) bookings</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>src/lib/booking-store.tsx:605-612</code> (enabled by <code>migrations/011:78,104</code>)</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div><code>discardBooking</code> does a direct status update with <b>no status guard</b> (unlike <code>abandonBooking</code>). The DB trigger only blocks transitions <i>into</i> paid states, not <i>out of</i> them.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>A paid / handed-off booking can be silently Discarded &mdash; distorting reports and dropping it into the 30-day anonymisation set.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>Route discard through a server endpoint via <code>transitionStatus</code>; add a <code>.eq("status","In Progress")</code> guard + a DB <code>OLD.status</code> terminal guard.</div>
+          </div>
+        </div>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H5. Identity lock is bypassable on the Verify step</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>create-booking/patient-details/page.tsx:1374-1432</code></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>Step 1 locks identity fields to protect an established CareFirst patient, but the Step-4 "Verify your Details" screen re-renders the same fields <b>fully editable</b>, and edits are auto-saved.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>Defeats the lock and reproduces the exact "already registered to a different account" handoff failure it exists to prevent.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>Pass <code>readOnly={identityLocked}</code> to the verify-step identity inputs.</div>
+          </div>
+        </div>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H6. <code>deleteUser</code> swallows failures &rarr; false "deleted" banner</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>src/lib/user-store.tsx:271-276</code> &middot; <code>user-management/manage/page.tsx:462-468</code></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div><code>deleteUser</code> logs and returns on a non-OK response instead of throwing (unlike <code>deleteClient</code>, which was fixed to throw). The page then shows a success banner regardless.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>On a 500 / RLS denial the user stays in the DB but the operator is told it was deleted &mdash; a false success on a destructive action.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>Make <code>deleteUser</code> throw on <code>!res.ok</code>, mirroring <code>deleteClient</code>.</div>
+          </div>
+        </div>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H7. No monitoring / alerting (app down, cron stopped, payments failing)</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div>Operations-wide</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div><code>/api/health</code> drives Docker auto-restart, but nothing pages a human. Incidents and logs are pull-only.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>A quiet overnight failure can strand a paid booking with nobody aware until a patient complains.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>External uptime monitor on <code>/api/health</code> + a dead-man's-switch pinged at the end of <code>booking-cron.sh</code>. ~30 min, no code change.</div>
+          </div>
+        </div>
+
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>H8. DB backups documented but not verified as deployed</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>OPERATIONS.md</code> &mdash; "Verify Supabase Backups"</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>The runbook documents a pg_dump cron, but there's no evidence it's installed on the VPS.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>For a live pilot holding patient PII + payment records, an unverified backup is the highest-consequence gap after alerting.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>Confirm the live Supabase tier; if Free, install the pg_dump cron now and run a restore test once.</div>
+          </div>
+        </div>
+
+        <h3 id="followup-medium"><span class="h3-num">C</span>Medium-priority findings</h3>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Finding</th><th>Where</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>M1</td><td>Cron has no overlap guard &mdash; an overrun run stacks a second concurrent run on 1 vCPU</td><td><code>booking-cron.sh</code></td></tr>
+            <tr><td>M2</td><td>Reconcile (+ retention sweep) also fire on <b>every Patient-History page visit</b>, multiplying load</td><td><code>patient-history:485</code></td></tr>
+            <tr><td>M3</td><td>unit-manager can change a target's <code>clientId</code> / <code>status</code> cross-scope</td><td><code>admin/users/[id]:112</code></td></tr>
+            <tr><td>M4</td><td><code>/api/bookings/audit</code> trusts client-supplied <code>changes</code> / <code>entityName</code> verbatim</td><td><code>bookings/audit:90</code></td></tr>
+            <tr><td>M5</td><td>Handoff lock can strand a paid booking in <code>handoff_status="in_progress"</code> on a crash</td><td><code>start-consultation:191</code></td></tr>
+            <tr><td>M6</td><td><code>updateBooking</code> swallows save failures &mdash; flow advances on a failed save</td><td><code>booking-store:590</code></td></tr>
+            <tr><td>M7</td><td><code>toggleClientStatus</code> / <code>toggleUserStatus</code> swallow errors &mdash; failed toggle looks like success</td><td><code>client-store:361</code></td></tr>
+            <tr><td>M8</td><td>PIN modal hand-rolls inputs: no paste, no per-digit aria-labels (gates the highest-trust actions)</td><td><code>pin-verification-modal:140</code></td></tr>
+            <tr><td>M9</td><td><code>CountryCodeSelect</code> not keyboard / screen-reader operable</td><td><code>CountryCodeSelect:54</code></td></tr>
+            <tr><td>M10</td><td><code>FloatingInput</code> error not linked to input (no <code>aria-invalid</code>/<code>describedby</code>) &mdash; every form</td><td><code>floating-input:61</code></td></tr>
+            <tr><td>M11</td><td><code>coupons</code>/<code>coupon_uses</code> missing the standard <code>GRANT &hellip; TO service_role</code></td><td><code>migrations/033:170</code></td></tr>
+            <tr><td>M12</td><td>Redundant index &mdash; <code>idx_bookings_status</code> is covered by <code>idx_bookings_status_created_at</code></td><td><code>001:66 / 018:39</code></td></tr>
+            <tr><td>M13</td><td>No composite index for the dominant list read <code>(unit_id, created_at DESC)</code></td><td><code>032:33</code></td></tr>
+            <tr><td>M14</td><td>Unbounded <code>select("*")</code> of all bookings to the client on mount (documented scaling cliff)</td><td><code>booking-store:419</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="followup-low"><span class="h3-num">D</span>Low-priority findings</h3>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Finding</th><th>Where</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>L1</td><td>Emailed pay link charges full amount, ignoring an applied coupon (over-charge + ITN mismatch)</td><td><code>pay/[bookingId]:97</code></td></tr>
+            <tr><td>L2</td><td>Public pay page is UUID-as-bearer (by design; no PII rendered)</td><td><code>pay/[bookingId]:26</code></td></tr>
+            <tr><td>L3</td><td>Rate limiter is process-local &mdash; weakens per-IP limits only if scaled horizontally</td><td><code>rate-limit:8</code></td></tr>
+            <tr><td>L4</td><td>Retention-sweep audit row mislabels <code>entityType:"user"</code> (it anonymises bookings)</td><td><code>retention-sweep:166</code></td></tr>
+            <tr><td>L5</td><td><code>coupons/apply</code> rollback can blind-delete the new use row, desyncing booking denorm</td><td><code>coupons/apply:246</code></td></tr>
+            <tr><td>L6</td><td>CareFirst timeout vs network errors collapse into one incident signature</td><td><code>start-consultation:290</code></td></tr>
+            <tr><td>L7</td><td><code>m_payment_id</code> prefix has no explicit length assertion vs PayFast's 100-char cap (safe at &le;42)</td><td><code>payfast.ts:247</code></td></tr>
+            <tr><td>L8</td><td>Low-value handoff indexes add write cost on the hot <code>bookings</code> table</td><td><code>migrations/015:38</code></td></tr>
+            <tr><td>L9</td><td>No index for <code>id_number</code>/<code>contact_number</code> patient dedup / search</td><td><code>migrations/001:27</code></td></tr>
+            <tr><td>L10</td><td><code>audit_log</code>/<code>incidents</code> SELECT policy re-queries <code>users</code> instead of the helper (correct, inconsistent)</td><td><code>007:30 / 029:45</code></td></tr>
+            <tr><td>L11</td><td><code>release_coupon_on_abandon</code> fires on every bookings UPDATE, not <code>OF status</code> (guarded; correct)</td><td><code>037:29</code></td></tr>
+            <tr><td>L12</td><td>Verify-step ID-number input skips digit cleaning / validation (subsumed by H5)</td><td><code>patient-details:1396</code></td></tr>
+            <tr><td>L13</td><td><code>beforeunload</code> abandon uses the anon key &mdash; usually no-ops under RLS (cron sweep is the real path)</td><td><code>booking-store:692</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="followup-solid"><span class="h3-num">E</span>What's solid</h3>
+        <div class="grid-2">
+          <div class="card ok">
+            <div class="card-title">Uniform, enumeration-resistant authz</div>
+            Every route uses the correct guard; account-state issues collapse to one generic 403 with the real reason logged server-side only.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Service-role routes replicate RLS</div>
+            They re-check unit membership and server-authority flags before every write rather than trusting the client.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Excellent PII discipline in logs</div>
+            Patient PII is redacted from stderr; full context goes only to the RLS-protected <code>audit_log</code>.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Textbook PIN flows</div>
+            Salted SHA-256 tokens, 15-min single-use, timing-safe compare, all-session revocation on reset, shared DB throttle.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Robust payment confirmation</div>
+            Constant-time signature compare, fail-closed IP checks, 5s server-confirm abort, correct 200/4xx/5xx retry policy, and triple-layer idempotency so duplicate ITNs and ITN-vs-reconcile races settle cleanly in Postgres.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Clean RLS cutover</div>
+            Every SECURITY DEFINER function pins <code>search_path</code>; partial-index discipline is consistent.
+          </div>
+          <div class="card ok">
+            <div class="card-title">Strong deploy / rollback story</div>
+            Image-tag-per-deploy, DB-verifying healthcheck, log rotation, compose drift resolved, env via SSH <code>.env</code>.
+          </div>
+        </div>
+
+        <h3 id="followup-plan"><span class="h3-num">F</span>Recommended action plan</h3>
+        <h4>P0 &mdash; quick, high-leverage (&approx; half a day)</h4>
+        <p>H1 (await audit writes) &middot; H2 (reject missing amount) &middot; H6 (deleteUser throws) &middot; H5 (verify-step lock) &middot; H7 (alerting, no code) &middot; M1 (cron <code>flock</code>).</p>
+        <h4>P1 &mdash; before scaling / important correctness</h4>
+        <p>H3 + M3 (tighten user-management PATCH authz) &middot; H4 (close discard terminal-state hole) &middot; M5 (handoff-lock staleness escape) &middot; M6/M7 (stores throw on failure) &middot; H8 (verify/instate backups).</p>
+        <h4>P2 &mdash; hygiene, accessibility, scaling prep</h4>
+        <p>M8/M9/M10 (accessibility pass) &middot; M2 + M14 (debounce reconcile; server-side pagination + streaming CSV before ~5k bookings) &middot; M11/M12/M13 (GRANT parity + index cleanup + composite index) &middot; L-series as files are next touched.</p>
+
+        <h3 id="followup-payfast"><span class="h3-num">G</span>PayFast sandbox &rarr; live cutover readiness</h3>
+        <div class="card warn">
+          <div class="card-title">Must fix / verify before flipping <code>PAYFAST_TEST_MODE=false</code></div>
+          <ul>
+            <li><b>H2</b> &mdash; close the missing-amount gap (the sandbox passphrase-optional signature branch hardens at go-live, but the amount gap remains).</li>
+            <li><b>H1</b> &mdash; await the ITN + reconcile audit writes (a live payment with no audit row is a compliance problem).</li>
+            <li>Verify the <b>live signature includes the passphrase</b> end-to-end against a real transaction.</li>
+            <li>Confirm the <b>Transaction History 401 clears</b> on live credentials (the reconcile safety net).</li>
+            <li>Confirm <code>getAppUrl()</code> resolves to <code>https://bookings.carefirst.co.za</code> so notify/return URLs are correct.</li>
+          </ul>
+          These dovetail with the outstanding business items: Nic's credentials, Jean enabling ITN + the dashboard default notify URL, and the Q3 go-live timing.
+        </div>
+
+        <h4>Methodology</h4>
+        <p>Six specialist agents audited independent dimensions in parallel, each scoped to avoid double-counting and to skip already-closed hardening work (real-RLS migration, CSRF, rate limiting, HSTS/HTTPS, double-click guard, server-authority create, ITN abort, E.164, client_code, retention sweep, CSV injection guard). H1 and H2 were independently surfaced by two auditors. All findings are read-only observations &mdash; <b>no code was modified.</b> Severity reflects exploitability / impact at the current pilot posture (single container, PayFast sandbox). Full write-up: <code>booking-app/SYSTEM-AUDIT-2026-06-11.md</code>.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- 18 MAY 2026 BASELINE — historical closure record (sections    -->
+      <!-- 01-10). Items below are fixed or deferred; kept for the audit  -->
+      <!-- trail. Do not alter the resolved status of these findings.     -->
+      <!-- ============================================================ -->
       <section id="positives">
         <h2><span class="section-num">03 - Positives</span> What's working well</h2>
         <p>Worth highlighting before the issues list so the picture isn't lopsided.</p>
@@ -1741,7 +2142,7 @@
 
   <footer>
     <span class="pill brand">CareFirst</span>
-    &nbsp; First Care Solutions &middot; 3rd Party Booking System &middot; System Audit &middot; 18 May 2026
+    &nbsp; First Care Solutions &middot; 3rd Party Booking System &middot; System Audit &middot; 18 May 2026 baseline &middot; updated 11 June 2026
   </footer>
 </body>
 </html>
