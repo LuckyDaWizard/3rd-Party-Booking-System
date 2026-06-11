@@ -100,6 +100,7 @@ const navItems: NavItem[] = [
       { label: "Unit Email Handoff", href: "/carefirst-unit-email-handoff-proposal.html", openInNewTab: true },
       { label: "Scheduling", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
       { label: "Multi-Client Routing (RFC)", href: "/reports/multi-client-routing", openInNewTab: true },
+      { label: "Client Scenarios", href: "/client-scenarios.html", openInNewTab: true },
       // Audit + decision records, kept at the bottom — referenced rarely.
       { section: "Records" },
       { label: "Engineering Status", href: "/engineering-status.html", openInNewTab: true },
