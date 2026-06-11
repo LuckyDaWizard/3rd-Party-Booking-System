@@ -97,6 +97,8 @@ const PROTECTED_DOC_PATTERNS: RegExp[] = [
   /^\/(carefirst-unit-email-handoff|consultation-scheduling|coupon-codes)-proposal\.html$/,
   // Audit + status records
   /^\/(engineering-status|system-audit)\.html$/,
+  // Internal architecture / client-scenario reports
+  /^\/client-scenarios\.html$/,
   // Dated management-decision records (e.g. management-decisions-2026-05-21.html)
   /^\/management-decisions-[\d-]+\.html$/,
 ]

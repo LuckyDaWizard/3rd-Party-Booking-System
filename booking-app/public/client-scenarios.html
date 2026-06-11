@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client Scenarios — No-Gateway Booking Walkthrough</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,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" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;700;900&family=Roboto:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --r-brand: #3ea3db;
+      --r-brand-dark: #1f6f9d;
+      --r-brand-tint: #e0f0fa;
+      --r-brand-tint-2: #f0f9ff;
+      --r-brand-border: #bae6fd;
+
+      --r-ok: #16a34a;
+      --r-warn: #d97706;
+      --r-err: #dc2626;
+
+      --r-ink: #0f172a;
+      --r-ink-2: #1e293b;
+      --r-mute: #64748b;
+      --r-line: #e2e8f0;
+      --r-line-2: #f1f5f9;
+      --r-bg: #f8fafc;
+
+      --r-radius: 0.625rem;
+      --r-radius-lg: 1rem;
+      --r-radius-xl: 1.4rem;
+
+      --r-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --r-shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06);
+
+      --r-content-max: 1100px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Roboto", system-ui, sans-serif;
+      font-weight: 400;
+      color: var(--r-ink);
+      background: var(--r-bg);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: "Mulish", "Roboto", sans-serif;
+      font-weight: 900;
+      color: var(--r-ink);
+      letter-spacing: -0.01em;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    p, li { margin: 0.5em 0; }
+    ul, ol { margin: 0.6em 0; padding-left: 22px; }
+    li { margin: 4px 0; }
+
+    a { color: var(--r-brand-dark); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code {
+      background: var(--r-line-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      color: var(--r-brand-dark);
+    }
+
+    b, strong { font-weight: 700; color: var(--r-ink-2); }
+    small { color: var(--r-mute); font-size: 0.85em; }
+
+    /* ----------- Header ----------- */
+
+    .page-header {
+      background:
+        linear-gradient(135deg, var(--r-brand-tint-2) 0%, white 60%, var(--r-brand-tint) 130%);
+      border-bottom: 1px solid var(--r-brand-border);
+      padding: 56px 24px 48px;
+    }
+
+    .page-header-inner {
+      max-width: var(--r-content-max);
+      margin: 0 auto;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-mark {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(62, 163, 219, 0.35);
+      overflow: hidden;
+    }
+    .brand-mark img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-name {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 26px;
+      color: var(--r-ink);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .brand-sub {
+      font-family: "Mulish", sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--r-brand-dark);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .divider {
+      width: 1px;
+      height: 56px;
+      background: var(--r-brand);
+    }
+
+    .titles .super {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      color: var(--r-brand-dark);
+      text-transform: uppercase;
+    }
+    .titles h1 {
+      font-size: 34px;
+      margin-top: 6px;
+    }
+
+    .pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .pill {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-family: "Mulish", sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .pill.brand { background: var(--r-brand-tint); color: var(--r-brand-dark); }
+    .pill.ok    { background: #dcfce7; color: #166534; }
+    .pill.warn  { background: #fef3c7; color: #92400e; }
+    .pill.err   { background: #fee2e2; color: #991b1b; }
+    .pill.mute  { background: var(--r-line-2); color: var(--r-mute); }
+
+    .lede {
+      max-width: var(--r-content-max);
+      margin: 24px auto 0;
+      font-size: 17px;
+      color: var(--r-mute);
+    }
+
+    .meta {
+      max-width: var(--r-content-max);
+      margin: 12px auto 0;
+      font-size: 13px;
+      color: var(--r-mute);
+      font-family: "Mulish", sans-serif;
+    }
+    .meta .meta-label {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--r-brand-dark);
+      margin-right: 4px;
+    }
+    .meta .meta-sep {
+      margin: 0 10px;
+      color: var(--r-brand-border);
+    }
+
+    /* ----------- Layout ----------- */
+
+    .layout {
+      max-width: var(--r-content-max);
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    @media (max-width: 600px) {
+      .layout { padding: 24px 16px 48px; }
+      .titles h1 { font-size: 26px; }
+      .pills { margin-left: 0; }
+    }
+
+    /* ----------- Sections ----------- */
+
+    main { min-width: 0; }
+
+    section {
+      background: white;
+      border-radius: var(--r-radius-lg);
+      padding: 32px 36px;
+      margin-bottom: 24px;
+      box-shadow: var(--r-shadow-sm);
+      border: 1px solid var(--r-line);
+    }
+
+    @media (max-width: 600px) {
+      section { padding: 22px 18px; }
+    }
+
+    section h2 {
+      font-size: 22px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    section h2 .section-num {
+      font-family: "Mulish", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      color: var(--r-brand-dark);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    section h3 {
+      font-size: 17px;
+      margin-top: 22px;
+      margin-bottom: 8px;
+    }
+
+    section h4 {
+      font-size: 14px;
+      margin-top: 16px;
+      margin-bottom: 6px;
+      color: var(--r-brand-dark);
+      font-family: "Mulish", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    /* ----------- Tables ----------- */
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 14px;
+      background: white;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--r-line);
+      vertical-align: top;
+    }
+    th {
+      font-family: "Mulish", sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--r-brand-dark);
+      background: var(--r-brand-tint-2);
+    }
+    tr:last-child td { border-bottom: none; }
+
+    td .prio {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+    td .prio.high { background: #fef3c7; color: #92400e; }
+    td .prio.med  { background: var(--r-brand-tint); color: var(--r-brand-dark); }
+    td .prio.low  { background: var(--r-line-2); color: var(--r-mute); }
+
+    /* ----------- Card grids ----------- */
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 14px 0;
+    }
+
+    .card {
+      padding: 16px 18px;
+      border-radius: var(--r-radius);
+      background: var(--r-bg);
+      border-left: 4px solid var(--r-brand);
+    }
+    .card.warn { border-left-color: var(--r-warn); background: #fffbeb; }
+    .card.err  { border-left-color: var(--r-err);  background: #fef2f2; }
+    .card.ok   { border-left-color: var(--r-ok);   background: #f0fdf4; }
+    .card .card-title {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--r-ink);
+      margin-bottom: 6px;
+    }
+
+    /* ----------- Finding / scenario blocks ----------- */
+
+    .finding {
+      padding: 18px 20px;
+      margin: 14px 0;
+      background: var(--r-bg);
+      border-radius: var(--r-radius);
+      border-left: 4px solid var(--r-brand);
+    }
+    .finding.ok   { border-left-color: var(--r-ok);   background: #f0fdf4; }
+    .finding.warn { border-left-color: var(--r-warn); background: #fffbeb; }
+
+    .finding h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .done-tag,
+    .open-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: "Mulish", sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      vertical-align: middle;
+    }
+    .done-tag { background: #dcfce7; color: #166534; }
+    .open-tag { background: #fef3c7; color: #92400e; }
+
+    .finding .field {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 12px;
+      padding: 6px 0;
+      border-top: 1px dashed var(--r-line);
+      align-items: start;
+    }
+    .finding .field:first-of-type { border-top: none; }
+    .finding .field-label {
+      font-family: "Mulish", sans-serif;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--r-brand-dark);
+      padding-top: 2px;
+    }
+
+    @media (max-width: 600px) {
+      .finding .field { grid-template-columns: 1fr; gap: 4px; }
+    }
+
+    /* ----------- Footer ----------- */
+
+    footer {
+      max-width: var(--r-content-max);
+      margin: 0 auto;
+      padding: 32px 24px;
+      text-align: center;
+      color: var(--r-mute);
+      font-size: 13px;
+      border-top: 1px solid var(--r-line);
+    }
+
+    /* ----------- Print ----------- */
+
+    @media print {
+      body { background: white; }
+      .layout { padding: 0; }
+      section { break-inside: avoid; box-shadow: none; border: 1px solid var(--r-line); }
+      .finding { break-inside: avoid; }
+      .page-header { background: white !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header-inner">
+      <div class="brand-lockup">
+        <div class="brand-mark"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAYAAACohjseAAAABGdBTUEAALGPC/xhBQAACklpQ0NQc1JHQiBJRUM2MTk2Ni0yLjEAAEiJnVN3WJP3Fj7f92UPVkLY8LGXbIEAIiOsCMgQWaIQkgBhhBASQMWFiApWFBURnEhVxILVCkidiOKgKLhnQYqIWotVXDjuH9yntX167+3t+9f7vOec5/zOec8PgBESJpHmomoAOVKFPDrYH49PSMTJvYACFUjgBCAQ5svCZwXFAADwA3l4fnSwP/wBr28AAgBw1S4kEsfh/4O6UCZXACCRAOAiEucLAZBSAMguVMgUAMgYALBTs2QKAJQAAGx5fEIiAKoNAOz0ST4FANipk9wXANiiHKkIAI0BAJkoRyQCQLsAYFWBUiwCwMIAoKxAIi4EwK4BgFm2MkcCgL0FAHaOWJAPQGAAgJlCLMwAIDgCAEMeE80DIEwDoDDSv+CpX3CFuEgBAMDLlc2XS9IzFLiV0Bp38vDg4iHiwmyxQmEXKRBmCeQinJebIxNI5wNMzgwAABr50cH+OD+Q5+bk4eZm52zv9MWi/mvwbyI+IfHf/ryMAgQAEE7P79pf5eXWA3DHAbB1v2upWwDaVgBo3/ldM9sJoFoK0Hr5i3k4/EAenqFQyDwdHAoLC+0lYqG9MOOLPv8z4W/gi372/EAe/tt68ABxmkCZrcCjg/1xYW52rlKO58sEQjFu9+cj/seFf/2OKdHiNLFcLBWK8ViJuFAiTcd5uVKRRCHJleIS6X8y8R+W/QmTdw0ArIZPwE62B7XLbMB+7gECiw5Y0nYAQH7zLYwaC5EAEGc0Mnn3AACTv/mPQCsBAM2XpOMAALzoGFyolBdMxggAAESggSqwQQcMwRSswA6cwR28wBcCYQZEQAwkwDwQQgbkgBwKoRiWQRlUwDrYBLWwAxqgEZrhELTBMTgN5+ASXIHrcBcGYBiewhi8hgkEQcgIE2EhOogRYo7YIs4IF5mOBCJhSDSSgKQg6YgUUSLFyHKkAqlCapFdSCPyLXIUOY1cQPqQ28ggMor8irxHMZSBslED1AJ1QLmoHxqKxqBz0XQ0D12AlqJr0Rq0Hj2AtqKn0UvodXQAfYqOY4DRMQ5mjNlhXIyHRWCJWBomxxZj5Vg1Vo81Yx1YN3YVG8CeYe8IJAKLgBPsCF6EEMJsgpCQR1hMWEOoJewjtBK6CFcJg4Qxwicik6hPtCV6EvnEeGI6sZBYRqwm7iEeIZ4lXicOE1+TSCQOyZLkTgohJZAySQtJa0jbSC2kU6Q+0hBpnEwm65Btyd7kCLKArCCXkbeQD5BPkvvJw+S3FDrFiOJMCaIkUqSUEko1ZT/lBKWfMkKZoKpRzame1AiqiDqfWkltoHZQL1OHqRM0dZolzZsWQ8ukLaPV0JppZ2n3aC/pdLoJ3YMeRZfQl9Jr6Afp5+mD9HcMDYYNg8dIYigZaxl7GacYtxkvmUymBdOXmchUMNcyG5lnmA+Yb1VYKvYqfBWRyhKVOpVWlX6V56pUVXNVP9V5qgtUq1UPq15WfaZGVbNQ46kJ1Bar1akdVbupNq7OUndSj1DPUV+jvl/9gvpjDbKGhUaghkijVGO3xhmNIRbGMmXxWELWclYD6yxrmE1iW7L57Ex2Bfsbdi97TFNDc6pmrGaRZp3mcc0BDsax4PA52ZxKziHODc57LQMtPy2x1mqtZq1+rTfaetq+2mLtcu0W7eva73VwnUCdLJ31Om0693UJuja6UbqFutt1z+o+02PreekJ9cr1Dund0Uf1bfSj9Rfq79bv0R83MDQINpAZbDE4Y/DMkGPoa5hpuNHwhOGoEctoupHEaKPRSaMnuCbuh2fjNXgXPmasbxxirDTeZdxrPGFiaTLbpMSkxeS+Kc2Ua5pmutG003TMzMgs3KzYrMnsjjnVnGueYb7ZvNv8jYWlRZzFSos2i8eW2pZ8ywWWTZb3rJhWPlZ5VvVW16xJ1lzrLOtt1ldsUBtXmwybOpvLtqitm63Edptt3xTiFI8p0in1U27aMez87ArsmuwG7Tn2YfYl9m32zx3MHBId1jt0O3xydHXMdmxwvOuk4TTDqcSpw+lXZxtnoXOd8zUXpkuQyxKXdpcXU22niqdun3rLleUa7rrStdP1o5u7m9yt2W3U3cw9xX2r+00umxvJXcM970H08PdY4nHM452nm6fC85DnL152Xlle+70eT7OcJp7WMG3I28Rb4L3Le2A6Pj1l+s7pAz7GPgKfep+Hvqa+It89viN+1n6Zfgf8nvs7+sv9j/i/4XnyFvFOBWABwQHlAb2BGoGzA2sDHwSZBKUHNQWNBbsGLww+FUIMCQ1ZH3KTb8AX8hv5YzPcZyya0RXKCJ0VWhv6MMwmTB7WEY6GzwjfEH5vpvlM6cy2CIjgR2yIuB9pGZkX+X0UKSoyqi7qUbRTdHF09yzWrORZ+2e9jvGPqYy5O9tqtnJ2Z6xqbFJsY+ybuIC4qriBeIf4RfGXEnQTJAntieTE2MQ9ieNzAudsmjOc5JpUlnRjruXcorkX5unOy553PFk1WZB8OIWYEpeyP+WDIEJQLxhP5aduTR0T8oSbhU9FvqKNolGxt7hKPJLmnVaV9jjdO31D+miGT0Z1xjMJT1IreZEZkrkj801WRNberM/ZcdktOZSclJyjUg1plrQr1zC3KLdPZisrkw3keeZtyhuTh8r35CP5c/PbFWyFTNGjtFKuUA4WTC+oK3hbGFt4uEi9SFrUM99m/ur5IwuCFny9kLBQuLCz2Lh4WfHgIr9FuxYji1MXdy4xXVK6ZHhp8NJ9y2jLspb9UOJYUlXyannc8o5Sg9KlpUMrglc0lamUycturvRauWMVYZVkVe9ql9VbVn8qF5VfrHCsqK74sEa45uJXTl/VfPV5bdra3kq3yu3rSOuk626s91m/r0q9akHV0IbwDa0b8Y3lG19tSt50oXpq9Y7NtM3KzQM1YTXtW8y2rNvyoTaj9nqdf13LVv2tq7e+2Sba1r/dd3vzDoMdFTve75TsvLUreFdrvUV99W7S7oLdjxpiG7q/5n7duEd3T8Wej3ulewf2Re/ranRvbNyvv7+yCW1SNo0eSDpw5ZuAb9qb7Zp3tXBaKg7CQeXBJ9+mfHvjUOihzsPcw83fmX+39QjrSHkr0jq/dawto22gPaG97+iMo50dXh1Hvrf/fu8x42N1xzWPV56gnSg98fnkgpPjp2Snnp1OPz3Umdx590z8mWtdUV29Z0PPnj8XdO5Mt1/3yfPe549d8Lxw9CL3Ytslt0utPa49R35w/eFIr1tv62X3y+1XPK509E3rO9Hv03/6asDVc9f41y5dn3m978bsG7duJt0cuCW69fh29u0XdwruTNxdeo94r/y+2v3qB/oP6n+0/rFlwG3g+GDAYM/DWQ/vDgmHnv6U/9OH4dJHzEfVI0YjjY+dHx8bDRq98mTOk+GnsqcTz8p+Vv9563Or59/94vtLz1j82PAL+YvPv655qfNy76uprzrHI8cfvM55PfGm/K3O233vuO+638e9H5ko/ED+UPPR+mPHp9BP9z7nfP78L/eE8/stRzjPAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAJcEhZcwAALiMAAC4jAXilP3YAAAlKSURBVGiBtZp7jFxVHcc/vzP33rkzO6/t7HYf3bZb2lLlUYr1BY2g0KhBtBFigiH+QeIjJL4i+kf9w+hfxqggQjQkNfEPa4omJFVAwJYgWBSCCSLBUrss9kFp2aXb7Xa3M/fOPf5x505nZu/cuXdm/Sbzx5zH75zP/d1z7jm/c+TU2nvoVbXUv9HyRlSRP4ekVYB/Ar8G/hNVOXeXQ3qy1nP/AFRflb113YoYIb8B4HrgF8An+mk/jvoCFD2A6MleqxvAd4DLOxVQmV5NN9no24A32U/1FHBHWIZkwSh7/dgGVgCwTy8CXB2WaH2khhg6LMtMYrxvQOjbi+llKQZktrphZe8EHgBycY0nARSgENYh34tdJ5zYsj7qkcot896dwBeBLcBPiAkZBzADfAV4BNgPPI7/FN/XYshbH6e9WArxXgAXKDZkN8Ai8HP8iaDUVOeqegO7goKiC4ge79ZeV1k3eBjFlsmlHS7QFuDH+A7oqCjAIvBTYFOHfAG+QROk8i6LaiuWMttbvNcJLtB7gLui7HUCDOA2dulPC6ToYl9etG7wMEoN73WDC/Qp/G9qqMIAc8SDCxRA3gL9ebHJe58jHhxAFhjplBkGuAhMJeqZD3kPsLNXLzZ5bxdwd8LqTqeMMEAP+BHwVMJGFLAb2NmLF+ve24X/NkiCqmeAd6I6Faa+IEUXdybxYt17vcAB/BYIXfJAxODkEiTAxxM0qIDdyruMWuqtWBUy291e4R4F/hCaYxmo0TzGEctCgLznMVxzSbU+i54hRRd3gzUI1bORBTfoCaPk9Qp3L+3eswzUWB4ZtEEEY59tN/JyWvNh12FbpUrWa0zXvUOSWee3Hg4pZYZUgTHgXAK7EAbXBhao5RVdEOGAafGsaXG943BtpULeBw0gK8CnE3RE6pAKqrMtGUMMq0G9BiHplv0R4MEGXMZEjeSRkh36DoSOwSrwjGnyrGlynevwgUqFQs3zgPvwp+TbEnRIhMxajQhUZgBkmBFV0mNJqOraBzwE+GBjBaS4fDPSrKhJBg84ZJj8zfBBP1ip6HzNexD/WX02Sc8Ee0JTuygFV/UFFxMsUCRgoAD0BcNkh+Po7ZXKAznPUzStQ8OlNHiNF0ewR2XwfOunSTpP8U3aR8Z8KAlYoFiAgVzgL6bJIdPUOxzn/u2VCjnP6wgpunBRy9yl1b6oAbFaR0pq2LsY2WjG3KfGCg8lBQvUDLgZuB1/hW5FVWoCZWe1snq96w415wt4ptZLWcaWDJoA1fJpIH1t6qKMZyclncq0TH8AljotWfNG4MakYHXVAsDPAF/HDwLFlgs8aaXP3CRiTbpOC6QjYi8yTIl5ZeuZ06KH7hMn/5x93SHlTKmP1Wbkm+mbrVXpbfZQqHFTnRErNQv0Ml4D1QzgSvxVRE/xGQ08bVondqJlneuWW3OFWdl0uqTHd+b1wjEwUbZG5XnFvFI9mt2RfgpYtcyoqd4RK+YyqIsU8Hn6DD5p4KCZPnHSMJZ90OeU+v5rZv7YXOrSm2puSZF9vzGFU/vhMmOGmhUrdbKf/jQrCD/0LQ/0k2b6v/8yrZMVkcb2pSryhAKOGkXmVAZjjUXmmjRiphD0Ew0DIo6kUycknTq+Ev0JZNAlppFEGvh7xl563s4tDaYwBWS2MOAGU8vChjXsWpNlbea5oLwzUxNRoIcNFjeJXirG+mrElpvoM9FNtYy52smY49DYoOmLKbWjZhp/mpsY4a3R1ZTObWWHwIbcX6lorq8iGuC4S/GEK4XttndywtIzK9SlIysS+AWoZYzhAK5Z1oXK996dHM+dGlndSHt+7iqOnL+5MF+T7zaX1SAvXVQTJx0pt9vpUQ+vCGDNNspOxloTljc/Vr7izXzhMc/TN1A/YXJ1+qanZ3c88cb5XaEHLy8tqYm3HRnss1u/Aw71/YrWbKPsZK217enVAbtyemKkMjW6uqA9vdWtOvuV4M5VRwWRFMBLc9s9yzg1P2S/aKeaFhca5IUlte5DeIyaOnI/2SaNH0/aBxwE/4neTvLNJhdGi7x52cStpwYG7gbmWqBFdEUpz0ibm5oNazA00tLY0YXtiPniawJK2vrx2ILSmy19/zW2PlhMxZp8KviboYYMYKEHMKYKhVuBL0Hn/ZwoyTb/t2xrqYanDJzGwvJcdTADoMELQzhcla+9XpWFLZY+cI2tiQnaUOxXtAkM4FbgW3T3fMsYzw3mzlyoeamicXYiSPNIdZsHlIbdh6vC61U5sMXSJAHtCtgGBvHhWpRflZux85mz8x5YXjWbUReWL9E6SwG7NXC4KgderwpxQTsCnp9YxZvrx5nO55uTbwO+SkK4Qjn3Tn6o2Fh+zbiDx8qG6KxaSPI5COKulobH6x5ls6m52taUww9LlwPOrysztX6C4wPZ9qw78I/REqk4lD+dKxdOtafPuqXjOoVXUmeTevLb+Ke8+zVwxBGOOMIGQ7MtoxluA20ARoDBCsMFerdWOplWbtKgU3AWAv55JQDTrjB9XigrWG9q8soHNebXlpma7AgGPcLZA+m9uXLhzm7lTjvlo4vOtqey5suJAlmEQALMejBbEYJRpJ658vIouBvpAQ7YWxot7YlT0EP00flbHsQPBybRsvPJMEVN0QJ8OWGjAHvtgfQeO9/xoS3T4YWNetHZ9n+BjAIcr/+SaC+wpzRaSlTJQzg6f4vGD+iuKGQUYOyrGnX9HthjD6RJ4r1Ahxc2suhsCyD/mLC6AF/APwxtURTg20QcS7VpP/BLgKTeC1T3IvU2f0ayo7tZ/MXHYntGFOA54IUYxvcD9wO6V+8FqnsRkp1PBnDHwjK7rQMfoG2n0KYGHPTuvUBNXvT/doeMhIPugG/VDcyF5LXA2VmrL+8FOrywkSV3a/A3gPwVcKGpmAZexF82doSDeLuJaXzIe7l0GagFDqA4Umqv15M8hOn5T3LFqlcuJcFv8CexzfhXyY4RcS7frLghiwByjhA4yzbJFAZimuqu1xYup1Jbdv+oArwK/IOYcJAs4DuNv6ppgYP62AvfX3S83hElVyum57scXMVU0qDTGdrgUilFptjRe5F3sqP06vn3hnkxsfqOqmWLGUQ6bg+TrkoaWikv9g1oWJEXcA/S6ZpHDK2EF/u/0tx9b38f8APgZfwAV7Xt13GculrxxrlEJ+XL9D+Jc+xc3PqR3QAAAABJRU5ErkJggg==" alt="" /></div>
+        <div>
+          <div class="brand-name">CareFirst</div>
+          <div class="brand-sub">Empowering Healthcare</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="titles">
+        <div class="super">Internal &middot; Architecture Review</div>
+        <h1>Client Scenarios &mdash; No-Gateway Booking Walkthrough</h1>
+      </div>
+      <div class="pills">
+        <span class="pill brand">Internal</span>
+        <span class="pill ok">Architecture review</span>
+      </div>
+    </div>
+    <p class="lede">
+      How four identified clients map to the system today, and what would make it
+      easier.
+    </p>
+    <p class="meta">
+      <span class="meta-label">Dated</span>
+      <time datetime="2026-06-11">11 June 2026</time>
+      <span class="meta-sep">&middot;</span>
+      <span class="meta-label">Production</span>
+      <code>bookings.carefirst.co.za</code>
+      <span class="meta-sep">&middot;</span>
+      <span class="meta-label">Note</span>
+      How four identified clients map to the system today, and what would make it easier.
+    </p>
+  </header>
+
+  <div class="layout">
+    <main>
+      <section id="summary">
+        <h2><span class="section-num">00 &middot; Summary</span> The core model</h2>
+        <div class="card">
+          <div class="card-title">One patient per booking, keyed on ID</div>
+          <p style="margin-top:0;">
+            The system's unit of work is <b>one patient per booking, identified by
+            their ID/passport number</b>. Whoever is logged in (a nurse, a 3rd-party
+            agent, an admin) always creates the booking <i>on behalf of</i> the
+            patient &mdash; so "nurse books" and "3rd party books" are the normal
+            mode, not special cases.
+          </p>
+          <p>
+            Two architectural facts shape every scenario below: (1) there is
+            <b>no main-member / dependant relationship and no membership/scheme-number
+            field</b> &mdash; a dependant is just another standalone patient record
+            keyed on their own ID; (2) <b>today all clients route to a single CareFirst
+            account</b> (the per-client <code>client_code</code> we shipped is the
+            groundwork to fix this &mdash; tracked as item B1).
+          </p>
+          <p style="margin-bottom:0;">
+            For "no payment gateway" there are two client-level modes: <b>Monthly
+            Invoice</b> (no payment step; auto-marks Payment Complete; billed
+            month-end) or <b>Self-Collect</b> (unit takes cash/card, operator confirms
+            with PIN), plus optional <b>Skip Patient Metrics</b> and <b>Nurse
+            Verification</b> (PIN sign-off) flags.
+          </p>
+        </div>
+      </section>
+
+      <section id="scenarios">
+        <h2><span class="section-num">01 &middot; Scenarios</span> Scenario outcomes</h2>
+
+        <div class="finding ok">
+          <h3><span class="done-tag">Works today</span> 1. ISOS</h3>
+          <div class="field">
+            <div class="field-label">Setup</div>
+            <div>Set the client to <b>Monthly Invoice</b>.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Flow</div>
+            <div>Operator creates each booking for the member; no payment step; patient registered to CareFirst by ID.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Caveat</div>
+            <div>Only caveat: shared CareFirst account (B1).</div>
+          </div>
+        </div>
+
+        <div class="finding warn">
+          <h3><span class="open-tag">Works &mdash; with caveats</span> 2. NHG &mdash; nurse books a main member OR a dependant</h3>
+          <div class="field">
+            <div class="field-label">Flow</div>
+            <div>Each person is booked as a standalone patient by their own ID.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Gap</div>
+            <div>The system <b>doesn't distinguish main member vs dependant</b>, doesn't capture a membership number, and doesn't link a dependant to a principal.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Net</div>
+            <div>Functions fine; if NHG needs that linkage/scheme number recorded, it isn't there today.</div>
+          </div>
+        </div>
+
+        <div class="finding warn">
+          <h3><span class="open-tag">Works &mdash; with caveats</span> 3. NWI Schools &mdash; nurse books a dependant using the PARENT's contact</h3>
+          <div class="field">
+            <div class="field-label">Flow</div>
+            <div>Enter the <b>child's</b> identity + the <b>parent's</b> cell/email.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Caveat (a)</div>
+            <div>CareFirst registers the child's account with the parent's contact, so OTP/comms for that child go to the parent, and several siblings share one cell/email across multiple CareFirst accounts &mdash; confirm CareFirst accepts that.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Caveat (b)</div>
+            <div>The duplicate-by-contact check will notice the same parent number across siblings (informational, non-blocking).</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Caveat (c)</div>
+            <div>The contact is stored as the patient's, not explicitly labelled "guardian's".</div>
+          </div>
+        </div>
+
+        <div class="finding ok">
+          <h3><span class="done-tag">Works today</span> 4. Zoie &mdash; 3rd party books on behalf of a patient</h3>
+          <div class="field">
+            <div class="field-label">Flow</div>
+            <div>The standard flow; the agent is just the operator.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Setup</div>
+            <div>Set Monthly Invoice (or Self-Collect).</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Caveat</div>
+            <div>Same single-CareFirst-account caveat (B1).</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="takeaway">
+        <h2><span class="section-num">02 &middot; Takeaway</span> Cross-cutting takeaway</h2>
+        <div class="card ok">
+          <div class="card-title">Same core capability, two shared gaps</div>
+          <p style="margin-top:0;margin-bottom:0;">
+            All four are variations of the same core capability &mdash; an operator
+            creating a no-gateway booking for a patient &mdash; and all work today
+            with the right client configuration. They share two gaps, neither
+            blocking: (1) multi-client CareFirst routing (B1); (2) no
+            dependant/membership modeling (relevant to NHG and NWI).
+          </p>
+        </div>
+      </section>
+
+      <section id="lookinto">
+        <h2><span class="section-num">03 &middot; Roadmap</span> What the dev team could look into</h2>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:90px;">Priority</th>
+              <th>Improvement</th>
+              <th style="width:140px;">Who it helps</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="prio high">High</span></td>
+              <td><b>Per-client CareFirst routing (B1)</b> &mdash; map <code>client_code</code> to each client's own CareFirst account/plan. Groundwork done; needs CareFirst to confirm per-client API keys.</td>
+              <td>All four</td>
+            </tr>
+            <tr>
+              <td><span class="prio high">High</span></td>
+              <td><b>Per-client intake presets</b> &mdash; default a client to Monthly Invoice (+ optionally Skip Metrics / Nurse Verification) so operators toggle nothing per booking.</td>
+              <td>ISOS, Zoie</td>
+            </tr>
+            <tr>
+              <td><span class="prio med">Medium</span></td>
+              <td><b>Dependant / family model</b> &mdash; optional membership number + "relationship to principal", and an "add another dependant" flow reusing shared contact/address to cut repeat entry.</td>
+              <td>NHG, NWI</td>
+            </tr>
+            <tr>
+              <td><span class="prio med">Medium</span></td>
+              <td><b>Explicit "guardian contact" concept</b> &mdash; label the contact as a parent/guardian's; confirm with CareFirst how it handles several member accounts sharing one cell/email.</td>
+              <td>NWI</td>
+            </tr>
+            <tr>
+              <td><span class="prio low">Low</span></td>
+              <td><b>Scheme/membership-number capture + validation</b> &mdash; if these schemes identify people by a scheme number rather than SA ID.</td>
+              <td>NHG, NWI</td>
+            </tr>
+            <tr>
+              <td><span class="prio low">Low</span></td>
+              <td><b>Confirm CareFirst dedup behaviour</b> for repeat dependant bookings and shared-contact families (auto-register keys on ID &mdash; verify it behaves as expected).</td>
+              <td>NHG, NWI</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="card" style="margin-top:18px;">
+          <div class="card-title">Bottom line</div>
+          <p style="margin:0;">
+            All four clients can run on the system today in no-gateway mode &mdash;
+            ISOS and Zoie are essentially plug-in; NHG and NWI work but would benefit
+            from a light dependant/guardian model and the per-client CareFirst routing
+            already on the roadmap.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    Generated 2026-06-11 &middot; CareFirst 3rd Party Booking System &middot; Internal document.
+  </footer>
+</body>
+</html>
