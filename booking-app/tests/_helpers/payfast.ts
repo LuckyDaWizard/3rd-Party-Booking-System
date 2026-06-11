@@ -37,9 +37,30 @@ import {
   type PayfastTransaction,
   type RecordedRequest,
 } from "../_setup/payfast-mock-server"
+import { SEED } from "../_setup/seed"
 
 // Re-export the mock types so specs only import from one path.
 export type { PayfastMockMode, PayfastTransaction, RecordedRequest }
+
+// ----- m_payment_id construction --------------------------------------------
+
+/**
+ * Build the PayFast m_payment_id exactly as production's buildPaymentData()
+ * does for a booking under the seeded (coded) client: "<CLIENT_CODE>-<uuid>".
+ *
+ * Every booking the PayFast specs create lives under the seeded
+ * "Playwright Test Clinic", which carries SEED.clientCode (written by the
+ * seed). So a real gateway flow's ITN / reconcile transaction echoes the
+ * PREFIXED ref — these specs must construct it the same way to match what the
+ * notify route + reconcile matcher resolve via stripBookingId().
+ *
+ * Centralised here (rather than inline `${SEED.clientCode}-${id}` per spec) so
+ * the prefix shape is defined once; if the separator or code ever changes the
+ * specs follow in lockstep.
+ */
+export function prefixedMPaymentId(bookingId: string): string {
+  return `${SEED.clientCode}-${bookingId}`
+}
 
 // ----- Mock control ---------------------------------------------------------
 
@@ -90,7 +111,13 @@ export async function getPayfastMockReceivedForBooking(
     if (r.path !== "/eng/query/validate") return false
     const body = r.body
     if (!body || typeof body !== "object") return false
-    return (body as { m_payment_id?: string }).m_payment_id === bookingId
+    // Production now sends the PREFIXED m_payment_id ("<CODE>-<uuid>") on the
+    // server-confirmation POST, because every booking these specs create is
+    // under the seeded coded client. Match BOTH the prefixed form (the real
+    // wire shape) and the bare UUID (legacy back-compat ITN test) so this
+    // per-booking filter works regardless of which ref a given spec used.
+    const mid = (body as { m_payment_id?: string }).m_payment_id
+    return mid === prefixedMPaymentId(bookingId) || mid === bookingId
   })
 }
 

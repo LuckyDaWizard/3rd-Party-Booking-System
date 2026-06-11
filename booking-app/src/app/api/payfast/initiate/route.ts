@@ -126,15 +126,20 @@ export async function POST(request: Request) {
     booking.units as EmbeddedUnit | EmbeddedUnit[] | null
   )
   const clientId = unitRow?.client_id ?? null
+  // Resolved here so it can prefix the PayFast m_payment_id below. Reuses the
+  // single clients lookup already needed for the billing-mode guard — no extra
+  // round-trip on the 1-vCPU box. Null when the client has no code yet.
+  let clientCode: string | null = null
   if (clientId) {
     const { data: client } = await admin
       .from("clients")
-      .select("collect_payment_at_unit, bill_monthly")
+      .select("collect_payment_at_unit, bill_monthly, client_code")
       .eq("id", clientId)
       .single()
     const c = client as {
       collect_payment_at_unit: boolean | null
       bill_monthly: boolean | null
+      client_code: string | null
     } | null
     if (c?.bill_monthly) {
       return apiError("This client is billed monthly. Bookings auto-complete without going through the gateway.", 400)
@@ -142,6 +147,7 @@ export async function POST(request: Request) {
     if (c?.collect_payment_at_unit) {
       return apiError("This client collects payment directly. Use the in-unit payment confirmation flow instead.", 400)
     }
+    clientCode = c?.client_code ?? null
   }
 
   // Resolve the amount to charge. If a coupon was applied at /payment,
@@ -184,6 +190,7 @@ export async function POST(request: Request) {
     buyerFirstName: booking.first_names ?? undefined,
     buyerLastName: booking.surname ?? undefined,
     buyerEmail: booking.email_address ?? undefined,
+    clientCode: clientCode ?? undefined,
   })
 
   // Generate the signature and append it

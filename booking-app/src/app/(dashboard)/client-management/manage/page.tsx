@@ -20,6 +20,7 @@ import {
   formatPhoneInput,
   normalizeToE164,
 } from "@/lib/phone"
+import { isValidClientCode } from "@/lib/client-code"
 import { PinVerificationModal } from "@/components/ui/pin-verification-modal"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { TabStrip } from "@/components/ui/tab-strip"
@@ -77,7 +78,7 @@ export default function ManageClientPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const clientId = searchParams.get("id") ?? ""
-  const { getClient, updateClient, deleteClient, toggleClientStatus, refreshClients } = useClientStore()
+  const { getClient, updateClient, deleteClient, toggleClientStatus, refreshClients, clients } = useClientStore()
   const { activeUnitId, isSystemAdmin } = useAuth()
 
   const client = getClient(clientId)
@@ -97,6 +98,10 @@ export default function ManageClientPage() {
   // the user couldn't tell whether their save went through.
   const [saveError, setSaveError] = useState("")
   const [clientName, setClientName] = useState("")
+  // Client code — pre-filled from client.clientCode (may be null for existing
+  // clients that predate the field). Editable; format + live-uniqueness
+  // validated below.
+  const [clientCode, setClientCode] = useState("")
   const [contactPersonName, setContactPersonName] = useState("")
   const [contactPersonSurname, setContactPersonSurname] = useState("")
   const [emailAddress, setEmailAddress] = useState("")
@@ -169,6 +174,7 @@ export default function ManageClientPage() {
   useEffect(() => {
     if (client) {
       setClientName(client.clientName)
+      setClientCode(client.clientCode ?? "")
       setContactPersonName(client.contactPersonName)
       setContactPersonSurname(client.contactPersonSurname)
       setEmailAddress(client.email)
@@ -299,12 +305,35 @@ export default function ManageClientPage() {
     contactNumber.trim() === "" ||
     validatePhone(countryCode, contactNumber).valid
 
+  // Client-code validation. Existing clients may have a null/empty code they're
+  // filling in for the first time, so an empty value is allowed (it just won't
+  // be set). When present it must be well-formed and unique — uniqueness is
+  // checked case-insensitively against the in-memory client list, EXCLUDING
+  // this client so re-saving its own code never conflicts with itself.
+  const trimmedClientCode = clientCode.trim()
+  const clientCodeError = (() => {
+    if (trimmedClientCode === "") return ""
+    if (!isValidClientCode(trimmedClientCode)) {
+      return "Client code must be 3–5 uppercase letters/numbers"
+    }
+    const taken = clients.some(
+      (c) =>
+        c.id !== clientId &&
+        (c.clientCode ?? "").toUpperCase() === trimmedClientCode.toUpperCase()
+    )
+    if (taken) return "That client code is already in use"
+    return ""
+  })()
+
   async function handleUpdateInformation() {
     setSaving(true)
     setSaveError("")
     try {
       await updateClient(clientId, {
         clientName,
+        // Send the canonical UPPERCASE form; null when left blank so the
+        // nullable column stays clean for clients without a code yet.
+        clientCode: trimmedClientCode === "" ? null : trimmedClientCode.toUpperCase(),
         contactPersonName,
         contactPersonSurname,
         email: emailAddress,
@@ -468,6 +497,24 @@ export default function ManageClientPage() {
                 onChange={setClientName}
                 onClear={() => setClientName("")}
               />
+
+              <div className="flex flex-col gap-1">
+                <FloatingInput
+                  id="client-code"
+                  data-testid="input-client-code"
+                  label="Client Code"
+                  value={clientCode}
+                  onChange={(v) => setClientCode(v.toUpperCase())}
+                  onClear={() => setClientCode("")}
+                  error={clientCodeError}
+                />
+                {!clientCodeError && (
+                  <span className="px-1 text-[11px] text-ink-muted">
+                    3–5 uppercase letters/numbers. Used as this client&apos;s
+                    payment reference prefix.
+                  </span>
+                )}
+              </div>
 
               <div className="flex w-full flex-col gap-4 sm:flex-row">
                 <FloatingInput
@@ -1037,7 +1084,7 @@ export default function ManageClientPage() {
           {activeTab !== "units" && activeTab !== "users" && (
             <Button
               data-testid="update-button"
-              disabled={saving || !contactValid}
+              disabled={saving || !contactValid || !!clientCodeError}
               onClick={handleUpdateInformation}
               className="h-11 w-full rounded-xl bg-gray-300 text-ink-muted hover:bg-gray-900 hover:text-white"
             >

@@ -14,6 +14,7 @@ import { FloatingInput } from "@/components/ui/floating-input"
 import { FloatingSelect } from "@/components/ui/floating-select"
 import { CountryCodeSelect } from "@/components/ui/CountryCodeSelect"
 import { validatePhone, formatPhoneInput, normalizeToE164 } from "@/lib/phone"
+import { suggestClientCode, isValidClientCode } from "@/lib/client-code"
 import { StepPill } from "@/components/ui/step-pill"
 import { SubNav } from "@/components/ui/sub-nav"
 import { Banner } from "@/components/ui/banner"
@@ -32,6 +33,12 @@ import { checkAccentAgainstWhite } from "@/lib/color-contrast"
 
 interface ClientDetails {
   clientName: string
+  /** 3–5 char UPPERCASE alphanumeric code. Auto-suggested from the client
+   *  name until the admin edits it (tracked by clientCodeTouched). */
+  clientCode: string
+  /** True once the admin has manually edited the code — disables the
+   *  suggest-from-name auto-fill so we never clobber a manual override. */
+  clientCodeTouched: boolean
   contactPersonName: string
   contactPersonSurname: string
   emailAddress: string
@@ -87,9 +94,12 @@ const PROVINCES = [
 function StepClientDetails({
   data,
   onChange,
+  clientCodeError,
 }: {
   data: ClientDetails
   onChange: (updated: ClientDetails) => void
+  /** Inline validation message for the client-code field ("" = valid). */
+  clientCodeError: string
 }) {
   function handleChange(field: keyof ClientDetails, value: string) {
     onChange({ ...data, [field]: value })
@@ -97,6 +107,29 @@ function StepClientDetails({
 
   function handleClear(field: keyof ClientDetails) {
     onChange({ ...data, [field]: "" })
+  }
+
+  // Client name drives the code suggestion, but only while the admin hasn't
+  // manually edited the code (clientCodeTouched). Once touched we never
+  // overwrite their value.
+  function handleNameChange(value: string) {
+    onChange({
+      ...data,
+      clientName: value,
+      clientCode: data.clientCodeTouched
+        ? data.clientCode
+        : suggestClientCode(value),
+    })
+  }
+
+  // Manual edit → mark touched (stops auto-suggest) and uppercase the input
+  // so the displayed value always matches what gets stored.
+  function handleCodeChange(value: string) {
+    onChange({
+      ...data,
+      clientCode: value.toUpperCase(),
+      clientCodeTouched: true,
+    })
   }
 
   return (
@@ -122,9 +155,29 @@ function StepClientDetails({
           data-testid="input-client-name"
           label="Client Name"
           value={data.clientName}
-          onChange={(v) => handleChange("clientName", v)}
+          onChange={handleNameChange}
           onClear={() => handleClear("clientName")}
         />
+
+        <div className="flex flex-col gap-1">
+          <FloatingInput
+            id="client-code"
+            data-testid="input-client-code"
+            label="Client Code"
+            value={data.clientCode}
+            onChange={handleCodeChange}
+            onClear={() =>
+              onChange({ ...data, clientCode: "", clientCodeTouched: true })
+            }
+            error={clientCodeError}
+          />
+          {!clientCodeError && (
+            <span className="px-1 text-[11px] text-ink-muted">
+              3–5 uppercase letters/numbers. Used as this client&apos;s payment
+              reference prefix. Auto-suggested from the name — edit to override.
+            </span>
+          )}
+        </div>
 
         <div className="flex w-full flex-col gap-4 sm:flex-row">
           <FloatingInput
@@ -940,7 +993,7 @@ function StepUserDetails({
 
 export default function AddNewClientPage() {
   const router = useRouter()
-  const { addClient, refreshClients } = useClientStore()
+  const { addClient, refreshClients, clients } = useClientStore()
   const { addUnit, units: allUnits } = useUnitStore()
   const { addUser } = useUserStore()
   const { isSystemAdmin } = useAuth()
@@ -959,6 +1012,8 @@ export default function AddNewClientPage() {
 
   const [clientDetails, setClientDetails] = useState<ClientDetails>({
     clientName: "",
+    clientCode: "",
+    clientCodeTouched: false,
     contactPersonName: "",
     contactPersonSurname: "",
     emailAddress: "",
@@ -1081,8 +1136,27 @@ export default function AddNewClientPage() {
     !userEmailError &&
     !userContactError
 
+  // Client-code validation. New clients always need a code, so an empty value
+  // blocks step completion. Format + live (case-insensitive) uniqueness are
+  // checked against the in-memory client list — no network call. The error
+  // string doubles as the inline message and the step-completion gate.
+  const trimmedClientCode = clientDetails.clientCode.trim()
+  const clientCodeError = (() => {
+    if (trimmedClientCode === "") return ""
+    if (!isValidClientCode(trimmedClientCode)) {
+      return "Client code must be 3–5 uppercase letters/numbers"
+    }
+    const taken = clients.some(
+      (c) => (c.clientCode ?? "").toUpperCase() === trimmedClientCode.toUpperCase()
+    )
+    if (taken) return "That client code is already in use"
+    return ""
+  })()
+
   const isStep1Complete =
     clientDetails.clientName.trim() !== "" &&
+    trimmedClientCode !== "" &&
+    clientCodeError === "" &&
     clientDetails.contactPersonName.trim() !== "" &&
     clientDetails.contactPersonSurname.trim() !== "" &&
     clientDetails.emailAddress.trim() !== "" &&
@@ -1102,6 +1176,7 @@ export default function AddNewClientPage() {
         // Step 2 → 3: create the client row + upload any selected assets.
         const id = await addClient({
           clientName: clientDetails.clientName,
+          clientCode: clientDetails.clientCode.trim().toUpperCase(),
           contactPersonName: clientDetails.contactPersonName,
           contactPersonSurname: clientDetails.contactPersonSurname,
           units: "-",
@@ -1353,6 +1428,7 @@ export default function AddNewClientPage() {
           <StepClientDetails
             data={clientDetails}
             onChange={setClientDetails}
+            clientCodeError={clientCodeError}
           />
         )}
 

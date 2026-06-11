@@ -23,6 +23,12 @@ export interface ClientRecord {
   faviconUrl: string | null
   accentColor: string | null
   /**
+   * Short human-readable per-client identifier (3–5 uppercase letters/digits,
+   * no hyphen). NULL until assigned via the Manage Client page. Used as the
+   * PayFast m_payment_id prefix and the future multi-client routing key.
+   */
+  clientCode: string | null
+  /**
    * When TRUE, every unit under this client skips the payment gateway and
    * the unit collects the consultation fee directly. Set system-admin-side
    * on the Manage Client page; defaults to FALSE for new clients.
@@ -69,12 +75,16 @@ interface ClientStoreContextValue {
    * `collectPaymentAtUnit` is excluded from create — the column defaults to
    * FALSE at the DB level and is only ever set via the Manage Client page
    * toggle (system_admin only). New clients always start gateway-billed.
+   *
+   * `clientCode` is OPTIONAL at create: existing clients get codes later via
+   * the Manage Client page (no backfill), so the Add wizard may omit it. When
+   * provided it round-trips to the API, which validates + uppercases it.
    */
   addClient: (
     client: Omit<
       ClientRecord,
-      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
-    >
+      "id" | "status" | "clientCode" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
+    > & { clientCode?: string | null }
   ) => Promise<string>
   updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
   updateClientUnit: (id: string, units: string) => Promise<void>
@@ -101,6 +111,7 @@ interface DbClient {
   logo_url: string | null
   favicon_url: string | null
   accent_color: string | null
+  client_code: string | null
   collect_payment_at_unit: boolean | null
   bill_monthly: boolean | null
   skip_patient_metrics: boolean | null
@@ -130,6 +141,7 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     logoUrl: row.logo_url,
     faviconUrl: row.favicon_url,
     accentColor: row.accent_color,
+    clientCode: row.client_code,
     collectPaymentAtUnit: row.collect_payment_at_unit ?? false,
     billMonthly: row.bill_monthly ?? false,
     skipPatientMetrics: row.skip_patient_metrics ?? false,
@@ -218,8 +230,8 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   const addClient = useCallback(async (
     client: Omit<
       ClientRecord,
-      "id" | "status" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
-    >
+      "id" | "status" | "clientCode" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
+    > & { clientCode?: string | null }
   ) => {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
     // role has no INSERT policy on public.clients, so direct writes fail
@@ -235,6 +247,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
         contactNumber: client.number,
         initialUnitName: client.units && client.units !== "-" ? client.units : null,
         accentColor: client.accentColor ?? null,
+        clientCode: client.clientCode ?? null,
       }),
     })
 
@@ -259,6 +272,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.number !== undefined) body.contactNumber = updates.number
     if (updates.status !== undefined) body.status = updates.status
     if (updates.accentColor !== undefined) body.accentColor = updates.accentColor
+    if (updates.clientCode !== undefined) body.clientCode = updates.clientCode
     if (updates.collectPaymentAtUnit !== undefined) body.collectPaymentAtUnit = updates.collectPaymentAtUnit
     if (updates.billMonthly !== undefined) body.billMonthly = updates.billMonthly
     if (updates.skipPatientMetrics !== undefined) body.skipPatientMetrics = updates.skipPatientMetrics

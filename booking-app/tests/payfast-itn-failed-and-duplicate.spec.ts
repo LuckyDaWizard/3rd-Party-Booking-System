@@ -41,6 +41,7 @@ import { signInAsSeededUser } from "./_helpers/auth"
 import {
   clearPayfastMockReceived,
   postItnToApp,
+  prefixedMPaymentId,
   resetPayfastMockMode,
   signItn,
 } from "./_helpers/payfast"
@@ -92,7 +93,9 @@ test.describe("PayFast ITN — non-COMPLETE + duplicate", () => {
       const pfPaymentId = uniquePfId()
       const fields: Record<string, string> = {
         merchant_id: requireMerchantId(),
-        m_payment_id: booking.id,
+        // Prefixed ref — every booking here is under the seeded coded client,
+        // so a real gateway ITN carries "<CODE>-<uuid>".
+        m_payment_id: prefixedMPaymentId(booking.id),
         pf_payment_id: pfPaymentId,
         payment_status: "FAILED",
         item_name: PAYMENT_ITEM_NAME,
@@ -158,7 +161,7 @@ test.describe("PayFast ITN — non-COMPLETE + duplicate", () => {
       // ----- Act 1: first COMPLETE ITN flips the booking ----------------------
       const firstFields: Record<string, string> = {
         merchant_id: merchantId,
-        m_payment_id: booking.id,
+        m_payment_id: prefixedMPaymentId(booking.id),
         pf_payment_id: firstPfId,
         payment_status: "COMPLETE",
         item_name: PAYMENT_ITEM_NAME,
@@ -188,7 +191,7 @@ test.describe("PayFast ITN — non-COMPLETE + duplicate", () => {
       // ----- Act 2: second COMPLETE ITN with a DIFFERENT pf id ----------------
       const secondFields: Record<string, string> = {
         merchant_id: merchantId,
-        m_payment_id: booking.id,
+        m_payment_id: prefixedMPaymentId(booking.id),
         pf_payment_id: secondPfId,
         payment_status: "COMPLETE",
         item_name: PAYMENT_ITEM_NAME,
@@ -261,6 +264,76 @@ test.describe("PayFast ITN — non-COMPLETE + duplicate", () => {
       // The single row carries the FIRST pf id, confirming it's the original
       // flip's row and not a clobbered re-write.
       expect(itnRows[0].changes?.["PF Payment ID"]?.new).toBe(firstPfId)
+    } finally {
+      await booking.cleanup()
+      await clearPayfastMockReceived()
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test C — BACKWARD COMPAT (critical): a legacy bare-UUID m_payment_id still
+  //          confirms the booking.
+  //
+  // In-flight sandbox transactions created BEFORE migration 041 / the prefixed-
+  // m_payment_id deploy carry the bare booking UUID, with NO client-code prefix.
+  // The notify route's stripBookingId() must return such a ref UNCHANGED (its
+  // 8-hex first segment can't match the {3,5} code prefix), so the row resolves
+  // and the booking still flips to Payment Complete. This proves the deploy
+  // doesn't strand any payment that was already on the gateway.
+  //
+  // We deliberately set m_payment_id to the BARE booking.id here (NOT the
+  // prefixed form), even though the seeded client now has a code — this is the
+  // legacy wire shape, and the route must accept it irrespective of the client's
+  // current code.
+  // ---------------------------------------------------------------------------
+  test("legacy bare-UUID m_payment_id (no client-code prefix) still confirms the booking", async ({
+    page,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    const { unitId } = await getSeededIds()
+    const booking = await createBookingForUnit(unitId, "In Progress", "device")
+    await signInAsSeededUser(page)
+
+    const pfPaymentId = uniquePfId()
+
+    try {
+      const fields: Record<string, string> = {
+        merchant_id: requireMerchantId(),
+        // BARE UUID — the legacy, pre-prefix wire shape. stripBookingId returns
+        // it unchanged, so the route resolves the booking and flips it.
+        m_payment_id: booking.id,
+        pf_payment_id: pfPaymentId,
+        payment_status: "COMPLETE",
+        item_name: PAYMENT_ITEM_NAME,
+        amount_gross: "325.00",
+        amount_fee: "-10.00",
+        amount_net: "315.00",
+      }
+      const signature = signItn(fields)
+
+      // ----- Act --------------------------------------------------------------
+      const res = await postItnToApp(BASE_URL, fields, signature)
+
+      // ----- Assert -----------------------------------------------------------
+      expect(
+        res.status,
+        "legacy bare-UUID ITN should confirm the booking (200)"
+      ).toBe(200)
+      const body = (await res.json()) as { ok: boolean; reason: string }
+      expect(body.ok).toBe(true)
+      expect(body.reason).toMatch(/marked as Payment Complete/i)
+
+      const final = await readBooking(booking.id)
+      expect(
+        final?.status,
+        "legacy bare-UUID ITN must flip the booking to Payment Complete"
+      ).toBe("Payment Complete")
+      expect(
+        final?.pf_payment_id,
+        "legacy bare-UUID ITN must still stamp pf_payment_id"
+      ).toBe(pfPaymentId)
+      expect(final?.payment_type).toBe("device")
+      expect(final?.payment_confirmed_at).toBeTruthy()
     } finally {
       await booking.cleanup()
       await clearPayfastMockReceived()

@@ -70,6 +70,7 @@ import {
   getSeededUserId,
   readBooking,
 } from "./_helpers/fixtures"
+import { prefixedMPaymentId } from "./_helpers/payfast"
 
 // Shared admin/auth/fixtures helpers extracted to tests/_helpers/ — see
 // the imports above. Includes: getAdmin (cached), readBooking (kitchen-
@@ -218,10 +219,12 @@ test.describe("Coupon normal-discount (still pays via PayFast)", () => {
         fields.amount,
         "PayFast outbound amount must be the discounted final, not the original"
       ).toBe("162.50")
-      // m_payment_id is the booking UUID — the field PayFast echoes back in
-      // its ITN so we can correlate. Confirmed in
-      // src/lib/payfast.ts buildPaymentData: `data.m_payment_id = payment.bookingId`.
-      expect(fields.m_payment_id).toBe(booking.id)
+      // m_payment_id is the PREFIXED ref "<CLIENT_CODE>-<booking-uuid>" — the
+      // field PayFast echoes back in its ITN so we can correlate. The seeded
+      // test client carries SEED.clientCode, so buildPaymentData prefixes it.
+      // Confirmed in src/lib/payfast.ts buildPaymentData:
+      // `data.m_payment_id = clientCode ? `${clientCode}-${bookingId}` : bookingId`.
+      expect(fields.m_payment_id).toBe(prefixedMPaymentId(booking.id))
       // Sanity-check the item name carries the coupon code (the initiate
       // route appends " (coupon <CODE>)" when a coupon is applied) so a
       // refund / dispute investigation can see which code was used.
@@ -306,7 +309,8 @@ test.describe("Coupon normal-discount (still pays via PayFast)", () => {
       }
       // R225.00 — discounted total in PayFast's 2dp Rand-string format.
       expect(initiateBody.formFields.amount).toBe("225.00")
-      expect(initiateBody.formFields.m_payment_id).toBe(booking.id)
+      // Prefixed ref — seeded client carries SEED.clientCode (see Test B note).
+      expect(initiateBody.formFields.m_payment_id).toBe(prefixedMPaymentId(booking.id))
     } finally {
       await booking.cleanup()
       await coupon.cleanup()

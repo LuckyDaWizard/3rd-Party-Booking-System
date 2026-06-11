@@ -5,6 +5,7 @@ import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { apiError } from "@/lib/api-response"
 import { normalizeToE164 } from "@/lib/phone"
 import { deriveCountryFromNumber } from "@/lib/phone-server"
+import { isValidClientCode } from "@/lib/client-code"
 
 // =============================================================================
 // POST /api/admin/clients
@@ -39,6 +40,8 @@ interface CreateClientBody {
   initialUnitName?: string | null
   /** Hex like '#3ea3db', or null to leave the system default. */
   accentColor?: string | null
+  /** 3–5 uppercase alnum, or null/empty to leave unset. */
+  clientCode?: string | null
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -71,6 +74,18 @@ export async function POST(request: Request) {
     accentColor = normaliseAccent(body.accentColor)
   } catch (err) {
     return apiError(err instanceof Error ? err.message : "Invalid accent colour", 400)
+  }
+
+  // Client code: uppercase-trim, validate when present. null/empty → unset
+  // (the column is nullable). Uniqueness is enforced by the partial unique
+  // index — a collision surfaces as a 23505 on insert, caught below.
+  let clientCode: string | null = null
+  if (body.clientCode !== undefined && body.clientCode !== null && body.clientCode.trim() !== "") {
+    const normalized = body.clientCode.trim().toUpperCase()
+    if (!isValidClientCode(normalized)) {
+      return apiError("Client code must be 3–5 uppercase letters/numbers", 400)
+    }
+    clientCode = normalized
   }
 
   // Server-authority contact-number normalization. The clients table has no
@@ -106,11 +121,17 @@ export async function POST(request: Request) {
       contact_number: normalizedContact,
       status: "Active",
       accent_color: accentColor,
+      client_code: clientCode,
     })
     .select("id")
     .single()
 
   if (insertErr || !insertData) {
+    // Partial unique index (migration 041) on client_code → 409 with a clear
+    // message rather than a generic 500.
+    if (insertErr?.code === "23505") {
+      return apiError("That client code is already in use", 409)
+    }
     return apiError(`Failed to create client: ${insertErr?.message ?? "unknown"}`, 500)
   }
 
@@ -142,6 +163,7 @@ export async function POST(request: Request) {
     entityName: body.clientName,
     changes: {
       "Client Name": { new: body.clientName },
+      ...(clientCode ? { "Client Code": { new: clientCode } } : {}),
       ...(body.initialUnitName && body.initialUnitName !== "-"
         ? { "Initial Unit": { new: body.initialUnitName } }
         : {}),

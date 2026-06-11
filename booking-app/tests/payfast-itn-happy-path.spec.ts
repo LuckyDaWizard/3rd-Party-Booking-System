@@ -97,6 +97,7 @@ import {
   clearPayfastMockReceived,
   getPayfastMockReceivedForBooking,
   postItnToApp,
+  prefixedMPaymentId,
   resetPayfastMockMode,
   signItn,
 } from "./_helpers/payfast"
@@ -166,9 +167,15 @@ test.describe("PayFast ITN happy path", () => {
         )
       }
 
+      // m_payment_id mirrors what real PayFast echoes for a booking under the
+      // seeded CODED client: the PREFIXED ref "<CLIENT_CODE>-<uuid>". The
+      // initiate route builds it this way (buildPaymentData), so the gateway
+      // sends it back verbatim on the ITN. The notify route recovers the
+      // booking UUID via stripBookingId before resolving the row.
+      const mPaymentId = prefixedMPaymentId(booking.id)
       const fields: Record<string, string> = {
         merchant_id: merchantId,
-        m_payment_id: booking.id,
+        m_payment_id: mPaymentId,
         pf_payment_id: pfPaymentId,
         payment_status: "COMPLETE",
         item_name: PAYMENT_ITEM_NAME,
@@ -268,7 +275,10 @@ test.describe("PayFast ITN happy path", () => {
         amount_gross?: string
         pf_payment_id?: string
       }
-      expect(sentBody.m_payment_id).toBe(booking.id)
+      // The server-confirmation POST echoes the ITN's m_payment_id verbatim —
+      // the PREFIXED ref, not the bare UUID (production never strips it before
+      // posting back; stripBookingId is only applied when resolving the row).
+      expect(sentBody.m_payment_id).toBe(mPaymentId)
       expect(sentBody.payment_status).toBe("COMPLETE")
       expect(sentBody.amount_gross).toBe("325.00")
       expect(sentBody.pf_payment_id).toBe(pfPaymentId)

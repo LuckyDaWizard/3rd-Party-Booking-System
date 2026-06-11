@@ -182,6 +182,35 @@ export interface PaymentInitData {
   buyerFirstName?: string
   buyerLastName?: string
   buyerEmail?: string
+  /**
+   * Optional per-client code (3–5 uppercase alnum). When present, the PayFast
+   * m_payment_id is built as "<clientCode>-<bookingId>" so the merchant
+   * dashboard / settlement reports are human-readable. Absent/empty → the
+   * m_payment_id falls back to the bare bookingId (legacy behaviour). Never
+   * hard-error a payment over a missing prefix.
+   */
+  clientCode?: string
+}
+
+/**
+ * Recover the booking UUID from a PayFast m_payment_id, accepting BOTH the new
+ * prefixed format and the legacy bare-UUID format.
+ *
+ * A client code is 3–5 uppercase letters/digits followed by a hyphen, so:
+ *   - "LCH-a1b2c3d4-89ab-..."  → prefix "LCH" matches → strip to "a1b2c3d4-89ab-..."
+ *   - "a1b2c3d4-89ab-..."      → first segment is 8 hex chars, does NOT match the
+ *                                {3,5} prefix → returned UNCHANGED.
+ *
+ * The regex is anchored at the start AND requires a hyphen immediately after a
+ * 3–5 char run, so a bare UUID's 8-char first segment can never be mistaken for
+ * a code. Only the FIRST hyphen is consumed (the UUID itself contains hyphens).
+ */
+export function stripBookingId(ref: string): string {
+  if (!ref) return ref
+  if (/^[A-Z0-9]{3,5}-/.test(ref)) {
+    return ref.slice(ref.indexOf("-") + 1)
+  }
+  return ref
 }
 
 /**
@@ -210,8 +239,14 @@ export function buildPaymentData(
   if (payment.buyerLastName) data.name_last = payment.buyerLastName
   if (payment.buyerEmail) data.email_address = payment.buyerEmail
 
-  // Transaction details
-  data.m_payment_id = payment.bookingId
+  // Transaction details. Prefix m_payment_id with the client code when one
+  // exists so the PayFast dashboard / settlement reports are human-readable.
+  // Fall back to the bare booking UUID when there's no code — both PayFast
+  // confirmation paths (ITN notify + reconcile) recover the UUID via
+  // stripBookingId, so a missing prefix never blocks a payment.
+  data.m_payment_id = payment.clientCode
+    ? `${payment.clientCode}-${payment.bookingId}`
+    : payment.bookingId
   data.amount = payment.amount
   data.item_name = payment.itemName
 
@@ -650,7 +685,9 @@ export async function findCompletedPayfastTransaction(
   })
 
   const match = transactions.find((t) => {
-    const mPaymentId = String(t.m_payment_id ?? "").trim()
+    // m_payment_id may be prefixed ("<CODE>-<uuid>") or a legacy bare UUID —
+    // strip any recognised code prefix before comparing to our booking id.
+    const mPaymentId = stripBookingId(String(t.m_payment_id ?? "").trim())
     const status = String(t.payment_status ?? "").trim().toUpperCase()
     return mPaymentId === bookingId && status === "COMPLETE"
   })

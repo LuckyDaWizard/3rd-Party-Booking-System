@@ -43,6 +43,14 @@ import { join } from "node:path"
 
 export const SEED = {
   clientName: "Playwright Test Clinic",
+  // Per-client code (migration 041). Written onto the seeded client row so the
+  // PayFast initiate route produces a PREFIXED m_payment_id ("TST-<uuid>") for
+  // every booking under the seeded client — exactly as a real coded client
+  // would. The PayFast specs assert the prefixed form via `${SEED.clientCode}-`.
+  // "TST" is a valid client code (3–5 uppercase alnum, no hyphen — CLIENT_CODE_RE).
+  // PREREQUISITE: migration 041 must be applied to the dev Supabase before the
+  // seed runs, or the `client_code` write below fails (column doesn't exist).
+  clientCode: "TST",
   unitName: "Playwright Test Unit",
   couponCode: "100OFF-PLAYWRIGHT",
   user: {
@@ -128,10 +136,28 @@ export async function seedForCouponR0Test(): Promise<SeededIds> {
 async function ensureClient(admin: SupabaseClient): Promise<string> {
   const { data: existing } = await admin
     .from("clients")
-    .select("id")
+    .select("id, client_code")
     .eq("client_name", SEED.clientName)
     .maybeSingle()
-  if (existing) return (existing as { id: string }).id
+  if (existing) {
+    const row = existing as { id: string; client_code: string | null }
+    // Backfill the code on a client seeded before migration 041 / before this
+    // SEED.clientCode addition. Without it, the PayFast specs (which assert the
+    // prefixed m_payment_id) would fail against a pre-existing un-coded row.
+    if (row.client_code !== SEED.clientCode) {
+      const { error: updErr } = await admin
+        .from("clients")
+        .update({ client_code: SEED.clientCode })
+        .eq("id", row.id)
+      if (updErr) {
+        throw new Error(
+          `[seed] Failed to set client_code on existing client: ${updErr.message}. ` +
+            "Has migration 041 (clients.client_code) been applied to this DB?"
+        )
+      }
+    }
+    return row.id
+  }
 
   const { data, error } = await admin
     .from("clients")
@@ -145,11 +171,16 @@ async function ensureClient(admin: SupabaseClient): Promise<string> {
       bill_monthly: false,
       skip_patient_metrics: false,
       nurse_verification: false,
+      // Migration 041. Makes initiate produce a prefixed m_payment_id ("TST-…").
+      client_code: SEED.clientCode,
     })
     .select("id")
     .single()
   if (error || !data) {
-    throw new Error(`[seed] Failed to create client: ${error?.message}`)
+    throw new Error(
+      `[seed] Failed to create client: ${error?.message}. ` +
+        "If this mentions client_code, apply migration 041 first."
+    )
   }
   return (data as { id: string }).id
 }

@@ -6,6 +6,7 @@ import {
   validateItnSourceIp,
   validateItnAmount,
   validateItnServerConfirmation,
+  stripBookingId,
 } from "@/lib/payfast"
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit"
 import { writeAuditLog, SYSTEM_ACTOR_ID, bookingRef } from "@/lib/audit-log"
@@ -90,7 +91,11 @@ async function processItn(request: Request): Promise<ItnOutcome> {
     postData[key] = value
   }
 
-  const bookingId = postData.m_payment_id
+  // m_payment_id may be prefixed ("<CLIENT_CODE>-<booking-uuid>") for bookings
+  // initiated after migration 041, or a legacy bare UUID. stripBookingId
+  // recovers the booking UUID from either format; a missing/empty value passes
+  // through unchanged and is caught by the validity guard below.
+  const bookingId = stripBookingId(postData.m_payment_id ?? "")
   const pfPaymentId = postData.pf_payment_id
   const paymentStatus = postData.payment_status
   const amountGross = postData.amount_gross

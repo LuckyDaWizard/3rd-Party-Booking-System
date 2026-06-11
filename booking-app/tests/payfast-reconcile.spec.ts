@@ -52,6 +52,7 @@ import { readCsrfToken, signInAsSeededUser, CSRF_HEADER_NAME } from "./_helpers/
 import {
   clearMockTransactions,
   clearPayfastMockReceived,
+  prefixedMPaymentId,
   resetPayfastMockMode,
   setMockTransactions,
   type PayfastTransaction,
@@ -106,12 +107,14 @@ test.describe("PayFast reconcile (single booking)", () => {
     const pfPaymentId = uniquePfId()
 
     try {
-      // Seed a matching COMPLETE transaction. Only the four fields the
-      // production parser reads are needed; the m_payment_id MUST equal the
-      // booking id for findCompletedPayfastTransaction to match it.
+      // Seed a matching COMPLETE transaction. The m_payment_id mirrors the real
+      // wire shape for a booking under the seeded CODED client — the PREFIXED
+      // ref "<CODE>-<uuid>". findCompletedPayfastTransaction() strips the prefix
+      // via stripBookingId before comparing to our booking id, so the prefixed
+      // txn matches. This is the reconcile round-trip-with-prefix coverage.
       const txns: PayfastTransaction[] = [
         {
-          m_payment_id: booking.id,
+          m_payment_id: prefixedMPaymentId(booking.id),
           pf_payment_id: pfPaymentId,
           payment_status: "COMPLETE",
           amount_gross: "325.00",
@@ -217,6 +220,9 @@ test.describe("PayFast reconcile (single booking)", () => {
       // Seed a COMPLETE txn for a DIFFERENT booking id — proves the route
       // actually filters by m_payment_id rather than grabbing any COMPLETE
       // row. (Seeding empty would also pass, but this is the stronger check.)
+      // A bare random UUID has no recognised "<3-5 alnum>-" code prefix, so
+      // stripBookingId returns it unchanged and it can never collide with our
+      // booking's (prefixed) ref — the negative case stays a clean non-match.
       const txns: PayfastTransaction[] = [
         {
           m_payment_id: crypto.randomUUID(),
@@ -275,7 +281,10 @@ test.describe("PayFast reconcile (single booking)", () => {
       // rogue / wrong-price transaction marking the booking paid.
       const txns: PayfastTransaction[] = [
         {
-          m_payment_id: booking.id,
+          // Prefixed ref (matches our booking after stripBookingId) but the
+          // wrong amount — proves the match-then-amount-check ordering rejects
+          // a correctly-addressed but wrong-priced transaction.
+          m_payment_id: prefixedMPaymentId(booking.id),
           pf_payment_id: uniquePfId(),
           payment_status: "COMPLETE",
           amount_gross: "999.00",

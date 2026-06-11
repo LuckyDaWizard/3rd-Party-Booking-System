@@ -5,6 +5,7 @@ import { writeAuditLog, getCallerIp } from "@/lib/audit-log"
 import { apiError } from "@/lib/api-response"
 import { normalizeToE164 } from "@/lib/phone"
 import { deriveCountryFromNumber } from "@/lib/phone-server"
+import { isValidClientCode } from "@/lib/client-code"
 
 // =============================================================================
 // PATCH /api/admin/clients/[id]  — update a client
@@ -28,6 +29,12 @@ interface UpdateClientBody {
   status?: "Active" | "Disabled"
   /** Hex like '#3ea3db', or null to clear. Validated server-side. */
   accentColor?: string | null
+  /**
+   * 3–5 uppercase alnum, no hyphen. null/empty clears the code; a valid
+   * value sets it (uppercased server-side). undefined leaves it unchanged.
+   * Uniqueness enforced by the partial unique index (23505 → 409).
+   */
+  clientCode?: string | null
   /**
    * When TRUE, every unit under this client skips the payment gateway —
    * bookings get marked as `payment_type = 'self_collect'` and the unit
@@ -108,6 +115,21 @@ export async function PATCH(request: Request, context: RouteContext) {
     return apiError(err instanceof Error ? err.message : "Invalid accent colour", 400)
   }
 
+  // Client code: undefined → leave unchanged; null/empty → clear (column is
+  // nullable); a present value is uppercase-trimmed and format-validated.
+  let normalisedCode: string | null | undefined
+  if (body.clientCode !== undefined) {
+    if (body.clientCode === null || body.clientCode.trim() === "") {
+      normalisedCode = null
+    } else {
+      const normalized = body.clientCode.trim().toUpperCase()
+      if (!isValidClientCode(normalized)) {
+        return apiError("Client code must be 3–5 uppercase letters/numbers", 400)
+      }
+      normalisedCode = normalized
+    }
+  }
+
   // Server-authority contact-number normalization (only when contactNumber is
   // part of this patch). The clients table has no country_code column, so
   // derive the country from the number itself, then normalize to canonical
@@ -138,7 +160,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification, allow_coupons")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, client_code, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification, allow_coupons")
     .eq("id", id)
     .single()
 
@@ -150,6 +172,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.contactNumber !== undefined) dbUpdates.contact_number = body.contactNumber
   if (body.status !== undefined) dbUpdates.status = body.status
   if (normalisedAccent !== undefined) dbUpdates.accent_color = normalisedAccent
+  if (normalisedCode !== undefined) dbUpdates.client_code = normalisedCode
   if (body.collectPaymentAtUnit !== undefined) dbUpdates.collect_payment_at_unit = body.collectPaymentAtUnit
   if (body.billMonthly !== undefined) dbUpdates.bill_monthly = body.billMonthly
   if (body.skipPatientMetrics !== undefined) dbUpdates.skip_patient_metrics = body.skipPatientMetrics
@@ -201,6 +224,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     .eq("id", id)
 
   if (updErr) {
+    // Partial unique index (migration 041) on client_code → 409.
+    if (updErr.code === "23505") {
+      return apiError("That client code is already in use", 409)
+    }
     return apiError(updErr.message, 500)
   }
 
@@ -220,6 +247,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     changes["Status"] = { old: current?.status, new: body.status }
   if (normalisedAccent !== undefined && normalisedAccent !== current?.accent_color)
     changes["Accent Colour"] = { old: current?.accent_color, new: normalisedAccent }
+  if (normalisedCode !== undefined && normalisedCode !== (current?.client_code ?? null))
+    changes["Client Code"] = { old: current?.client_code ?? null, new: normalisedCode }
   if (
     body.collectPaymentAtUnit !== undefined &&
     body.collectPaymentAtUnit !== (current?.collect_payment_at_unit ?? false)
