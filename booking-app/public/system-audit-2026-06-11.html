@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareFirst Booking System — System Audit (2026-06-11)</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a2233;
+    --ink-soft: #475063;
+    --mute: #6b7280;
+    --line: #e4e7ec;
+    --line-soft: #f1f3f5;
+    --brand: #3ea3db;
+    --brand-tint: #e0f0fa;
+    --danger: #FF3A69;
+    --danger-tint: #fee2e2;
+    --high-tint: #ffedd5;
+    --high-ink: #9a3412;
+    --warn-tint: #fef3c7;
+    --warn-ink: #92400e;
+    --ok-tint: #dcfce7;
+    --ok-ink: #166534;
+    --mute-tint: #e5e7eb;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #f5f6f8;
+    color: var(--ink);
+    font-family: "Mulish", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 40px auto;
+    background: white;
+    padding: 56px 64px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  header.doc-header {
+    border-bottom: 3px solid var(--brand);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brand);
+    margin-bottom: 8px;
+  }
+  header.doc-header h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  header.doc-header .meta { color: var(--mute); font-size: 13px; }
+  header.doc-header .meta strong { color: var(--ink-soft); }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brand);
+    margin: 44px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  .lede {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.65;
+    padding: 18px 22px;
+    background: var(--line-soft);
+    border-left: 3px solid var(--brand);
+    border-radius: 6px;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--line-soft);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.82em;
+    color: var(--ink-soft);
+  }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    background: var(--line-soft);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+  }
+  td.id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700;
+    color: var(--ink-soft);
+    width: 44px;
+  }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill.critical { background: var(--danger-tint); color: var(--danger); }
+  .pill.high     { background: var(--high-tint); color: var(--high-ink); }
+  .pill.medium   { background: var(--warn-tint); color: var(--warn-ink); }
+  .pill.low      { background: var(--mute-tint); color: var(--ink-soft); }
+  .pill.ok       { background: var(--ok-tint); color: var(--ok-ink); }
+
+  /* Severity scorecard */
+  .scorecard { display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0 8px; }
+  .score {
+    flex: 1 1 140px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    text-align: center;
+  }
+  .score .n { font-size: 32px; font-weight: 900; line-height: 1; }
+  .score .lbl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mute); margin-top: 6px; }
+  .score.critical .n { color: var(--danger); }
+  .score.high .n { color: var(--high-ink); }
+  .score.medium .n { color: var(--warn-ink); }
+  .score.low .n { color: var(--ink-soft); }
+
+  /* Finding cards (High) */
+  .finding {
+    margin-top: 16px;
+    padding: 18px 22px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--high-ink);
+    border-radius: 8px;
+    background: white;
+  }
+  .finding-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .finding-header h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .finding .loc {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; color: var(--mute);
+    margin: 0 0 8px;
+  }
+  .finding .row { font-size: 14px; color: var(--ink-soft); margin: 4px 0; }
+  .finding .row b { color: var(--ink); }
+  .finding .corrob { display: inline-block; font-size: 11px; font-weight: 700; color: var(--ok-ink); background: var(--ok-tint); padding: 1px 7px; border-radius: 999px; margin-left: 6px; }
+
+  ul { padding-left: 20px; margin: 8px 0 0; }
+  li { margin: 5px 0; }
+
+  .callout {
+    margin-top: 16px;
+    padding: 16px 20px;
+    background: var(--warn-tint);
+    border-left: 3px solid var(--warn-ink);
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--warn-ink);
+  }
+  .callout.brand { background: var(--brand-tint); border-left-color: var(--brand); color: var(--ink-soft); }
+  .callout.ok { background: var(--ok-tint); border-left-color: var(--ok-ink); color: var(--ok-ink); }
+
+  small { color: var(--mute); font-size: 12px; }
+
+  @media (max-width: 600px) {
+    .page { padding: 32px 22px; margin: 0; border-radius: 0; }
+    .finding-header { flex-direction: column; align-items: flex-start; }
+  }
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; margin: 0; padding: 18mm; max-width: none; }
+    .finding, table, .score { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="doc-header">
+    <div class="eyebrow">Internal · System Audit</div>
+    <h1>CareFirst Booking System &mdash; System Audit</h1>
+    <div class="meta">
+      <strong>2026-06-11</strong> · Full-system, production codebase (<code>main</code>) ·
+      Production: <a href="https://bookings.carefirst.co.za">bookings.carefirst.co.za</a><br>
+      Six specialist reviews in parallel, read-only &mdash; <strong>no code was changed during the audit</strong>.
+    </div>
+  </header>
+
+  <p class="lede">
+    The system is in <strong>strong shape for a live pilot</strong>. There are <strong>no Critical vulnerabilities</strong>
+    and no data-loss bug in the awaited server paths. The high-trust mechanisms &mdash; real RLS, server-authority booking
+    create, idempotent payment confirmation, SECURITY DEFINER triggers, PII-redacted logging, POPIA erasure &mdash; are
+    correctly built and consistently applied. The findings form a short, high-leverage punch-list (&approx;1&ndash;2 days)
+    concentrated in three areas: <strong>authorization edges</strong>, <strong>audit-trail durability</strong>, and
+    <strong>operational visibility</strong>. None block the pilot.
+  </p>
+
+  <h2>Findings at a glance</h2>
+  <div class="scorecard">
+    <div class="score critical"><div class="n">0</div><div class="lbl">Critical</div></div>
+    <div class="score high"><div class="n">8</div><div class="lbl">High</div></div>
+    <div class="score medium"><div class="n">14</div><div class="lbl">Medium</div></div>
+    <div class="score low"><div class="n">13</div><div class="lbl">Low</div></div>
+  </div>
+  <p><small>Audited dimensions: Security &amp; Compliance · Payments &amp; Integrations · Backend Correctness &amp; Data Integrity · Database / RLS / Migrations · Frontend / UX / Accessibility · Performance &amp; Operations. Findings <b>H1</b> and <b>H2</b> were independently surfaced by two auditors, which raises confidence they're real.</small></p>
+
+  <!-- ============================================================ -->
+  <h2>High-priority findings</h2>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H1 &mdash; Money-path audit writes are fire-and-forget <span class="corrob">corroborated &times;2</span></h3><span class="pill high">High</span></div>
+    <p class="loc">api/payfast/notify/route.ts:255 · reconcile/route.ts:318 · start-consultation/route.ts:386</p>
+    <p class="row"><b>Issue:</b> <code>writeAuditLog()</code> isn't <code>await</code>ed on these payment-confirmation / successful-handoff paths. On standalone Next.js the runtime can tear the request down after the response flushes, dropping the audit insert.</p>
+    <p class="row"><b>Impact:</b> A confirmed payment or successful handoff may have <b>no audit row</b> &mdash; exactly the events most needed for POPIA / financial accountability.</p>
+    <p class="row"><b>Fix:</b> <code>await</code> all three writes (they're already inside awaited handlers).</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H2 &mdash; ITN accepts a COMPLETE payment with no <code>amount_gross</code> <span class="corrob">corroborated &times;2</span></h3><span class="pill high">High</span></div>
+    <p class="loc">api/payfast/notify/route.ts:191-197 · mirror in reconcile/route.ts:264-271</p>
+    <p class="row"><b>Issue:</b> Amount validation is gated on <code>if (amountGross && …)</code>, so a COMPLETE ITN that omits the amount skips the tamper check. In sandbox the signature step accepts without passphrase, so steps 1+3 are weaker than they look.</p>
+    <p class="row"><b>Impact:</b> Defence-in-depth hole on payment integrity. <b>Must close before real money flows.</b></p>
+    <p class="row"><b>Fix:</b> Reject when <code>payment_status === "COMPLETE"</code> and amount is missing. Same for reconcile.</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H3 &mdash; A unit-manager can assign a user to units they don't own</h3><span class="pill high">High</span></div>
+    <p class="loc">api/admin/users/[id]/route.ts:118-153</p>
+    <p class="row"><b>Issue:</b> The guard checks the target's <i>current</i> units, but the <code>unitIds</code> in the PATCH body is applied wholesale with no check the caller belongs to each requested unit.</p>
+    <p class="row"><b>Impact:</b> A unit-manager can move staff into a foreign unit, expanding their reach beyond their authority.</p>
+    <p class="row"><b>Fix:</b> For non-admins, intersect <code>body.unitIds</code> with <code>caller.unitIds</code> and reject anything outside it.</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H4 &mdash; Browser-side discard can discard <i>terminal</i> (paid) bookings</h3><span class="pill high">High</span></div>
+    <p class="loc">src/lib/booking-store.tsx:605-612 (enabled by migrations/011:78,104)</p>
+    <p class="row"><b>Issue:</b> <code>discardBooking</code> does a direct status update with <b>no status guard</b> (unlike <code>abandonBooking</code>). The DB trigger only blocks transitions <i>into</i> paid states, not <i>out of</i> them.</p>
+    <p class="row"><b>Impact:</b> A paid / handed-off booking can be silently Discarded &mdash; distorting reports and dropping it into the 30-day anonymisation set.</p>
+    <p class="row"><b>Fix:</b> Route discard through a server endpoint via <code>transitionStatus</code>; add a <code>.eq("status","In Progress")</code> guard + a DB <code>OLD.status</code> terminal guard.</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H5 &mdash; Identity lock is bypassable on the Verify step</h3><span class="pill high">High</span></div>
+    <p class="loc">create-booking/patient-details/page.tsx:1374-1432</p>
+    <p class="row"><b>Issue:</b> Step 1 locks identity fields to protect an established CareFirst patient, but the Step-4 "Verify your Details" screen re-renders the same fields <b>fully editable</b>, and edits are auto-saved.</p>
+    <p class="row"><b>Impact:</b> Defeats the lock and reproduces the exact "already registered to a different account" handoff failure it exists to prevent.</p>
+    <p class="row"><b>Fix:</b> Pass <code>readOnly={identityLocked}</code> to the verify-step identity inputs.</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H6 &mdash; <code>deleteUser</code> swallows failures &rarr; false "deleted" banner</h3><span class="pill high">High</span></div>
+    <p class="loc">src/lib/user-store.tsx:271-276 · user-management/manage/page.tsx:462-468</p>
+    <p class="row"><b>Issue:</b> <code>deleteUser</code> logs and returns on a non-OK response instead of throwing (unlike <code>deleteClient</code>, which was fixed to throw). The page then shows a success banner regardless.</p>
+    <p class="row"><b>Impact:</b> On a 500 / RLS denial the user stays in the DB but the operator is told it was deleted &mdash; a false success on a destructive action.</p>
+    <p class="row"><b>Fix:</b> Make <code>deleteUser</code> throw on <code>!res.ok</code>, mirroring <code>deleteClient</code>.</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H7 &mdash; No monitoring / alerting (app down, cron stopped, payments failing)</h3><span class="pill high">High</span></div>
+    <p class="loc">Operations-wide</p>
+    <p class="row"><b>Issue:</b> <code>/api/health</code> drives Docker auto-restart, but nothing pages a human. Incidents and logs are pull-only.</p>
+    <p class="row"><b>Impact:</b> A quiet overnight failure can strand a paid booking with nobody aware until a patient complains.</p>
+    <p class="row"><b>Fix:</b> External uptime monitor on <code>/api/health</code> + a dead-man's-switch pinged at the end of <code>booking-cron.sh</code>. ~30 min, no code change.</p>
+  </div>
+
+  <div class="finding">
+    <div class="finding-header"><h3>H8 &mdash; DB backups documented but not verified as deployed</h3><span class="pill high">High</span></div>
+    <p class="loc">OPERATIONS.md &mdash; "Verify Supabase Backups"</p>
+    <p class="row"><b>Issue:</b> The runbook documents a pg_dump cron, but there's no evidence it's installed on the VPS.</p>
+    <p class="row"><b>Impact:</b> For a live pilot holding patient PII + payment records, an unverified backup is the highest-consequence gap after alerting.</p>
+    <p class="row"><b>Fix:</b> Confirm the live Supabase tier; if Free, install the pg_dump cron now and run a restore test once.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Medium-priority findings</h2>
+  <table>
+    <thead><tr><th class="id">#</th><th>Finding</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td class="id">M1</td><td>Cron has no overlap guard &mdash; an overrun run stacks a second concurrent run on 1 vCPU</td><td><code>booking-cron.sh</code></td></tr>
+      <tr><td class="id">M2</td><td>Reconcile (+ retention sweep) also fire on <b>every Patient-History page visit</b>, multiplying load</td><td><code>patient-history:485</code></td></tr>
+      <tr><td class="id">M3</td><td>unit-manager can change a target's <code>clientId</code> / <code>status</code> cross-scope</td><td><code>admin/users/[id]:112</code></td></tr>
+      <tr><td class="id">M4</td><td><code>/api/bookings/audit</code> trusts client-supplied <code>changes</code> / <code>entityName</code> verbatim</td><td><code>bookings/audit:90</code></td></tr>
+      <tr><td class="id">M5</td><td>Handoff lock can strand a paid booking in <code>handoff_status="in_progress"</code> on a crash</td><td><code>start-consultation:191</code></td></tr>
+      <tr><td class="id">M6</td><td><code>updateBooking</code> swallows save failures &mdash; flow advances on a failed save</td><td><code>booking-store:590</code></td></tr>
+      <tr><td class="id">M7</td><td><code>toggleClientStatus</code> / <code>toggleUserStatus</code> swallow errors &mdash; failed toggle looks like success</td><td><code>client-store:361</code></td></tr>
+      <tr><td class="id">M8</td><td>PIN modal hand-rolls inputs: no paste, no per-digit aria-labels (gates the highest-trust actions)</td><td><code>pin-verification-modal:140</code></td></tr>
+      <tr><td class="id">M9</td><td><code>CountryCodeSelect</code> not keyboard / screen-reader operable</td><td><code>CountryCodeSelect:54</code></td></tr>
+      <tr><td class="id">M10</td><td><code>FloatingInput</code> error not linked to input (no <code>aria-invalid</code>/<code>describedby</code>) &mdash; every form</td><td><code>floating-input:61</code></td></tr>
+      <tr><td class="id">M11</td><td><code>coupons</code>/<code>coupon_uses</code> missing the standard <code>GRANT … TO service_role</code></td><td><code>migrations/033:170</code></td></tr>
+      <tr><td class="id">M12</td><td>Redundant index &mdash; <code>idx_bookings_status</code> is covered by <code>idx_bookings_status_created_at</code></td><td><code>001:66 / 018:39</code></td></tr>
+      <tr><td class="id">M13</td><td>No composite index for the dominant list read <code>(unit_id, created_at DESC)</code></td><td><code>032:33</code></td></tr>
+      <tr><td class="id">M14</td><td>Unbounded <code>select("*")</code> of all bookings to the client on mount (documented scaling cliff)</td><td><code>booking-store:419</code></td></tr>
+    </tbody>
+  </table>
+
+  <!-- ============================================================ -->
+  <h2>Low-priority findings</h2>
+  <table>
+    <thead><tr><th class="id">#</th><th>Finding</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td class="id">L1</td><td>Emailed pay link charges full amount, ignoring an applied coupon (over-charge + ITN mismatch)</td><td><code>pay/[bookingId]:97</code></td></tr>
+      <tr><td class="id">L2</td><td>Public pay page is UUID-as-bearer (by design; no PII rendered)</td><td><code>pay/[bookingId]:26</code></td></tr>
+      <tr><td class="id">L3</td><td>Rate limiter is process-local &mdash; weakens per-IP limits only if scaled horizontally</td><td><code>rate-limit:8</code></td></tr>
+      <tr><td class="id">L4</td><td>Retention-sweep audit row mislabels <code>entityType:"user"</code> (it anonymises bookings)</td><td><code>retention-sweep:166</code></td></tr>
+      <tr><td class="id">L5</td><td><code>coupons/apply</code> rollback can blind-delete the new use row, desyncing booking denorm</td><td><code>coupons/apply:246</code></td></tr>
+      <tr><td class="id">L6</td><td>CareFirst timeout vs network errors collapse into one incident signature</td><td><code>start-consultation:290</code></td></tr>
+      <tr><td class="id">L7</td><td><code>m_payment_id</code> prefix has no explicit length assertion vs PayFast's 100-char cap (safe at &le;42)</td><td><code>payfast.ts:247</code></td></tr>
+      <tr><td class="id">L8</td><td>Low-value handoff indexes add write cost on the hot <code>bookings</code> table</td><td><code>migrations/015:38</code></td></tr>
+      <tr><td class="id">L9</td><td>No index for <code>id_number</code>/<code>contact_number</code> patient dedup / search</td><td><code>migrations/001:27</code></td></tr>
+      <tr><td class="id">L10</td><td><code>audit_log</code>/<code>incidents</code> SELECT policy re-queries <code>users</code> instead of the helper (correct, inconsistent)</td><td><code>007:30 / 029:45</code></td></tr>
+      <tr><td class="id">L11</td><td><code>release_coupon_on_abandon</code> fires on every bookings UPDATE, not <code>OF status</code> (guarded; correct)</td><td><code>037:29</code></td></tr>
+      <tr><td class="id">L12</td><td>Verify-step ID-number input skips digit cleaning / validation (subsumed by H5)</td><td><code>patient-details:1396</code></td></tr>
+      <tr><td class="id">L13</td><td><code>beforeunload</code> abandon uses the anon key &mdash; usually no-ops under RLS (cron sweep is the real path)</td><td><code>booking-store:692</code></td></tr>
+    </tbody>
+  </table>
+
+  <!-- ============================================================ -->
+  <h2>What's solid</h2>
+  <ul>
+    <li><b>Authorization is uniform and enumeration-resistant</b> &mdash; every route uses the correct guard; account-state issues collapse to one generic 403 with the real reason logged server-side only.</li>
+    <li><b>Service-role routes faithfully replicate RLS in code</b> &mdash; they re-check unit membership and server-authority flags before every write rather than trusting the client.</li>
+    <li><b>PII discipline in logs is excellent</b> &mdash; patient PII is redacted from stderr; full context goes only to the RLS-protected <code>audit_log</code>.</li>
+    <li><b>PIN flows are textbook</b> &mdash; salted SHA-256 tokens, 15-min single-use, timing-safe compare, all-session revocation on reset, shared DB throttle.</li>
+    <li><b>Payment confirmation is robust</b> &mdash; constant-time signature compare, fail-closed IP checks, 5s server-confirm abort, correct 200/4xx/5xx retry policy, and triple-layer idempotency so duplicate ITNs and ITN-vs-reconcile races settle cleanly in Postgres.</li>
+    <li><b>Clean RLS cutover; the trigger rule is honoured without exception</b> &mdash; every SECURITY DEFINER function pins <code>search_path</code>; partial-index discipline is consistent.</li>
+    <li><b>Strong deploy / rollback story</b> &mdash; image-tag-per-deploy, DB-verifying healthcheck, log rotation, compose drift resolved, env via SSH <code>.env</code>.</li>
+  </ul>
+
+  <!-- ============================================================ -->
+  <h2>Recommended action plan</h2>
+
+  <p><b>P0 &mdash; quick, high-leverage (&approx; half a day):</b> H1 (await audit writes) · H2 (reject missing amount) · H6 (deleteUser throws) · H5 (verify-step lock) · H7 (alerting, no code) · M1 (cron <code>flock</code>).</p>
+  <p><b>P1 &mdash; before scaling / important correctness:</b> H3 + M3 (tighten user-management PATCH authz) · H4 (close discard terminal-state hole) · M5 (handoff-lock staleness escape) · M6/M7 (stores throw on failure) · H8 (verify/instate backups).</p>
+  <p><b>P2 &mdash; hygiene, accessibility, scaling prep:</b> M8/M9/M10 (accessibility pass) · M2 + M14 (debounce reconcile; server-side pagination + streaming CSV before ~5k bookings) · M11/M12/M13 (GRANT parity + index cleanup + composite index) · L-series as files are next touched.</p>
+
+  <!-- ============================================================ -->
+  <h2>PayFast sandbox &rarr; live cutover readiness</h2>
+  <div class="callout">
+    Must fix / verify before flipping <code>PAYFAST_TEST_MODE=false</code>:
+    <ul>
+      <li><b>H2</b> &mdash; close the missing-amount gap (the sandbox passphrase-optional signature branch hardens at go-live, but the amount gap remains).</li>
+      <li><b>H1</b> &mdash; await the ITN + reconcile audit writes (a live payment with no audit row is a compliance problem).</li>
+      <li>Verify the <b>live signature includes the passphrase</b> end-to-end against a real transaction.</li>
+      <li>Confirm the <b>Transaction History 401 clears</b> on live credentials (the reconcile safety net).</li>
+      <li>Confirm <code>getAppUrl()</code> resolves to <code>https://bookings.carefirst.co.za</code> so notify/return URLs are correct.</li>
+    </ul>
+    These dovetail with the outstanding business items: Nic's credentials, Jean enabling ITN + the dashboard default notify URL, and the Q3 go-live timing.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Methodology</h2>
+  <p>Six specialist agents audited independent dimensions in parallel, each scoped to avoid double-counting and to skip already-closed hardening work (real-RLS migration, CSRF, rate limiting, HSTS/HTTPS, double-click guard, server-authority create, ITN abort, E.164, client_code, retention sweep, CSV injection guard). H1 and H2 were independently surfaced by two auditors. All findings are read-only observations &mdash; <b>no code was modified.</b> Severity reflects exploitability / impact at the current pilot posture (single container, PayFast sandbox). Full write-up: <code>booking-app/SYSTEM-AUDIT-2026-06-11.md</code>.</p>
+
+  <p style="margin-top:32px"><small>Generated 2026-06-11 · CareFirst 3rd Party Booking System · Internal document, not for external distribution.</small></p>
+
+</div>
+</body>
+</html>
