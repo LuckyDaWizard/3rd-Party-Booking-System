@@ -972,20 +972,13 @@ export default function ManageClientPage() {
                   </span>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <FloatingInput
-                    id="carefirst-api-domain"
-                    data-testid="input-carefirst-api-domain"
-                    label="CareFirst API Domain"
-                    value={carefirstApiDomain}
-                    onChange={setCarefirstApiDomain}
-                    onClear={() => setCarefirstApiDomain("")}
-                  />
-                  <span className="px-1 text-[11px] text-ink-muted">
-                    Optional. Leave blank to use the default CareFirst API
-                    host.
-                  </span>
-                </div>
+                {/* CareFirst API Domain input intentionally NOT rendered. All
+                    clients use the default CareFirst host (env CAREFIRST_API_DOMAIN),
+                    and exposing a free-text host field led to API keys being pasted
+                    here by mistake (a secret-in-DB + broken-handoff foot-gun). The
+                    carefirst_api_domain column is retained: if a client ever needs a
+                    different host, set it directly via SQL. State + save plumbing
+                    above keep the value (null for all current clients). */}
               </div>
             </div>
           )}
