@@ -457,7 +457,7 @@
       <code>bookings.carefirst.co.za</code>
       <span class="meta-sep">&middot;</span>
       <span class="meta-label">Note</span>
-      How four identified clients map to the system today, and what would make it easier.
+      Updated 2026-06-11 &mdash; verified against the current codebase.
     </p>
   </header>
 
@@ -489,11 +489,43 @@
             with PIN), plus optional <b>Skip Patient Metrics</b> and <b>Nurse
             Verification</b> (PIN sign-off) flags.
           </p>
+          <p style="margin-bottom:0;">
+            All four clients can be onboarded as no-gateway entirely through the
+            <b>Manage Client</b> screen &mdash; the Monthly Invoice / Self-Collect /
+            Skip Patient Metrics / Nurse Verification toggles are all self-service,
+            with no database work required.
+          </p>
+        </div>
+      </section>
+
+      <section id="modes">
+        <h2><span class="section-num">01 &middot; Modes</span> How the no-gateway modes behave</h2>
+        <div class="card">
+          <div class="card-title">Two billing modes, mutually exclusive</div>
+          <p style="margin-top:0;">
+            <b>Monthly Invoice</b> (<code>bill_monthly</code>): the payment step is
+            skipped automatically &mdash; the booking auto-marks <b>Payment Complete</b>
+            (<code>payment_type = monthly_invoice</code>) and the operator never sees a
+            payment screen. The client is billed at month-end.
+          </p>
+          <p>
+            <b>Self-Collect</b> (<code>collect_payment_at_unit</code>): the unit takes
+            the fee; the operator confirms with a "payment collected at unit" action.
+            <b>Note:</b> this confirm is a plain button click <i>unless</i> the client
+            also has <b>Nurse Verification</b> enabled, in which case a PIN gate applies
+            at the verification step (the PIN comes from the Nurse-Verification flag, not
+            from self-collect itself).
+          </p>
+          <p style="margin-bottom:0;">
+            The two billing modes are <b>mutually exclusive</b> (enforced in the UI and
+            server-side). <b>Skip Patient Metrics</b> (optional, only meaningful with a
+            no-gateway mode) jumps straight past the clinical-metrics step.
+          </p>
         </div>
       </section>
 
       <section id="scenarios">
-        <h2><span class="section-num">01 &middot; Scenarios</span> Scenario outcomes</h2>
+        <h2><span class="section-num">02 &middot; Scenarios</span> Scenario outcomes</h2>
 
         <div class="finding ok">
           <h3><span class="done-tag">Works today</span> 1. ISOS</h3>
@@ -511,19 +543,15 @@
           </div>
         </div>
 
-        <div class="finding warn">
-          <h3><span class="open-tag">Works &mdash; with caveats</span> 2. NHG &mdash; nurse books a main member OR a dependant</h3>
+        <div class="finding ok">
+          <h3><span class="done-tag">Works today</span> 2. NHG &mdash; nurse books a main member OR a dependant</h3>
           <div class="field">
             <div class="field-label">Flow</div>
-            <div>Each person is booked as a standalone patient by their own ID.</div>
+            <div>Member-vs-dependant is invisible to the system &mdash; both are identical standalone single-patient bookings, so there's no functional blocker. Each person is booked as a standalone patient by their own ID; the operator (nurse) is just the logged-in user.</div>
           </div>
           <div class="field">
-            <div class="field-label">Gap</div>
-            <div>The system <b>doesn't distinguish main member vs dependant</b>, doesn't capture a membership number, and doesn't link a dependant to a principal.</div>
-          </div>
-          <div class="field">
-            <div class="field-label">Net</div>
-            <div>Functions fine; if NHG needs that linkage/scheme number recorded, it isn't there today.</div>
+            <div class="field-label">Note</div>
+            <div>The system doesn't <i>model</i> "main member vs dependant" or capture a membership/scheme number, so if NHG needs that linkage recorded it isn't there today (see the dev table).</div>
           </div>
         </div>
 
@@ -534,16 +562,16 @@
             <div>Enter the <b>child's</b> identity + the <b>parent's</b> cell/email.</div>
           </div>
           <div class="field">
-            <div class="field-label">Caveat (a)</div>
-            <div>CareFirst registers the child's account with the parent's contact, so OTP/comms for that child go to the parent, and several siblings share one cell/email across multiple CareFirst accounts &mdash; confirm CareFirst accepts that.</div>
+            <div class="field-label">Blocker (a)</div>
+            <div><b>No-ID path for young children (sharpest gap):</b> the ID-type options are only <b>National ID</b> or <b>Passport</b>, and an ID number is <b>required</b> to complete the CareFirst handoff. A young child with neither has no clean path &mdash; the operator has to improvise an entry. (There's no "birth certificate / Other / none" option.)</div>
           </div>
           <div class="field">
-            <div class="field-label">Caveat (b)</div>
-            <div>The duplicate-by-contact check will notice the same parent number across siblings (informational, non-blocking).</div>
+            <div class="field-label">Blocker (b)</div>
+            <div><b>Shared parent contact is blocked across siblings:</b> the duplicate-contact check <b>blocks the Next button</b> (it isn't just a warning) when a contact number is already on another patient's booking. So booking a second child on the same parent's number halts the flow until the operator clears it.</div>
           </div>
           <div class="field">
-            <div class="field-label">Caveat (c)</div>
-            <div>The contact is stored as the patient's, not explicitly labelled "guardian's".</div>
+            <div class="field-label">Comms</div>
+            <div><b>Comms route to the parent (as intended):</b> the child's CareFirst account is registered with whatever contact the booking carries &mdash; here the parent's cell/email &mdash; so OTPs/communications go to the parent. Nothing labels the contact as a "guardian's."</div>
           </div>
         </div>
 
@@ -565,21 +593,21 @@
       </section>
 
       <section id="takeaway">
-        <h2><span class="section-num">02 &middot; Takeaway</span> Cross-cutting takeaway</h2>
+        <h2><span class="section-num">03 &middot; Takeaway</span> Cross-cutting takeaway</h2>
         <div class="card ok">
-          <div class="card-title">Same core capability, two shared gaps</div>
+          <div class="card-title">All four work today; NWI has the one hard stop</div>
           <p style="margin-top:0;margin-bottom:0;">
-            All four are variations of the same core capability &mdash; an operator
-            creating a no-gateway booking for a patient &mdash; and all work today
-            with the right client configuration. They share two gaps, neither
-            blocking: (1) multi-client CareFirst routing (B1); (2) no
-            dependant/membership modeling (relevant to NHG and NWI).
+            All four work today with the right Manage-Client configuration (no DB work).
+            The shared, non-blocking gaps: (1) multi-client CareFirst routing (B1 &mdash;
+            all route to one account today); (2) no dependant/membership modeling. The
+            NWI-specific friction (no-ID path + the blocking duplicate-contact check on
+            shared parent numbers) is the one place an operator hits a hard stop today.
           </p>
         </div>
       </section>
 
       <section id="lookinto">
-        <h2><span class="section-num">03 &middot; Roadmap</span> What the dev team could look into</h2>
+        <h2><span class="section-num">04 &middot; Roadmap</span> What the dev team could look into</h2>
         <table>
           <thead>
             <tr>
@@ -591,32 +619,42 @@
           <tbody>
             <tr>
               <td><span class="prio high">High</span></td>
-              <td><b>Per-client CareFirst routing (B1)</b> &mdash; map <code>client_code</code> to each client's own CareFirst account/plan. Groundwork done; needs CareFirst to confirm per-client API keys.</td>
+              <td><b>Per-client CareFirst routing (B1)</b> &mdash; map <code>client_code</code> to each client's own CareFirst account/plan. Groundwork done; needs CareFirst per-client API keys.</td>
               <td>All four</td>
             </tr>
             <tr>
               <td><span class="prio high">High</span></td>
-              <td><b>Per-client intake presets</b> &mdash; default a client to Monthly Invoice (+ optionally Skip Metrics / Nurse Verification) so operators toggle nothing per booking.</td>
+              <td><b>"Other / birth-certificate / no-ID" ID-type option for minors</b> &mdash; so children without an SA ID or passport can be booked cleanly (and mapped to CareFirst's "Other" id type).</td>
+              <td>NWI</td>
+            </tr>
+            <tr>
+              <td><span class="prio high">High</span></td>
+              <td><b>Allow a shared guardian contact across dependants</b> &mdash; exempt the duplicate-contact check (or model an explicit "guardian contact") so a parent's number can be reused across siblings without blocking Next.</td>
+              <td>NWI</td>
+            </tr>
+            <tr>
+              <td><span class="prio med">Medium</span></td>
+              <td><b>Per-client intake presets</b> &mdash; default a client to Monthly Invoice (+ optional Skip Metrics / Nurse Verification) so operators toggle nothing per booking.</td>
               <td>ISOS, Zoie</td>
             </tr>
             <tr>
               <td><span class="prio med">Medium</span></td>
-              <td><b>Dependant / family model</b> &mdash; optional membership number + "relationship to principal", and an "add another dependant" flow reusing shared contact/address to cut repeat entry.</td>
+              <td><b>Dependant / family model</b> &mdash; optional membership number + "relationship to principal", and an "add another dependant" flow reusing shared contact/address.</td>
               <td>NHG, NWI</td>
             </tr>
             <tr>
               <td><span class="prio med">Medium</span></td>
-              <td><b>Explicit "guardian contact" concept</b> &mdash; label the contact as a parent/guardian's; confirm with CareFirst how it handles several member accounts sharing one cell/email.</td>
+              <td><b>Explicit "guardian contact" concept</b> + confirm with CareFirst how it handles several member accounts sharing one cell/email.</td>
               <td>NWI</td>
             </tr>
             <tr>
               <td><span class="prio low">Low</span></td>
-              <td><b>Scheme/membership-number capture + validation</b> &mdash; if these schemes identify people by a scheme number rather than SA ID.</td>
+              <td><b>Scheme/membership-number capture + validation.</b></td>
               <td>NHG, NWI</td>
             </tr>
             <tr>
               <td><span class="prio low">Low</span></td>
-              <td><b>Confirm CareFirst dedup behaviour</b> for repeat dependant bookings and shared-contact families (auto-register keys on ID &mdash; verify it behaves as expected).</td>
+              <td><b>Confirm CareFirst dedup behaviour</b> for repeat dependant bookings and shared-contact families.</td>
               <td>NHG, NWI</td>
             </tr>
           </tbody>
@@ -625,10 +663,12 @@
         <div class="card" style="margin-top:18px;">
           <div class="card-title">Bottom line</div>
           <p style="margin:0;">
-            All four clients can run on the system today in no-gateway mode &mdash;
-            ISOS and Zoie are essentially plug-in; NHG and NWI work but would benefit
-            from a light dependant/guardian model and the per-client CareFirst routing
-            already on the roadmap.
+            All four clients can run on the system today in no-gateway mode, configured
+            entirely through Manage Client. ISOS, NHG and Zoie are essentially plug-in;
+            NWI works but hits two operator-level snags worth fixing &mdash; the no-ID
+            path for young children and the blocking duplicate-contact check on shared
+            parent numbers &mdash; alongside the per-client CareFirst routing already on
+            the roadmap.
           </p>
         </div>
       </section>
