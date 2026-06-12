@@ -141,6 +141,12 @@ export default function ManageClientPage() {
   // input on the payment step AND the apply endpoint accepts requests
   // for this client. Combinable with any payment mode.
   const [allowCoupons, setAllowCoupons] = useState(false)
+  // Per-client CareFirst SSO routing (system_admin-only). NON-SECRET
+  // fields only — the API key is set on the server in the SSH .env,
+  // keyed by the CareFirst client code. Saved with the rest of the form.
+  const [carefirstClientCode, setCarefirstClientCode] = useState("")
+  const [carefirstPlanCode, setCarefirstPlanCode] = useState("")
+  const [carefirstApiDomain, setCarefirstApiDomain] = useState("")
   // Tabbed layout — matches the Add Client flow.
   //   details  → contact form (editable)
   //   branding → logo / favicon / accent picker (editable)
@@ -190,6 +196,9 @@ export default function ManageClientPage() {
       setSkipPatientMetrics(client.skipPatientMetrics)
       setNurseVerification(client.nurseVerification)
       setAllowCoupons(client.allowCoupons)
+      setCarefirstClientCode(client.carefirstClientCode ?? "")
+      setCarefirstPlanCode(client.carefirstPlanCode ?? "")
+      setCarefirstApiDomain(client.carefirstApiDomain ?? "")
     }
   }, [client])
 
@@ -325,6 +334,15 @@ export default function ManageClientPage() {
     return ""
   })()
 
+  // CareFirst client code validation. Empty is allowed (client not mapped to
+  // CareFirst SSO yet). When present it must be uppercase letters + digits —
+  // matches the server charset (^[A-Z0-9]+$) that keys the SSH .env API key.
+  const trimmedCarefirstClientCode = carefirstClientCode.trim()
+  const carefirstClientCodeError =
+    trimmedCarefirstClientCode !== "" && !/^[A-Z0-9]+$/.test(trimmedCarefirstClientCode)
+      ? "Uppercase letters and digits only"
+      : ""
+
   async function handleUpdateInformation() {
     setSaving(true)
     setSaveError("")
@@ -348,7 +366,25 @@ export default function ManageClientPage() {
         // structurally enforced server-side; the omission here just
         // avoids sending a no-op field for non-admins.
         ...(isSystemAdmin
-          ? { collectPaymentAtUnit, billMonthly, skipPatientMetrics, nurseVerification, allowCoupons }
+          ? {
+              collectPaymentAtUnit,
+              billMonthly,
+              skipPatientMetrics,
+              nurseVerification,
+              allowCoupons,
+              // Per-client CareFirst SSO routing. Send the canonical
+              // UPPERCASE code; null when blank so the nullable column
+              // stays clean for unmapped clients. The plan code + API
+              // domain trim and null-when-empty the same way.
+              carefirstClientCode:
+                trimmedCarefirstClientCode === ""
+                  ? null
+                  : trimmedCarefirstClientCode.toUpperCase(),
+              carefirstPlanCode:
+                carefirstPlanCode.trim() === "" ? null : carefirstPlanCode.trim(),
+              carefirstApiDomain:
+                carefirstApiDomain.trim() === "" ? null : carefirstApiDomain.trim(),
+            }
           : {}),
       })
       router.push("/client-management")
@@ -874,6 +910,83 @@ export default function ManageClientPage() {
                   </div>
                 )
               })()}
+
+              {/* CareFirst Integration — per-client SSO routing. Visually
+                  distinct (slate panel + heading) and labelled with the
+                  word "CareFirst" on every field so it can never be
+                  confused with the internal "Client Code" field on the
+                  Client Details tab (which is the PayFast m_payment_id
+                  prefix). NON-SECRET fields only: the API key is set on
+                  the server in the SSH .env, keyed by the code below. */}
+              <div
+                data-testid="carefirst-integration-section"
+                className="flex flex-col gap-4 rounded-xl border border-slate-300 bg-slate-50 p-4"
+              >
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-sm font-semibold text-ink">
+                    CareFirst Integration
+                  </h3>
+                  <p className="text-xs text-ink-muted">
+                    Map this client to its own CareFirst SSO account. These
+                    are CareFirst&apos;s routing details — not the internal
+                    Client Code on the Client Details tab.
+                  </p>
+                </div>
+
+                <Banner
+                  kind="info"
+                  testId="carefirst-api-key-banner"
+                  title="API key is set on the server, not here"
+                  description="The API key for this client is set separately on the server (as CAREFIRST_API_KEY__<code>) by an administrator over SSH — it is not entered or stored here."
+                />
+
+                <div className="flex flex-col gap-1">
+                  <FloatingInput
+                    id="carefirst-client-code"
+                    data-testid="input-carefirst-client-code"
+                    label="CareFirst Client Code"
+                    value={carefirstClientCode}
+                    onChange={(v) => setCarefirstClientCode(v.toUpperCase())}
+                    onClear={() => setCarefirstClientCode("")}
+                    error={carefirstClientCodeError}
+                  />
+                  {!carefirstClientCodeError && (
+                    <span className="px-1 text-[11px] text-ink-muted">
+                      The client code CareFirst issued for this account (e.g.
+                      4B0B68ADC6). Uppercase letters and numbers.
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <FloatingInput
+                    id="carefirst-plan-code"
+                    data-testid="input-carefirst-plan-code"
+                    label="CareFirst Plan Code"
+                    value={carefirstPlanCode}
+                    onChange={setCarefirstPlanCode}
+                    onClear={() => setCarefirstPlanCode("")}
+                  />
+                  <span className="px-1 text-[11px] text-ink-muted">
+                    CareFirst plan code for this client (optional).
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <FloatingInput
+                    id="carefirst-api-domain"
+                    data-testid="input-carefirst-api-domain"
+                    label="CareFirst API Domain"
+                    value={carefirstApiDomain}
+                    onChange={setCarefirstApiDomain}
+                    onClear={() => setCarefirstApiDomain("")}
+                  />
+                  <span className="px-1 text-[11px] text-ink-muted">
+                    Optional. Leave blank to use the default CareFirst API
+                    host.
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1084,7 +1197,7 @@ export default function ManageClientPage() {
           {activeTab !== "units" && activeTab !== "users" && (
             <Button
               data-testid="update-button"
-              disabled={saving || !contactValid || !!clientCodeError}
+              disabled={saving || !contactValid || !!clientCodeError || !!carefirstClientCodeError}
               onClick={handleUpdateInformation}
               className="h-11 w-full rounded-xl bg-gray-300 text-ink-muted hover:bg-gray-900 hover:text-white"
             >

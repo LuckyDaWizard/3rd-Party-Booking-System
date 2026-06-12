@@ -94,6 +94,13 @@ export default defineConfig({
         process.env.CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT",
       CAREFIRST_CLIENT_PLAN_CODE:
         process.env.CAREFIRST_CLIENT_PLAN_CODE ?? "PLAYWRIGHT-PLAN",
+      // B1 per-client routing: a deterministic per-client API key keyed by the
+      // CareFirst client code "PWMAPPED". carefirst-routing-handoff.spec.ts
+      // creates an ad-hoc client mapped to this exact code so the resolver in
+      // getCareFirstConfigForClient() can find a key without falling closed.
+      // Must stay in lockstep with MAPPED_CODE in that spec. Like the rest of
+      // this block, only takes effect when Playwright spawns the dev server.
+      CAREFIRST_API_KEY__PWMAPPED: "per-client-key-pwmapped",
       // PayFast mock overrides. Read at CALL TIME by getValidateUrl() and
       // getPayfastApiBase() so module-load order doesn't bypass them. Same
       // caveat as the CareFirst block: only takes effect when Playwright

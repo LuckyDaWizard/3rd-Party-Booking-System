@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getSupabaseAdmin } from "@/lib/supabase-admin"
+import { getSupabaseAdmin, unwrapEmbed } from "@/lib/supabase-admin"
 import { requireAdminOrManager } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp, bookingRef } from "@/lib/audit-log"
 import { recordIncident, buildSignature } from "@/lib/incidents"
@@ -7,8 +7,9 @@ import { recordBookingValidator } from "@/lib/booking-validator"
 import {
   buildSsoPayload,
   callSsoAutoRegister,
-  getCareFirstConfig,
+  getCareFirstConfigForClient,
   type BookingForHandoff,
+  type ClientCareFirstRouting,
 } from "@/lib/carefirst"
 import { sendConsultLinkEmail } from "@/lib/email"
 import { apiError } from "@/lib/api-response"
@@ -51,6 +52,14 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
+// PostgREST embed shape for the unit→client CareFirst routing fields. Each
+// embed layer can come back as an object or a 1-element array depending on
+// relationship cardinality; unwrapEmbed normalises both.
+type EmbeddedUnit = {
+  client_id: string | null
+  clients: ClientCareFirstRouting | ClientCareFirstRouting[] | null
+}
+
 export async function POST(request: Request, context: RouteContext) {
   const { caller, denied } = await requireAdminOrManager()
   if (denied) return denied
@@ -72,13 +81,6 @@ export async function POST(request: Request, context: RouteContext) {
     }
   } catch {
     // No body / unparseable — keep the default.
-  }
-
-  let config
-  try {
-    config = getCareFirstConfig()
-  } catch (err) {
-    return apiError(err instanceof Error ? err.message : "Server misconfigured", 500)
   }
 
   let admin
@@ -115,6 +117,10 @@ export async function POST(request: Request, context: RouteContext) {
         "postal_code",
         "handoff_redirect_url",
         "handoff_attempt_count",
+        // B1: per-client CareFirst routing — pull the owning client's
+        // NON-SECRET routing fields via the unit→client FK chain so the
+        // resolver can pick the right CareFirst account (or fail closed).
+        "units(client_id, clients(carefirst_client_code, carefirst_plan_code, carefirst_api_domain))",
       ].join(", ")
     )
     .eq("id", id)
@@ -124,6 +130,7 @@ export async function POST(request: Request, context: RouteContext) {
         unit_id: string | null
         handoff_redirect_url: string | null
         handoff_attempt_count: number | null
+        units: EmbeddedUnit | EmbeddedUnit[] | null
       }
     >()
 
@@ -174,6 +181,25 @@ export async function POST(request: Request, context: RouteContext) {
     return apiError(
       `Cannot start consultation — missing required patient data: ${missing.join(", ")}.`,
       400
+    )
+  }
+
+  // Resolve the CareFirst config for THIS booking's owning client (B1).
+  // CRITICAL ordering: this runs BEFORE the handoff lock is acquired below,
+  // so a misconfigured / partially-mapped client fails closed cleanly here
+  // without stranding the booking in handoff_status="in_progress". An
+  // un-mapped client transparently uses the env default.
+  const unitRow = unwrapEmbed<EmbeddedUnit>(booking.units)
+  const clientRouting = unwrapEmbed<ClientCareFirstRouting>(
+    unitRow?.clients ?? null
+  )
+  let config
+  try {
+    config = getCareFirstConfigForClient(clientRouting)
+  } catch (err) {
+    return apiError(
+      err instanceof Error ? err.message : "Server misconfigured",
+      500
     )
   }
 

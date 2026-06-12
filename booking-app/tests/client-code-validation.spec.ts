@@ -281,3 +281,246 @@ test.describe("Client code — admin-route validation", () => {
     }
   })
 })
+
+// =============================================================================
+// CareFirst per-client SSO routing (B1) — admin-route validation.
+//
+// PATCH /api/admin/clients/[id] also accepts the NON-SECRET CareFirst routing
+// fields added in migration 042:
+//   carefirstClientCode  (^[A-Z0-9]+$, uppercased server-side; null/"" clears)
+//   carefirstPlanCode    (free text; null/"" clears)
+//   carefirstApiDomain   (bare host or http(s) URL; null/"" clears)
+// The per-client API KEY is NOT handled here — it lives in env, keyed by the
+// CareFirst client code. These columns are DISTINCT from clients.client_code
+// (the PayFast m_payment_id prefix).
+//
+// MIGRATION DEPENDENCY: needs migration 042 applied to the dev Supabase. Without
+// it the create/PATCH write touching these columns fails — see the note returned
+// to the orchestrator. (The bad-format 400 cases return BEFORE any DB write, so
+// they hold even without 042; the "stored / cleared" cases require it.)
+// =============================================================================
+
+interface ClientCareFirstRow {
+  carefirst_client_code: string | null
+  carefirst_plan_code: string | null
+  carefirst_api_domain: string | null
+}
+
+async function readCarefirstFields(id: string): Promise<ClientCareFirstRow> {
+  const admin = getAdmin()
+  const { data } = await admin
+    .from("clients")
+    .select("carefirst_client_code, carefirst_plan_code, carefirst_api_domain")
+    .eq("id", id)
+    .single()
+  return data as ClientCareFirstRow
+}
+
+test.describe("CareFirst routing — admin-route validation (B1)", () => {
+  // ---------------------------------------------------------------------------
+  // Test 1 — lowercase carefirstClientCode → 400 (must be ^[A-Z0-9]+$).
+  //          Returns before any DB write, so this holds without migration 042.
+  // ---------------------------------------------------------------------------
+  test("PATCH rejects a lowercase carefirstClientCode with 400", async ({
+    page,
+    context,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    await signInAsSeededUser(page)
+    const csrf = await readCsrfToken(context)
+    const headers = { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf }
+    const clientName = uniqueClientName()
+
+    let clientId: string | null = null
+    try {
+      const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
+        headers,
+        data: { clientName },
+      })
+      expect(createRes.status()).toBe(201)
+      clientId = ((await createRes.json()) as CreateResponse).id as string
+
+      // ----- Act --------------------------------------------------------------
+      // "abc" is lowercase — fails the ^[A-Z0-9]+$ format gate. (Note: the
+      // route uppercases first, so "abc" → "ABC" actually PASSES; the real
+      // reject is a value with non-alnum chars. Use a value that stays invalid
+      // even after uppercasing.)
+      const res = await page.request.patch(
+        `${BASE_URL}/api/admin/clients/${clientId}`,
+        { headers, data: { carefirstClientCode: "ab-cd" } }
+      )
+
+      // ----- Assert -----------------------------------------------------------
+      expect(res.status(), "non-alnum CareFirst code should be a 400").toBe(400)
+      expect(((await res.json()) as CreateResponse).error ?? "").toMatch(
+        /carefirst client code/i
+      )
+
+      // The 400 returned before the write — field stays null.
+      const after = await readCarefirstFields(clientId)
+      expect(after.carefirst_client_code).toBeNull()
+    } finally {
+      if (clientId) await deleteClient(clientId)
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 2 — valid carefirstClientCode is stored (uppercased); plan/domain too.
+  //          Requires migration 042.
+  // ---------------------------------------------------------------------------
+  test("PATCH stores a valid carefirstClientCode (uppercased) + plan + domain", async ({
+    page,
+    context,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    await signInAsSeededUser(page)
+    const csrf = await readCsrfToken(context)
+    const headers = { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf }
+    const clientName = uniqueClientName()
+
+    let clientId: string | null = null
+    try {
+      const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
+        headers,
+        data: { clientName },
+      })
+      expect(createRes.status()).toBe(201)
+      clientId = ((await createRes.json()) as CreateResponse).id as string
+
+      // ----- Act --------------------------------------------------------------
+      // The canonical example code from migration 042, supplied lowercase to
+      // prove the route uppercases before storage.
+      const res = await page.request.patch(
+        `${BASE_URL}/api/admin/clients/${clientId}`,
+        {
+          headers,
+          data: {
+            carefirstClientCode: "4b0b68adc6",
+            carefirstPlanCode: "PLAN-ABC",
+            carefirstApiDomain: "stage-patient.care-first.co.za",
+          },
+        }
+      )
+
+      // ----- Assert -----------------------------------------------------------
+      expect(res.status(), "valid CareFirst routing should PATCH (200)").toBe(200)
+      const after = await readCarefirstFields(clientId)
+      // Load-bearing: code stored UPPERCASED — the env-var derivation
+      // (CAREFIRST_API_KEY__<code>) depends on the canonical uppercase form.
+      expect(after.carefirst_client_code).toBe("4B0B68ADC6")
+      expect(after.carefirst_plan_code).toBe("PLAN-ABC")
+      expect(after.carefirst_api_domain).toBe("stage-patient.care-first.co.za")
+    } finally {
+      if (clientId) await deleteClient(clientId)
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 3 — clearing the CareFirst fields with null / "" stores null.
+  //          Requires migration 042.
+  // ---------------------------------------------------------------------------
+  test("PATCH clears CareFirst routing fields when sent null / empty", async ({
+    page,
+    context,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    await signInAsSeededUser(page)
+    const csrf = await readCsrfToken(context)
+    const headers = { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf }
+    const clientName = uniqueClientName()
+
+    let clientId: string | null = null
+    try {
+      const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
+        headers,
+        data: { clientName },
+      })
+      expect(createRes.status()).toBe(201)
+      clientId = ((await createRes.json()) as CreateResponse).id as string
+
+      // Set them first so "clear" has something to clear.
+      const setRes = await page.request.patch(
+        `${BASE_URL}/api/admin/clients/${clientId}`,
+        {
+          headers,
+          data: {
+            carefirstClientCode: "MAPPED1",
+            carefirstPlanCode: "PLAN-X",
+            carefirstApiDomain: "api.carefirst.test",
+          },
+        }
+      )
+      expect(setRes.status()).toBe(200)
+      const set = await readCarefirstFields(clientId)
+      expect(set.carefirst_client_code).toBe("MAPPED1")
+
+      // ----- Act --------------------------------------------------------------
+      // null clears the code/domain; "" clears the plan — both routes treat
+      // null and "" as "clear to null".
+      const res = await page.request.patch(
+        `${BASE_URL}/api/admin/clients/${clientId}`,
+        {
+          headers,
+          data: {
+            carefirstClientCode: null,
+            carefirstPlanCode: "",
+            carefirstApiDomain: null,
+          },
+        }
+      )
+
+      // ----- Assert -----------------------------------------------------------
+      expect(res.status(), "clearing CareFirst routing should PATCH (200)").toBe(200)
+      const after = await readCarefirstFields(clientId)
+      expect(after.carefirst_client_code).toBeNull()
+      expect(after.carefirst_plan_code).toBeNull()
+      expect(after.carefirst_api_domain).toBeNull()
+    } finally {
+      if (clientId) await deleteClient(clientId)
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 4 — a host-less carefirstApiDomain ("https://") → 400.
+  //          Returns before any DB write, so this holds without migration 042.
+  // ---------------------------------------------------------------------------
+  test("PATCH rejects a host-less carefirstApiDomain with 400", async ({
+    page,
+    context,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    await signInAsSeededUser(page)
+    const csrf = await readCsrfToken(context)
+    const headers = { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf }
+    const clientName = uniqueClientName()
+
+    let clientId: string | null = null
+    try {
+      const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
+        headers,
+        data: { clientName },
+      })
+      expect(createRes.status()).toBe(201)
+      clientId = ((await createRes.json()) as CreateResponse).id as string
+
+      // ----- Act --------------------------------------------------------------
+      // "https://" has a scheme but no host — isValidApiDomain rejects it.
+      const res = await page.request.patch(
+        `${BASE_URL}/api/admin/clients/${clientId}`,
+        { headers, data: { carefirstApiDomain: "https://" } }
+      )
+
+      // ----- Assert -----------------------------------------------------------
+      expect(res.status(), "host-less API domain should be a 400").toBe(400)
+      expect(((await res.json()) as CreateResponse).error ?? "").toMatch(
+        /carefirst api domain/i
+      )
+
+      // The 400 returned before the write — field stays null.
+      const after = await readCarefirstFields(clientId)
+      expect(after.carefirst_api_domain).toBeNull()
+    } finally {
+      if (clientId) await deleteClient(clientId)
+    }
+  })
+})

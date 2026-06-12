@@ -6,6 +6,10 @@ import { apiError } from "@/lib/api-response"
 import { normalizeToE164 } from "@/lib/phone"
 import { deriveCountryFromNumber } from "@/lib/phone-server"
 import { isValidClientCode } from "@/lib/client-code"
+import { isValidApiDomain } from "@/lib/carefirst"
+
+/** CareFirst client code charset: uppercase letters + digits (migration 042). */
+const CAREFIRST_CLIENT_CODE_RE = /^[A-Z0-9]+$/
 
 // =============================================================================
 // PATCH /api/admin/clients/[id]  — update a client
@@ -68,6 +72,16 @@ interface UpdateClientBody {
    * client. Independent of every other client flag.
    */
   allowCoupons?: boolean
+  /**
+   * Per-client CareFirst SSO routing (B1). All NON-SECRET. undefined leaves
+   * unchanged; null/empty clears; a value sets. The per-client API KEY is
+   * NOT handled here — it lives in env as CAREFIRST_API_KEY__<carefirstClientCode>.
+   * carefirstClientCode is uppercase-alnum (^[A-Z0-9]+$), distinct from
+   * clientCode (the PayFast prefix).
+   */
+  carefirstClientCode?: string | null
+  carefirstPlanCode?: string | null
+  carefirstApiDomain?: string | null
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -130,6 +144,45 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
   }
 
+  // CareFirst routing (B1): undefined → unchanged; null/empty → clear; a
+  // present value is validated + normalised. All NON-SECRET.
+  let normalisedCarefirstCode: string | null | undefined
+  if (body.carefirstClientCode !== undefined) {
+    if (body.carefirstClientCode === null || body.carefirstClientCode.trim() === "") {
+      normalisedCarefirstCode = null
+    } else {
+      const normalized = body.carefirstClientCode.trim().toUpperCase()
+      if (!CAREFIRST_CLIENT_CODE_RE.test(normalized)) {
+        return apiError("CareFirst client code must be uppercase letters and digits", 400)
+      }
+      normalisedCarefirstCode = normalized
+    }
+  }
+
+  let normalisedCarefirstPlan: string | null | undefined
+  if (body.carefirstPlanCode !== undefined) {
+    normalisedCarefirstPlan =
+      body.carefirstPlanCode === null || body.carefirstPlanCode.trim() === ""
+        ? null
+        : body.carefirstPlanCode.trim()
+  }
+
+  let normalisedCarefirstDomain: string | null | undefined
+  if (body.carefirstApiDomain !== undefined) {
+    if (body.carefirstApiDomain === null || body.carefirstApiDomain.trim() === "") {
+      normalisedCarefirstDomain = null
+    } else {
+      const normalized = body.carefirstApiDomain.trim()
+      if (!isValidApiDomain(normalized)) {
+        return apiError(
+          "CareFirst API domain must be a hostname or a valid http(s) URL",
+          400
+        )
+      }
+      normalisedCarefirstDomain = normalized
+    }
+  }
+
   // Server-authority contact-number normalization (only when contactNumber is
   // part of this patch). The clients table has no country_code column, so
   // derive the country from the number itself, then normalize to canonical
@@ -160,7 +213,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Load current row for audit diff.
   const { data: current } = await admin
     .from("clients")
-    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, client_code, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification, allow_coupons")
+    .select("client_name, contact_person_name, contact_person_surname, email, contact_number, status, accent_color, client_code, collect_payment_at_unit, bill_monthly, skip_patient_metrics, nurse_verification, allow_coupons, carefirst_client_code, carefirst_plan_code, carefirst_api_domain")
     .eq("id", id)
     .single()
 
@@ -178,6 +231,9 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (body.skipPatientMetrics !== undefined) dbUpdates.skip_patient_metrics = body.skipPatientMetrics
   if (body.nurseVerification !== undefined) dbUpdates.nurse_verification = body.nurseVerification
   if (body.allowCoupons !== undefined) dbUpdates.allow_coupons = body.allowCoupons
+  if (normalisedCarefirstCode !== undefined) dbUpdates.carefirst_client_code = normalisedCarefirstCode
+  if (normalisedCarefirstPlan !== undefined) dbUpdates.carefirst_plan_code = normalisedCarefirstPlan
+  if (normalisedCarefirstDomain !== undefined) dbUpdates.carefirst_api_domain = normalisedCarefirstDomain
 
   // Mutual exclusion: turning one billing-mode flag ON forces the other
   // OFF. The UI already enforces this, but a malformed request that
@@ -299,6 +355,13 @@ export async function PATCH(request: Request, context: RouteContext) {
       old: current?.allow_coupons ?? false,
       new: postClampAllowCoupons,
     }
+  // CareFirst routing (B1) — all NON-SECRET, safe to audit.
+  if (normalisedCarefirstCode !== undefined && normalisedCarefirstCode !== (current?.carefirst_client_code ?? null))
+    changes["CareFirst Client Code"] = { old: current?.carefirst_client_code ?? null, new: normalisedCarefirstCode }
+  if (normalisedCarefirstPlan !== undefined && normalisedCarefirstPlan !== (current?.carefirst_plan_code ?? null))
+    changes["CareFirst Plan Code"] = { old: current?.carefirst_plan_code ?? null, new: normalisedCarefirstPlan }
+  if (normalisedCarefirstDomain !== undefined && normalisedCarefirstDomain !== (current?.carefirst_api_domain ?? null))
+    changes["CareFirst API Domain"] = { old: current?.carefirst_api_domain ?? null, new: normalisedCarefirstDomain }
 
   if (Object.keys(changes).length > 0) {
     const action = changes["Status"] && Object.keys(changes).length === 1 ? "toggle_status" as const : "update" as const

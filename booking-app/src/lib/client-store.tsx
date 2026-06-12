@@ -62,6 +62,18 @@ export interface ClientRecord {
    * client's bookings. Defaults to FALSE — admin opts in per client.
    */
   allowCoupons: boolean
+  /**
+   * Per-client CareFirst SSO routing. The CareFirst-issued client code
+   * (uppercase letters + digits) keys the server-side API key
+   * (CAREFIRST_API_KEY__<code> in the SSH .env). NON-SECRET routing
+   * fields only — the API key itself is never entered or stored here.
+   * NULL until mapped on the Manage Client page.
+   */
+  carefirstClientCode: string | null
+  /** CareFirst plan code for this client (optional). */
+  carefirstPlanCode: string | null
+  /** Optional CareFirst API host override. Blank → default host. */
+  carefirstApiDomain: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +95,7 @@ interface ClientStoreContextValue {
   addClient: (
     client: Omit<
       ClientRecord,
-      "id" | "status" | "clientCode" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
+      "id" | "status" | "clientCode" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons" | "carefirstClientCode" | "carefirstPlanCode" | "carefirstApiDomain"
     > & { clientCode?: string | null }
   ) => Promise<string>
   updateClient: (id: string, updates: Partial<Omit<ClientRecord, "id">>) => Promise<void>
@@ -117,6 +129,9 @@ interface DbClient {
   skip_patient_metrics: boolean | null
   nurse_verification: boolean | null
   allow_coupons: boolean | null
+  carefirst_client_code: string | null
+  carefirst_plan_code: string | null
+  carefirst_api_domain: string | null
 }
 
 interface DbUnit {
@@ -147,6 +162,9 @@ function mapDbToClient(row: DbClient, unitName: string): ClientRecord {
     skipPatientMetrics: row.skip_patient_metrics ?? false,
     nurseVerification: row.nurse_verification ?? false,
     allowCoupons: row.allow_coupons ?? false,
+    carefirstClientCode: row.carefirst_client_code,
+    carefirstPlanCode: row.carefirst_plan_code,
+    carefirstApiDomain: row.carefirst_api_domain,
   }
 }
 
@@ -230,7 +248,7 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
   const addClient = useCallback(async (
     client: Omit<
       ClientRecord,
-      "id" | "status" | "clientCode" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons"
+      "id" | "status" | "clientCode" | "collectPaymentAtUnit" | "billMonthly" | "skipPatientMetrics" | "nurseVerification" | "allowCoupons" | "carefirstClientCode" | "carefirstPlanCode" | "carefirstApiDomain"
     > & { clientCode?: string | null }
   ) => {
     // Routed through /api/admin/clients — under Phase 5 RLS, the authenticated
@@ -278,6 +296,12 @@ export function ClientStoreProvider({ children }: { children: ReactNode }) {
     if (updates.skipPatientMetrics !== undefined) body.skipPatientMetrics = updates.skipPatientMetrics
     if (updates.nurseVerification !== undefined) body.nurseVerification = updates.nurseVerification
     if (updates.allowCoupons !== undefined) body.allowCoupons = updates.allowCoupons
+    // Per-client CareFirst SSO routing (non-secret). Mirror clientCode's
+    // undefined/null handling: unchanged fields aren't sent; cleared fields
+    // send null so the nullable column is wiped server-side.
+    if (updates.carefirstClientCode !== undefined) body.carefirstClientCode = updates.carefirstClientCode
+    if (updates.carefirstPlanCode !== undefined) body.carefirstPlanCode = updates.carefirstPlanCode
+    if (updates.carefirstApiDomain !== undefined) body.carefirstApiDomain = updates.carefirstApiDomain
 
     if (Object.keys(body).length > 0) {
       const res = await fetch(`/api/admin/clients/${id}`, {

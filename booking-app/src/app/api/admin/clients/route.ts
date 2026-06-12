@@ -6,6 +6,10 @@ import { apiError } from "@/lib/api-response"
 import { normalizeToE164 } from "@/lib/phone"
 import { deriveCountryFromNumber } from "@/lib/phone-server"
 import { isValidClientCode } from "@/lib/client-code"
+import { isValidApiDomain } from "@/lib/carefirst"
+
+/** CareFirst client code charset: uppercase letters + digits (migration 042). */
+const CAREFIRST_CLIENT_CODE_RE = /^[A-Z0-9]+$/
 
 // =============================================================================
 // POST /api/admin/clients
@@ -42,6 +46,15 @@ interface CreateClientBody {
   accentColor?: string | null
   /** 3–5 uppercase alnum, or null/empty to leave unset. */
   clientCode?: string | null
+  /**
+   * Per-client CareFirst SSO routing (B1). All NON-SECRET — the API key
+   * lives in env as CAREFIRST_API_KEY__<carefirstClientCode>, never here.
+   * null/empty clears; a value sets. carefirstClientCode is uppercase-alnum
+   * (^[A-Z0-9]+$), distinct from clientCode (the PayFast prefix).
+   */
+  carefirstClientCode?: string | null
+  carefirstPlanCode?: string | null
+  carefirstApiDomain?: string | null
 }
 
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -88,6 +101,46 @@ export async function POST(request: Request) {
     clientCode = normalized
   }
 
+  // CareFirst routing (B1). All optional + nullable-clearable. null/empty →
+  // null (unset); a present value is validated + normalised.
+  let carefirstClientCode: string | null = null
+  if (
+    body.carefirstClientCode !== undefined &&
+    body.carefirstClientCode !== null &&
+    body.carefirstClientCode.trim() !== ""
+  ) {
+    const normalized = body.carefirstClientCode.trim().toUpperCase()
+    if (!CAREFIRST_CLIENT_CODE_RE.test(normalized)) {
+      return apiError("CareFirst client code must be uppercase letters and digits", 400)
+    }
+    carefirstClientCode = normalized
+  }
+
+  let carefirstPlanCode: string | null = null
+  if (
+    body.carefirstPlanCode !== undefined &&
+    body.carefirstPlanCode !== null &&
+    body.carefirstPlanCode.trim() !== ""
+  ) {
+    carefirstPlanCode = body.carefirstPlanCode.trim()
+  }
+
+  let carefirstApiDomain: string | null = null
+  if (
+    body.carefirstApiDomain !== undefined &&
+    body.carefirstApiDomain !== null &&
+    body.carefirstApiDomain.trim() !== ""
+  ) {
+    const normalized = body.carefirstApiDomain.trim()
+    if (!isValidApiDomain(normalized)) {
+      return apiError(
+        "CareFirst API domain must be a hostname or a valid http(s) URL",
+        400
+      )
+    }
+    carefirstApiDomain = normalized
+  }
+
   // Server-authority contact-number normalization. The clients table has no
   // country_code column, so derive the country from the number itself, then
   // normalize to canonical E.164. Present-but-invalid → 400; empty/absent
@@ -122,6 +175,9 @@ export async function POST(request: Request) {
       status: "Active",
       accent_color: accentColor,
       client_code: clientCode,
+      carefirst_client_code: carefirstClientCode,
+      carefirst_plan_code: carefirstPlanCode,
+      carefirst_api_domain: carefirstApiDomain,
     })
     .select("id")
     .single()
@@ -164,6 +220,9 @@ export async function POST(request: Request) {
     changes: {
       "Client Name": { new: body.clientName },
       ...(clientCode ? { "Client Code": { new: clientCode } } : {}),
+      ...(carefirstClientCode ? { "CareFirst Client Code": { new: carefirstClientCode } } : {}),
+      ...(carefirstPlanCode ? { "CareFirst Plan Code": { new: carefirstPlanCode } } : {}),
+      ...(carefirstApiDomain ? { "CareFirst API Domain": { new: carefirstApiDomain } } : {}),
       ...(body.initialUnitName && body.initialUnitName !== "-"
         ? { "Initial Unit": { new: body.initialUnitName } }
         : {}),

@@ -45,21 +45,140 @@ export function getCareFirstConfig(): CareFirstConfig {
   // way, the result must parse as a URL with a non-empty host. Without this
   // check, a malformed env like "https://" (no host) would silently produce
   // requests like "https:/api/..." that fail in confusing ways at runtime.
-  const normalised = /^https?:\/\//i.test(apiDomain)
-    ? apiDomain
-    : `https://${apiDomain}`
+  assertValidApiDomain(apiDomain, "CAREFIRST_API_DOMAIN")
+
+  return { apiDomain, apiKey, clientCode, clientPlanCode, appUrl }
+}
+
+// ---------------------------------------------------------------------------
+// apiDomain validation (shared by getCareFirstConfig + the per-client resolver
+// + the admin clients route, so all three reject the same malformed inputs).
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when `value` is a usable CareFirst API domain: a bare hostname
+ * (gets https:// prepended at call time) OR a full http(s) URL, that parses to
+ * a URL with a non-empty host. "https://" (no host) → false.
+ */
+export function isValidApiDomain(value: string): boolean {
+  const normalised = /^https?:\/\//i.test(value) ? value : `https://${value}`
   try {
-    const parsed = new URL(normalised)
-    if (!parsed.host) {
-      throw new Error("no host")
-    }
+    return Boolean(new URL(normalised).host)
   } catch {
+    return false
+  }
+}
+
+/** Throws a clear error if `value` is not a usable API domain. `label` names the source (env var or field) in the message. */
+function assertValidApiDomain(value: string, label: string): void {
+  if (!isValidApiDomain(value)) {
     throw new Error(
-      `CAREFIRST_API_DOMAIN is malformed: "${apiDomain}". Must be either a bare hostname (e.g. "stage-patient.care-first.co.za") or a full http(s) URL with a non-empty host.`
+      `${label} is malformed: "${value}". Must be either a bare hostname (e.g. "stage-patient.care-first.co.za") or a full http(s) URL with a non-empty host.`
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-client CareFirst routing (B1)
+//
+// Resolves the CareFirst account to hand a booking off to, per client, instead
+// of always using the single env-default account. The caller passes the owning
+// client's NON-SECRET routing fields (resolved via booking.unit_id →
+// unit.client_id → clients).
+//
+// Secret handling = B-ENV: the per-client API KEY is NEVER stored in the DB.
+// It lives in env, keyed by the (uppercase-alnum) CareFirst client code:
+//   CAREFIRST_API_KEY__<carefirst_client_code>   e.g. CAREFIRST_API_KEY__4B0B68ADC6
+// The DB CHECK on carefirst_client_code (^[A-Z0-9]+$, migration 042) is what
+// makes building that env var name safe.
+//
+// FAIL-CLOSED rationale (patient-routing integrity): for a MAPPED client we
+// never fall back to the env-default API key. A mapped client whose key is
+// missing throws — better to block the handoff than register a patient under
+// the wrong CareFirst account.
+// ---------------------------------------------------------------------------
+
+/** Valid CareFirst client-code charset (uppercase letters + digits). Mirrors the
+ *  migration-042 CHECK. Exported so the admin routes can share one definition. */
+export const CAREFIRST_CLIENT_CODE_RE = /^[A-Z0-9]+$/
+
+/** NON-SECRET per-client CareFirst routing fields (snake_case, as stored on `clients`). */
+export interface ClientCareFirstRouting {
+  carefirst_client_code?: string | null
+  carefirst_plan_code?: string | null
+  carefirst_api_domain?: string | null
+}
+
+/**
+ * Resolve the CareFirst config for a booking's owning client.
+ *
+ * Accepts the client's NON-SECRET routing row fields (snake_case). Behaviour:
+ *  - Un-mapped (no carefirst_client_code) → returns getCareFirstConfig() (the
+ *    env default). Unchanged behaviour for existing clients.
+ *  - Mapped (carefirst_client_code present) → resolves the API key from
+ *    env CAREFIRST_API_KEY__<code>. FAILS CLOSED if that key is missing/empty:
+ *    never falls back to the env-default key (would route to the wrong account).
+ *    Plan code + API domain fall back to env when the client leaves them null.
+ */
+export function getCareFirstConfigForClient(
+  client: ClientCareFirstRouting | null
+): CareFirstConfig {
+  const code = client?.carefirst_client_code?.trim()
+
+  // Un-mapped → env default. Identical to legacy behaviour.
+  if (!code) {
+    return getCareFirstConfig()
+  }
+
+  // Defense-in-depth: re-assert the charset HERE before using `code` to build
+  // an env var name, rather than trusting only the migration-042 CHECK. A row
+  // written before the constraint existed, a dropped/altered CHECK, or a
+  // service-role write that bypasses it could otherwise derive an unintended
+  // env lookup (e.g. a code containing "=" or whitespace). This is the layer
+  // that turns the DB value into a key name, so it must guard itself.
+  if (!CAREFIRST_CLIENT_CODE_RE.test(code)) {
+    throw new Error("CareFirst client code is malformed for this client.")
+  }
+
+  // Mapped → resolve the per-client API key from env, keyed by the code.
+  // FAIL CLOSED: missing/empty key throws; we NEVER reuse the env-default key.
+  const apiKey = process.env[`CAREFIRST_API_KEY__${code}`]?.trim()
+  if (!apiKey) {
+    throw new Error(
+      "CareFirst is not fully configured for this client (missing API key). Contact an administrator."
     )
   }
 
-  return { apiDomain, apiKey, clientCode, clientPlanCode, appUrl }
+  // Plan code: client override ?? env default ?? null.
+  const clientPlanCode =
+    client?.carefirst_plan_code?.trim() ||
+    process.env.CAREFIRST_CLIENT_PLAN_CODE?.trim() ||
+    null
+
+  // API domain: client override ?? env default. Required (no usable default
+  // beyond env). Reuse the same URL/host validation as getCareFirstConfig.
+  const apiDomain =
+    client?.carefirst_api_domain?.trim() ||
+    process.env.CAREFIRST_API_DOMAIN?.trim()
+  if (!apiDomain) {
+    throw new Error(
+      "CareFirst is not fully configured for this client (missing API domain). Set carefirst_api_domain on the client or CAREFIRST_API_DOMAIN in env."
+    )
+  }
+  assertValidApiDomain(
+    apiDomain,
+    client?.carefirst_api_domain?.trim()
+      ? "carefirst_api_domain"
+      : "CAREFIRST_API_DOMAIN"
+  )
+
+  return {
+    apiDomain,
+    apiKey,
+    clientCode: code,
+    clientPlanCode,
+    appUrl: getAppUrl(),
+  }
 }
 
 // ---------------------------------------------------------------------------
