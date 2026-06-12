@@ -81,6 +81,8 @@ Memorise this list. If you're tempted to do one of these, stop:
 | Multi-choice `AskUserQuestion` when the user has shown evidence of a bug | Fix it. Reference memory `feedback_dont_over_ask` |
 | Re-flag system audit items already closed | Read `public/system-audit.html` + memory `project_audit_closeout` first |
 | Touch `docker-compose.yml` via the Hostinger UI | SSH-only deploys. The UI rewrites the file and wipes Traefik labels. See memory `project_deployment` |
+| Store a secret (API key, passphrase, token) in a DB column | Secrets live in the SSH `.env`, forwarded to the container via `env_file`. NEVER a `clients`/etc. column — the client list is read in the browser via `.select("*")`, so a secret column leaks. Per-client CareFirst keys: `CAREFIRST_API_KEY__<code>` in `.env`. See `project_carefirst_handoff` |
+| Use a free-text "domain/URL/host" field that could accept a key-shaped value | Validate it's actually a hostname; or drop the field. The CareFirst "API Domain" field got an API key pasted into it (broke handoff + secret-in-DB) and was removed. See `project_carefirst_handoff` |
 | Treat the PayFast reconcile 401 as a bug | It's expected in sandbox. See memory `project_payfast_mode` |
 | Skip the unit-scope IDOR guard on new booking-mutating routes | Mirror `mark-self-collect`: check `caller.unitIds.includes(booking.unit_id)` (system_admin bypasses). Coupons apply/remove got this guard 2026-06-08. |
 | List the whole list array (`clients`, `units`, `users`) as `useCallback` deps in store providers | Use the ref-based pattern from `booking-store.tsx` — mirror the list into a `useRef`, read `xRef.current` inside the callback, empty deps. Otherwise the `useMemo` provider value churns on every refresh |
@@ -96,6 +98,7 @@ Project memory lives at `~/.claude/projects/.../memory/`. The orchestrator reads
 - `feedback_dont_over_ask` — don't gate fixes behind multi-choice when the user has shown evidence
 - `feedback_update_memory_at_milestones` — proactively bump memory at sprint close, deploys with migrations, durable feedback
 - `feedback_audit_page` — mark both copies of `system-audit.html` when finishing audit work
+- `feedback_system_audit_to_page` — EVERY system-audit request: post results onto `public/system-audit.html` (dated section, old design, sync both copies), not just chat/standalone files
 - `feedback_dev_server` — kill old dev server instances before restarting
 - `feedback_security_definer_triggers` — RLS-touching triggers must be SECURITY DEFINER
 - `feedback_nextjs_image_optimizer` — keep `images: { unoptimized: true }`; Alpine Docker has no sharp/vips
@@ -104,7 +107,11 @@ Project memory lives at `~/.claude/projects/.../memory/`. The orchestrator reads
 **Project state:**
 - `project_pending_tasks` — current backlog
 - `project_audit_closeout` — what's done (don't re-flag)
-- `project_system_check_2026_06_05` — most recent audit + sprint summary
+- `project_system_audit_2026_06_11` — MOST RECENT audit (6-dimension; 0 Critical / 8 High / 14 Med / 13 Low; findings OPEN). Lives on `public/system-audit.html`.
+- `project_system_check_2026_06_05` — prior audit + sprint summary
+- `project_carefirst_handoff` — CareFirst SSO + per-client routing (B1 live; B-ENV key scheme; `env_file`)
+- `project_phone_e164` — strict E.164 contact numbers (server normalize-or-400)
+- `project_payfast` — PayFast incl. `m_payment_id = <CLIENT_CODE>-<uuid>` + `stripBookingId`
 - `project_coupons` — coupons architecture (incl. IDOR guard + test coverage)
 - `project_payfast` + `project_payfast_mode` + `project_payfast_reconcile` — PayFast integration + sandbox status
 - `project_carefirst_handoff` — SSO contract

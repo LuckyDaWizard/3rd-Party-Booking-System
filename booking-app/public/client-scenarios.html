@@ -313,6 +313,7 @@
     td .prio.high { background: #fef3c7; color: #92400e; }
     td .prio.med  { background: var(--r-brand-tint); color: var(--r-brand-dark); }
     td .prio.low  { background: var(--r-line-2); color: var(--r-mute); }
+    td .prio.done { background: #dcfce7; color: #166534; }
 
     /* ----------- Card grids ----------- */
 
@@ -478,9 +479,11 @@
             Two architectural facts shape every scenario below: (1) there is
             <b>no main-member / dependant relationship and no membership/scheme-number
             field</b> &mdash; a dependant is just another standalone patient record
-            keyed on their own ID; (2) <b>today all clients route to a single CareFirst
-            account</b> (the per-client <code>client_code</code> we shipped is the
-            groundwork to fix this &mdash; tracked as item B1).
+            keyed on their own ID; (2) <b>per-client CareFirst routing is now LIVE</b>
+            (B1, shipped 2026-06-11) &mdash; each booking hands off to its owning
+            client's own CareFirst account, with un-mapped clients falling back to a
+            default account. Mapping a client = set its CareFirst code in Manage Client
+            &plus; add its API key to the server <code>.env</code>.
           </p>
           <p style="margin-bottom:0;">
             For "no payment gateway" there are two client-level modes: <b>Monthly
@@ -538,8 +541,8 @@
             <div>Operator creates each booking for the member; no payment step; patient registered to CareFirst by ID.</div>
           </div>
           <div class="field">
-            <div class="field-label">Caveat</div>
-            <div>Only caveat: shared CareFirst account (B1).</div>
+            <div class="field-label">CareFirst routing</div>
+            <div>✅ <b>Mapped &amp; live-verified</b> &mdash; ISOS routes to its own CareFirst account (code <code>4B0B68ADC6</code>) via the per-client routing shipped in B1.</div>
           </div>
         </div>
 
@@ -586,8 +589,8 @@
             <div>Set Monthly Invoice (or Self-Collect).</div>
           </div>
           <div class="field">
-            <div class="field-label">Caveat</div>
-            <div>Same single-CareFirst-account caveat (B1).</div>
+            <div class="field-label">CareFirst routing</div>
+            <div>Not yet mapped &mdash; Zoie currently hands off to the default CareFirst account. Map it to its own account the same way as FCS/ISOS (Manage Client code &plus; server <code>.env</code> key) once its credentials are issued.</div>
           </div>
         </div>
       </section>
@@ -598,10 +601,12 @@
           <div class="card-title">All four work today; NWI has the one hard stop</div>
           <p style="margin-top:0;margin-bottom:0;">
             All four work today with the right Manage-Client configuration (no DB work).
-            The shared, non-blocking gaps: (1) multi-client CareFirst routing (B1 &mdash;
-            all route to one account today); (2) no dependant/membership modeling. The
-            NWI-specific friction (no-ID path + the blocking duplicate-contact check on
-            shared parent numbers) is the one place an operator hits a hard stop today.
+            <b>Per-client CareFirst routing is now live (B1, shipped 2026-06-11)</b> &mdash;
+            FCS and ISOS already route to their own accounts; un-mapped clients (Local
+            Choice, Zoie) use the default until mapped. The one remaining modeling gap is
+            no dependant/membership relationship. The NWI-specific friction (no-ID path
+            &plus; the blocking duplicate-contact check on shared parent numbers) is the
+            one place an operator still hits a hard stop today.
           </p>
         </div>
       </section>
@@ -618,8 +623,8 @@
           </thead>
           <tbody>
             <tr>
-              <td><span class="prio high">High</span></td>
-              <td><b>Per-client CareFirst routing (B1)</b> &mdash; map <code>client_code</code> to each client's own CareFirst account/plan. Groundwork done; needs CareFirst per-client API keys.</td>
+              <td><span class="prio done">Shipped</span></td>
+              <td><b>Per-client CareFirst routing (B1)</b> &mdash; <s>map each client to its own CareFirst account/plan</s> <b>DONE 2026-06-11.</b> Each booking routes to its owning client's CareFirst account (codes in DB, keys in server <code>.env</code>); FCS &plus; ISOS live. Remaining clients map the same way when issued credentials.</td>
               <td>All four</td>
             </tr>
             <tr>

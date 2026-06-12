@@ -36,12 +36,12 @@ POST https://<CAREFIRST_API_DOMAIN>/api/external/client-sso/auto-register
 
 | Mechanism | Value |
 |---|---|
-| Header | `x-api-key: <CAREFIRST_API_KEY>` |
+| Header | `x-api-key: <per-client key>` — `CAREFIRST_API_KEY__<CODE>` for mapped clients, `CAREFIRST_API_KEY` default otherwise |
 | Transport | HTTPS only |
-| Audience | Per-environment (separate keys for staging and production) |
+| Audience | Per-environment AND per-client (one key per clinic group, shipped 2026-06-11) |
 | Rotation | We can rotate keys via env-var update + redeploy; no breaking changes required |
 
-The key is stored as a non-`NEXT_PUBLIC_` env var, so it never reaches the client bundle.
+Keys are stored as non-`NEXT_PUBLIC_` env vars only, so they never reach the client bundle — and **never in the database** (scheme B-ENV). Since 2026-06-11 each mapped client has its own key, resolved from the `.env` by the client's `carefirst_client_code`. See [Multi-Client Routing](/reports/multi-client-routing).
 
 </Section>
 
@@ -78,7 +78,7 @@ The full body we POST.
 
 ```json
 {
-  "clientCode":      "<configured per environment>",
+  "clientCode":      "<resolved per-client; env default fallback>",
   "uniqueReference": "<our booking UUID>",
   "user": {
     "email":      "patient@example.com",
@@ -111,11 +111,11 @@ The full body we POST.
 
 | Field | Source on our side | Notes |
 |---|---|---|
-| `clientCode` | Env var `CAREFIRST_CLIENT_CODE` | Per-environment, immutable per deploy. **Under active discussion to become per-client** — see [Multi-Client Routing RFC](/reports/multi-client-routing). |
-| `planCode` | Env var `CAREFIRST_CLIENT_PLAN_CODE` | Same as `clientCode`. Pairs with it. Same multi-client RFC applies. |
+| `clientCode` | `clients.carefirst_client_code` (env `CAREFIRST_CLIENT_CODE` fallback) | **Now per-client** (shipped 2026-06-11) — resolved from the booking's owning client; un-mapped clients fall back to the env default. See [Multi-Client Routing](/reports/multi-client-routing). |
+| `planCode` | `clients.carefirst_plan_code` (env `CAREFIRST_CLIENT_PLAN_CODE` fallback) | Same as `clientCode`. Pairs with it; resolved per-client. |
 | `uniqueReference` | `bookings.id` (UUID) | One value per booking; safe to use as your idempotency key |
 | `user.email` | `bookings.email_address` | Captured at patient-details step 3 |
-| `user.cellNumber` | `bookings.contact_number` | E.164-ish; we don't enforce strict E.164 |
+| `user.cellNumber` | `bookings.contact_number` | Strict E.164 (`+27…`) — validated and normalised on capture |
 | `user.idNumber` | `bookings.id_number` | 13-digit SA ID OR passport string |
 | `user.userProfile.title` | `bookings.title` | Mapped to your enum (see below) |
 | `user.userProfile.firstName` | `bookings.first_names` | Combined first names; can be one word |
@@ -204,7 +204,7 @@ If the booking is already <Pill variant="ok">Successful</Pill> on our side and w
 
 In rough priority order:
 
-1. **Per-client `clientCode` + `planCode`.** Today every booking sends the same hard-coded pair, so every patient lands in one CareFirst account. As we onboard additional clinic groups (Local Choice, International SOS, Zoie, future), each needs to land in its own CareFirst account. Full discussion + the two specific asks are in the [Multi-Client Routing RFC](/reports/multi-client-routing) — currently the single most material open item on this integration.
+1. **Per-client `clientCode` + `planCode` — RESOLVED & SHIPPED 2026-06-11.** Each booking now routes to its owning client's CareFirst account, with a per-client API key (scheme B-ENV). FCS and International SOS are mapped and live-verified; Local Choice and Zoie remain on the env default until CareFirst issues their codes. Full design in [Multi-Client Routing](/reports/multi-client-routing).
 2. **Stable `referenceId` field.** Can you commit to a field name so we can stop opportunistic parsing? We'd suggest top-level `referenceId` returning your patient or session identifier.
 3. **Field name for `redirectUrl`** — same question. Pin one name, we'll use it exclusively.
 4. **Error body shape.** Can we standardise on `{ displayMessage, errorMessage, errorCode }`? `errorCode` (an enum / string token, not human-readable) would let us route operators to the right scenario without parsing English strings.

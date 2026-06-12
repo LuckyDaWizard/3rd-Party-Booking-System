@@ -85,8 +85,8 @@ sections:
 | **CareFirst Patient** | The downstream application — your consultation app. The destination of the SSO handoff. |
 | **PayFast** | South African payment gateway. Used for the `gateway` payment mode. |
 | **POPIA** | Protection of Personal Information Act (SA). Our compliance framework for handling patient data. |
-| **Client code (CareFirst)** | The `clientCode` we send in the auto-register payload. Configured via `CAREFIRST_CLIENT_CODE` env var. Distinct from the PayFast client code below. |
-| **Client code (PayFast)** | `clients.client_code` — a short (3–5 uppercase alnum) per-client identifier set in Client Management. Used as the `m_payment_id` prefix so a shared PayFast merchant account's transactions are attributable per client. Reserved as the future multi-client routing key. Added 2026-06-11 (migration 041). |
+| **Client code (CareFirst)** | The `clientCode` we send in the auto-register payload. **Per-client since 2026-06-11** — stored on `clients.carefirst_client_code`, resolved per booking (env `CAREFIRST_CLIENT_CODE` fallback for un-mapped clients). Multi-client routing is live; see [Multi-Client Routing](/reports/multi-client-routing). Distinct from the PayFast client code below. |
+| **Client code (PayFast)** | `clients.client_code` — a short (3–5 uppercase alnum) per-client identifier set in Client Management. Used as the `m_payment_id` prefix so a shared PayFast merchant account's transactions are attributable per client. Added 2026-06-11 (migration 041). Distinct from `carefirst_client_code` above. |
 | **Return URL** | `returnUrl` field in the SSO payload. Where CareFirst is asked to redirect the patient after the consult ends. See [returnUrl Contract](/reports/return-url-contract). |
 
 </Section>

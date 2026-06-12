@@ -52,7 +52,7 @@ Roughly 45 columns. They cluster into 7 groups, documented below. Anything not l
 | Column | Type | Sent to CareFirst? |
 |---|---|---|
 | `email_address` | `text` | Yes, as `user.email` |
-| `contact_number` | `text` | Yes, as `user.cellNumber` (E.164-ish, not strictly validated) |
+| `contact_number` | `text` | Yes, as `user.cellNumber`. Strict E.164 (`+27…`) — validated and normalised on capture, invalid input rejected with 400 |
 | `address` | `text` | Yes, in `user.userProfile.fullAddress.address` |
 | `suburb` | `text` | Yes, as `fullAddress.suburb` |
 | `city` | `text` | Yes, as `fullAddress.city` |
