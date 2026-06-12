@@ -30,6 +30,16 @@ services:
         max-file: "3"
     ports:
       - "3000:3000"
+    # Inject ALL vars from .env into the container at runtime. This is what
+    # makes the per-client CareFirst keys work: each client's API key lives in
+    # .env as CAREFIRST_API_KEY__<CODE> (B1, see project_carefirst_handoff),
+    # and a static `environment:` list can't enumerate dynamic per-client names.
+    # env_file forwards every .env key automatically, so adding a client key is
+    # just a .env edit + `docker compose up -d` — no compose change per client.
+    # The explicit `environment:` entries below still take PRECEDENCE over
+    # env_file (e.g. NODE_ENV) and document the core required vars.
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       # Server-side only — never set NEXT_PUBLIC_ prefix on this.
