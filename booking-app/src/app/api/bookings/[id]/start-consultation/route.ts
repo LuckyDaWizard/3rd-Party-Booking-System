@@ -287,7 +287,7 @@ export async function POST(request: Request, context: RouteContext) {
       })
       .eq("id", id)
 
-    writeAuditLog({
+    await writeAuditLog({
       actorId: caller.id,
       actorName: caller.name,
       actorRole: caller.role,
@@ -409,7 +409,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
   }
 
-  writeAuditLog({
+  await writeAuditLog({
     actorId: caller.id,
     actorName: caller.name,
     actorRole: caller.role,

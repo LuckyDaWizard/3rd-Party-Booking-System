@@ -315,7 +315,7 @@ async function reconcileOne(
     [booking.first_names, booking.surname].filter(Boolean).join(" ") ||
     "Unknown patient"
 
-  writeAuditLog({
+  await writeAuditLog({
     actorId: SYSTEM_ACTOR_ID,
     actorName: "PayFast Reconcile",
     actorRole: "system",

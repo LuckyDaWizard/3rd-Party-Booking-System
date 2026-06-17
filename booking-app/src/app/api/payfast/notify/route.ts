@@ -252,7 +252,7 @@ async function processItn(request: Request): Promise<ItnOutcome> {
       [booking.first_names, booking.surname].filter(Boolean).join(" ") ||
       "Unknown patient"
 
-    writeAuditLog({
+    await writeAuditLog({
       actorId: SYSTEM_ACTOR_ID,
       actorName: "PayFast ITN",
       actorRole: "system",
