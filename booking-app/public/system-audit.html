@@ -934,8 +934,8 @@
           </div>
         </div>
 
-        <div class="finding high open-finding">
-          <h3><span class="open-tag">Open</span>H2. ITN accepts a COMPLETE payment with no <code>amount_gross</code><span class="corrob-tag">corroborated &times;2</span></h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Resolved</span>H2. ITN accepts a COMPLETE payment with no <code>amount_gross</code><span class="corrob-tag">corroborated &times;2</span></h3>
           <div class="field">
             <div class="field-label">Where</div>
             <div><code>api/payfast/notify/route.ts:191-197</code> &middot; mirror in <code>reconcile/route.ts:264-271</code></div>
@@ -951,6 +951,10 @@
           <div class="field">
             <div class="field-label">Fix</div>
             <div>Reject when <code>payment_status === "COMPLETE"</code> and amount is missing. Same for reconcile.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Resolution</div>
+            <div>✅ <b>Fixed 2026-06-11</b> (<code>9a9aa43</code>) &mdash; COMPLETE ITN with missing <code>amount_gross</code> &rarr; 400; reconcile refuses a matched COMPLETE txn with no amount &mdash; both before the booking flips. Tests added (ITN + reconcile). Code Review: ship. Pending deploy. <b>With H1, both PayFast go-live blockers are cleared.</b></div>
           </div>
         </div>
 
