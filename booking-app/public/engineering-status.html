@@ -520,17 +520,20 @@
         <td class="id">B7</td>
         <td>
           <strong>Promote PayFast integration to production credentials.</strong>
-          Currently on sandbox during pilot &mdash; every "payment" is a sandbox test transaction; no real money flows. When ready to go live:
+          <div style="margin-top:8px;padding:8px 12px;background:var(--ok-tint,#dcfce7);border-left:3px solid #166534;border-radius:6px;">
+            <strong>Status (2026-06-17) — imminent.</strong> Nic signed off ✅ · go-live blockers <strong>H1 + H2 fixed &amp; deployed</strong> ✅ · Jean sent the live credentials ✅ · <strong>waiting on Jean to confirm the live-account dashboard config</strong> (ITN enabled [critical], passphrase set, notify URL). Once confirmed, the flip is the steps below. Still on sandbox until then.
+          </div>
+          When ready to go live:
           <ol style="margin-top: 8px;">
-            <li>Get production credentials from PayFast merchant dashboard (Merchant ID + Merchant Key + Passphrase).</li>
-            <li>In the Hostinger Docker Manager env panel: set <code>PAYFAST_MERCHANT_ID</code>, <code>PAYFAST_MERCHANT_KEY</code>, <code>PAYFAST_PASSPHRASE</code> to the production values; set <code>PAYFAST_TEST_MODE=false</code>.</li>
-            <li>Update the PayFast merchant dashboard with the production return / notify / cancel URLs &mdash; all under <code>https://bookings.carefirst.co.za/api/payfast/...</code>.</li>
-            <li>SSH to the VPS and rebuild: <code>cd /opt/3rd-Party-Booking-System/booking-app &amp;&amp; docker compose up -d --build</code>.</li>
+            <li>Live credentials in hand (Merchant ID + Merchant Key + Passphrase).</li>
+            <li>Edit the <strong>SSH-managed</strong> <code>/opt/3rd-Party-Booking-System/booking-app/.env</code> &mdash; set <code>PAYFAST_MERCHANT_ID</code>, <code>PAYFAST_MERCHANT_KEY</code>, <code>PAYFAST_PASSPHRASE</code> (note: <em>not</em> <code>PAYFAST_MERCHANT_PASSPHRASE</code>), and <code>PAYFAST_TEST_MODE=false</code>. <strong>🚫 NOT the Hostinger Docker Manager panel</strong> &mdash; it regenerates the compose file and wipes the Traefik/HSTS labels.</li>
+            <li>Jean (dashboard): <strong>enable ITN</strong> + set the default notify URL <code>https://bookings.carefirst.co.za/api/payfast/notify</code>; don't lock URLs to dashboard-only. (Return/cancel URLs are sent per-transaction by our code &mdash; they carry the booking id.)</li>
+            <li>Reload: <code>cd /opt/3rd-Party-Booking-System/booking-app &amp;&amp; docker compose up -d</code> (runtime vars &mdash; no rebuild needed).</li>
             <li>Smoke test with a small real-money payment end-to-end; verify ITN arrives + booking flips to Payment Complete + audit log records it correctly.</li>
             <li>Confirm B6 closes itself (production Query API will start returning data, reconcile will start working).</li>
           </ol>
         </td>
-        <td class="effort">Half-day &plus; business sign-off</td>
+        <td class="effort">Imminent &mdash; waiting on Jean</td>
       </tr>
     </tbody>
   </table>
