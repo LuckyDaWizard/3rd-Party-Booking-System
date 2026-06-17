@@ -910,8 +910,8 @@
         <h3 id="followup-high"><span class="h3-num">B</span>High-priority findings</h3>
         <p>Eight items, all open. Each won't break the pilot tomorrow, but each is a real liability concentrated in authorization, audit durability, or operational visibility.</p>
 
-        <div class="finding high open-finding">
-          <h3><span class="open-tag">Open</span>H1. Money-path audit writes are fire-and-forget<span class="corrob-tag">corroborated &times;2</span></h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Resolved</span>H1. Money-path audit writes are fire-and-forget<span class="corrob-tag">corroborated &times;2</span></h3>
           <div class="field">
             <div class="field-label">Where</div>
             <div><code>api/payfast/notify/route.ts:255</code> &middot; <code>reconcile/route.ts:318</code> &middot; <code>start-consultation/route.ts:386</code></div>
@@ -927,6 +927,10 @@
           <div class="field">
             <div class="field-label">Fix</div>
             <div><code>await</code> all three writes (they're already inside awaited handlers).</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Resolution</div>
+            <div>✅ <b>Fixed 2026-06-11</b> (<code>c529d4e</code>) &mdash; all four money-path audit writes awaited (notify + reconcile + start-consultation failed/success). <code>writeAuditLog</code> never throws, so awaiting is safe; each await lands after the state commit. Code Review: ship. Pending deploy.</div>
           </div>
         </div>
 
