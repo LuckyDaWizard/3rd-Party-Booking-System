@@ -188,7 +188,19 @@ async function processItn(request: Request): Promise<ItnOutcome> {
   }
 
   // Step 3: Amount. Mismatch = tampering, definitive reject.
+  // For a COMPLETE payment the amount is MANDATORY: an ITN that claims
+  // COMPLETE but omits amount_gross can't be amount-verified, so reject it
+  // rather than trusting it (a COMPLETE with no amount would otherwise skip
+  // the mismatch check below and mark the booking paid). Non-COMPLETE
+  // statuses (FAILED/PENDING/CANCELLED) may legitimately omit the amount and
+  // don't flip the booking, so they're not required to carry it.
   const expectedAmount = booking.payment_amount?.toString() ?? "325.00"
+  if (paymentStatus === "COMPLETE" && !amountGross) {
+    return reject(
+      `Missing amount_gross on COMPLETE ITN for ${bookingRef(bookingId)}`,
+      400
+    )
+  }
   if (amountGross && !validateItnAmount(amountGross, expectedAmount)) {
     return reject(
       `Amount mismatch: expected ${expectedAmount}, got ${amountGross}`,

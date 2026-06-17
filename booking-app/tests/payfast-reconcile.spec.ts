@@ -319,4 +319,67 @@ test.describe("PayFast reconcile (single booking)", () => {
       await booking.cleanup()
     }
   })
+
+  // ---------------------------------------------------------------------------
+  // Test 4 — matched COMPLETE txn with no amount_gross → not updated (audit H2).
+  //
+  // Sibling of Test 3 (wrong amount): there the txn carried 999.00; here it
+  // carries NO amount at all. `match` is always a COMPLETE transaction, so the
+  // amount is mandatory — a COMPLETE txn with no amount_gross can't be
+  // price-verified, so reconcile must refuse rather than trust it (mirrors the
+  // ITN H2 Step-3 guard). This guards against a malformed/partial COMPLETE row
+  // in PayFast's history flipping the booking paid without a verified amount.
+  // ---------------------------------------------------------------------------
+  test("reconcile refuses to flip when the matched COMPLETE transaction has no amount_gross", async ({
+    page,
+    context,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    const { unitId } = await getSeededIds()
+    const booking = await createBookingForUnit(unitId, "In Progress")
+    await signInAsSeededUser(page)
+    const csrf = await readCsrfToken(context)
+
+    try {
+      // A COMPLETE txn that matches m_payment_id (prefixed ref) but OMITS
+      // amount_gross entirely. The route matches it, then the H2 missing-amount
+      // guard (received === "" → updated:false) fires before validateItnAmount.
+      const txns: PayfastTransaction[] = [
+        {
+          m_payment_id: prefixedMPaymentId(booking.id),
+          pf_payment_id: uniquePfId(),
+          payment_status: "COMPLETE",
+          // amount_gross intentionally OMITTED — this is the whole point of H2.
+        },
+      ]
+      await setMockTransactions(txns)
+
+      // ----- Act --------------------------------------------------------------
+      const res = await page.request.post(`${BASE_URL}/api/payfast/reconcile`, {
+        headers: {
+          "Content-Type": "application/json",
+          [CSRF_HEADER_NAME]: csrf,
+        },
+        data: { bookingId: booking.id },
+      })
+
+      // ----- Assert -----------------------------------------------------------
+      expect(res.status()).toBe(200)
+      const body = (await res.json()) as ReconcileResponse
+      expect(body.ok).toBe(true)
+      expect(body.reconciled).toBe(0)
+      expect(body.results[0].updated).toBe(false)
+      expect(body.results[0].reason).toMatch(/no amount_gross/i)
+
+      // Load-bearing: a no-amount COMPLETE txn must NOT flip the booking.
+      const final = await readBooking(booking.id)
+      expect(final?.status).toBe("In Progress")
+      expect(final?.pf_payment_id).toBeNull()
+      expect(final?.payment_confirmed_at).toBeNull()
+    } finally {
+      await clearMockTransactions()
+      await clearPayfastMockReceived()
+      await booking.cleanup()
+    }
+  })
 })

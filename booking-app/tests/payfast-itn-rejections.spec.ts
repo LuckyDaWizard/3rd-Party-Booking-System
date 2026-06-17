@@ -30,6 +30,16 @@
 //   tests would become indistinguishable.) We assert the reason strings to
 //   keep the two cases honest.
 //
+//   Trap 4 (missing-amount test, audit H2): the Step-3 guard rejects a
+//   COMPLETE ITN that omits amount_gross (it can't be amount-verified, so it
+//   must NOT be trusted and marked paid). To reach that guard the signature
+//   must first pass Step 1. signItn() signs over the EXACT field set passed to
+//   it (empty values are included as `key=`, nothing is filtered). So we build
+//   the body WITHOUT an amount_gross key at all, sign over that reduced set,
+//   and postItnToApp posts the identical set — the server recomputes the
+//   signature over the same fields, Step 1 passes, and the route reaches the
+//   Step-3 guard where `postData.amount_gross` is undefined → 400.
+//
 //   Trap 3 (RESOLVED by D21): a timeout→502 test used to be impossible —
 //   validateItnServerConfirmation() had a bare fetch() with no AbortSignal,
 //   so the mock's 6s delay just made production wait and then succeed. D21
@@ -205,7 +215,72 @@ test.describe("PayFast ITN — rejections", () => {
   })
 
   // ---------------------------------------------------------------------------
-  // Test 3 — server confirmation INVALID → 502 (mock `invalid` mode).
+  // Test 3 — COMPLETE ITN missing amount_gross → 400 (audit H2).
+  //
+  // A COMPLETE payment whose ITN omits amount_gross can't be amount-verified.
+  // Before H2 the route skipped the mismatch check (the `if (amountGross && …)`
+  // guard) and marked the booking paid — a COMPLETE with NO amount sailed
+  // through. H2 added a "COMPLETE ITN must carry amount_gross" guard at Step 3
+  // that rejects it. Sibling of Test 4 (amount-mismatch): both prove the
+  // amount can't be trusted away, but this one covers the MISSING case rather
+  // than the WRONG case.
+  // ---------------------------------------------------------------------------
+  test("COMPLETE ITN missing amount_gross is rejected with 400 and leaves the booking untouched", async ({
+    page,
+  }) => {
+    // ----- Arrange ------------------------------------------------------------
+    const { unitId } = await getSeededIds()
+    const booking = await createBookingForUnit(unitId, "In Progress")
+    await signInAsSeededUser(page)
+
+    try {
+      // Build a COMPLETE ITN with NO amount_gross key at all. signItn signs over
+      // exactly these fields (empty values would be included as `key=`, but here
+      // we omit the key entirely), and postItnToApp posts exactly these fields,
+      // so the server's recompute matches and Step 1 passes. The route then
+      // reads postData.amount_gross as undefined and the H2 Step-3 guard fires.
+      const fields: Record<string, string> = {
+        merchant_id: requireMerchantId(),
+        m_payment_id: booking.id,
+        pf_payment_id: uniquePfId(),
+        payment_status: "COMPLETE",
+        item_name: PAYMENT_ITEM_NAME,
+        // amount_gross intentionally OMITTED — this is the whole point of H2.
+        amount_fee: "-10.00",
+        amount_net: "315.00",
+      }
+      const signature = signItn(fields)
+
+      // ----- Act --------------------------------------------------------------
+      const res = await postItnToApp(BASE_URL, fields, signature)
+
+      // ----- Assert -----------------------------------------------------------
+      // 400 = definitive reject (not a transient 5xx) — a COMPLETE ITN that
+      // can't be amount-verified is malformed, not a retry-worthy server blip.
+      expect(
+        res.status,
+        "a COMPLETE ITN with no amount_gross must be a definitive 400"
+      ).toBe(400)
+      const body = (await res.json()) as { ok: boolean; reason: string }
+      expect(body.ok).toBe(false)
+      // Reason must point at the MISSING amount, not at a signature failure —
+      // proves the request reached the Step-3 guard rather than dying at Step 1.
+      expect(
+        body.reason,
+        "must reject on the missing amount, NOT on signature (proves Step 1 passed and the H2 guard fired)"
+      ).toMatch(/missing amount_gross/i)
+
+      // The load-bearing assertion: a missing-amount COMPLETE must NOT flip the
+      // booking. status stays In Progress, pf_payment_id stays null.
+      await expectBookingUntouched(booking.id)
+    } finally {
+      await booking.cleanup()
+      await clearPayfastMockReceived()
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 4 — server confirmation INVALID → 502 (mock `invalid` mode).
   // ---------------------------------------------------------------------------
   test("server confirmation returning INVALID yields a 502 and leaves the booking untouched", async ({
     page,

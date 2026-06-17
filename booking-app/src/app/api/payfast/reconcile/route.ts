@@ -259,10 +259,20 @@ async function reconcileOne(
   }
 
   // Sanity-check the amount to prevent a rogue transaction from marking us
-  // paid at the wrong price. Use the same tolerance as ITN.
+  // paid at the wrong price. Use the same tolerance as ITN. `match` is always
+  // a COMPLETE transaction, so the amount is MANDATORY here — a COMPLETE txn
+  // with no amount_gross can't be price-verified, so refuse to mark it paid
+  // rather than trusting it (mirrors the ITN H2 guard).
   const expected = booking.payment_amount?.toString() ?? "325.00"
   const received = String(match.amount_gross ?? "")
-  if (received && !validateItnAmount(received, expected)) {
+  if (!received) {
+    return {
+      bookingId,
+      updated: false,
+      reason: "Matched COMPLETE transaction has no amount_gross — not processed",
+    }
+  }
+  if (!validateItnAmount(received, expected)) {
     return {
       bookingId,
       updated: false,
