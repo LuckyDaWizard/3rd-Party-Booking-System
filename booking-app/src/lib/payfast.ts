@@ -148,9 +148,42 @@ function getPayfastApiBase(): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * URL-encode a string the way PHP's `urlencode()` does — which is what PayFast
+ * uses on their side to compute signatures over received values.
+ *
+ * JS `encodeURIComponent()` differs from PHP `urlencode()` for SIX characters:
+ *   !  '  (  )  *  ~
+ * encodeURIComponent leaves these untouched; PHP urlencode encodes them to
+ * %21 %27 %28 %29 %2A %7E. If our signature uses bare `'` (e.g. in a name
+ * like "O'Brien") but PayFast computes over `%27`, the signatures diverge and
+ * PayFast returns "Generated signature does not match submitted signature."
+ * Similarly, item_name with a coupon contains parentheses ("(coupon XYZ)").
+ *
+ * Also: spaces are `+` (the PayFast convention), not `%20`.
+ *
+ * Sandbox PayFast appears to tolerate the mismatch; LIVE PayFast rejects it.
+ */
+function phpUrlencode(s: string): string {
+  return encodeURIComponent(s)
+    .replace(/!/g, "%21")
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A")
+    .replace(/~/g, "%7E")
+    .replace(/%20/g, "+")
+}
+
+/**
  * Generate an MD5 signature for PayFast form data.
  * Fields must be passed in the correct PayFast-specified order.
  * Empty values are excluded from the signature string.
+ *
+ * IMPORTANT: values are signed EXACTLY as submitted (no `.trim()`), because
+ * the form auto-submission posts the values unchanged — trimming here would
+ * desync our signature from what PayFast computes over the received value.
+ * The passphrase IS trimmed because PayFast looks it up server-side and a
+ * stray whitespace in our .env is a defensive concern only on our side.
  */
 export function generateSignature(
   data: Record<string, string>,
@@ -158,14 +191,11 @@ export function generateSignature(
 ): string {
   const params = Object.entries(data)
     .filter(([, v]) => v !== "")
-    .map(
-      ([k, v]) =>
-        `${k}=${encodeURIComponent(v.trim()).replace(/%20/g, "+")}`
-    )
+    .map(([k, v]) => `${k}=${phpUrlencode(v)}`)
     .join("&")
 
   const signatureString = passphrase
-    ? `${params}&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, "+")}`
+    ? `${params}&passphrase=${phpUrlencode(passphrase.trim())}`
     : params
 
   return crypto.createHash("md5").update(signatureString).digest("hex")
@@ -330,14 +360,14 @@ function computeItnSignature(
   for (const [key, value] of Object.entries(postData)) {
     if (key === "signature") continue
     // Do NOT filter empties and do NOT trim — PayFast includes empty fields
-    // and uses the raw value in their signature calculation.
-    parts.push(
-      `${key}=${encodeURIComponent(value).replace(/%20/g, "+")}`
-    )
+    // and uses the raw value in their signature calculation. URL-encoding
+    // must mirror PHP urlencode() (see phpUrlencode above), otherwise values
+    // containing !'()*~ produce mismatched signatures.
+    parts.push(`${key}=${phpUrlencode(value)}`)
   }
   let signatureString = parts.join("&")
   if (passphrase) {
-    signatureString += `&passphrase=${encodeURIComponent(passphrase).replace(/%20/g, "+")}`
+    signatureString += `&passphrase=${phpUrlencode(passphrase)}`
   }
   return crypto.createHash("md5").update(signatureString).digest("hex")
 }

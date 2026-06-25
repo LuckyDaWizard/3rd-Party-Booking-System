@@ -200,6 +200,21 @@ export async function clearMockTransactions(): Promise<void> {
  *
  * The returned digest is lowercase hex.
  */
+/**
+ * URL-encode the way PHP's `urlencode()` does, mirroring `phpUrlencode()` in
+ * src/lib/payfast.ts. Touch one, touch the other.
+ */
+function phpUrlencode(s: string): string {
+  return encodeURIComponent(s)
+    .replace(/!/g, "%21")
+    .replace(/'/g, "%27")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\*/g, "%2A")
+    .replace(/~/g, "%7E")
+    .replace(/%20/g, "+")
+}
+
 export function signItn(
   fields: Record<string, string>,
   passphrase?: string
@@ -207,9 +222,7 @@ export function signItn(
   const parts: string[] = []
   for (const [key, value] of Object.entries(fields)) {
     if (key === "signature") continue
-    parts.push(
-      `${key}=${encodeURIComponent(value).replace(/%20/g, "+")}`
-    )
+    parts.push(`${key}=${phpUrlencode(value)}`)
   }
   let signatureString = parts.join("&")
 
@@ -218,7 +231,7 @@ export function signItn(
   const pp =
     passphrase !== undefined ? passphrase : process.env.PAYFAST_PASSPHRASE ?? ""
   if (pp) {
-    signatureString += `&passphrase=${encodeURIComponent(pp).replace(/%20/g, "+")}`
+    signatureString += `&passphrase=${phpUrlencode(pp)}`
   }
   return crypto.createHash("md5").update(signatureString).digest("hex")
 }
