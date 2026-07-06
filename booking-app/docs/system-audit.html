@@ -1038,8 +1038,8 @@
           </div>
         </div>
 
-        <div class="finding high open-finding">
-          <h3><span class="open-tag">Open</span>H7. No monitoring / alerting (app down, cron stopped, payments failing)</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Resolved</span>H7. No monitoring / alerting (app down, cron stopped, payments failing)</h3>
           <div class="field">
             <div class="field-label">Where</div>
             <div>Operations-wide</div>
@@ -1056,6 +1056,10 @@
             <div class="field-label">Fix</div>
             <div>External uptime monitor on <code>/api/health</code> + a dead-man's-switch pinged at the end of <code>booking-cron.sh</code>. ~30 min, no code change.</div>
           </div>
+          <div class="field">
+            <div class="field-label">Resolution</div>
+            <div>✅ <b>UptimeRobot monitoring live on <code>/api/health</code></b> — the biggest failure mode (app-down / DB-down) now pages a human. <code>/api/health</code> checks DB connectivity, so a Supabase outage or container death surfaces immediately. Optional follow-up: add a healthchecks.io dead-man's-switch to <code>booking-cron.sh</code> so a stopped cron also alerts (nice-to-have; the /api/health signal already catches the majority of failures).</div>
+          </div>
         </div>
 
         <div class="finding high open-finding">
@@ -1069,12 +1073,16 @@
             <div>The runbook documents a pg_dump cron, but there's no evidence it's installed on the VPS.</div>
           </div>
           <div class="field">
+            <div class="field-label">Current state (2026-06-29)</div>
+            <div><strong>Confirmed still open:</strong> Supabase on <strong>Free tier</strong> (no auto-backups), and the pg_dump cron has <strong>not</strong> been installed on the VPS. As of the go-live cutover the app holds real production PII and (soon) real payment records with <strong>zero backup coverage</strong>.</div>
+          </div>
+          <div class="field">
             <div class="field-label">Impact</div>
             <div>For a live pilot holding patient PII + payment records, an unverified backup is the highest-consequence gap after alerting.</div>
           </div>
           <div class="field">
             <div class="field-label">Fix</div>
-            <div>Confirm the live Supabase tier; if Free, install the pg_dump cron now and run a restore test once.</div>
+            <div>Two options: <strong>(a)</strong> upgrade Supabase to a paid tier that includes point-in-time restore &mdash; simplest, no VPS work; or <strong>(b)</strong> stay on Free and install the pg_dump cron on the VPS per <code>OPERATIONS.md</code> &mdash; requires a script, cron entry, restore test. Either way, <strong>run a restore test once</strong> before relying on it.</div>
           </div>
         </div>
 
