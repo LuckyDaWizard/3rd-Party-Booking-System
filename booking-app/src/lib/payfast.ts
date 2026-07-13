@@ -179,11 +179,16 @@ function phpUrlencode(s: string): string {
  * Fields must be passed in the correct PayFast-specified order.
  * Empty values are excluded from the signature string.
  *
- * IMPORTANT: values are signed EXACTLY as submitted (no `.trim()`), because
- * the form auto-submission posts the values unchanged — trimming here would
- * desync our signature from what PayFast computes over the received value.
- * The passphrase IS trimmed because PayFast looks it up server-side and a
- * stray whitespace in our .env is a defensive concern only on our side.
+ * IMPORTANT: this function does NOT trim values — that happens upstream in
+ * `buildPaymentData()` at the source, so the signed set is guaranteed equal
+ * to what the form actually submits. Do NOT re-introduce a trim here; the
+ * invariant is: signature bytes = phpUrlencode(each submitted value). PayFast
+ * itself trims received values server-side before recomputing their signature
+ * (a stray leading/trailing space in a buyer name would otherwise 400), which
+ * is why the trim MUST happen before both signing AND submission.
+ * The passphrase IS trimmed because PayFast looks it up server-side from its
+ * dashboard, and a stray whitespace in our .env is a defensive concern on our
+ * side only.
  */
 export function generateSignature(
   data: Record<string, string>,
@@ -255,30 +260,43 @@ export function buildPaymentData(
   // Fields MUST be in PayFast's required order.
   const data: Record<string, string> = {}
 
+  // Trim ALL string values before assignment. Rationale: PayFast trims
+  // received values on their side before recomputing the signature, so we
+  // must sign — AND submit — trimmed values, otherwise a leading/trailing
+  // space in ANY field (buyer name pasted with a stray space, email, etc.)
+  // makes our signature disagree with PayFast's on the received value. This
+  // was the root cause of a Local Choice booking whose first_names="Test "
+  // (trailing space) 400'd with "Generated signature does not match
+  // submitted signature." Trimming at the source (here) makes signature +
+  // submission use the same value with no divergence possible.
+  const t = (s: string | undefined): string => (s ?? "").trim()
+
   // Merchant details
-  data.merchant_id = merchantId
-  data.merchant_key = merchantKey
+  data.merchant_id = t(merchantId)
+  data.merchant_key = t(merchantKey)
 
-  // URLs
-  data.return_url = `${appUrl}/create-booking/payment/success?bookingId=${payment.bookingId}`
-  data.cancel_url = `${appUrl}/create-booking/payment/failed?bookingId=${payment.bookingId}`
-  data.notify_url = `${appUrl}/api/payfast/notify`
+  // URLs (already server-computed, but trim as defense-in-depth)
+  data.return_url = t(`${appUrl}/create-booking/payment/success?bookingId=${payment.bookingId}`)
+  data.cancel_url = t(`${appUrl}/create-booking/payment/failed?bookingId=${payment.bookingId}`)
+  data.notify_url = t(`${appUrl}/api/payfast/notify`)
 
-  // Buyer info (optional but helpful)
-  if (payment.buyerFirstName) data.name_first = payment.buyerFirstName
-  if (payment.buyerLastName) data.name_last = payment.buyerLastName
-  if (payment.buyerEmail) data.email_address = payment.buyerEmail
+  // Buyer info (optional but helpful) — trim to strip whitespace typed into
+  // the patient-details form (PayFast trims on receipt; unsync = signature 400).
+  if (t(payment.buyerFirstName)) data.name_first = t(payment.buyerFirstName)
+  if (t(payment.buyerLastName)) data.name_last = t(payment.buyerLastName)
+  if (t(payment.buyerEmail)) data.email_address = t(payment.buyerEmail)
 
   // Transaction details. Prefix m_payment_id with the client code when one
   // exists so the PayFast dashboard / settlement reports are human-readable.
   // Fall back to the bare booking UUID when there's no code — both PayFast
   // confirmation paths (ITN notify + reconcile) recover the UUID via
   // stripBookingId, so a missing prefix never blocks a payment.
-  data.m_payment_id = payment.clientCode
-    ? `${payment.clientCode}-${payment.bookingId}`
-    : payment.bookingId
-  data.amount = payment.amount
-  data.item_name = payment.itemName
+  const clientCode = t(payment.clientCode)
+  data.m_payment_id = clientCode
+    ? `${clientCode}-${t(payment.bookingId)}`
+    : t(payment.bookingId)
+  data.amount = t(payment.amount)
+  data.item_name = t(payment.itemName)
 
   return data
 }
@@ -294,13 +312,15 @@ export function buildPaymentData(
  * compare with the received signature.
  *
  * IMPORTANT: PayFast's ITN signature algorithm DIFFERS from the initiate-side
- * signature in two subtle ways:
- *   1. Empty-valued fields are INCLUDED in the signature string (as `key=`)
- *   2. Values are NOT trimmed
- * (See PayFast's official PHP sample in the ITN integration docs.)
+ * signature in one subtle way: empty-valued fields are INCLUDED in the ITN
+ * signature string (as `key=`), whereas the initiate side filters them out.
+ * (See PayFast's official PHP sample in the ITN integration docs.) Neither
+ * side trims here — the ITN body arrives from PayFast already server-trimmed,
+ * and the outbound `generateSignature` receives pre-trimmed data from
+ * `buildPaymentData`.
  *
  * We therefore compute the signature here directly rather than delegating to
- * generateSignature() which filters empty values and trims.
+ * generateSignature() which filters empty values.
  */
 export function validateItnSignature(
   postData: Record<string, string>,
