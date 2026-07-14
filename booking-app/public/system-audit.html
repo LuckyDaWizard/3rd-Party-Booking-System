@@ -758,6 +758,7 @@
         <li><a href="#followup-2026-06-11"><b>Follow-up &mdash; 11 Jun 2026 (open)</b></a></li>
         <li><a href="#followup-findings">&nbsp;&nbsp;&middot; Findings at a glance</a></li>
         <li><a href="#followup-high">&nbsp;&nbsp;&middot; High priority (open)</a></li>
+        <li><a href="#followup-post-audit">&nbsp;&nbsp;&middot; Post-audit follow-ups</a></li>
         <li><a href="#followup-medium">&nbsp;&nbsp;&middot; Medium priority</a></li>
         <li><a href="#followup-low">&nbsp;&nbsp;&middot; Low priority</a></li>
         <li><a href="#followup-solid">&nbsp;&nbsp;&middot; What's solid</a></li>
@@ -1083,6 +1084,58 @@
           <div class="field">
             <div class="field-label">Fix</div>
             <div>Two options: <strong>(a)</strong> upgrade Supabase to a paid tier that includes point-in-time restore &mdash; simplest, no VPS work; or <strong>(b)</strong> stay on Free and install the pg_dump cron on the VPS per <code>OPERATIONS.md</code> &mdash; requires a script, cron entry, restore test. Either way, <strong>run a restore test once</strong> before relying on it.</div>
+          </div>
+        </div>
+
+        <h3 id="followup-post-audit"><span class="h3-num">B.5</span>Post-audit follow-ups &mdash; surfaced during pilot testing</h3>
+
+        <div class="finding medium open-finding">
+          <h3><span class="open-tag">Open</span>P1. Capture Vital Signs page uses non-standard units, no ranges, and a broken Urine Dipstick field</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>src/app/(dashboard)/create-booking/patient-metrics/page.tsx</code></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Surfaced</div>
+            <div>2026-07-14 during pre-go-live review of the operator flow.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>
+              The metrics form accepts free-text with no clinical validation and has several concrete data-integrity problems:
+              <ul style="margin-top: 8px;">
+                <li><strong>Unit-label typos:</strong> Blood Pressure shows <code>hhMG</code> (should be <code>mmHg</code>); Temperature shows <code>celcius</code> (should be <code>&deg;C</code>).</li>
+                <li><strong>US units in an SA product:</strong> Glucose is labelled <code>mg/dL</code> &mdash; SA / most of the world uses <strong>mmol/L</strong>.</li>
+                <li><strong>Unrealistic placeholders:</strong> Blood Pressure placeholder is <code>000/00</code>, temperature is <code>000</code> &mdash; give no clue to the operator about the expected value.</li>
+                <li><strong>Wrong concept &mdash; Urine Dipstick:</strong> field asks for a single number labelled <code>pH</code>, but a urine dipstick is a <strong>multi-parameter panel</strong> (glucose, protein, ketones, blood, leukocytes, nitrites, bilirubin, urobilinogen, specific gravity, pH) &mdash; not one number, and pH is only one of ten parameters.</li>
+                <li><strong>No range validation anywhere.</strong> Operator can save physiologically impossible values (BP 900/500, temperature 999&deg;C, SpO&#8322; 250%) with no warning &mdash; the values persist to the booking row and any downstream export/report.</li>
+                <li><strong>Missing standard vitals:</strong> no <strong>respiratory rate</strong> (a standard adult vital sign), no <strong>weight</strong> / <strong>height</strong> / <strong>BMI</strong>, no <strong>pain score</strong>.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>Operators can save non-clinical / physiologically impossible values into the patient record; the Urine Dipstick field captures data that isn't structured usefully; the form doesn't match SA clinical practice.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Recommended fix &mdash; two options</div>
+            <div>
+              <strong>Option A &mdash; Minimal, no schema change (~30 min):</strong>
+              Fix unit labels + typos, add realistic placeholders (BP <code>120/80</code>, temperature <code>36.5</code>), convert glucose to mmol/L, add soft-warning range validation for each metric, convert Urine Dipstick to a multi-select checkbox panel for the standard 10 parameters (stored as JSON in the existing <code>urine_dipstick</code> text column &mdash; no migration needed).
+              <br><br>
+              <strong>Option B &mdash; Comprehensive, needs schema migration (~2 hrs):</strong>
+              Everything in A, plus new fields: <code>respiratory_rate</code>, <code>weight_kg</code>, <code>height_cm</code> (with BMI auto-calculated), <code>pain_score</code>. Migration 043 adds the new columns to <code>bookings</code>.
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Open questions to answer before implementing</div>
+            <div>
+              <ol style="margin: 0; padding-left: 20px;">
+                <li><strong>Glucose unit:</strong> mmol/L (SA standard) confirmed, or does any client / partner require mg/dL? If mixed, may need a client-level setting.</li>
+                <li><strong>CareFirst handoff:</strong> currently vitals are stored on the booking but NOT sent to CareFirst. If clinicians in CareFirst need these vitals, we should add them to <code>buildSsoPayload</code> (a small extension of the additionalEmail work).</li>
+                <li><strong>Which option:</strong> A (label + range fix now) or B (also add missing vitals + schema change).</li>
+              </ol>
+            </div>
           </div>
         </div>
 
