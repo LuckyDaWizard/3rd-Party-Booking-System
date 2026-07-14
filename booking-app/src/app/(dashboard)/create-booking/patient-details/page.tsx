@@ -250,8 +250,13 @@ function StepBasicInfo({
   }
 
   function handleIdNumberChange(value: string) {
-    // Only allow digits for national ID
-    const cleaned = data.idType === "national_id" ? value.replace(/\D/g, "").slice(0, 13) : value
+    // National ID: digits only, capped at 13. Passport: uppercase (passports
+    // are conventionally uppercase alphanumeric; normalising here means the
+    // stored value + the search-page passport lookup use the same casing).
+    const cleaned =
+      data.idType === "national_id"
+        ? value.replace(/\D/g, "").slice(0, 13)
+        : value.toUpperCase()
     onChange({ ...data, idNumber: cleaned })
     if (idError) setIdError("")
   }
@@ -1397,7 +1402,17 @@ export default function PatientDetailsPage() {
                   id="verify-idNumber"
                   label={basicInfo.idType === "passport" ? "Passport No" : "National ID No"}
                   value={basicInfo.idNumber}
-                  onChange={(v) => setBasicInfo({ ...basicInfo, idNumber: v })}
+                  // Match Step 1's handler: digits-only for national ID,
+                  // uppercase for passport (consistent stored casing).
+                  onChange={(v) =>
+                    setBasicInfo({
+                      ...basicInfo,
+                      idNumber:
+                        basicInfo.idType === "national_id"
+                          ? v.replace(/\D/g, "").slice(0, 13)
+                          : v.toUpperCase(),
+                    })
+                  }
                   onClear={() => setBasicInfo({ ...basicInfo, idNumber: "" })}
                 />
                 <FloatingSelect

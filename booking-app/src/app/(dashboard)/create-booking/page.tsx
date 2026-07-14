@@ -218,7 +218,10 @@ export default function CreateBookingPage() {
               id="passportNumber"
               label="Passport Number"
               value={passportNumber}
-              onChange={setPassportNumber}
+              // Normalise to uppercase on keystroke so search matches
+              // stored uppercase passports regardless of how the operator
+              // types it. Passport numbers are conventionally uppercase.
+              onChange={(v) => setPassportNumber(v.toUpperCase())}
               onClear={() => setPassportNumber("")}
             />
           )}
