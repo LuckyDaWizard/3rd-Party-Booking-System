@@ -266,6 +266,19 @@ export function formatDateOfBirth(raw: string | null): string | null {
 export interface BookingForHandoff {
   id: string
   email_address: string | null
+  /** Optional secondary email — the operator opts in via the "script to another
+   *  email address" toggle on patient-details Step 3. Sent to CareFirst as
+   *  `user.additionalEmail` when non-empty AND the opt-in flag is true, so
+   *  CareFirst can route a copy of the prescription / consultation
+   *  confirmation there (contract note: naming is per our convention —
+   *  CareFirst may rename their side; the semantic is "additional contact
+   *  email for this patient / this consultation"). */
+  additional_email: string | null
+  /** The "script to another email" opt-in toggle. If false, we do NOT send
+   *  `additional_email` to CareFirst even if a stale value is on the row —
+   *  the operator explicitly opted out and we respect that at the boundary,
+   *  regardless of whether the UI cleared the underlying field on save. */
+  script_to_another_email: boolean | null
   contact_number: string | null
   id_number: string | null
   id_type: string | null
@@ -290,6 +303,12 @@ export interface SsoAutoRegisterPayload {
   uniqueReference: string
   user: {
     email: string
+    /** Optional secondary email captured on our patient-details form ("script
+     *  to another email address"). Omitted when the operator didn't opt in.
+     *  CareFirst uses this to route a copy of the consultation/prescription
+     *  communication to a nominated additional address (e.g. a parent's email
+     *  on a child's booking, a caregiver, a family GP). */
+    additionalEmail?: string
     cellNumber: string
     idNumber: string
     userProfile: {
@@ -320,12 +339,24 @@ export function buildSsoPayload(
 ): SsoAutoRegisterPayload {
   const hasAddress = Boolean(booking.address && booking.city)
 
+  // Optional "script-to" secondary email. Send ONLY when the operator opted
+  // in (script_to_another_email === true) — guards against stale
+  // additional_email values that persist on the row after the operator
+  // toggles the option off (a real UI-state edge case). Trim + omit when
+  // empty so a whitespace-only value doesn't ship as a bogus additional
+  // address either. Belt-and-braces: even if the UI is fixed to clear on
+  // toggle-off, this boundary guard makes the handoff behaviour robust.
+  const additionalEmail = booking.script_to_another_email
+    ? booking.additional_email?.trim() || null
+    : null
+
   return {
     clientCode: config.clientCode,
     planCode: config.clientPlanCode,
     uniqueReference: booking.id, // Booking ID as the unique reference.
     user: {
       email: booking.email_address ?? "",
+      ...(additionalEmail ? { additionalEmail } : {}),
       cellNumber: booking.contact_number ?? "",
       idNumber: booking.id_number ?? "",
       userProfile: {

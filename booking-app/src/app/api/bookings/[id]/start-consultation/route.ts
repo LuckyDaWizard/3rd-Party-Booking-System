@@ -99,6 +99,8 @@ export async function POST(request: Request, context: RouteContext) {
         "status",
         "unit_id",
         "email_address",
+        "additional_email",
+        "script_to_another_email",
         "contact_number",
         "id_number",
         "id_type",
