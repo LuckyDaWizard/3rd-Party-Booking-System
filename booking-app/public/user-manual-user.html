@@ -474,6 +474,15 @@
         </li>
       </ol>
       <p>If your clinic uses <strong>Nurse Verification</strong>, an extra prompt asks for a verification code before you can continue. <strong>Your own PIN works here</strong> &mdash; as long as you&rsquo;re assigned to this unit you can sign off your own booking; you don&rsquo;t need to ask a manager. (A manager or admin assigned to the unit can also enter theirs.) Some clinics turn this prompt off entirely.</p>
+      <div class="callout warn">
+        <span class="label">What the search actually looks at</span>
+        The search only checks patients whose <strong>previous bookings were made at one of the units you&rsquo;re assigned to</strong>. It does <strong>not</strong> look across the whole system.
+        <ul style="margin-top: 8px;">
+          <li>If the patient was previously booked at <strong>this unit</strong> or another of <strong>your</strong> units &rarr; they&rsquo;ll be found and pre-filled.</li>
+          <li>If they were only ever booked at a <strong>different clinic / a unit you&rsquo;re not assigned to</strong> &rarr; the search returns nothing, and that&rsquo;s expected &mdash; enter their details fresh. They&rsquo;re still recognised downstream by their ID number, so nothing is duplicated at the consultation stage.</li>
+          <li>The search is <strong>case-insensitive</strong> for names and passports, but it does look for an <em>exact</em> spelling of the name (partial matches aren&rsquo;t supported yet).</li>
+        </ul>
+      </div>
       <div class="callout tip">
         <span class="label">Tip</span>
         If the patient is found, their details are pre-filled in the next step &mdash; you only need to

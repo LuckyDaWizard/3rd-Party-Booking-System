@@ -380,6 +380,15 @@
           <tr><td><strong>Privacy</strong></td><td>Process POPIA right-to-erasure requests via the privacy API.</td></tr>
         </tbody>
       </table>
+      <p style="margin-top: 16px;">
+        <strong>Data visibility scope &mdash; you see everything.</strong> Unlike Users and Unit
+        Managers (whose Home / Patient History / Create-Booking search are restricted to units
+        they&rsquo;re assigned to), you see <em>every</em> booking across <em>every</em> unit and
+        <em>every</em> client. Patient History and the Create-Booking search will return matches
+        from the entire system. This is handy for support and debugging, but it means your own
+        testing does NOT reflect what an operator would see &mdash; if you want to verify unit /
+        client isolation is working, sign in as a User-role account scoped to a single unit.
+      </p>
     </div>
 
     <!-- ====================================================================== -->
