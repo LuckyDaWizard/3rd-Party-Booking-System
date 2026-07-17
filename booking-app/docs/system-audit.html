@@ -1089,6 +1089,66 @@
 
         <h3 id="followup-post-audit"><span class="h3-num">B.5</span>Post-audit follow-ups &mdash; surfaced during pilot testing</h3>
 
+        <div class="finding high open-finding">
+          <h3><span class="open-tag">Open</span>S1. 🚨 Credential exposure &mdash; 7 real user PINs committed to git in cleartext</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>booking-app/scripts/migrate-pins-to-6-digits.mjs:36-45</code> (HEAD) &plus; git history since commit <code>aa92178</code>.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Surfaced</div>
+            <div>2026-07-17, targeted credential-exposure audit.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>
+              A one-off PIN-migration script hardcoded 7 real users' 6-digit PINs in the source. Per the project's <strong>synthetic-email auth scheme</strong> (<code>pin-&lt;pin&gt;@carefirst.local</code>), each PIN is <strong>also that user's <code>auth.users</code> password</strong>. Anyone with repo read access has valid sign-in credentials for those accounts.
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Live blast radius (verified 2026-07-17)</div>
+            <div>
+              None of the 7 accounts is currently <strong>Active</strong>: 4 are Disabled (unit_manager role), 3 are not present in <code>public.users</code>. <strong>But:</strong> disabled users can be re-enabled by a system_admin; the leaked PIN would be instantly valid again. And the 3 "not found" accounts may still exist in <code>auth.users</code> under their synthetic email &mdash; if so, sign-in via Supabase auth directly would still work.
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Impact</div>
+            <div>
+              Full account takeover for 4 unit_manager accounts (once re-enabled) and potentially 3 more if they still exist in <code>auth.users</code>. Unit_manager can view / manage bookings within assigned units, create / disable users in their scope, etc. Repo is private so exposure is bounded to authorized team members, but the values are permanent in git history.
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Remediation status (2026-07-17)</div>
+            <div>
+              &#10003; <strong>Script fixed</strong> — HEAD now requires PINs via <code>PIN_ASSIGNMENTS</code> env var (JSON array); refuses to run without one. Doc-comment warns future maintainers not to re-introduce hardcoded PINs.
+              <br>
+              &#9744; <strong>PIN rotation &mdash; user action required.</strong> Rotate all 7 PINs via <code>scripts/update-user-pin.mjs</code> (or delete/recreate the affected auth users). Rotate even the disabled ones — else re-enabling silently restores exposed access.
+              <br>
+              &#9744; <strong>Auth.users cleanup &mdash; user verification required.</strong> In Supabase Dashboard &rarr; Authentication &rarr; Users, search for the 3 "not found" PINs (<code>pin-487293</code>, <code>pin-740582</code>, <code>pin-529607</code> at <code>@carefirst.local</code>) and delete any that exist.
+              <br>
+              &#9744; <strong>Optional git-history purge</strong> (<code>git filter-repo</code>) &mdash; nice-to-have. Rotation makes the leaked values useless, so this is lower priority. Private-repo audience is bounded.
+            </div>
+          </div>
+        </div>
+
+        <div class="finding medium open-finding">
+          <h3><span class="open-tag">Open</span>S2. Seeded system_admin PIN <code>900900</code> referenced in tracked files &mdash; verify not present in production</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>booking-app/tests/_setup/seed.ts:57</code>, <code>booking-app/OPERATIONS.md:746,757</code>, <code>booking-app/public/engineering-status.html</code>.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>The Playwright seed creates a system_admin fixture user with PIN <code>900900</code> (email <code>pin-900900@carefirst.local</code>). Intended for dev Supabase only. If the seed has EVER been run against production Supabase, a system_admin account with a well-known PIN exists in prod.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Fix</div>
+            <div>
+              Verify: Supabase Dashboard &rarr; Authentication &rarr; Users &rarr; search <code>pin-900900@carefirst.local</code>. If present in production, delete it. Consider adding a <code>NODE_ENV !== "production"</code> guard at the top of <code>seed.ts</code> as belt-and-braces.
+            </div>
+          </div>
+        </div>
+
         <div class="finding medium open-finding">
           <h3><span class="open-tag">Open</span>P1. Capture Vital Signs page uses non-standard units, no ranges, and a broken Urine Dipstick field</h3>
           <div class="field">

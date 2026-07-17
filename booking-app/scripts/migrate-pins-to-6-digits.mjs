@@ -9,12 +9,20 @@
 // Idempotent: if a user's current PIN already matches their target PIN,
 // they're skipped.
 //
-// Usage (from booking-app/):
-//   node --env-file=.env.local scripts/migrate-pins-to-6-digits.mjs
+// ⚠️  SECURITY — PINs MUST come from an out-of-band source, NEVER hardcoded
+//   in this file. A previous version hardcoded 7 real users' PINs; since the
+//   PIN doubles as the auth.users password (synthetic-email scheme), that
+//   committed those users' passwords to git. All exposed PINs were rotated
+//   post-incident 2026-07-17. See system-audit page finding S1.
+//
+// Usage (from booking-app/), pass PINs via env — one per user, JSON-encoded:
+//   PIN_ASSIGNMENTS='[{"name":"…","pin":"123456"},…]' \
+//     node --env-file=.env.local scripts/migrate-pins-to-6-digits.mjs
 //
 // Safety:
 //   - Uses the service role key. Run locally only.
 //   - Refuses to run if any target PIN collides with an existing other user.
+//   - Refuses to run if PIN_ASSIGNMENTS env is missing / malformed / empty.
 //   - Logs each step and stops on the first hard error so you can re-run after
 //     fixing.
 // =============================================================================
@@ -30,18 +38,30 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
 }
 
 // ---------------------------------------------------------------------------
-// New PIN assignments. Edit if you need to re-run with different values.
-// Match by full name exactly as stored in public.users.
+// New PIN assignments — MUST be provided via the PIN_ASSIGNMENTS env var as
+// a JSON array of {name, pin} objects. Never hardcode real PINs in this file
+// (they'd be committed to git and, per the synthetic-email auth scheme, would
+// leak the users' auth passwords).
 // ---------------------------------------------------------------------------
-const NEW_PINS = [
-  { name: "Almighty DaWizard",    pin: "487293" },
-  { name: "Ndumiso Buthelezi",    pin: "615048" },
-  { name: "Brian Nonjiji",        pin: "392716" },
-  { name: "Mikhali Junkoon",      pin: "740582" },
-  { name: "Nicholas Schreiber",   pin: "168934" },
-  { name: "Tracy Smith",          pin: "529607" },
-  { name: "Genevieve Barac",      pin: "854371" },
-]
+let NEW_PINS
+try {
+  const raw = process.env.PIN_ASSIGNMENTS
+  if (!raw || !raw.trim()) throw new Error("empty")
+  NEW_PINS = JSON.parse(raw)
+  if (!Array.isArray(NEW_PINS) || NEW_PINS.length === 0) throw new Error("not a non-empty array")
+  for (const entry of NEW_PINS) {
+    if (typeof entry?.name !== "string" || typeof entry?.pin !== "string") throw new Error("each entry needs {name, pin} strings")
+    if (!/^\d{6}$/.test(entry.pin)) throw new Error(`PIN for ${entry.name} must be 6 digits`)
+  }
+} catch (err) {
+  console.error(
+    "Missing/invalid PIN_ASSIGNMENTS env var.\n" +
+      "  Expected JSON array of {name, pin} — e.g.\n" +
+      '  PIN_ASSIGNMENTS=\'[{"name":"Jane Doe","pin":"123456"}]\'\n' +
+      `  Reason: ${err instanceof Error ? err.message : String(err)}`
+  )
+  process.exit(1)
+}
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
