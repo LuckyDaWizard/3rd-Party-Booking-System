@@ -175,7 +175,11 @@ export default function AddUserPage() {
   const [emailAddress, setEmailAddress] = useState("")
   const [countryCode, setCountryCode] = useState("ZA")
   const [contactNumber, setContactNumber] = useState("")
-  const [role, setRole] = useState("")
+  // Unit managers only ever create "user" role accounts, so pre-select it —
+  // otherwise the disabled-button hint would list "Access Role" even though
+  // they have no meaningful choice. System admins pick from three roles so
+  // starting them blank is the correct affordance.
+  const [role, setRole] = useState(isSystemAdmin ? "" : "user")
   const [emailError, setEmailError] = useState("")
   const [contactError, setContactError] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -193,19 +197,25 @@ export default function AddUserPage() {
         { value: "user", label: "User" },
       ]
 
-  // A non-empty contact number must be valid for the selected country. An
-  // empty contact is allowed (the field is optional on the user form).
-  const contactValid =
-    contactNumber.trim() === "" ||
-    validatePhone(countryCode, contactNumber).valid
+  // Compute a plain-language list of what's blocking submit so we can show it
+  // under the disabled button. Previously the button just silently locked
+  // when the form wasn't complete and the operator had no way to know why
+  // (this is the UX gap that caused a real "the app is stuck" incident when
+  // an admin tried to add a backup super-admin).
+  const missingFields: string[] = []
+  if (firstNames.trim() === "") missingFields.push("First Names")
+  if (surname.trim() === "") missingFields.push("Surname")
+  if (role.trim() === "") missingFields.push("Access Role")
+  if (
+    contactNumber.trim() !== "" &&
+    !validatePhone(countryCode, contactNumber).valid
+  ) {
+    missingFields.push("Contact Number (invalid format)")
+  }
+  if (emailError) missingFields.push("Email (fix the error above)")
+  if (contactError) missingFields.push("Contact Number (fix the error above)")
 
-  const isFormComplete =
-    firstNames.trim() !== "" &&
-    surname.trim() !== "" &&
-    role.trim() !== "" &&
-    contactValid &&
-    !emailError &&
-    !contactError
+  const isFormComplete = missingFields.length === 0
 
   async function checkEmailExists(email: string) {
     if (!email.trim()) {
@@ -533,6 +543,26 @@ export default function AddUserPage() {
             </>
           )}
         </Button>
+
+        {/* Missing-fields hint — surfaced when the Add User button is
+            disabled so the operator knows what to fix instead of the button
+            silently locking with no explanation. */}
+        {!isFormComplete && !submitting && missingFields.length > 0 && (
+          <div
+            role="status"
+            data-testid="add-user-missing-hint"
+            className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-ink-muted"
+          >
+            <span className="font-semibold text-ink">
+              Complete these to enable the Add User button:
+            </span>
+            <ul className="mt-1 list-disc pl-5">
+              {missingFields.map((field) => (
+                <li key={field}>{field}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )

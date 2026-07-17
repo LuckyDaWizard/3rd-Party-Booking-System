@@ -1193,6 +1193,26 @@
           </div>
         </div>
 
+        <div class="finding medium done">
+          <h3><span class="done-tag">Resolved</span>P2. Add User form silently locks the submit button with no clue what's missing</h3>
+          <div class="field">
+            <div class="field-label">Where</div>
+            <div><code>src/app/(dashboard)/user-management/add/page.tsx</code></div>
+          </div>
+          <div class="field">
+            <div class="field-label">Surfaced</div>
+            <div>2026-07-17 &mdash; an admin trying to add a backup super-admin account reported the app was &ldquo;stuck on this screen.&rdquo; The Add User button simply sat disabled because a required field was blank or the typed contact number failed E.164 validation (which only surfaced on blur, not on click).</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Issue</div>
+            <div>The button&rsquo;s <code>disabled={!isFormComplete}</code> gate is correct, but nothing told the operator <em>which</em> field was blocking. Field-level errors (email dedup, contact validation) only appear on blur; clicking the disabled button gave no feedback at all &mdash; classic silent-lock UX.</div>
+          </div>
+          <div class="field">
+            <div class="field-label">What shipped 2026-07-17</div>
+            <div>Refactored <code>isFormComplete</code> to derive from a plain-language <code>missingFields: string[]</code> array (First Names, Surname, Access Role, Contact Number invalid, Email/Contact errors). Added an amber &ldquo;Complete these to enable the Add User button&rdquo; hint block under the button that lists exactly what to fix. Also pre-selects the role to <code>&quot;user&quot;</code> for unit-managers (their only option) so they don&rsquo;t see &ldquo;Access Role&rdquo; in the hint when they haven&rsquo;t clicked the select. <code>role=&quot;status&quot;</code> for a11y (polite guidance, not an alert). tsc clean; Code Review approved.</div>
+          </div>
+        </div>
+
         <h3 id="followup-medium"><span class="h3-num">C</span>Medium-priority findings</h3>
         <table>
           <thead>
