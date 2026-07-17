@@ -218,6 +218,10 @@ export default function ManageUserPage() {
   const [deleting, setDeleting] = useState(false)
   const [toggling, setToggling] = useState(false)
   const [resettingPin, setResettingPin] = useState(false)
+  // Surfaces failures from save / toggle / delete so operators see WHY an
+  // action didn't succeed (previously these silently failed with only a
+  // console.error — see audit finding H6).
+  const [actionError, setActionError] = useState<string | null>(null)
   // PIN verification modal state — used for destructive + privilege-change actions
   const [pinAction, setPinAction] = useState<"delete" | "toggle" | "role-change" | null>(null)
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
@@ -369,6 +373,7 @@ export default function ManageUserPage() {
   // or directly by handleUpdateInformation if nothing privileged changed.
   async function doUpdateUser() {
     setSaving(true)
+    setActionError(null)
     try {
       // Send the canonical E.164 form when a contact is present; the server is
       // the authority and re-normalizes / rejects bad values.
@@ -386,6 +391,7 @@ export default function ManageUserPage() {
       router.push("/user-management")
     } catch (err) {
       console.error("Failed to update user:", err)
+      setActionError(err instanceof Error ? err.message : "Failed to update user")
       setSaving(false)
     }
   }
@@ -444,6 +450,7 @@ export default function ManageUserPage() {
   // The actual toggle/delete work — called by the PIN modal once verified.
   async function doToggleStatus() {
     setToggling(true)
+    setActionError(null)
     try {
       const wasActive = user!.status === "Active"
       const name = `${user!.firstNames} ${user!.surname}`
@@ -455,12 +462,14 @@ export default function ManageUserPage() {
       router.push(`/user-management?${params.toString()}`)
     } catch (err) {
       console.error("Failed to toggle status:", err)
+      setActionError(err instanceof Error ? err.message : "Failed to update user status")
       setToggling(false)
     }
   }
 
   async function doDeleteUser() {
     setDeleting(true)
+    setActionError(null)
     try {
       const name = `${user!.firstNames} ${user!.surname}`
       await deleteUser(userId)
@@ -468,6 +477,7 @@ export default function ManageUserPage() {
       router.push(`/user-management?${params.toString()}`)
     } catch (err) {
       console.error("Failed to delete user:", err)
+      setActionError(err instanceof Error ? err.message : "Failed to delete user")
       setDeleting(false)
     }
   }
@@ -549,6 +559,28 @@ export default function ManageUserPage() {
           <button
             type="button"
             onClick={() => setResetPinResult(null)}
+            className="shrink-0 rounded-full p-1 text-gray-400 hover:text-ink-muted"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Action Error Banner — surfaces failures from save/toggle/delete so
+          the operator knows why the action didn't complete (H6 fix). */}
+      {actionError && (
+        <div
+          role="alert"
+          className="mx-4 mt-4 flex items-start justify-between rounded-xl border border-red-200 bg-red-50 px-6 py-5"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-base font-bold text-ink">Action Failed</span>
+            <p className="text-sm text-ink-muted">{actionError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
             className="shrink-0 rounded-full p-1 text-gray-400 hover:text-ink-muted"
             aria-label="Dismiss"
           >

@@ -266,12 +266,14 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
 
   const deleteUser = useCallback(async (id: string) => {
     // Routed through DELETE /api/admin/users/[id] so the linked auth.users
-    // entry is also removed.
+    // entry is also removed. Throws on failure so the caller can surface the
+    // error to the operator — silently returning would leave the UI showing a
+    // false-success banner while the user still exists.
     const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" })
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error deleting user:", error)
-      return
+      throw new Error(error || "Failed to delete user")
     }
     await fetchUsers()
   }, [fetchUsers])
@@ -289,6 +291,7 @@ export function UserStoreProvider({ children }: { children: ReactNode }) {
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: res.statusText }))
       console.error("Error toggling user status:", error)
+      throw new Error(error || "Failed to update user status")
     }
     await fetchUsers()
   }, [fetchUsers])

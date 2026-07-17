@@ -60,11 +60,10 @@ The findings cluster into three themes, none of which block the pilot but all of
 **Impact:** Defeats the lock and reproduces the exact "already registered to a different account" CareFirst handoff failure the lock exists to prevent.
 **Fix:** Pass `readOnly={identityLocked}` to the verify-step identity inputs (it's a verify screen — arguably always read-only there).
 
-### H6 — `deleteUser` swallows failures → false "deleted" success banner
-**Where:** `src/lib/user-store.tsx:271-276` + `user-management/manage/page.tsx:462-468`
-**Issue:** `deleteUser` logs and `return`s on a non-OK response instead of throwing (unlike `deleteClient`, which was explicitly fixed to throw). The page then unconditionally shows a success banner.
-**Impact:** On a 500/RLS denial the user stays in the DB but the operator is told it was deleted — a false-success on a destructive action.
-**Fix:** Make `deleteUser` throw on `!res.ok`, mirroring `deleteClient`.
+### ~~H6~~ — ✅ FIXED 2026-07-17 — `deleteUser` swallows failures → false "deleted" success banner
+**Where:** `src/lib/user-store.tsx:267-278` + `user-management/manage/page.tsx:465-473`
+**What shipped:** `deleteUser` and `toggleUserStatus` now throw on non-OK responses (mirrors `deleteClient`). The Manage User page gained an `actionError` state + red "Action Failed" banner so the operator sees WHY save/toggle/delete failed instead of just seeing nothing happen. Each handler clears the stale error on retry entry. tsc clean; Code Review approved.
+**Also closes M7** (same diff — `toggleUserStatus` variant of the same bug). M6 (`updateBooking` swallow) is unrelated and remains open.
 
 ### H7 — No monitoring/alerting (app down, cron stopped, payments failing)
 **Where:** Operations-wide
@@ -89,7 +88,7 @@ The findings cluster into three themes, none of which block the pilot but all of
 | M4 | `/api/bookings/audit` trusts client-supplied `changes`/`entityName` verbatim | `api/bookings/audit/route.ts:90-108` | Treat as untrusted; recompute diff server-side or clamp shape/length |
 | M5 | Handoff lock can strand a paid booking in `handoff_status="in_progress"` on a crash | `start-consultation/route.ts:191-218` | Add staleness escape (re-acquire if last attempt > N min) or an admin reset path |
 | M6 | `updateBooking` swallows save failures (resolves, never rejects) — flow advances on a failed save | `booking-store.tsx:590-594` | Throw on error so `handleNext` stops advancing |
-| M7 | `toggleClientStatus`/`toggleUserStatus` swallow errors — failed toggle looks like success | `client-store.tsx:361`, `user-store.tsx:289` | Throw / surface an error to the page |
+| ~~M7~~ ✅ | ~~`toggleClientStatus`/`toggleUserStatus` swallow errors~~ **FIXED 2026-07-17** — `toggleUserStatus` throws + surfaces via banner (same diff as H6). `toggleClientStatus` still needs the same treatment. | ~~`client-store.tsx:361`, `user-store.tsx:289`~~ | Apply same pattern to `toggleClientStatus` for full closure |
 | M8 | PIN modal hand-rolls inputs: no paste, no per-digit aria-labels (gates the highest-trust actions) | `pin-verification-modal.tsx:140-167` | Reuse the shared `OtpInput` primitive (paste + labels) |
 | M9 | `CountryCodeSelect` not keyboard/screen-reader operable (no listbox semantics, no arrow-keys/Escape) | `CountryCodeSelect.tsx:54-96` | Add listbox/option roles, keyboard nav, aria wiring |
 | M10 | `FloatingInput` error not linked to input (no `aria-invalid`/`aria-describedby`) — used on every form | `floating-input.tsx:61-107` | Wire `aria-describedby` + `aria-invalid` |

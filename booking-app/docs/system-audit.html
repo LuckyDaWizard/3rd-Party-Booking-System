@@ -1019,23 +1019,15 @@
           </div>
         </div>
 
-        <div class="finding high open-finding">
-          <h3><span class="open-tag">Open</span>H6. <code>deleteUser</code> swallows failures &rarr; false "deleted" banner</h3>
+        <div class="finding high done">
+          <h3><span class="done-tag">Resolved</span>H6. <code>deleteUser</code> swallows failures &rarr; false "deleted" banner</h3>
           <div class="field">
             <div class="field-label">Where</div>
-            <div><code>src/lib/user-store.tsx:271-276</code> &middot; <code>user-management/manage/page.tsx:462-468</code></div>
+            <div><code>src/lib/user-store.tsx:267-278</code> &middot; <code>user-management/manage/page.tsx:465-473</code></div>
           </div>
           <div class="field">
-            <div class="field-label">Issue</div>
-            <div><code>deleteUser</code> logs and returns on a non-OK response instead of throwing (unlike <code>deleteClient</code>, which was fixed to throw). The page then shows a success banner regardless.</div>
-          </div>
-          <div class="field">
-            <div class="field-label">Impact</div>
-            <div>On a 500 / RLS denial the user stays in the DB but the operator is told it was deleted &mdash; a false success on a destructive action.</div>
-          </div>
-          <div class="field">
-            <div class="field-label">Fix</div>
-            <div>Make <code>deleteUser</code> throw on <code>!res.ok</code>, mirroring <code>deleteClient</code>.</div>
+            <div class="field-label">What shipped 2026-07-17</div>
+            <div><code>deleteUser</code> and <code>toggleUserStatus</code> now throw on non-OK responses (mirrors the earlier <code>deleteClient</code> fix). The Manage User page gained an <code>actionError</code> banner so operators see WHY save / toggle / delete failed instead of the action silently no-op'ing. Each handler clears any stale banner on retry. Also closes the <code>toggleUserStatus</code> half of M7 (the <code>toggleClientStatus</code> half remains). tsc clean; Code Review approved.</div>
           </div>
         </div>
 
@@ -1213,7 +1205,7 @@
             <tr><td>M4</td><td><code>/api/bookings/audit</code> trusts client-supplied <code>changes</code> / <code>entityName</code> verbatim</td><td><code>bookings/audit:90</code></td></tr>
             <tr><td>M5</td><td>Handoff lock can strand a paid booking in <code>handoff_status="in_progress"</code> on a crash</td><td><code>start-consultation:191</code></td></tr>
             <tr><td>M6</td><td><code>updateBooking</code> swallows save failures &mdash; flow advances on a failed save</td><td><code>booking-store:590</code></td></tr>
-            <tr><td>M7</td><td><code>toggleClientStatus</code> / <code>toggleUserStatus</code> swallow errors &mdash; failed toggle looks like success</td><td><code>client-store:361</code></td></tr>
+            <tr><td>M7 <em>(partial)</em></td><td><code>toggleUserStatus</code> half fixed with H6 on 2026-07-17. <code>toggleClientStatus</code> still swallows &mdash; apply the same throw + banner pattern.</td><td><code>client-store:361</code></td></tr>
             <tr><td>M8</td><td>PIN modal hand-rolls inputs: no paste, no per-digit aria-labels (gates the highest-trust actions)</td><td><code>pin-verification-modal:140</code></td></tr>
             <tr><td>M9</td><td><code>CountryCodeSelect</code> not keyboard / screen-reader operable</td><td><code>CountryCodeSelect:54</code></td></tr>
             <tr><td>M10</td><td><code>FloatingInput</code> error not linked to input (no <code>aria-invalid</code>/<code>describedby</code>) &mdash; every form</td><td><code>floating-input:61</code></td></tr>
@@ -1280,7 +1272,7 @@
 
         <h3 id="followup-plan"><span class="h3-num">F</span>Recommended action plan</h3>
         <h4>P0 &mdash; quick, high-leverage (&approx; half a day)</h4>
-        <p>H1 (await audit writes) &middot; H2 (reject missing amount) &middot; H6 (deleteUser throws) &middot; H5 (verify-step lock) &middot; H7 (alerting, no code) &middot; M1 (cron <code>flock</code>).</p>
+        <p><s>H1 (await audit writes)</s> &middot; <s>H2 (reject missing amount)</s> &middot; <s>H6 (deleteUser throws)</s> &middot; H5 (verify-step lock) &middot; <s>H7 (alerting, no code)</s> &middot; M1 (cron <code>flock</code>).</p>
         <h4>P1 &mdash; before scaling / important correctness</h4>
         <p>H3 + M3 (tighten user-management PATCH authz) &middot; H4 (close discard terminal-state hole) &middot; M5 (handoff-lock staleness escape) &middot; M6/M7 (stores throw on failure) &middot; H8 (verify/instate backups).</p>
         <h4>P2 &mdash; hygiene, accessibility, scaling prep</h4>
