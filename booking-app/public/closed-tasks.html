@@ -33,18 +33,22 @@
 
       --crit-bg: #fef2f2;
       --crit-fg: #991b1b;
+      --crit-border: #fecaca;
       --high-bg: #fff7ed;
       --high-fg: #9a3412;
+      --high-border: #fed7aa;
       --med-bg: #fefce8;
       --med-fg: #854d0e;
+      --med-border: #fde68a;
       --low-bg: #f0f9ff;
       --low-fg: #075985;
+      --low-border: #bae6fd;
 
       --radius: 0.75rem;
       --radius-lg: 1rem;
       --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
       --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06);
-      --content-max: 1000px;
+      --content-max: 1200px;
     }
 
     * { box-sizing: border-box; }
@@ -101,7 +105,7 @@
       color: var(--mute); font-size: 1rem; max-width: 720px;
     }
 
-    /* Summary */
+    /* Summary tiles */
     .summary {
       max-width: var(--content-max);
       margin: 20px auto 0;
@@ -128,43 +132,75 @@
       margin-top: 4px;
       color: var(--ok-fg);
     }
+    .tile.mute .tile-n { color: var(--ink); }
 
     /* Layout */
-    .main {
+    .layout {
       max-width: var(--content-max);
-      margin: 32px auto 60px;
+      margin: 24px auto 60px;
       padding: 0 24px;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 32px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
     }
 
-    /* Date group */
-    .group {
-      margin-bottom: 40px;
+    /* TOC */
+    .toc {
+      position: sticky; top: 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      align-self: start;
+      box-shadow: var(--shadow-sm);
     }
-    .group-head {
+    .toc-title {
+      font-family: "Mulish", sans-serif; font-weight: 900;
+      font-size: 0.85rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--mute);
+      margin-bottom: 10px;
+    }
+    .toc a {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; border-radius: 8px;
+      color: var(--ink); font-size: 0.9rem;
+      transition: background 0.15s;
+    }
+    .toc a:hover { background: var(--brand-bg); text-decoration: none; }
+    .toc-count {
+      font-size: 0.75rem; color: var(--mute);
+      background: var(--line-2); padding: 2px 8px; border-radius: 999px;
+    }
+
+    /* Category */
+    .cat {
+      margin-bottom: 40px;
+      scroll-margin-top: 20px;
+    }
+    .cat-head {
       display: flex; align-items: center; gap: 12px;
       margin-bottom: 16px;
       padding-bottom: 10px;
       border-bottom: 2px solid var(--line);
     }
-    .group-date {
-      font-family: "Mulish", sans-serif;
-      font-weight: 900;
-      font-size: 1.15rem;
+    .cat-icon {
+      font-size: 1.5rem;
     }
-    .group-tag {
-      background: var(--ok-bg);
-      color: var(--ok-fg);
-      font-size: 0.72rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.04em;
-      padding: 3px 10px; border-radius: 999px;
-      border: 1px solid var(--ok-border);
+    .cat-title {
+      font-size: 1.3rem;
     }
-    .group-count {
+    .cat-count {
       margin-left: auto;
       font-size: 0.85rem; color: var(--mute);
+      background: var(--line-2); padding: 4px 12px; border-radius: 999px;
+      font-weight: 500;
     }
 
-    /* Card */
+    /* Task card */
     .card {
       background: var(--card);
       border: 1px solid var(--line);
@@ -173,11 +209,13 @@
       padding: 16px 20px;
       margin-bottom: 12px;
       box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.15s;
     }
+    .card:hover { box-shadow: var(--shadow-md); }
     .card-top {
       display: flex; align-items: baseline; gap: 10px;
       flex-wrap: wrap;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .pill {
       display: inline-flex; align-items: center;
@@ -196,15 +234,23 @@
       font-size: 0.8rem;
       color: var(--mute);
     }
+    .date {
+      font-size: 0.75rem;
+      color: var(--mute);
+      background: var(--line-2);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
     .commit {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--mute);
       margin-left: auto;
     }
     .card-title {
       font-size: 1rem; margin: 0;
       flex-basis: 100%;
+      margin-top: 4px;
     }
     .card-body {
       font-size: 0.92rem;
@@ -242,7 +288,7 @@
       </div>
       <h1 class="page-title">Closed Tasks</h1>
       <p class="page-subtitle">
-        Everything that shipped, in reverse-chronological order. Each entry names the finding, priority, what was actually delivered, and the commit ref. For the current backlog see <a href="/open-tasks.html">Open Tasks</a>.
+        Delivered work, grouped by area of the system. Each card carries the finding ref, what shipped, the delivery date, and the commit hash. For the live backlog see <a href="/open-tasks.html">Open Tasks</a>.
       </p>
     </div>
   </div>
@@ -250,150 +296,680 @@
   <div class="summary">
     <div class="tile">
       <div class="tile-lbl">Total Closed</div>
-      <div class="tile-n">8</div>
+      <div class="tile-n">42</div>
     </div>
-    <div class="tile">
+    <div class="tile mute">
       <div class="tile-lbl">This Month</div>
       <div class="tile-n">5</div>
     </div>
-    <div class="tile">
+    <div class="tile mute">
+      <div class="tile-lbl">June 2026</div>
+      <div class="tile-n">37</div>
+    </div>
+    <div class="tile mute">
       <div class="tile-lbl">Latest</div>
       <div class="tile-n" style="font-size: 1.1rem; padding-top: 8px;">2026-07-17</div>
     </div>
   </div>
 
-  <div class="main">
+  <div class="layout">
 
-    <!-- 2026-07-17 -->
-    <section class="group">
-      <div class="group-head">
-        <div class="group-date">17 July 2026</div>
-        <span class="group-tag">Delivered</span>
-        <span class="group-count">5 tasks</span>
-      </div>
+    <nav class="toc" aria-label="Categories">
+      <div class="toc-title">Jump to</div>
+      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">3</span></a>
+      <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">7</span></a>
+      <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">8</span></a>
+      <a href="#frontend"><span>🎨 Frontend &amp; UX</span><span class="toc-count">9</span></a>
+      <a href="#ops"><span>🔧 Ops &amp; Infrastructure</span><span class="toc-count">4</span></a>
+      <a href="#testing"><span>🧪 Testing &amp; Quality</span><span class="toc-count">11</span></a>
+    </nav>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved</span>
-          <span class="pill pri-med">was Medium</span>
-          <span class="ref">P2</span>
-          <span class="commit">b9bb443</span>
-          <h3 class="card-title">Add User form: surface missing/invalid fields when submit is disabled</h3>
-        </div>
-        <div class="card-body">
-          The Add User button silently locked with no clue about why. Refactored <code>isFormComplete</code> to derive from a plain-language <code>missingFields[]</code> array; added an amber hint under the button listing exactly what needs fixing. Unit-managers now start with role="user" pre-selected (their only option). <code>role="status"</code> for a11y.
-        </div>
-      </div>
+    <main>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved</span>
-          <span class="pill pri-high">was High</span>
-          <span class="ref">H6</span>
-          <span class="commit">2cbc13a</span>
-          <h3 class="card-title"><code>deleteUser</code> swallows failures → false "deleted" success banner</h3>
+      <!-- SECURITY & AUTH -->
+      <section id="security" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🔐</span>
+          <h2 class="cat-title">Security &amp; Auth</h2>
+          <span class="cat-count">3 closed</span>
         </div>
-        <div class="card-body">
-          <code>deleteUser</code> and <code>toggleUserStatus</code> now throw on non-OK responses (mirrors the earlier <code>deleteClient</code> fix). The Manage User page gained an <code>actionError</code> banner so operators see WHY save / toggle / delete failed instead of the action silently no-op'ing. Each handler clears the stale banner on retry entry.
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved</span>
-          <span class="pill pri-med">was Medium (partial)</span>
-          <span class="ref">M7</span>
-          <span class="commit">2cbc13a</span>
-          <h3 class="card-title"><code>toggleUserStatus</code> half of M7 fixed</h3>
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-crit">was Critical</span>
+            <span class="ref">S1</span>
+            <span class="date">2026-07-17</span>
+            <span class="commit">d6d4912 &middot; 796c8fe</span>
+            <h3 class="card-title">Credential exposure — 7 real user PINs hardcoded in migration script</h3>
+          </div>
+          <div class="card-body">
+            Per the synthetic-email auth scheme, each PIN is also that user's <code>auth.users</code> password. Script fixed to require <code>PIN_ASSIGNMENTS</code> env var (JSON array); refuses to run without one. Rotation completed via app UI + delete-and-recreate flow. Zero orphans in auth.users. Optional git-history purge tracked as S3 in Open Tasks.
+          </div>
         </div>
-        <div class="card-body">
-          Shipped alongside H6 — same throw + banner pattern. The <code>toggleClientStatus</code> half remains open (see Open Tasks → Backend &amp; Data).
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved</span>
-          <span class="pill pri-crit">was Critical</span>
-          <span class="ref">S1</span>
-          <span class="commit">d6d4912 &middot; 796c8fe</span>
-          <h3 class="card-title">Credential exposure — 7 real user PINs hardcoded in migration script</h3>
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">S2</span>
+            <span class="date">2026-07-17</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Playwright Tester (<code>pin-900900@carefirst.local</code>) present in production</h3>
+          </div>
+          <div class="card-body">
+            Confirmed the seed had been run against prod at some point. Deleted via User Management; verified <code>pin-900900</code> absent from auth.users. Follow-up NODE_ENV guard on <code>seed.ts</code> remains open as T1.
+          </div>
         </div>
-        <div class="card-body">
-          Per the synthetic-email auth scheme, each PIN is also that user's auth.users password. Script fixed to require <code>PIN_ASSIGNMENTS</code> env var (JSON array); refuses to run without one. Rotation completed via app UI + delete-and-recreate flow. Zero orphans in auth.users. Optional git-history purge is nice-to-have (tracked as S3 in Open Tasks).
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved</span>
-          <span class="pill pri-med">was Medium</span>
-          <span class="ref">S2</span>
-          <span class="commit">—</span>
-          <h3 class="card-title">Playwright Tester (<code>pin-900900@carefirst.local</code>) present in production</h3>
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">B5</span>
+            <span class="date">2026-06-08</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Stash triage + coupon apply/remove IDOR guard + provider-memo extension</h3>
+          </div>
+          <div class="card-body">
+            Closed the coupon-apply IDOR window (a caller could apply/remove coupons on another user's booking) with a booking-ownership check on both endpoints. Provider memoisation extended to avoid re-instantiating the coupon store between routes. Playwright coverage for the guard shipped as B3.
+          </div>
         </div>
-        <div class="card-body">
-          Confirmed the seed had been run against prod at some point. Deleted via User Management; verified <code>pin-900900</code> absent from auth.users. Follow-up NODE_ENV guard on seed.ts remains open as T1.
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- 2026-06-29 -->
-    <section class="group">
-      <div class="group-head">
-        <div class="group-date">29 June 2026</div>
-        <span class="group-tag">Delivered</span>
-        <span class="group-count">1 task</span>
-      </div>
+      <!-- PAYMENTS & INTEGRATIONS -->
+      <section id="payments" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">💳</span>
+          <h2 class="cat-title">Payments &amp; Integrations</h2>
+          <span class="cat-count">7 closed</span>
+        </div>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved (partial)</span>
-          <span class="pill pri-high">was High</span>
-          <span class="ref">H7</span>
-          <span class="commit">—</span>
-          <h3 class="card-title">No monitoring / alerting (app down, cron stopped, payments failing)</h3>
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">H2</span>
+            <span class="date">2026-06-11</span>
+            <span class="commit">9a9aa43</span>
+            <h3 class="card-title">Reject COMPLETE ITN / reconcile with missing <code>amount_gross</code></h3>
+          </div>
+          <div class="card-body">
+            Before this, a PayFast COMPLETE with no amount would flip the booking to Paid based on other fields alone — a spoofable path. Now rejected at both notify and reconcile (notify → 400, reconcile → not-processed) before the booking transitions. Tests added. One of the PayFast go-live blockers cleared.
+          </div>
         </div>
-        <div class="card-body">
-          UptimeRobot on <code>/api/health</code> is active (user-confirmed). The biggest failure mode — app / DB down — now pages a human. Optional follow-up: healthchecks.io dead-man's-switch on <code>booking-cron.sh</code> to detect cron silence.
-        </div>
-      </div>
-    </section>
 
-    <!-- 2026-06-11 -->
-    <section class="group">
-      <div class="group-head">
-        <div class="group-date">11 June 2026</div>
-        <span class="group-tag">Delivered</span>
-        <span class="group-count">2 tasks</span>
-      </div>
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">H1</span>
+            <span class="date">2026-06-11</span>
+            <span class="commit">c529d4e</span>
+            <h3 class="card-title">Awaited the 4 money-path audit writes</h3>
+          </div>
+          <div class="card-body">
+            Fire-and-forget audit writes on notify (line 255), reconcile (line 318), start-consultation (lines 290 + 412) meant the audit row wasn't guaranteed to land before the response was sent. Now awaited; <code>writeAuditLog</code> is try/catch-wrapped so awaiting is safe. Corroborated by two auditors.
+          </div>
+        </div>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved</span>
-          <span class="pill pri-high">was High</span>
-          <span class="ref">H2</span>
-          <span class="commit">9a9aa43</span>
-          <h3 class="card-title">Reject COMPLETE ITN / reconcile with missing <code>amount_gross</code></h3>
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">B1</span>
+            <span class="date">2026-06-11</span>
+            <span class="commit">dbd8419 &middot; migration 042</span>
+            <h3 class="card-title">Per-client CareFirst SSO routing (multi-client B-ENV scheme)</h3>
+          </div>
+          <div class="card-body">
+            Booking → unit → client resolver picks the correct CareFirst account per booking. Fail-closed per-client keys loaded from <code>.env</code> via <code>CAREFIRST_API_KEY__&lt;CODE&gt;</code>. FCS + ISOS live-verified end-to-end. Unblocks onboarding new CareFirst tenants without a redeploy.
+          </div>
         </div>
-        <div class="card-body">
-          Before this, a PayFast COMPLETE with no amount would flip the booking to Paid based on other fields alone — a spoofable path. Now rejected at both the notify and reconcile paths (notify → 400, reconcile → not-processed) before the booking transitions. Tests added. One of the PayFast go-live blockers cleared.
-        </div>
-      </div>
 
-      <div class="card">
-        <div class="card-top">
-          <span class="pill">Resolved</span>
-          <span class="pill pri-high">was High</span>
-          <span class="ref">H1</span>
-          <span class="commit">c529d4e</span>
-          <h3 class="card-title">Awaited the 4 money-path audit writes</h3>
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">B7 Q1</span>
+            <span class="date">2026-06-11</span>
+            <span class="commit">6e99eed &middot; migration 041</span>
+            <h3 class="card-title">Per-client <code>client_code</code> + readable PayFast <code>m_payment_id</code></h3>
+          </div>
+          <div class="card-body">
+            <code>m_payment_id</code> now takes the form <code>&lt;CLIENT_CODE&gt;-&lt;uuid&gt;</code> so PayFast reports and support inquiries are readable at a glance. Legacy bare-UUID references still resolve via <code>stripBookingId()</code> for backward compatibility on notify + reconcile paths.
+          </div>
         </div>
-        <div class="card-body">
-          Fire-and-forget audit writes on notify (line 255), reconcile (line 318), start-consultation (lines 290 + 412) meant the audit row wasn't guaranteed to land before the response was sent. Now awaited; <code>writeAuditLog</code> is try/catch-wrapped so awaiting is safe. Corroborated by two auditors.
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">D21</span>
+            <span class="date">2026-06-10</span>
+            <span class="commit">ca2b5b0</span>
+            <h3 class="card-title">PayFast ITN confirm fetch bounded by 5s <code>AbortSignal</code></h3>
+          </div>
+          <div class="card-body">
+            The strict-confirmation re-verification call to PayFast had no timeout. A slow / hanging PayFast side could stall an ITN response indefinitely. Now bounded to 5s with a proper <code>AbortSignal</code>, falling through to the mismatch branch on timeout.
+          </div>
         </div>
-      </div>
-    </section>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">D17/C1</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">4189adc</span>
+            <h3 class="card-title">PayFast mock infrastructure + <code>NODE_ENV</code>-gated URL overrides</h3>
+          </div>
+          <div class="card-body">
+            Fully-mocked PayFast stack for Playwright — no external HTTP dependency in the CI test path. URL overrides gated on <code>NODE_ENV !== "production"</code> so the mock cannot accidentally be pointed at prod. Foundation for the C2/C3/C4 ITN specs that shipped shortly after.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">Hotfix</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">50c9dbe</span>
+            <h3 class="card-title">Coupon-on-Abandoned bookings accepted + flipped booking to In Progress</h3>
+          </div>
+          <div class="card-body">
+            Applying a coupon to an Abandoned booking was accepted by the server and silently transitioned the booking to In Progress — bypassing the terminal-state guard. Endpoint now rejects coupon applies on abandoned/terminal bookings and preserves the status.
+          </div>
+        </div>
+      </section>
+
+      <!-- BACKEND & DATA -->
+      <section id="backend" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">⚙️</span>
+          <h2 class="cat-title">Backend &amp; Data</h2>
+          <span class="cat-count">8 closed</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">Sprint A</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">df75983</span>
+            <h3 class="card-title">Critical performance batch (6 items)</h3>
+          </div>
+          <div class="card-body">
+            Reconcile concurrency guard, coupon-apply hot path, patient-history landing perf, and 3 more critical-path fixes. Bundled as a single Sprint A commit for atomic deploy.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">D20</span>
+            <span class="date">2026-06-10</span>
+            <span class="commit">2edc658 &middot; migration 040</span>
+            <h3 class="card-title">Server-authority <code>POST /api/bookings/create</code> + idempotency + rate limit</h3>
+          </div>
+          <div class="card-body">
+            Moved booking creation from the client to a server endpoint with idempotency-key dedup, per-IP rate limiting, and server-verified fields. Migration 040 added <code>bookings.idempotency_key</code>, <code>created_by</code>, and partial indexes. Applied to prod.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">Sprint D</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">446e596</span>
+            <h3 class="card-title">Backend perf batch (5 items)</h3>
+          </div>
+          <div class="card-body">
+            Migrations 038 + 039 landed as part of Sprint D. Also introduced the <code>record_incident</code> SECURITY DEFINER RPC (pinned search_path) so anon/browser triggers on RLS-protected tables no longer silently roll back.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">Migration 038</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">—</span>
+            <h3 class="card-title"><code>coupons.code_lower</code> STORED GENERATED column + unique index</h3>
+          </div>
+          <div class="card-body">
+            Case-insensitive coupon codes without touching every read site. Generated column keeps <code>code_lower</code> in sync automatically; unique index makes lookup O(log n).
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">Migration 039</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">—</span>
+            <h3 class="card-title"><code>incidents_open_signature_unique</code> + <code>record_incident</code> RPC</h3>
+          </div>
+          <div class="card-body">
+            Prevents duplicate incident rows for the same signature-while-open state. RPC is SECURITY DEFINER with pinned <code>search_path</code> so triggers touching RLS-protected tables don't roll back.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">Retention</span>
+            <span class="date">2026-06-10</span>
+            <span class="commit">83a41cc</span>
+            <h3 class="card-title">Retention sweep now anonymises Discarded (POPIA §14)</h3>
+          </div>
+          <div class="card-body">
+            Discarded bookings previously kept full PII forever. Retention sweep now anonymises them per POPIA §14 (identifying fields hashed, references retained). Docs still show 90 days vs code 30 days — reconcile tracked as D22 in Open Tasks.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">Sprint C</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">afd0f2c</span>
+            <h3 class="card-title">Code hygiene batch (5 items)</h3>
+          </div>
+          <div class="card-body">
+            Unused imports, dead helpers, N-of-M type narrowing, one shared type extracted from two files. No behaviour change, just cleanup.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">D18</span>
+            <span class="date">2026-06-10</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Investigated &amp; closed: <code>payment_type</code> stamping on notify unnecessary</h3>
+          </div>
+          <div class="card-body">
+            Suspected redundancy in the notify route was confirmed — <code>payment_type</code> is already stamped upstream. No code change; closed after the investigation and a comment left in the route explaining why.
+          </div>
+        </div>
+      </section>
+
+      <!-- FRONTEND & UX -->
+      <section id="frontend" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🎨</span>
+          <h2 class="cat-title">Frontend &amp; UX</h2>
+          <span class="cat-count">9 closed</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">P2</span>
+            <span class="date">2026-07-17</span>
+            <span class="commit">b9bb443</span>
+            <h3 class="card-title">Add User form: surface missing/invalid fields when submit is disabled</h3>
+          </div>
+          <div class="card-body">
+            The Add User button silently locked with no clue why. Refactored to derive <code>isFormComplete</code> from a plain-language <code>missingFields[]</code> array; added an amber hint under the button. Unit-managers now start with role="user" pre-selected (their only option). <code>role="status"</code> for a11y.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">H6</span>
+            <span class="date">2026-07-17</span>
+            <span class="commit">2cbc13a</span>
+            <h3 class="card-title"><code>deleteUser</code> swallows failures → false "deleted" success banner</h3>
+          </div>
+          <div class="card-body">
+            <code>deleteUser</code> and <code>toggleUserStatus</code> now throw on non-OK responses (mirrors the earlier <code>deleteClient</code> fix). Manage User page gained an <code>actionError</code> banner so operators see WHY save / toggle / delete failed instead of the action silently no-op'ing. Each handler clears the stale banner on retry entry.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">D19</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Duplicate-booking double-click defence</h3>
+          </div>
+          <div class="card-body">
+            Synchronous ref guard on the create-booking button + Promise-level dedup in the store. Established after a real duplicate-booking incident where <code>disabled={submitting}</code> alone let two bookings race through. See <code>feedback_double_click_guard</code>.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">E.164</span>
+            <span class="date">2026-06-10</span>
+            <span class="commit">4dd3578</span>
+            <h3 class="card-title">Strict E.164 contact numbers across all forms</h3>
+          </div>
+          <div class="card-body">
+            Shared <code>src/lib/phone.ts</code>, server rejects invalid numbers with 400, country dropdown + validation on patient / user / client forms. Legacy rows deliberately not backfilled (preview script only).
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium (partial)</span>
+            <span class="ref">M7</span>
+            <span class="date">2026-07-17</span>
+            <span class="commit">2cbc13a</span>
+            <h3 class="card-title"><code>toggleUserStatus</code> half of M7 fixed</h3>
+          </div>
+          <div class="card-body">
+            Shipped alongside H6 — same throw + banner pattern. The <code>toggleClientStatus</code> half remains open (see Open Tasks → Backend &amp; Data).
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">Sprint E</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">0a50c50</span>
+            <h3 class="card-title">Frontend perf batch (provider memo, mobile-drawer dynamic import)</h3>
+          </div>
+          <div class="card-body">
+            Provider memoisation stopped rebuilding on every route change; mobile-drawer split to dynamic import so desktop no longer downloads it. Noticeably snappier on the mobile pilot devices.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">Sprint F</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">bdbdf05</span>
+            <h3 class="card-title">Polish batch (8 items)</h3>
+          </div>
+          <div class="card-body">
+            Small UX polish items — spacing / alignment / label wording / focus states. No behaviour change, cumulative feel improvement.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">Hotfix</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">08f15d0</span>
+            <h3 class="card-title">Sidebar scroll re-revert</h3>
+          </div>
+          <div class="card-body">
+            A refactor accidentally re-introduced the sidebar-scroll bug that was fixed earlier. Reverted; guarded against by pinning the scroll container in the sidebar layout.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">Resources</span>
+            <span class="date">2026-06-05</span>
+            <span class="commit">ed6cbe6</span>
+            <h3 class="card-title">Resources submenu grouping (Manuals / Reference / Proposals / Records)</h3>
+          </div>
+          <div class="card-body">
+            Reorganised the Resources sidebar submenu into semantic sections for faster scanning. The Records subgroup is the direct ancestor of the Open Tasks / Closed Tasks pages.
+          </div>
+        </div>
+      </section>
+
+      <!-- OPS & INFRASTRUCTURE -->
+      <section id="ops" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🔧</span>
+          <h2 class="cat-title">Ops &amp; Infrastructure</h2>
+          <span class="cat-count">4 closed</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High (partial)</span>
+            <span class="ref">H7</span>
+            <span class="date">2026-06-29</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">No monitoring / alerting (app down, cron stopped, payments failing)</h3>
+          </div>
+          <div class="card-body">
+            UptimeRobot on <code>/api/health</code> active (user-confirmed). Biggest failure mode — app / DB down — now pages a human. Optional follow-up: healthchecks.io dead-man's-switch on <code>booking-cron.sh</code> to catch cron silence.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">B2</span>
+            <span class="date">2026-06-08</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">HSTS via Traefik (2y <code>max-age</code>, <code>includeSubDomains</code>)</h3>
+          </div>
+          <div class="card-body">
+            Strict-Transport-Security header set on the Traefik edge with a 2-year <code>max-age</code> and <code>includeSubDomains</code>. The <code>preload</code> directive intentionally OFF until a week of stable soak; submission to Chromium preload list tracked as an Open item in Ops.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">Next 16</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Next.js 16 <code>middleware</code> → <code>proxy</code> migration</h3>
+          </div>
+          <div class="card-body">
+            Adopted Next.js 16's <code>proxy.ts</code> convention. Same routing behaviour, but the new API is the supported path going forward — avoids the deprecation warnings that would have appeared on Next.js 17.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">B4 Part B</span>
+            <span class="date">2026-06-10</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Env-var management decoupled from Hostinger panel</h3>
+          </div>
+          <div class="card-body">
+            Adopted SSH-managed <code>.env</code> as the source of truth after the Hostinger Docker Manager panel overwrote <code>docker-compose.yml</code> and stripped the Traefik + HSTS labels. Compose now uses <code>env_file: .env</code> so per-client CareFirst keys flow automatically. B4 Part A (compose drift monitoring) remains open.
+          </div>
+        </div>
+      </section>
+
+      <!-- TESTING & QUALITY -->
+      <section id="testing" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🧪</span>
+          <h2 class="cat-title">Testing &amp; Quality</h2>
+          <span class="cat-count">11 closed</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">D17/C2</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">0134706</span>
+            <h3 class="card-title">PayFast ITN happy-path spec + <code>signItn</code> helper</h3>
+          </div>
+          <div class="card-body">
+            End-to-end Playwright coverage of the PayFast happy path — POST → ITN → strict-confirmation → booking flips Paid. Shared <code>signItn</code> helper avoids re-inventing PayFast signature computation in every spec.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">D17/C3-C5</span>
+            <span class="date">2026-06-10</span>
+            <span class="commit">f8d3397 &middot; b07235f &middot; b0898a3</span>
+            <h3 class="card-title">PayFast failed / duplicate / rejections / reconcile specs</h3>
+          </div>
+          <div class="card-body">
+            Full negative-path coverage: FAILED ITN, duplicate notify, PayFast rejection, and reconcile drift. Three specs landing in successive commits over one day. Locks in the H1 / H2 fixes from a regression standpoint.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">B3</span>
+            <span class="date">2026-06-08</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Playwright coupon R0 regression net + service-role seed</h3>
+          </div>
+          <div class="card-body">
+            Playwright coverage for the R0 comp-endpoint coupon path + a service-role Supabase seed that runs idempotently against the Chromium test project. Guards the B5 IDOR fix.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">D10</span>
+            <span class="date">2026-06-08</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">CareFirst SSO mock server + Successful-path Playwright coverage</h3>
+          </div>
+          <div class="card-body">
+            Standalone mock server on port 4747 impersonates the CareFirst SSO auto-register endpoint. Playwright now exercises Start Consult end-to-end without hitting real CareFirst staging. Chromium-only test project.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">D13</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">CareFirst error-path Playwright coverage (502 / timeout / retry-idempotent)</h3>
+          </div>
+          <div class="card-body">
+            Negative-path CareFirst SSO tests: mock returns 502, mock times out (via <code>AbortSignal</code> injection), and repeat calls are idempotent. Confirms retry behaviour doesn't create duplicate CareFirst accounts.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">D14</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Coupon normal-discount Playwright coverage</h3>
+          </div>
+          <div class="card-body">
+            End-to-end coverage for a percentage-off coupon on the full booking flow — apply, remove, re-apply, submit to PayFast with the discounted amount, ITN confirms. Complements the R0 net from B3.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">D15</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Self-collect Playwright coverage</h3>
+          </div>
+          <div class="card-body">
+            Client-level self-collect flag path (migration 022) covered end-to-end: booking flow skips PayFast when self_collect is on, PIN modal accepts the operator's confirm, booking flips to Successful without an ITN.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-med">was Medium</span>
+            <span class="ref">D16</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Monthly-invoice Playwright coverage</h3>
+          </div>
+          <div class="card-body">
+            Similar to D15 but for monthly-invoice clients — skipPatientMetrics flag path exercised. Locks in the safety net at <code>/patient-metrics</code> that redirects to <code>/creating</code> when the flag is on.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">D11</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Playwright mock parallelism via booking-ID filter</h3>
+          </div>
+          <div class="card-body">
+            Mock server previously shared state across parallel workers. Now filters by the booking ID in each request so parallel Playwright workers don't cross-talk. Unblocks parallel execution.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">D12</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title"><code>reuseExistingServer</code> foot-gun — explicit error</h3>
+          </div>
+          <div class="card-body">
+            When Playwright's <code>reuseExistingServer</code> is on and the running server is stale, tests would fail in confusing ways. Now checks the running server's version marker and throws a clear "restart your dev server" error instead of running against stale code.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-low">was Low</span>
+            <span class="ref">Helpers</span>
+            <span class="date">2026-06-09</span>
+            <span class="commit">—</span>
+            <h3 class="card-title">Playwright helpers extracted to <code>tests/_helpers/</code></h3>
+          </div>
+          <div class="card-body">
+            The canonical sign-in flow, booking-ID filter, PayFast sign helper, and CareFirst mock harness moved into <code>tests/_helpers/</code> so specs can reuse them without copy-paste. First round of Playwright DRY work.
+          </div>
+        </div>
+
+      </section>
+
+    </main>
 
   </div>
 

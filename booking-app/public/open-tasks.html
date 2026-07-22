@@ -299,7 +299,7 @@
   <div class="summary">
     <div class="tile">
       <div class="tile-lbl">Total Open</div>
-      <div class="tile-n">37</div>
+      <div class="tile-n">52</div>
     </div>
     <div class="tile crit">
       <div class="tile-lbl">Critical</div>
@@ -311,11 +311,11 @@
     </div>
     <div class="tile med">
       <div class="tile-lbl">Medium</div>
-      <div class="tile-n">17</div>
+      <div class="tile-n">27</div>
     </div>
     <div class="tile low">
       <div class="tile-lbl">Low</div>
-      <div class="tile-n">16</div>
+      <div class="tile-n">21</div>
     </div>
   </div>
 
@@ -324,11 +324,11 @@
     <nav class="toc" aria-label="Categories">
       <div class="toc-title">Jump to</div>
       <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">6</span></a>
-      <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">4</span></a>
-      <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">16</span></a>
+      <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">7</span></a>
+      <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">21</span></a>
       <a href="#frontend"><span>🎨 Frontend &amp; UX</span><span class="toc-count">8</span></a>
-      <a href="#ops"><span>🔧 Ops &amp; Infrastructure</span><span class="toc-count">2</span></a>
-      <a href="#testing"><span>🧪 Testing &amp; Quality</span><span class="toc-count">1</span></a>
+      <a href="#ops"><span>🔧 Ops &amp; Infrastructure</span><span class="toc-count">4</span></a>
+      <a href="#testing"><span>🧪 Testing &amp; Quality</span><span class="toc-count">6</span></a>
     </nav>
 
     <main>
@@ -425,7 +425,7 @@
         <div class="cat-head">
           <span class="cat-icon">💳</span>
           <h2 class="cat-title">Payments &amp; Integrations</h2>
-          <span class="cat-count">4 open</span>
+          <span class="cat-count">7 open</span>
         </div>
 
         <div class="card">
@@ -479,6 +479,45 @@
             <div class="meta-lbl">Fix</div><div class="meta-val">Assert prefix length ≤ 42 at buildPaymentData; throw at deploy-check time not runtime.</div>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">D5</span>
+            <h3 class="card-title">Wrap <code>coupons/apply</code> booking + <code>coupon_uses</code> writes in a Postgres RPC</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/coupons/apply/route.ts</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Currently two separate writes (booking + coupon_uses) — a crash between them can desync. Deferred until a real consistency bug surfaces.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Wrap both writes in a SECURITY DEFINER RPC so they commit or roll back together.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">E164-CF</span>
+            <h3 class="card-title">Confirm CareFirst accepts strict <code>+27&hellip;</code> E.164 on <code>cellNumber</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/carefirst.ts</code> (SSO auto-register payload)</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">The E.164 rollout normalises numbers on our side. Single outstanding line-item from that project: confirm CareFirst's dev team accepts the <code>+CC…</code> format on the <code>cellNumber</code> field.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">One-line confirmation from CareFirst; add a test that submits +27… and asserts the SSO response is OK.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">B6</span>
+            <h3 class="card-title">PayFast reconcile 401 in sandbox (no action; closes on go-live)</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">Sandbox PayFast Query API</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Sandbox Query API returns 401 — expected sandbox behaviour, not a bug. Documented in memory as <code>project_payfast_mode</code>.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">No action; verify closes automatically when B7 flips <code>PAYFAST_TEST_MODE=false</code>.</div>
+          </div>
+        </div>
       </section>
 
       <!-- BACKEND & DATA -->
@@ -486,7 +525,7 @@
         <div class="cat-head">
           <span class="cat-icon">⚙️</span>
           <h2 class="cat-title">Backend &amp; Data</h2>
-          <span class="cat-count">16 open</span>
+          <span class="cat-count">21 open</span>
         </div>
 
         <div class="card">
@@ -696,6 +735,71 @@
             <div class="meta-lbl">Fix</div><div class="meta-val">Widen input regex to allow apostrophes / accents; consider ilike-with-wildcards fallback if exact match returns zero.</div>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">D22</span>
+            <h3 class="card-title">POPIA retention: doc says 90 days, code enforces 30 — reconcile</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>content/reports/popia-data-retention.mdx</code> vs <code>RETENTION_INCOMPLETE_DAYS</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Doc says "90 days, not yet enforced"; retention-sweep cron has been enforcing 30 days since 2026-05-29. Compliance audit would flag the mismatch.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Decide canonical window (30 or 90); align the MDX doc + the code constant + the operator manual language in one pass.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">D4</span>
+            <h3 class="card-title">Admin sessions endpoint silently truncates at 500 rows</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/admin/sessions/route.ts</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Deferred — non-issue until <code>active_sessions</code> &gt; 500. Then admins lose visibility into older sessions without any indicator.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Cursor pagination or an explicit "truncated" banner. Revisit at ~500 active sessions.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">D1</span>
+            <h3 class="card-title">Audit-log + incidents endpoints group up to 5,000 rows in memory</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/admin/audit-log/route.ts</code>, <code>&hellip;/incidents/route.ts</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Deferred — in-memory GROUP BY on the Node side. Node RSS spike at ~4k rows.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Move aggregation to a Postgres RPC. Revisit at ~4k <code>audit_log</code> rows (same item as baseline audit #18).</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">D2</span>
+            <h3 class="card-title">Email transporter built lazily without locking</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/mail.ts</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Deferred — under concurrent PIN-reset traffic two transporters can be built. Currently a warning-only, no user-facing issue.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Cache-with-promise lock. Revisit if duplicate-transport warnings appear (same item as baseline audit #27).</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">D3</span>
+            <h3 class="card-title"><code>admin/audit-log</code> uses <code>count:exact</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/admin/audit-log/route.ts</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Deferred — exact count runs a full COUNT(*) alongside every page. Fine until table gets large.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Switch to <code>count:planned</code> or move to a cursor. Revisit at ~50k <code>audit_log</code> rows.</div>
+          </div>
+        </div>
       </section>
 
       <!-- FRONTEND & UX -->
@@ -816,7 +920,7 @@
         <div class="cat-head">
           <span class="cat-icon">🔧</span>
           <h2 class="cat-title">Ops &amp; Infrastructure</h2>
-          <span class="cat-count">2 open</span>
+          <span class="cat-count">4 open</span>
         </div>
 
         <div class="card">
@@ -844,6 +948,32 @@
             <div class="meta-lbl">Fix</div><div class="meta-val">Wrap the script body in <code>flock -n /tmp/booking-cron.lock</code> — one line.</div>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">B4 Part A</span>
+            <h3 class="card-title">Repo <code>docker-compose.yml</code> vs live VPS compose drift</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>docker-compose.yml</code> (repo) vs <code>/opt/3rd-Party-Booking-System/docker-compose.yml</code> (VPS)</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Live compose has the Traefik + HSTS labels; repo does not. Any deploy that ships the repo file overwrites the live labels — the original B4 incident. Part B (env-var decoupling) shipped 2026-06-10; Part A still open.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Reconcile: either commit the labels to the repo compose, or move them to a fragment overlay file that isn't touched by <code>git pull</code>.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">HSTS-preload</span>
+            <h3 class="card-title">Submit <code>bookings.carefirst.co.za</code> to the Chromium HSTS preload list</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>hstspreload.org</code> submission</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">HSTS is live at 2y <code>max-age</code> with <code>includeSubDomains</code>. <code>preload</code> deliberately off until a week of stable soak. Preload submission is one-way — removal takes months if there's a subdomain we missed.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">After a soak period with no cert / subdomain surprises, add the <code>preload</code> directive and submit to hstspreload.org.</div>
+          </div>
+        </div>
       </section>
 
       <!-- TESTING & QUALITY -->
@@ -851,7 +981,7 @@
         <div class="cat-head">
           <span class="cat-icon">🧪</span>
           <h2 class="cat-title">Testing &amp; Quality</h2>
-          <span class="cat-count">1 open</span>
+          <span class="cat-count">6 open</span>
         </div>
 
         <div class="card">
@@ -864,6 +994,71 @@
             <div class="meta-lbl">Where</div><div class="meta-val"><code>booking-app/tests/_setup/seed.ts</code></div>
             <div class="meta-lbl">Impact</div><div class="meta-val">Belt-and-braces — S2 was the incident where a fixture user ended up in production. Guard prevents recurrence even if someone runs the seed against a prod DATABASE_URL.</div>
             <div class="meta-lbl">Fix</div><div class="meta-val">Add <code>if (process.env.NODE_ENV === "production") throw new Error("refusing to seed prod")</code> at the top of the file.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">T2</span>
+            <h3 class="card-title">Third-party penetration test — never done</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">External engagement</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Baseline audit (18 May 2026) flagged as explicit out-of-scope. Post-pilot, a real pen test is worth commissioning before scaling to more clients.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Schedule a scoped engagement with a SA-based security firm; focus on auth, RBAC, PayFast integration, and CareFirst SSO.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">T3</span>
+            <h3 class="card-title"><code>npm audit</code> CVE scan in CI</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">CI (or a scheduled cron)</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">No automated dependency-vulnerability scan today. New CVEs in Next.js / Supabase / PayFast SDKs would go unnoticed until manual review.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Run <code>npm audit --production --audit-level=high</code> weekly via GitHub Actions or the VPS cron; post failures to Uptime Robot or email.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">T4</span>
+            <h3 class="card-title">Load / soak testing</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">External harness (k6 / Artillery)</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">1 vCPU KVM is running fine at pilot volume but we've never established what "breaks" looks like. M14 (unbounded select("*")) is a documented scaling cliff — need real numbers.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Author a k6 script that runs a full booking flow, ramp to 100 concurrent operators, capture RSS + p95 latency + PayFast retry counts.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">T5</span>
+            <h3 class="card-title">Formal WCAG 2.1 AA accessibility audit</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">External audit or automated (axe-core)</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">M8 / M9 / M10 flagged specific a11y gaps in PIN modal, CountryCodeSelect, FloatingInput. A formal audit would surface the whole picture rather than piecemeal.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Wire <code>@axe-core/playwright</code> into the existing Playwright suite for automated coverage; commission a manual audit before onboarding clients with formal accessibility requirements.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">T6</span>
+            <h3 class="card-title">Cross-browser compatibility testing (Firefox / Safari)</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">Playwright test projects</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Playwright currently runs Chromium-only. Firefox blank-favicon incident (fixed 2026-07) is the kind of thing this would catch. Operators on iPads (Safari) not covered at all.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add <code>firefox</code> + <code>webkit</code> test projects to <code>playwright.config.ts</code>; start with the smoke-test suite before expanding.</div>
           </div>
         </div>
 
