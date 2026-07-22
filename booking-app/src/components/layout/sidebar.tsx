@@ -282,7 +282,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
             }
             return (
               <Image
-                src="/favicon.png"
+                src="/favicon-32x32.png"
                 alt="CareFirst"
                 width={36}
                 height={36}
