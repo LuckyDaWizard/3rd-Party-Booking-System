@@ -85,6 +85,7 @@ Subagents start with no conversation context. The prompt is everything they have
 
 These are mandatory — they live under `~/.claude/projects/.../memory/`:
 
+- **`feedback_task_pages_hard_rule`** — every system audit MUST update `booking-app/public/open-tasks.html` + `closed-tasks.html`; new findings → Open, shipped work moves to Closed; keep summary counts + TOC counts honest; sync alongside the canonical `system-audit.html`
 - **`feedback_dont_over_ask`** — when the user shows a bug with evidence, fix it; don't gate on multi-choice questions
 - **`feedback_update_memory_at_milestones`** — proactively update memory at sprint close, audit close, deploys with migrations, durable feedback
 - **`feedback_audit_page`** — when finishing an audit task, mark both `system-audit.html` copies (public + docs)

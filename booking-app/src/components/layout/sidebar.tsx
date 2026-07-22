@@ -101,10 +101,17 @@ const navItems: NavItem[] = [
       { label: "Scheduling", href: "/consultation-scheduling-proposal.html", openInNewTab: true },
       { label: "Multi-Client Routing (RFC)", href: "/reports/multi-client-routing", openInNewTab: true },
       { label: "Client Scenarios", href: "/client-scenarios.html", openInNewTab: true },
-      // Audit + decision records, kept at the bottom — referenced rarely.
+      // Task tracking — live backlog + delivered work. The "Records" section
+      // now leads with these two consolidated task views so it's obvious
+      // what's still on the plate vs. what's already shipped. The three
+      // long-form archive documents below are the historical record and
+      // stay accessible but move under a separate "Archive" subsection.
       { section: "Records" },
+      { label: "Open Tasks", href: "/open-tasks.html", openInNewTab: true },
+      { label: "Closed Tasks", href: "/closed-tasks.html", openInNewTab: true },
+      { section: "Archive" },
+      { label: "System Audit (full)", href: "/system-audit.html", openInNewTab: true },
       { label: "Engineering Status", href: "/engineering-status.html", openInNewTab: true },
-      { label: "System Audit", href: "/system-audit.html", openInNewTab: true },
       { label: "Management Decisions", href: "/management-decisions-2026-05-21.html", openInNewTab: true },
     ],
   },

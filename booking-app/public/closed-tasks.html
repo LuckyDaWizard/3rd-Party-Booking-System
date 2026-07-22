@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Closed Tasks - 3rd Party Booking System</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;700;900&family=Roboto:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --brand: #3ea3db;
+      --brand-dark: #1f6f9d;
+      --brand-tint: #e0f0fa;
+      --brand-bg: #f0f9ff;
+
+      --ink: #0f172a;
+      --ink-2: #1e293b;
+      --mute: #64748b;
+      --mute-2: #94a3b8;
+      --line: #e2e8f0;
+      --line-2: #f1f5f9;
+      --bg: #f8fafc;
+      --card: #ffffff;
+
+      --ok-bg: #f0fdf4;
+      --ok-fg: #166534;
+      --ok-border: #bbf7d0;
+
+      --crit-bg: #fef2f2;
+      --crit-fg: #991b1b;
+      --high-bg: #fff7ed;
+      --high-fg: #9a3412;
+      --med-bg: #fefce8;
+      --med-fg: #854d0e;
+      --low-bg: #f0f9ff;
+      --low-fg: #075985;
+
+      --radius: 0.75rem;
+      --radius-lg: 1rem;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06);
+      --content-max: 1000px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: "Roboto", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4 {
+      font-family: "Mulish", "Roboto", sans-serif;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      margin: 0;
+      line-height: 1.2;
+    }
+    a { color: var(--brand-dark); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      background: var(--line-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      color: var(--brand-dark);
+    }
+
+    /* Page header */
+    .page-header {
+      background: linear-gradient(180deg, #fff 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--line);
+      padding: 32px 24px 24px;
+    }
+    .page-header-inner {
+      max-width: var(--content-max);
+      margin: 0 auto;
+    }
+    .brand-row {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--mute); font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+    .brand-row .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--ok-fg); display: inline-block;
+    }
+    .page-title {
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      margin-bottom: 6px;
+    }
+    .page-subtitle {
+      color: var(--mute); font-size: 1rem; max-width: 720px;
+    }
+
+    /* Summary */
+    .summary {
+      max-width: var(--content-max);
+      margin: 20px auto 0;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .tile {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .tile-lbl {
+      font-size: 0.75rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--mute);
+      font-weight: 700;
+    }
+    .tile-n {
+      font-size: 1.75rem; font-weight: 900;
+      font-family: "Mulish", sans-serif;
+      margin-top: 4px;
+      color: var(--ok-fg);
+    }
+
+    /* Layout */
+    .main {
+      max-width: var(--content-max);
+      margin: 32px auto 60px;
+      padding: 0 24px;
+    }
+
+    /* Date group */
+    .group {
+      margin-bottom: 40px;
+    }
+    .group-head {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--line);
+    }
+    .group-date {
+      font-family: "Mulish", sans-serif;
+      font-weight: 900;
+      font-size: 1.15rem;
+    }
+    .group-tag {
+      background: var(--ok-bg);
+      color: var(--ok-fg);
+      font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 3px 10px; border-radius: 999px;
+      border: 1px solid var(--ok-border);
+    }
+    .group-count {
+      margin-left: auto;
+      font-size: 0.85rem; color: var(--mute);
+    }
+
+    /* Card */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--ok-fg);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-top {
+      display: flex; align-items: baseline; gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .pill {
+      display: inline-flex; align-items: center;
+      font-size: 0.7rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 2px 8px; border-radius: 999px;
+      background: var(--ok-bg); color: var(--ok-fg);
+      border: 1px solid var(--ok-border);
+    }
+    .pill.pri-crit { background: var(--crit-bg); color: var(--crit-fg); border-color: transparent; opacity: 0.85; }
+    .pill.pri-high { background: var(--high-bg); color: var(--high-fg); border-color: transparent; opacity: 0.85; }
+    .pill.pri-med  { background: var(--med-bg);  color: var(--med-fg);  border-color: transparent; opacity: 0.85; }
+    .pill.pri-low  { background: var(--low-bg);  color: var(--low-fg);  border-color: transparent; opacity: 0.85; }
+    .ref {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.8rem;
+      color: var(--mute);
+    }
+    .commit {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.8rem;
+      color: var(--mute);
+      margin-left: auto;
+    }
+    .card-title {
+      font-size: 1rem; margin: 0;
+      flex-basis: 100%;
+    }
+    .card-body {
+      font-size: 0.92rem;
+      color: var(--ink-2);
+      margin-top: 6px;
+    }
+
+    /* Footer */
+    .footer {
+      max-width: var(--content-max);
+      margin: 40px auto 20px;
+      padding: 24px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--mute);
+      border-top: 1px solid var(--line);
+    }
+    .footer a { color: var(--mute); }
+    .archive-links {
+      margin-top: 8px;
+      display: flex; gap: 16px; justify-content: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div class="page-header-inner">
+      <div class="brand-row">
+        <span class="dot"></span>
+        <strong>CareFirst</strong>
+        <span>&middot;</span>
+        <span>3rd Party Booking System</span>
+      </div>
+      <h1 class="page-title">Closed Tasks</h1>
+      <p class="page-subtitle">
+        Everything that shipped, in reverse-chronological order. Each entry names the finding, priority, what was actually delivered, and the commit ref. For the current backlog see <a href="/open-tasks.html">Open Tasks</a>.
+      </p>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="tile">
+      <div class="tile-lbl">Total Closed</div>
+      <div class="tile-n">8</div>
+    </div>
+    <div class="tile">
+      <div class="tile-lbl">This Month</div>
+      <div class="tile-n">5</div>
+    </div>
+    <div class="tile">
+      <div class="tile-lbl">Latest</div>
+      <div class="tile-n" style="font-size: 1.1rem; padding-top: 8px;">2026-07-17</div>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- 2026-07-17 -->
+    <section class="group">
+      <div class="group-head">
+        <div class="group-date">17 July 2026</div>
+        <span class="group-tag">Delivered</span>
+        <span class="group-count">5 tasks</span>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved</span>
+          <span class="pill pri-med">was Medium</span>
+          <span class="ref">P2</span>
+          <span class="commit">b9bb443</span>
+          <h3 class="card-title">Add User form: surface missing/invalid fields when submit is disabled</h3>
+        </div>
+        <div class="card-body">
+          The Add User button silently locked with no clue about why. Refactored <code>isFormComplete</code> to derive from a plain-language <code>missingFields[]</code> array; added an amber hint under the button listing exactly what needs fixing. Unit-managers now start with role="user" pre-selected (their only option). <code>role="status"</code> for a11y.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved</span>
+          <span class="pill pri-high">was High</span>
+          <span class="ref">H6</span>
+          <span class="commit">2cbc13a</span>
+          <h3 class="card-title"><code>deleteUser</code> swallows failures → false "deleted" success banner</h3>
+        </div>
+        <div class="card-body">
+          <code>deleteUser</code> and <code>toggleUserStatus</code> now throw on non-OK responses (mirrors the earlier <code>deleteClient</code> fix). The Manage User page gained an <code>actionError</code> banner so operators see WHY save / toggle / delete failed instead of the action silently no-op'ing. Each handler clears the stale banner on retry entry.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved</span>
+          <span class="pill pri-med">was Medium (partial)</span>
+          <span class="ref">M7</span>
+          <span class="commit">2cbc13a</span>
+          <h3 class="card-title"><code>toggleUserStatus</code> half of M7 fixed</h3>
+        </div>
+        <div class="card-body">
+          Shipped alongside H6 — same throw + banner pattern. The <code>toggleClientStatus</code> half remains open (see Open Tasks → Backend &amp; Data).
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved</span>
+          <span class="pill pri-crit">was Critical</span>
+          <span class="ref">S1</span>
+          <span class="commit">d6d4912 &middot; 796c8fe</span>
+          <h3 class="card-title">Credential exposure — 7 real user PINs hardcoded in migration script</h3>
+        </div>
+        <div class="card-body">
+          Per the synthetic-email auth scheme, each PIN is also that user's auth.users password. Script fixed to require <code>PIN_ASSIGNMENTS</code> env var (JSON array); refuses to run without one. Rotation completed via app UI + delete-and-recreate flow. Zero orphans in auth.users. Optional git-history purge is nice-to-have (tracked as S3 in Open Tasks).
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved</span>
+          <span class="pill pri-med">was Medium</span>
+          <span class="ref">S2</span>
+          <span class="commit">—</span>
+          <h3 class="card-title">Playwright Tester (<code>pin-900900@carefirst.local</code>) present in production</h3>
+        </div>
+        <div class="card-body">
+          Confirmed the seed had been run against prod at some point. Deleted via User Management; verified <code>pin-900900</code> absent from auth.users. Follow-up NODE_ENV guard on seed.ts remains open as T1.
+        </div>
+      </div>
+    </section>
+
+    <!-- 2026-06-29 -->
+    <section class="group">
+      <div class="group-head">
+        <div class="group-date">29 June 2026</div>
+        <span class="group-tag">Delivered</span>
+        <span class="group-count">1 task</span>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved (partial)</span>
+          <span class="pill pri-high">was High</span>
+          <span class="ref">H7</span>
+          <span class="commit">—</span>
+          <h3 class="card-title">No monitoring / alerting (app down, cron stopped, payments failing)</h3>
+        </div>
+        <div class="card-body">
+          UptimeRobot on <code>/api/health</code> is active (user-confirmed). The biggest failure mode — app / DB down — now pages a human. Optional follow-up: healthchecks.io dead-man's-switch on <code>booking-cron.sh</code> to detect cron silence.
+        </div>
+      </div>
+    </section>
+
+    <!-- 2026-06-11 -->
+    <section class="group">
+      <div class="group-head">
+        <div class="group-date">11 June 2026</div>
+        <span class="group-tag">Delivered</span>
+        <span class="group-count">2 tasks</span>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved</span>
+          <span class="pill pri-high">was High</span>
+          <span class="ref">H2</span>
+          <span class="commit">9a9aa43</span>
+          <h3 class="card-title">Reject COMPLETE ITN / reconcile with missing <code>amount_gross</code></h3>
+        </div>
+        <div class="card-body">
+          Before this, a PayFast COMPLETE with no amount would flip the booking to Paid based on other fields alone — a spoofable path. Now rejected at both the notify and reconcile paths (notify → 400, reconcile → not-processed) before the booking transitions. Tests added. One of the PayFast go-live blockers cleared.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="pill">Resolved</span>
+          <span class="pill pri-high">was High</span>
+          <span class="ref">H1</span>
+          <span class="commit">c529d4e</span>
+          <h3 class="card-title">Awaited the 4 money-path audit writes</h3>
+        </div>
+        <div class="card-body">
+          Fire-and-forget audit writes on notify (line 255), reconcile (line 318), start-consultation (lines 290 + 412) meant the audit row wasn't guaranteed to land before the response was sent. Now awaited; <code>writeAuditLog</code> is try/catch-wrapped so awaiting is safe. Corroborated by two auditors.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="footer">
+    <div>Last updated: 2026-07-22 &middot; See <a href="/open-tasks.html">Open Tasks</a> for the current backlog</div>
+    <div class="archive-links">
+      <a href="/system-audit.html">Full audit report (canonical)</a>
+      <a href="/engineering-status.html">Engineering Status</a>
+      <a href="/management-decisions-2026-05-21.html">Management Decisions</a>
+    </div>
+  </div>
+
+</body>
+</html>

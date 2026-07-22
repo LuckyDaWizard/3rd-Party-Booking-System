@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open Tasks - 3rd Party Booking System</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;700;900&family=Roboto:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --brand: #3ea3db;
+      --brand-dark: #1f6f9d;
+      --brand-tint: #e0f0fa;
+      --brand-bg: #f0f9ff;
+
+      --ink: #0f172a;
+      --ink-2: #1e293b;
+      --mute: #64748b;
+      --mute-2: #94a3b8;
+      --line: #e2e8f0;
+      --line-2: #f1f5f9;
+      --bg: #f8fafc;
+      --card: #ffffff;
+
+      --crit-bg: #fef2f2;
+      --crit-fg: #991b1b;
+      --crit-border: #fecaca;
+      --high-bg: #fff7ed;
+      --high-fg: #9a3412;
+      --high-border: #fed7aa;
+      --med-bg: #fefce8;
+      --med-fg: #854d0e;
+      --med-border: #fde68a;
+      --low-bg: #f0f9ff;
+      --low-fg: #075985;
+      --low-border: #bae6fd;
+
+      --radius: 0.75rem;
+      --radius-lg: 1rem;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06);
+      --content-max: 1200px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: "Roboto", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4 {
+      font-family: "Mulish", "Roboto", sans-serif;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      margin: 0;
+      line-height: 1.2;
+    }
+    a { color: var(--brand-dark); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      background: var(--line-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      color: var(--brand-dark);
+    }
+
+    /* Page header */
+    .page-header {
+      background: linear-gradient(180deg, #fff 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--line);
+      padding: 32px 24px 24px;
+    }
+    .page-header-inner {
+      max-width: var(--content-max);
+      margin: 0 auto;
+    }
+    .brand-row {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--mute); font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+    .brand-row .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--brand); display: inline-block;
+    }
+    .page-title {
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      margin-bottom: 6px;
+    }
+    .page-subtitle {
+      color: var(--mute); font-size: 1rem; max-width: 720px;
+    }
+
+    /* Summary tiles */
+    .summary {
+      max-width: var(--content-max);
+      margin: 20px auto 0;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    .tile {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .tile-lbl {
+      font-size: 0.75rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--mute);
+      font-weight: 700;
+    }
+    .tile-n {
+      font-size: 1.75rem; font-weight: 900;
+      font-family: "Mulish", sans-serif;
+      margin-top: 4px;
+    }
+    .tile.crit .tile-n { color: var(--crit-fg); }
+    .tile.high .tile-n { color: var(--high-fg); }
+    .tile.med .tile-n { color: var(--med-fg); }
+    .tile.low .tile-n { color: var(--low-fg); }
+
+    /* Layout */
+    .layout {
+      max-width: var(--content-max);
+      margin: 24px auto 60px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 32px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+    }
+
+    /* TOC */
+    .toc {
+      position: sticky; top: 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      align-self: start;
+      box-shadow: var(--shadow-sm);
+    }
+    .toc-title {
+      font-family: "Mulish", sans-serif; font-weight: 900;
+      font-size: 0.85rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--mute);
+      margin-bottom: 10px;
+    }
+    .toc a {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; border-radius: 8px;
+      color: var(--ink); font-size: 0.9rem;
+      transition: background 0.15s;
+    }
+    .toc a:hover { background: var(--brand-bg); text-decoration: none; }
+    .toc-count {
+      font-size: 0.75rem; color: var(--mute);
+      background: var(--line-2); padding: 2px 8px; border-radius: 999px;
+    }
+
+    /* Categories */
+    .cat {
+      margin-bottom: 40px;
+      scroll-margin-top: 20px;
+    }
+    .cat-head {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--line);
+    }
+    .cat-icon {
+      font-size: 1.5rem;
+    }
+    .cat-title {
+      font-size: 1.3rem;
+    }
+    .cat-count {
+      margin-left: auto;
+      font-size: 0.85rem; color: var(--mute);
+      background: var(--line-2); padding: 4px 12px; border-radius: 999px;
+      font-weight: 500;
+    }
+
+    /* Task cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.15s;
+    }
+    .card:hover { box-shadow: var(--shadow-md); }
+    .card-top {
+      display: flex; align-items: baseline; gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .pill {
+      display: inline-flex; align-items: center;
+      font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 3px 10px; border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .pill.crit { background: var(--crit-bg); color: var(--crit-fg); border-color: var(--crit-border); }
+    .pill.high { background: var(--high-bg); color: var(--high-fg); border-color: var(--high-border); }
+    .pill.med { background: var(--med-bg); color: var(--med-fg); border-color: var(--med-border); }
+    .pill.low { background: var(--low-bg); color: var(--low-fg); border-color: var(--low-border); }
+    .ref {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.8rem;
+      color: var(--mute);
+    }
+    .card-title {
+      font-size: 1.05rem; margin: 0;
+      flex-basis: 100%;
+    }
+    .card-meta {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 14px;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+    .meta-lbl {
+      font-weight: 700; color: var(--mute);
+      font-size: 0.75rem; text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding-top: 3px;
+    }
+    .meta-val { color: var(--ink-2); }
+    .meta-val code { font-size: 0.85em; }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--mute);
+      background: var(--card);
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+    /* Footer */
+    .footer {
+      max-width: var(--content-max);
+      margin: 40px auto 20px;
+      padding: 24px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--mute);
+      border-top: 1px solid var(--line);
+    }
+    .footer a { color: var(--mute); }
+    .archive-links {
+      margin-top: 8px;
+      display: flex; gap: 16px; justify-content: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div class="page-header-inner">
+      <div class="brand-row">
+        <span class="dot"></span>
+        <strong>CareFirst</strong>
+        <span>&middot;</span>
+        <span>3rd Party Booking System</span>
+      </div>
+      <h1 class="page-title">Open Tasks</h1>
+      <p class="page-subtitle">
+        The live backlog. Sourced from the last system audit + real-world issues surfaced during pilot testing. Each task is categorised by area of the system and tagged with a priority. Closed items live on the <a href="/closed-tasks.html">Closed Tasks</a> page.
+      </p>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="tile">
+      <div class="tile-lbl">Total Open</div>
+      <div class="tile-n">37</div>
+    </div>
+    <div class="tile crit">
+      <div class="tile-lbl">Critical</div>
+      <div class="tile-n">1</div>
+    </div>
+    <div class="tile high">
+      <div class="tile-lbl">High</div>
+      <div class="tile-n">3</div>
+    </div>
+    <div class="tile med">
+      <div class="tile-lbl">Medium</div>
+      <div class="tile-n">17</div>
+    </div>
+    <div class="tile low">
+      <div class="tile-lbl">Low</div>
+      <div class="tile-n">16</div>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <nav class="toc" aria-label="Categories">
+      <div class="toc-title">Jump to</div>
+      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">6</span></a>
+      <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">4</span></a>
+      <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">16</span></a>
+      <a href="#frontend"><span>🎨 Frontend &amp; UX</span><span class="toc-count">8</span></a>
+      <a href="#ops"><span>🔧 Ops &amp; Infrastructure</span><span class="toc-count">2</span></a>
+      <a href="#testing"><span>🧪 Testing &amp; Quality</span><span class="toc-count">1</span></a>
+    </nav>
+
+    <main>
+
+      <!-- SECURITY & AUTH -->
+      <section id="security" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🔐</span>
+          <h2 class="cat-title">Security &amp; Auth</h2>
+          <span class="cat-count">6 open</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill high">High</span>
+            <span class="ref">H3</span>
+            <h3 class="card-title"><code>unit_manager</code> can assign users to units they don't own</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/admin/users/[id]/route.ts:118</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">A unit manager could slip a target user into a client / unit they don't manage, giving that user access outside the caller's scope.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Intersect <code>body.unitIds</code> with <code>caller.unitIds</code> on PATCH before writing.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill high">High</span>
+            <span class="ref">H5</span>
+            <h3 class="card-title">Identity lock bypassable on Verify step</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>create-booking/patient-details/page.tsx:1374-1432</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Step-1 identity fields lock to prevent overwriting an established CareFirst patient, but the Verify Details step lets those same fields be edited — defeats the lock and reproduces the "already registered to a different account" CareFirst handoff failure.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Pass <code>readOnly={identityLocked}</code> to the verify-step identity inputs.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M3</span>
+            <h3 class="card-title"><code>unit_manager</code> can change a target's <code>clientId</code> / <code>status</code> cross-scope</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/admin/users/[id]/route.ts:112</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Unit-scope role can escalate a user across clients or flip their status outside the caller's boundary.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Restrict <code>clientId</code> (and cross-scope <code>status</code>) mutations to <code>system_admin</code>, mirroring the role-change guard.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M4</span>
+            <h3 class="card-title"><code>/api/bookings/audit</code> trusts client-supplied <code>changes</code> / <code>entityName</code> verbatim</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/bookings/audit/route.ts:90-108</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">A malicious client could inject arbitrary strings / attribution into the audit log — the record of last resort.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Treat as untrusted; recompute diff server-side against the persisted state or clamp shape/length.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">B1</span>
+            <h3 class="card-title">Add User: no server-side unit-required check for non-admin roles</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/admin/users/route.ts</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Server accepts a <code>user</code> / <code>unit_manager</code> account with zero units — the account signs in and lands on empty pages. Silent bad state.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Reject with 400 if <code>unitIds.length === 0</code> and <code>role !== "system_admin"</code>.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L12</span>
+            <h3 class="card-title">Verify-step ID input skips digit cleaning / validation (subsumed by H5)</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>create-booking/patient-details/page.tsx:1396</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">A pasted / edited ID number can bypass the digit-only sanitiser applied on Step 1.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Closes with H5.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAYMENTS & INTEGRATIONS -->
+      <section id="payments" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">💳</span>
+          <h2 class="cat-title">Payments &amp; Integrations</h2>
+          <span class="cat-count">4 open</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L1</span>
+            <h3 class="card-title">Emailed pay link charges full amount, ignoring an applied coupon</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>pay/[bookingId]:97</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">If a coupon was applied on-site, the emailed resume link still charges the pre-coupon amount → over-charge + ITN mismatch.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Recompute <code>amount_gross</code> using the booking's stored <code>coupon_discount</code> in the pay page's buildPaymentData call.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L5</span>
+            <h3 class="card-title"><code>coupons/apply</code> rollback can blind-delete the new use row</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/coupons/apply/route.ts:246</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Race: rollback path can desync booking denorm state vs coupon_uses.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Match by booking_id + coupon_id explicitly on rollback rather than "latest use".</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L6</span>
+            <h3 class="card-title">CareFirst timeout vs network errors collapse into one incident signature</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/bookings/[id]/start-consultation/route.ts:290</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Makes root-causing CareFirst-handoff failures harder — timeout vs DNS vs 5xx all group together.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Split incident category by error class (timeout, network, http_5xx, http_4xx).</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L7</span>
+            <h3 class="card-title"><code>m_payment_id</code> prefix has no explicit length assertion vs PayFast's 100-char cap</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/payfast.ts:247</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Currently safe (all prefixes ≤42 chars) but a future long client code could silently overflow.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Assert prefix length ≤ 42 at buildPaymentData; throw at deploy-check time not runtime.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BACKEND & DATA -->
+      <section id="backend" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">⚙️</span>
+          <h2 class="cat-title">Backend &amp; Data</h2>
+          <span class="cat-count">16 open</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill high">High</span>
+            <span class="ref">H4</span>
+            <h3 class="card-title">Browser-side <code>discardBooking</code> has no status guard</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/booking-store.tsx:605</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Can silently discard a paid / Successful booking. Trigger 011 only blocks transitions <em>into</em> paid, not from.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Route via server + add <code>OLD.status</code> guard; reject discards on terminal states.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M2</span>
+            <h3 class="card-title">Reconcile fires on every Patient-History page mount</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>patient-history:485</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Multiplies load on 1 vCPU; also races with the cron reconcile.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Debounce (localStorage timestamp) or gate to admin-only.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M5</span>
+            <h3 class="card-title">Handoff lock can strand a paid booking in <code>handoff_status="in_progress"</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>start-consultation/route.ts:191-218</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">A crash mid-handoff leaves the lock set forever → operator can never retry the handoff.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add staleness escape (re-acquire if last attempt &gt; N minutes) or an admin reset path.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M6</span>
+            <h3 class="card-title"><code>updateBooking</code> swallows save failures — flow advances on a failed save</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/booking-store.tsx:590-594</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Same class as H6. <code>handleNext</code> advances even when the save failed — silent data loss.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Throw on error so <code>handleNext</code> stops advancing.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M7 (remainder)</span>
+            <h3 class="card-title"><code>toggleClientStatus</code> still swallows errors</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/client-store.tsx:361</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val"><code>toggleUserStatus</code> was fixed with H6. The client-store variant still silently no-ops on failure.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Apply the same throw + banner pattern used in H6 to Client Management.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M11</span>
+            <h3 class="card-title">Missing <code>coupons</code> / <code>coupon_uses</code> service_role GRANT</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>migrations/033:170</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Inconsistent with the project's GRANT convention on other tables. Currently works (service role bypasses RLS by JWT claim) but any future Postgres role-privilege change could break it.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add <code>GRANT SELECT, INSERT, UPDATE ON coupons, coupon_uses TO service_role</code> in a new migration.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M12</span>
+            <h3 class="card-title">Redundant index — <code>idx_bookings_status</code> is covered by <code>idx_bookings_status_created_at</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>migrations/001:66 &middot; 018:39</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Adds write cost on the hot bookings table for zero read benefit.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Drop <code>idx_bookings_status</code> in a migration; verify no query hint pins it.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M13</span>
+            <h3 class="card-title">No composite index for the dominant list read <code>(unit_id, created_at DESC)</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>migrations/032:33</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Every operator's Home page and Patient History sorts bookings by unit + created_at. Currently full-scan-then-sort at scale.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add composite <code>(unit_id, created_at DESC)</code> index in a new migration.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M14</span>
+            <h3 class="card-title">Unbounded <code>select("*")</code> of all bookings on mount (documented scaling cliff)</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/booking-store.tsx:419</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Hard scaling cliff at ~5k bookings — client will OOM or block.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Server-side pagination + streaming CSV; landing filter defaults to last 30 days.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L3</span>
+            <h3 class="card-title">Rate limiter is process-local</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/rate-limit.ts:8</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Per-IP limits weaken only if the app scales horizontally (currently single-container — non-issue today).</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Move to a Postgres-backed limiter when a second replica is added.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L4</span>
+            <h3 class="card-title">Retention-sweep audit row mislabels <code>entityType:"user"</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/app/api/retention-sweep/route.ts:166</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Audit log incorrectly attributes booking anonymisation events to "user" entity type.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Set <code>entityType:"booking"</code>.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L8</span>
+            <h3 class="card-title">Low-value handoff indexes add write cost on the hot bookings table</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>migrations/015:38</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Small: ~2 indexes rarely used in queries but every insert/update writes them.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Drop or replace with a single conditional index.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L9</span>
+            <h3 class="card-title">No index for <code>id_number</code> / <code>contact_number</code> patient dedup / search</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>migrations/001:27</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Full scan on every dedup check; noticeable at &gt;10k bookings.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add partial index <code>WHERE id_number IS NOT NULL</code>.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L10</span>
+            <h3 class="card-title"><code>audit_log</code> / <code>incidents</code> SELECT policy re-queries <code>users</code> instead of the helper</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>migrations/007:30 &middot; 029:45</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Correct but inconsistent — the other RLS policies use the <code>is_admin()</code> helper.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Refactor to use the helper; no behaviour change expected.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L13</span>
+            <h3 class="card-title"><code>beforeunload</code> abandon uses the anon key — usually no-ops under RLS</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/lib/booking-store.tsx:692</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">The cron abandon sweep is the real path; the browser fetch is effectively decoration.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Either remove the client-side abandon call or send via a POST route the anon key can hit.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">B2</span>
+            <h3 class="card-title">DOB / name search too strict — strips apostrophes, accents, no wildcards</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>create-booking/page.tsx</code> (patient search)</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">"O'Brien", "François", nicknames all miss. Legit patients look like new patients → duplicate records.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Widen input regex to allow apostrophes / accents; consider ilike-with-wildcards fallback if exact match returns zero.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FRONTEND & UX -->
+      <section id="frontend" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🎨</span>
+          <h2 class="cat-title">Frontend &amp; UX</h2>
+          <span class="cat-count">8 open</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">P1</span>
+            <h3 class="card-title">Capture Vital Signs page uses non-standard units, no ranges, broken Urine Dipstick field</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>create-booking/patient-metrics/page.tsx</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Unit typos (<code>hhMG</code>, <code>celcius</code>), US units (mg/dL), no range validation → operators can save physiologically impossible values. Urine Dipstick captures one field labelled pH when it's a 10-parameter panel.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Two options — A: label + range fix, no schema change (~30 min). B: also add respiratory rate, weight, height, BMI, pain score (migration 043, ~2 hrs). Needs decision on glucose unit + CareFirst-handoff-of-vitals question.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M8</span>
+            <h3 class="card-title">PIN modal hand-rolls inputs: no paste, no per-digit aria-labels</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/components/ui/pin-verification-modal.tsx:140-167</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Gates the highest-trust actions (delete, role change) but isn't accessible + can't paste an OTP.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Reuse the shared <code>OtpInput</code> primitive (already supports paste + labels).</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M9</span>
+            <h3 class="card-title"><code>CountryCodeSelect</code> not keyboard / screen-reader operable</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/components/ui/CountryCodeSelect.tsx:54-96</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">No listbox semantics, no arrow-key navigation, no Escape-to-close.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add listbox / option roles, keyboard nav, aria wiring.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M10</span>
+            <h3 class="card-title"><code>FloatingInput</code> error not linked to input — every form</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>src/components/ui/floating-input.tsx:61-107</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Screen readers don't hear the error when focus enters the input.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Wire <code>aria-describedby</code> + <code>aria-invalid</code>.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L2</span>
+            <h3 class="card-title">Public pay page is UUID-as-bearer (by design; no PII rendered)</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>pay/[bookingId]:26</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">By-design — the public pay URL uses the booking UUID as an implicit bearer. Renders no PII, only amount + coupon field.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Acknowledged; keep as-is unless we start rendering PII on the page. Consider a one-time signed URL if that changes.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">F1</span>
+            <h3 class="card-title">PIN Reset banner missing <code>role="alert"</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>user-management/manage/page.tsx</code> (existing PIN reset banner)</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Cosmetic a11y — the new H6 action-error banner has role=alert; the PIN Reset banner doesn't.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add <code>role="alert"</code> to the PIN Reset banner for parity.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">F2</span>
+            <h3 class="card-title">CareFirst additionalEmail input stays visible after the toggle is turned off</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>create-booking/patient-details/page.tsx</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Visual — toggle behaves correctly (data isn't sent when off), but the input remains rendered which is confusing.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Conditionally render the additionalEmail input based on the toggle.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">S3</span>
+            <h3 class="card-title">Git-history purge of the leaked PINs (S1 residual)</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">Git history since <code>aa92178</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">The leaked PINs from S1 are rotated (useless as credentials), and the repo is private. Purge is nice-to-have, not required.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val"><code>git filter-repo</code> after backing up. Optional.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- OPS & INFRASTRUCTURE -->
+      <section id="ops" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🔧</span>
+          <h2 class="cat-title">Ops &amp; Infrastructure</h2>
+          <span class="cat-count">2 open</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill crit">Critical</span>
+            <span class="ref">H8</span>
+            <h3 class="card-title">Zero database backups — Supabase Free tier + no pg_dump cron</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val">Supabase project + VPS ops</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Real production data flowing (bookings, PII, rotated credentials). If Supabase corrupts or the project gets misconfigured, there is no recovery path today.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Two paths — A: upgrade Supabase Pro (~$25/mo, includes point-in-time restore), OR B: install pg_dump cron per <code>OPERATIONS.md</code> + one restore drill.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill med">Medium</span>
+            <span class="ref">M1</span>
+            <h3 class="card-title">Cron has no <code>flock</code> overlap guard</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>booking-cron.sh</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">A slow run can be overtaken by the next one — two concurrent runs stack on 1 vCPU.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Wrap the script body in <code>flock -n /tmp/booking-cron.lock</code> — one line.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TESTING & QUALITY -->
+      <section id="testing" class="cat">
+        <div class="cat-head">
+          <span class="cat-icon">🧪</span>
+          <h2 class="cat-title">Testing &amp; Quality</h2>
+          <span class="cat-count">1 open</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">T1</span>
+            <h3 class="card-title">Add <code>NODE_ENV !== "production"</code> guard to <code>seed.ts</code></h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>booking-app/tests/_setup/seed.ts</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Belt-and-braces — S2 was the incident where a fixture user ended up in production. Guard prevents recurrence even if someone runs the seed against a prod DATABASE_URL.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Add <code>if (process.env.NODE_ENV === "production") throw new Error("refusing to seed prod")</code> at the top of the file.</div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <div class="footer">
+    <div>Last updated: 2026-07-22 &middot; See <a href="/closed-tasks.html">Closed Tasks</a> for completed work</div>
+    <div class="archive-links">
+      <a href="/system-audit.html">Full audit report (canonical)</a>
+      <a href="/engineering-status.html">Engineering Status</a>
+      <a href="/management-decisions-2026-05-21.html">Management Decisions</a>
+    </div>
+  </div>
+
+</body>
+</html>
