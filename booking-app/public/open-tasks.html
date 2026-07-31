@@ -299,7 +299,7 @@
   <div class="summary">
     <div class="tile">
       <div class="tile-lbl">Total Open</div>
-      <div class="tile-n">52</div>
+      <div class="tile-n">55</div>
     </div>
     <div class="tile crit">
       <div class="tile-lbl">Critical</div>
@@ -307,15 +307,15 @@
     </div>
     <div class="tile high">
       <div class="tile-lbl">High</div>
-      <div class="tile-n">3</div>
+      <div class="tile-n">4</div>
     </div>
     <div class="tile med">
       <div class="tile-lbl">Medium</div>
-      <div class="tile-n">27</div>
+      <div class="tile-n">26</div>
     </div>
     <div class="tile low">
       <div class="tile-lbl">Low</div>
-      <div class="tile-n">21</div>
+      <div class="tile-n">24</div>
     </div>
   </div>
 
@@ -323,12 +323,12 @@
 
     <nav class="toc" aria-label="Categories">
       <div class="toc-title">Jump to</div>
-      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">6</span></a>
+      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">7</span></a>
       <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">7</span></a>
       <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">21</span></a>
       <a href="#frontend"><span>🎨 Frontend &amp; UX</span><span class="toc-count">8</span></a>
-      <a href="#ops"><span>🔧 Ops &amp; Infrastructure</span><span class="toc-count">4</span></a>
-      <a href="#testing"><span>🧪 Testing &amp; Quality</span><span class="toc-count">6</span></a>
+      <a href="#ops"><span>🔧 Ops &amp; Infrastructure</span><span class="toc-count">5</span></a>
+      <a href="#testing"><span>🧪 Testing &amp; Quality</span><span class="toc-count">7</span></a>
     </nav>
 
     <main>
@@ -338,7 +338,7 @@
         <div class="cat-head">
           <span class="cat-icon">🔐</span>
           <h2 class="cat-title">Security &amp; Auth</h2>
-          <span class="cat-count">6 open</span>
+          <span class="cat-count">7 open</span>
         </div>
 
         <div class="card">
@@ -416,6 +416,19 @@
             <div class="meta-lbl">Where</div><div class="meta-val"><code>create-booking/patient-details/page.tsx:1396</code></div>
             <div class="meta-lbl">Impact</div><div class="meta-val">A pasted / edited ID number can bypass the digit-only sanitiser applied on Step 1.</div>
             <div class="meta-lbl">Fix</div><div class="meta-val">Closes with H5.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill high">High</span>
+            <span class="ref">H9</span>
+            <h3 class="card-title"><code>nodemailer</code> CRLF injection in <code>List-*</code> headers — needs major bump 8 &rarr; 9</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>booking-app/package.json</code> &mdash; <code>"nodemailer": "^8.0.5"</code>; email send paths</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">Attacker-influenced values reaching <code>List-*</code> mail headers can inject CRLF and forge additional headers. The only remaining <code>npm audit</code> finding with genuine production exposure &mdash; it sits on the live email path (pay links, booking notifications).</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Bump to <code>nodemailer@9.0.3</code>. Major version, so it needs its own change with the send paths actually exercised &mdash; deliberately excluded from the <code>1e99e80</code> dependency patch rather than swept in via <code>npm audit fix --force</code>. Bump <code>@types/nodemailer</code> to match.</div>
           </div>
         </div>
       </section>
@@ -920,7 +933,7 @@
         <div class="cat-head">
           <span class="cat-icon">🔧</span>
           <h2 class="cat-title">Ops &amp; Infrastructure</h2>
-          <span class="cat-count">4 open</span>
+          <span class="cat-count">5 open</span>
         </div>
 
         <div class="card">
@@ -974,6 +987,19 @@
             <div class="meta-lbl">Fix</div><div class="meta-val">After a soak period with no cert / subdomain surprises, add the <code>preload</code> directive and submit to hstspreload.org.</div>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L14</span>
+            <h3 class="card-title">Watch item: <code>postcss</code> / <code>sharp</code> advisories bundled inside Next &mdash; no forward fix</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>node_modules/next/node_modules/postcss</code>, <code>node_modules/sharp</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">2 high <code>npm audit</code> findings (<code>postcss</code> &le;8.5.17 sourceMappingURL path traversal / XSS; <code>sharp</code> &lt;0.35.0 inherited libvips CVEs). Both are transitive <em>inside</em> Next, so <code>next</code> itself is flagged purely for what it bundles. Build-time and image-pipeline surface, not the request path.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Nothing actionable today &mdash; no released Next ships fixed versions, and npm's suggested "fix" degenerates to a <code>next@9.3.3</code> downgrade. Recorded so it isn't re-investigated each audit. Clears when Next ships updated bundled deps; re-check on each Next upgrade.</div>
+          </div>
+        </div>
       </section>
 
       <!-- TESTING & QUALITY -->
@@ -981,7 +1007,7 @@
         <div class="cat-head">
           <span class="cat-icon">🧪</span>
           <h2 class="cat-title">Testing &amp; Quality</h2>
-          <span class="cat-count">6 open</span>
+          <span class="cat-count">7 open</span>
         </div>
 
         <div class="card">
@@ -1018,7 +1044,7 @@
           </div>
           <div class="card-meta">
             <div class="meta-lbl">Where</div><div class="meta-val">CI (or a scheduled cron)</div>
-            <div class="meta-lbl">Impact</div><div class="meta-val">No automated dependency-vulnerability scan today. New CVEs in Next.js / Supabase / PayFast SDKs would go unnoticed until manual review.</div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">No automated dependency-vulnerability scan today. New CVEs in Next.js / Supabase / PayFast SDKs would go unnoticed until manual review. <strong>Confirmed 31 Jul 2026:</strong> the first manual <code>npm audit</code> in months surfaced 20 findings, including a Next.js Server Components DoS and the <code>nodemailer</code> CRLF issue (H9) &mdash; exactly the drift this task exists to catch. Raises the case for automating it.</div>
             <div class="meta-lbl">Fix</div><div class="meta-val">Run <code>npm audit --production --audit-level=high</code> weekly via GitHub Actions or the VPS cron; post failures to Uptime Robot or email.</div>
           </div>
         </div>
@@ -1059,6 +1085,19 @@
             <div class="meta-lbl">Where</div><div class="meta-val">Playwright test projects</div>
             <div class="meta-lbl">Impact</div><div class="meta-val">Playwright currently runs Chromium-only. Firefox blank-favicon incident (fixed 2026-07) is the kind of thing this would catch. Operators on iPads (Safari) not covered at all.</div>
             <div class="meta-lbl">Fix</div><div class="meta-val">Add <code>firefox</code> + <code>webkit</code> test projects to <code>playwright.config.ts</code>; start with the smoke-test suite before expanding.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill low">Low</span>
+            <span class="ref">L15</span>
+            <h3 class="card-title"><code>eslint</code> 9 &rarr; 10 major upgrade &mdash; 8 open advisories in the lint toolchain</h3>
+          </div>
+          <div class="card-meta">
+            <div class="meta-lbl">Where</div><div class="meta-val"><code>booking-app/package.json</code> &mdash; <code>"eslint": "^9"</code>, <code>"eslint-config-next": "16.2.12"</code></div>
+            <div class="meta-lbl">Impact</div><div class="meta-val">8 high <code>npm audit</code> findings across <code>eslint</code>, <code>@eslint/config-array</code>, <code>@eslint/eslintrc</code>, <code>minimatch</code>, <code>brace-expansion</code>, <code>eslint-plugin-import</code>, <code>eslint-plugin-jsx-a11y</code>, <code>eslint-plugin-react</code>. Dev tooling only &mdash; none of it ships to production, so there is no runtime exposure. Inflates the audit high count and masks findings that do matter.</div>
+            <div class="meta-lbl">Fix</div><div class="meta-val">Upgrade to <code>eslint@10.8.0</code> with a matching <code>eslint-config-next</code>. Major version and a flat-config migration, so expect lint-rule churn; run <code>npm run lint</code> and reconcile before committing.</div>
           </div>
         </div>
 
