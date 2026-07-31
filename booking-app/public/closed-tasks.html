@@ -296,11 +296,11 @@
   <div class="summary">
     <div class="tile">
       <div class="tile-lbl">Total Closed</div>
-      <div class="tile-n">42</div>
+      <div class="tile-n">43</div>
     </div>
     <div class="tile mute">
       <div class="tile-lbl">This Month</div>
-      <div class="tile-n">5</div>
+      <div class="tile-n">6</div>
     </div>
     <div class="tile mute">
       <div class="tile-lbl">June 2026</div>
@@ -308,7 +308,7 @@
     </div>
     <div class="tile mute">
       <div class="tile-lbl">Latest</div>
-      <div class="tile-n" style="font-size: 1.1rem; padding-top: 8px;">2026-07-17</div>
+      <div class="tile-n" style="font-size: 1.1rem; padding-top: 8px;">2026-07-31</div>
     </div>
   </div>
 
@@ -316,7 +316,7 @@
 
     <nav class="toc" aria-label="Categories">
       <div class="toc-title">Jump to</div>
-      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">3</span></a>
+      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">4</span></a>
       <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">7</span></a>
       <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">8</span></a>
       <a href="#frontend"><span>🎨 Frontend &amp; UX</span><span class="toc-count">9</span></a>
@@ -331,7 +331,25 @@
         <div class="cat-head">
           <span class="cat-icon">🔐</span>
           <h2 class="cat-title">Security &amp; Auth</h2>
-          <span class="cat-count">3 closed</span>
+          <span class="cat-count">4 closed</span>
+        </div>
+
+        <div class="card">
+          <div class="card-top">
+            <span class="pill">Resolved</span>
+            <span class="pill pri-high">was High</span>
+            <span class="ref">H9</span>
+            <span class="date">2026-07-31</span>
+            <span class="commit">32d4fef</span>
+            <h3 class="card-title"><code>nodemailer</code> <code>raw</code> option bypasses file/URL access guards (GHSA-p6gq-j5cr-w38f)</h3>
+          </div>
+          <div class="card-body">
+            Bumped <code>nodemailer</code> 8 &rarr; 9.0.3, clearing a CVSS 7.1 advisory affecting all versions <code>&le;9.0.0</code>: a message-level <code>raw</code> option bypasses <code>disableFileAccess</code> / <code>disableUrlAccess</code>, enabling arbitrary file read and full-response SSRF in the delivered message. <code>npm audit</code> 15 &rarr; 14.
+            <br><br>
+            <strong>Not reachable before the fix</strong> — <code>src/lib/email.ts</code> is the only consumer and all four senders pass exactly <code>from</code> / <code>to</code> / <code>subject</code> / <code>html</code>, with no <code>raw</code>, <code>attachments</code>, or <code>list</code> option. Audit hygiene, not an incident. (The Open Tasks entry originally named a CRLF <code>List-*</code> advisory — that title came from an earlier audit run and was superseded once the tree re-resolved; the advisory recorded here is the one that was actually live.)
+            <br><br>
+            Added <code>tests/email-lib.spec.ts</code>: a minimal in-process SMTP server on an ephemeral port drives the real senders through nodemailer 9's client (EHLO &rarr; AUTH LOGIN &rarr; MAIL/RCPT/DATA) instead of mocking <code>sendMail</code>. 8 tests cover delivery for all four senders, a regression guard asserting no attachment / multipart / <code>List-</code> header so the advisory's preconditions can't return unnoticed, HTML-escaping and <code>javascript:</code> URL neutralisation through the senders, and the <code>{ sent: false }</code> failure path callers branch on.
+          </div>
         </div>
 
         <div class="card">

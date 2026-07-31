@@ -299,7 +299,7 @@
   <div class="summary">
     <div class="tile">
       <div class="tile-lbl">Total Open</div>
-      <div class="tile-n">55</div>
+      <div class="tile-n">54</div>
     </div>
     <div class="tile crit">
       <div class="tile-lbl">Critical</div>
@@ -307,7 +307,7 @@
     </div>
     <div class="tile high">
       <div class="tile-lbl">High</div>
-      <div class="tile-n">4</div>
+      <div class="tile-n">3</div>
     </div>
     <div class="tile med">
       <div class="tile-lbl">Medium</div>
@@ -323,7 +323,7 @@
 
     <nav class="toc" aria-label="Categories">
       <div class="toc-title">Jump to</div>
-      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">7</span></a>
+      <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">6</span></a>
       <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">7</span></a>
       <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">21</span></a>
       <a href="#frontend"><span>🎨 Frontend &amp; UX</span><span class="toc-count">8</span></a>
@@ -338,7 +338,7 @@
         <div class="cat-head">
           <span class="cat-icon">🔐</span>
           <h2 class="cat-title">Security &amp; Auth</h2>
-          <span class="cat-count">7 open</span>
+          <span class="cat-count">6 open</span>
         </div>
 
         <div class="card">
@@ -419,18 +419,6 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-top">
-            <span class="pill high">High</span>
-            <span class="ref">H9</span>
-            <h3 class="card-title"><code>nodemailer</code> CRLF injection in <code>List-*</code> headers — needs major bump 8 &rarr; 9</h3>
-          </div>
-          <div class="card-meta">
-            <div class="meta-lbl">Where</div><div class="meta-val"><code>booking-app/package.json</code> &mdash; <code>"nodemailer": "^8.0.5"</code>; email send paths</div>
-            <div class="meta-lbl">Impact</div><div class="meta-val">Attacker-influenced values reaching <code>List-*</code> mail headers can inject CRLF and forge additional headers. The only remaining <code>npm audit</code> finding with genuine production exposure &mdash; it sits on the live email path (pay links, booking notifications).</div>
-            <div class="meta-lbl">Fix</div><div class="meta-val">Bump to <code>nodemailer@9.0.3</code>. Major version, so it needs its own change with the send paths actually exercised &mdash; deliberately excluded from the <code>1e99e80</code> dependency patch rather than swept in via <code>npm audit fix --force</code>. Bump <code>@types/nodemailer</code> to match.</div>
-          </div>
-        </div>
       </section>
 
       <!-- PAYMENTS & INTEGRATIONS -->
