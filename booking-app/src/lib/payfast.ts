@@ -585,14 +585,15 @@ interface QueryHeaders {
 
 /** PayFast expects timestamp like `2026-04-20T12:00:00+02:00`. */
 function buildPayfastTimestamp(): string {
-  const d = new Date()
+  // Shift to SAST ONCE and derive every component (date AND time) from the
+  // shifted instant. The previous version took the date parts from UTC but
+  // the time parts from the shifted clock, so between 22:00 and 24:00 UTC
+  // the stamp carried yesterday's date with tomorrow's time.
+  const sastDate = new Date(Date.now() + 2 * 60 * 60 * 1000)
   const pad = (n: number) => n.toString().padStart(2, "0")
-  // Build the +02:00 timezone portion (SAST). PayFast is happy with any
-  // valid ISO 8601 offset — we use SAST since the merchant is in SA.
-  const year = d.getUTCFullYear()
-  const month = pad(d.getUTCMonth() + 1)
-  const day = pad(d.getUTCDate())
-  const sastDate = new Date(d.getTime() + 2 * 60 * 60 * 1000)
+  const year = sastDate.getUTCFullYear()
+  const month = pad(sastDate.getUTCMonth() + 1)
+  const day = pad(sastDate.getUTCDate())
   const hours = pad(sastDate.getUTCHours())
   const minutes = pad(sastDate.getUTCMinutes())
   const seconds = pad(sastDate.getUTCSeconds())
@@ -602,9 +603,16 @@ function buildPayfastTimestamp(): string {
 /**
  * Build the signature required for PayFast's Transaction History API.
  *
- * Rule: take all headers (merchant-id, version, timestamp) AND all query
- * params, merge into one object, sort alphabetically by key, URL-encode
- * values (spaces as +), join as k=v&k=v, append &passphrase=..., MD5.
+ * Rule: take all headers (merchant-id, version, timestamp), all query
+ * params, AND the passphrase, merge into ONE object, sort alphabetically by
+ * key, URL-encode values (spaces as +), join as k=v&k=v, MD5.
+ *
+ * ⚠️ The passphrase participates in the ALPHABETICAL SORT — this is the REST
+ * API convention and differs from the ITN/process signatures, where the
+ * passphrase is appended last. The original implementation appended it here
+ * too, which the live API rejects with 401 "Merchant authorization failed" —
+ * the same 401 long attributed to a sandbox quirk (B6). Verified empirically
+ * against the live API on 2026-08-25: sorted → 200, appended → 401.
  */
 function buildQueryApiSignature(
   headers: QueryHeaders,
@@ -614,6 +622,7 @@ function buildQueryApiSignature(
   const combined: Record<string, string> = {
     ...headers,
     ...queryParams,
+    passphrase,
   }
 
   const sortedKeys = Object.keys(combined).sort()
@@ -624,11 +633,7 @@ function buildQueryApiSignature(
     )
     .join("&")
 
-  const withPassphrase = `${encoded}&passphrase=${encodeURIComponent(
-    passphrase.trim()
-  ).replace(/%20/g, "+")}`
-
-  return crypto.createHash("md5").update(withPassphrase).digest("hex")
+  return crypto.createHash("md5").update(encoded).digest("hex")
 }
 
 /**
@@ -680,17 +685,130 @@ export async function fetchPayfastTransactions(
     )
   }
 
-  // PayFast returns either a top-level array or {data: {response: [...]}} —
-  // handle both.
+  // The LIVE API returns CSV (despite an application/json accept header):
+  //   Date,Type,Sign,...,"M Payment ID","PF Payment ID",...
+  // The Playwright mock (and possibly other environments) returns JSON —
+  // either a top-level array or {data: {response: [...]}}. Try JSON first,
+  // fall back to CSV; only give up when it's neither.
   let body: unknown
   try {
     body = JSON.parse(text)
   } catch {
-    throw new Error(`PayFast Query API returned non-JSON: ${text.slice(0, 200)}`)
+    return parseTransactionHistoryCsv(text)
   }
 
   const transactions = extractTransactionsFromResponse(body)
   return transactions
+}
+
+/**
+ * Parse the live Transaction History CSV into PayfastTransaction rows.
+ *
+ * Observed live format (2026-08-25):
+ *   Date,Type,Sign,Party,Name,Description,Currency,"Funding Type",
+ *   "Batch ID",Gross,Fee,Net,Balance,"M Payment ID","PF Payment ID",...
+ * - Quoted fields may contain commas (amounts use thousands separators:
+ *   `"2,800.00"`), so a naive split(",") is not safe.
+ * - Incoming payments have Type=FUNDS_RECEIVED and Sign=CREDIT; those map
+ *   to payment_status "COMPLETE" for the reconcile matcher. Everything
+ *   else (PAYOUT, fees, reversals) is passed through with its raw Type so
+ *   it can never satisfy a COMPLETE match.
+ * - Amounts keep their string form minus the thousands separators so the
+ *   existing Rand-string comparisons work unchanged.
+ *
+ * Exported for direct unit coverage (tests/payfast-csv-lib.spec.ts).
+ */
+export function parseTransactionHistoryCsv(text: string): PayfastTransaction[] {
+  const records = splitCsvRecords(text)
+  if (records.length === 0) return []
+
+  const header = records[0]
+  if (!header.includes("M Payment ID")) {
+    throw new Error(
+      `PayFast Query API returned unrecognised body: ${text.slice(0, 200)}`
+    )
+  }
+  if (records.length < 2) return []
+
+  const col = (row: string[], name: string): string => {
+    const i = header.indexOf(name)
+    return i >= 0 ? (row[i] ?? "").trim() : ""
+  }
+
+  return records.slice(1).map((row) => {
+    const type = col(row, "Type").toUpperCase()
+    const sign = col(row, "Sign").toUpperCase()
+    return {
+      m_payment_id: col(row, "M Payment ID"),
+      pf_payment_id: col(row, "PF Payment ID"),
+      amount_gross: col(row, "Gross").replace(/,/g, ""),
+      amount_fee: col(row, "Fee").replace(/,/g, ""),
+      amount_net: col(row, "Net").replace(/,/g, ""),
+      payment_status:
+        type === "FUNDS_RECEIVED" && sign === "CREDIT" ? "COMPLETE" : type,
+      // Extra ledger context the matcher uses for its guards. JSON-shaped
+      // responses (the Playwright mock) simply won't carry these keys.
+      sign,
+      currency: col(row, "Currency").toUpperCase(),
+      date: col(row, "Date"),
+    }
+  })
+}
+
+/**
+ * Tokenise a whole CSV document into records of fields, honouring
+ * double-quoted fields ("" = escaped quote) INCLUDING quoted commas and
+ * quoted newlines — a newline inside a quoted Description must not split
+ * the record. Blank records (trailing newlines) are dropped.
+ */
+function splitCsvRecords(text: string): string[][] {
+  const records: string[][] = []
+  let row: string[] = []
+  let field = ""
+  let inQuotes = false
+  let sawAny = false
+
+  const endField = () => {
+    row.push(field)
+    field = ""
+  }
+  const endRecord = () => {
+    endField()
+    if (row.length > 1 || row[0].trim() !== "") records.push(row)
+    row = []
+    sawAny = false
+  }
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
+      } else {
+        field += ch
+      }
+    } else if (ch === '"') {
+      inQuotes = true
+      sawAny = true
+    } else if (ch === ",") {
+      endField()
+      sawAny = true
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++
+      if (sawAny || field.trim() !== "") endRecord()
+      else field = ""
+    } else {
+      field += ch
+      sawAny = true
+    }
+  }
+  if (sawAny || field.trim() !== "") endRecord()
+  return records
 }
 
 function extractTransactionsFromResponse(body: unknown): PayfastTransaction[] {
@@ -729,17 +847,69 @@ export async function findCompletedPayfastTransaction(
   const fmt = (d: Date) =>
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
+  // NOTE (2026-08-25, observed live): the API accepts start_date/end_date
+  // (they must be present AND in the signature or it 401s) but does not
+  // appear to actually filter by them — probes with disjoint ranges returned
+  // identical row sets. Don't rely on the window for correctness: the
+  // m_payment_id match below is what scopes the result to this booking.
   const transactions = await fetchPayfastTransactions(config, {
     startDate: fmt(past),
     endDate: fmt(now),
   })
 
-  const match = transactions.find((t) => {
-    // m_payment_id may be prefixed ("<CODE>-<uuid>") or a legacy bare UUID —
-    // strip any recognised code prefix before comparing to our booking id.
-    const mPaymentId = stripBookingId(String(t.m_payment_id ?? "").trim())
+  const windowStart = past.getTime() - 24 * 60 * 60 * 1000 // 1-day slack
+  return selectCompletedTransaction(transactions, bookingId, windowStart)
+}
+
+/**
+ * Pure matching core for reconcile, split out for direct unit coverage
+ * (tests/payfast-csv-lib.spec.ts). Given the full (unfiltered) ledger,
+ * return the transaction that proves `bookingId` was paid, or null.
+ */
+export function selectCompletedTransaction(
+  transactions: PayfastTransaction[],
+  bookingId: string,
+  windowStart: number
+): PayfastTransaction | null {
+  // All ledger rows for THIS booking. m_payment_id may be prefixed
+  // ("<CODE>-<uuid>") or a legacy bare UUID — strip any recognised code
+  // prefix before comparing to our booking id.
+  const forBooking = transactions.filter(
+    (t) => stripBookingId(String(t.m_payment_id ?? "").trim()) === bookingId
+  )
+
+  // Reversal guard: the CSV is an append-only ledger, so a refund or
+  // chargeback is a SEPARATE row alongside the original credit — the credit
+  // row alone would keep matching as COMPLETE forever. If ANY row for this
+  // booking is a debit or a refund-ish type, fail closed (booking stays
+  // unpaid; the manual PIN-confirm path remains available).
+  const negated = forBooking.some((t) => {
+    const sign = String(t.sign ?? "").trim().toUpperCase()
     const status = String(t.payment_status ?? "").trim().toUpperCase()
-    return mPaymentId === bookingId && status === "COMPLETE"
+    return sign === "DEBIT" || /REFUND|REVERS|CHARGEBACK/.test(status)
+  })
+  if (negated) return null
+
+  const match = forBooking.find((t) => {
+    const status = String(t.payment_status ?? "").trim().toUpperCase()
+    if (status !== "COMPLETE") return false
+
+    // Currency guard: a non-ZAR amount must never satisfy the Rand-string
+    // amount check downstream. Rows without a currency (the JSON mock shape)
+    // pass through — the mock predates this field.
+    const currency = String(t.currency ?? "").trim().toUpperCase()
+    if (currency && currency !== "ZAR") return false
+
+    // Client-side lookback: the API ignores start_date/end_date (see note
+    // above), so enforce the window here. Rows without a parseable date
+    // (the JSON mock shape) pass through.
+    const rawDate = String(t.date ?? "").trim()
+    if (rawDate) {
+      // Live format "2026-08-20 11:54:59" in SAST.
+      const parsed = Date.parse(rawDate.replace(" ", "T") + "+02:00")
+      if (!Number.isNaN(parsed) && parsed < windowStart) return false
+    }
+    return true
   })
 
   return match ?? null
