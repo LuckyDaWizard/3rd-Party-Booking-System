@@ -12,6 +12,11 @@ services:
     image: booking-app:${IMAGE_TAG:-latest}
     container_name: booking-app
     restart: unless-stopped
+    # Run Docker's built-in init (tini) as PID 1 so orphaned children of the
+    # Node process get reaped. Without this, every HEALTHCHECK wget that
+    # outlives its shell becomes a zombie — 120 had accumulated on the VPS
+    # over 4 weeks of uptime.
+    init: true
     # Container resource caps — guards against a runaway Node process
     # OOM-killing the host. Sized for the Hostinger KVM 1 plan, which
     # provides 1 vCPU + ~4 GB RAM. `cpus: 0.9` leaves a sliver of CPU
