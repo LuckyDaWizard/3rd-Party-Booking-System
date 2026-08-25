@@ -678,6 +678,12 @@ test.describe("Coupon R0 (100%-off) bypasses PayFast", () => {
   test("Start Consult: retry on Successful booking is idempotent (no second CareFirst call)", async ({
     page,
   }) => {
+    // This test walks sign-in → coupon → complete → TWO Start Consults and
+    // runs right at the default 30s budget when the dev server is under
+    // full-suite load — it flaked with "browser has been closed" mid-request
+    // on 2026-08-25 and passed alone in ~31s. Give it the same headroom as
+    // the timeout-path test above.
+    test.setTimeout(60_000)
     // ----- Arrange ------------------------------------------------------------
     const { unitId } = await getSeededIds()
     const booking = await createBookingForUnit(unitId, "In Progress")

@@ -299,7 +299,7 @@
   <div class="summary">
     <div class="tile">
       <div class="tile-lbl">Total Open</div>
-      <div class="tile-n">54</div>
+      <div class="tile-n">53</div>
     </div>
     <div class="tile crit">
       <div class="tile-lbl">Critical</div>
@@ -315,7 +315,7 @@
     </div>
     <div class="tile low">
       <div class="tile-lbl">Low</div>
-      <div class="tile-n">24</div>
+      <div class="tile-n">23</div>
     </div>
   </div>
 
@@ -324,7 +324,7 @@
     <nav class="toc" aria-label="Categories">
       <div class="toc-title">Jump to</div>
       <a href="#security"><span>🔐 Security &amp; Auth</span><span class="toc-count">6</span></a>
-      <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">7</span></a>
+      <a href="#payments"><span>💳 Payments &amp; Integrations</span><span class="toc-count">6</span></a>
       <a href="#backend"><span>⚙️ Backend &amp; Data</span><span class="toc-count">21</span></a>
       <a href="#frontend"><span>🎨 Frontend &amp; UX</span><span class="toc-count">8</span></a>
       <a href="#ops"><span>🔧 Ops &amp; Infrastructure</span><span class="toc-count">5</span></a>
@@ -426,7 +426,7 @@
         <div class="cat-head">
           <span class="cat-icon">💳</span>
           <h2 class="cat-title">Payments &amp; Integrations</h2>
-          <span class="cat-count">7 open</span>
+          <span class="cat-count">6 open</span>
         </div>
 
         <div class="card">
@@ -507,18 +507,6 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-top">
-            <span class="pill low">Low</span>
-            <span class="ref">B6</span>
-            <h3 class="card-title">PayFast reconcile 401 in sandbox (no action; closes on go-live)</h3>
-          </div>
-          <div class="card-meta">
-            <div class="meta-lbl">Where</div><div class="meta-val">Sandbox PayFast Query API</div>
-            <div class="meta-lbl">Impact</div><div class="meta-val">Sandbox Query API returns 401 — expected sandbox behaviour, not a bug. Documented in memory as <code>project_payfast_mode</code>.</div>
-            <div class="meta-lbl">Fix</div><div class="meta-val">No action; verify closes automatically when B7 flips <code>PAYFAST_TEST_MODE=false</code>.</div>
-          </div>
-        </div>
       </section>
 
       <!-- BACKEND & DATA -->

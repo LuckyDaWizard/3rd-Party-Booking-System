@@ -183,16 +183,33 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
   }
 
+  // email + contact_number are NOT NULL in the live schema (the clients
+  // table predates the migration files) and the client UIs require both. A
+  // PATCH may OMIT them (leave unchanged) but must never clear them: a JSON
+  // `null` passes the `!== undefined` membership test below, and an empty
+  // string would sail past the NOT NULL constraint as bad data — both
+  // previously surfaced as raw 500s / silent "" rows (Code Review
+  // 2026-08-25). Mirrors the required-field validation in the POST route.
+  if (body.email !== undefined) {
+    const email = typeof body.email === "string" ? body.email.trim() : ""
+    if (email === "") {
+      return apiError("Email address cannot be empty", 400)
+    }
+    body.email = email
+  }
+
   // Server-authority contact-number normalization (only when contactNumber is
   // part of this patch). The clients table has no country_code column, so
   // derive the country from the number itself, then normalize to canonical
-  // E.164. Present-but-invalid → 400; an explicit empty string is left as-is
-  // (clears the field). Reassign in place so the DB write AND the audit diff
-  // below both use the canonical value.
-  if (
-    typeof body.contactNumber === "string" &&
-    body.contactNumber.trim() !== ""
-  ) {
+  // E.164. Reassign in place so the DB write AND the audit diff below both
+  // use the canonical value.
+  if (body.contactNumber !== undefined) {
+    if (
+      typeof body.contactNumber !== "string" ||
+      body.contactNumber.trim() === ""
+    ) {
+      return apiError("Contact number cannot be empty", 400)
+    }
     const normalized = normalizeToE164(
       deriveCountryFromNumber(body.contactNumber),
       body.contactNumber
@@ -284,7 +301,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (updErr.code === "23505") {
       return apiError("That client code is already in use", 409)
     }
-    return apiError(updErr.message, 500)
+    return apiError(`Failed to update client: ${updErr.message}`, 500)
   }
 
   // Audit log.

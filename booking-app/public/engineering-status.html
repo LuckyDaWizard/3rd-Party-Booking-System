@@ -511,17 +511,17 @@
       <tr>
         <td class="id">B6</td>
         <td>
-          <strong>PayFast reconcile 401 in sandbox &mdash; expected behaviour, not a bug.</strong>
-          Diagnosed 2026-06-05. The reconcile incident <code>payfast:reconcile:query-failed</code> turns out to be a PayFast sandbox quirk &mdash; the Transaction History (Query) API returns 401 "Merchant authorization failed" against sandbox credentials even when the same credentials work for payment <code>process</code> + ITN. We&rsquo;re on sandbox during pilot (<code>PAYFAST_TEST_MODE=true</code> with the public sandbox merchant ID/key/passphrase), so this 401 is harmless: real payment confirmation still flows via the ITN webhook (which works fine on sandbox), and reconcile is only the safety net for ITN drops. Will start working once we promote to live PayFast credentials. See B7.
+          <strong>✅ CLOSED 2026-08-25 (<code>9923575</code>) &mdash; the reconcile 401 was OUR bug, not a sandbox quirk.</strong>
+          The 2026-06-05 diagnosis ("expected sandbox behaviour; will close itself on go-live") was disproven when the 401 persisted on live credentials with the dashboard confirmed correctly configured. Root cause: <code>buildQueryApiSignature</code> appended <code>&amp;passphrase=…</code> last (the ITN convention), but the REST API requires the passphrase <em>inside the alphabetical sort</em> of all signed params. Proven empirically against the live API (sorted &rarr; 200, appended &rarr; 401). Fixing auth exposed a second latent bug: the live API returns <strong>CSV</strong> (quoted thousands-separator amounts), not the JSON the parser and Playwright mock assumed. Shipped with a quote-aware CSV parser + matcher guards (refund rows negate the credit; ZAR-only; client-side lookback &mdash; the API ignores its own date params) and 12 unit tests. Live-verified end-to-end. The reconcile safety net works for the first time since it was built.
         </td>
-        <td class="effort">No action</td>
+        <td class="effort">Fixed 2026-08-25</td>
       </tr>
       <tr>
         <td class="id">B7</td>
         <td>
           <strong>Promote PayFast integration to production credentials.</strong>
           <div style="margin-top:8px;padding:8px 12px;background:var(--ok-tint,#dcfce7);border-left:3px solid #166534;border-radius:6px;">
-            <strong>Status (2026-06-17) — imminent.</strong> Nic signed off ✅ · go-live blockers <strong>H1 + H2 fixed &amp; deployed</strong> ✅ · Jean sent the live credentials ✅ · <strong>waiting on Jean to confirm the live-account dashboard config</strong> (ITN enabled [critical], passphrase set, notify URL). Once confirmed, the flip is the steps below. Still on sandbox until then.
+            <strong>Status (2026-08-25) — LIVE.</strong> The flip happened ~2026-06-29: production runs merchant <code>21899899</code> with <code>PAYFAST_TEST_MODE=false</code> (verified in the VPS <code>.env</code> AND the running container). Note the merchant account is <strong>shared with the FCS Shop</strong> — its transactions appear in the Transaction History. The account ledger shows <strong>no booking payments yet</strong>, so the 2026-06-29 R26 test booking was almost certainly still sandbox-mode: no real booking money has flowed. Steps 1–4 + 6 below are done (B6 closed by the 2026-08-25 signature fix, not by the flip); <strong>step 5 — a small real-money end-to-end smoke test — remains outstanding</strong> and is the last box to tick.
           </div>
           When ready to go live:
           <ol style="margin-top: 8px;">
