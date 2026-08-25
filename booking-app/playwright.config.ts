@@ -41,6 +41,20 @@ const CAREFIRST_MOCK_API_KEY = process.env.CAREFIRST_API_KEY ?? "playwright-mock
 // — we don't override them here.
 const PAYFAST_MOCK_PORT = Number(process.env.PAYFAST_MOCK_PORT ?? 4748)
 
+// The clientCode the dev server boots with for the UN-mapped routing case
+// (B1). Resolved HERE, in the runner process, and handed to workers under a
+// dedicated PW_-prefixed key that .env.local can never clobber. Spec files
+// must read PW_CAREFIRST_ENV_DEFAULT_CODE, NOT CAREFIRST_CLIENT_CODE: the
+// tests/_helpers/admin.ts loadEnvLocal() side-effect copies .env.local (which
+// carries the REAL staging CAREFIRST_CLIENT_CODE) into the shared worker's
+// process.env, so under workers:1 any spec file loaded after an earlier spec
+// touched getAdmin() would read the staging code instead of the value the
+// dev server actually booted with. Bit carefirst-routing-handoff.spec.ts on
+// 2026-08-25 (full-run-only failure; passed in isolation).
+const DEV_SERVER_CLIENT_CODE =
+  process.env.CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT"
+process.env.PW_CAREFIRST_ENV_DEFAULT_CODE = DEV_SERVER_CLIENT_CODE
+
 export default defineConfig({
   testDir: "./tests",
   // globalSetup seeds Supabase fixtures (gated on PLAYWRIGHT_SEED=1, B3) and
@@ -52,7 +66,14 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // ALWAYS single-worker, local and CI. The suite's shared infrastructure is
+  // not safe under parallel workers: one dev-server process compiles routes
+  // on demand (concurrent first-hits stall past the 30s timeout), the
+  // booking-create rate-limit tests share one per-user bucket, and the
+  // PayFast mock's seeded-transaction list has no per-booking keying (see
+  // payfast-mock-server.ts SEEDED-TRANSACTION CAVEAT). A default-worker run
+  // on a 4-core machine produced 12 spurious failures on 2026-08-25.
+  workers: 1,
   reporter: process.env.CI ? "github" : "html",
 
   use: {
@@ -90,8 +111,7 @@ export default defineConfig({
     env: {
       CAREFIRST_API_DOMAIN: `http://localhost:${CAREFIRST_MOCK_PORT}`,
       CAREFIRST_API_KEY: CAREFIRST_MOCK_API_KEY,
-      CAREFIRST_CLIENT_CODE:
-        process.env.CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT",
+      CAREFIRST_CLIENT_CODE: DEV_SERVER_CLIENT_CODE,
       CAREFIRST_CLIENT_PLAN_CODE:
         process.env.CAREFIRST_CLIENT_PLAN_CODE ?? "PLAYWRIGHT-PLAN",
       // B1 per-client routing: a deterministic per-client API key keyed by the

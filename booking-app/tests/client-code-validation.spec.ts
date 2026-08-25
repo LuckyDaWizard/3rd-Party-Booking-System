@@ -47,6 +47,11 @@ function uniqueClientName(): string {
   return `Playwright CC ${crypto.randomBytes(4).toString("hex")}`
 }
 
+// clients.email and clients.contact_number are NOT NULL (enforced by the live
+// schema + 400s in the POST route), so every create payload must carry both.
+const TEST_EMAIL = "playwright-cc@example.test"
+const TEST_PHONE = "+27821234567"
+
 /**
  * Generate a fresh VALID client code (3–5 uppercase alnum) that's very unlikely
  * to collide with another run. 4 base36 chars uppercased gives a 4-char code.
@@ -79,7 +84,7 @@ test.describe("Client code — admin-route validation", () => {
     // "ab" is too short AND lowercase — guaranteed to fail isValidClientCode.
     const res = await page.request.post(`${BASE_URL}/api/admin/clients`, {
       headers: { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf },
-      data: { clientName, clientCode: "ab" },
+      data: { clientName, email: TEST_EMAIL, contactNumber: TEST_PHONE, clientCode: "ab" },
     })
 
     // ----- Assert -------------------------------------------------------------
@@ -114,7 +119,7 @@ test.describe("Client code — admin-route validation", () => {
       // ----- Act --------------------------------------------------------------
       const res = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers: { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf },
-        data: { clientName }, // no clientCode
+        data: { clientName, email: TEST_EMAIL, contactNumber: TEST_PHONE }, // no clientCode
       })
 
       // ----- Assert -----------------------------------------------------------
@@ -157,7 +162,7 @@ test.describe("Client code — admin-route validation", () => {
         headers: { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf },
         // Lowercase input proves the route uppercases server-side before
         // storage + uniqueness comparison.
-        data: { clientName: firstName, clientCode: code.toLowerCase() },
+        data: { clientName: firstName, email: TEST_EMAIL, contactNumber: TEST_PHONE, clientCode: code.toLowerCase() },
       })
 
       // ----- Assert 1 ---------------------------------------------------------
@@ -179,7 +184,7 @@ test.describe("Client code — admin-route validation", () => {
       // ----- Act 2: a second client with the SAME code → 409 ------------------
       const res2 = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers: { "Content-Type": "application/json", [CSRF_HEADER_NAME]: csrf },
-        data: { clientName: secondName, clientCode: code },
+        data: { clientName: secondName, email: TEST_EMAIL, contactNumber: TEST_PHONE, clientCode: code },
       })
 
       // ----- Assert 2 ---------------------------------------------------------
@@ -227,14 +232,14 @@ test.describe("Client code — admin-route validation", () => {
     try {
       const holderRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers,
-        data: { clientName: holderName, clientCode: existingCode },
+        data: { clientName: holderName, email: TEST_EMAIL, contactNumber: TEST_PHONE, clientCode: existingCode },
       })
       expect(holderRes.status()).toBe(201)
       holderId = ((await holderRes.json()) as CreateResponse).id as string
 
       const targetRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers,
-        data: { clientName: targetName }, // no code yet
+        data: { clientName: targetName, email: TEST_EMAIL, contactNumber: TEST_PHONE }, // no code yet
       })
       expect(targetRes.status()).toBe(201)
       targetId = ((await targetRes.json()) as CreateResponse).id as string
@@ -335,7 +340,7 @@ test.describe("CareFirst routing — admin-route validation (B1)", () => {
     try {
       const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers,
-        data: { clientName },
+        data: { clientName, email: TEST_EMAIL, contactNumber: TEST_PHONE },
       })
       expect(createRes.status()).toBe(201)
       clientId = ((await createRes.json()) as CreateResponse).id as string
@@ -382,7 +387,7 @@ test.describe("CareFirst routing — admin-route validation (B1)", () => {
     try {
       const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers,
-        data: { clientName },
+        data: { clientName, email: TEST_EMAIL, contactNumber: TEST_PHONE },
       })
       expect(createRes.status()).toBe(201)
       clientId = ((await createRes.json()) as CreateResponse).id as string
@@ -433,7 +438,7 @@ test.describe("CareFirst routing — admin-route validation (B1)", () => {
     try {
       const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers,
-        data: { clientName },
+        data: { clientName, email: TEST_EMAIL, contactNumber: TEST_PHONE },
       })
       expect(createRes.status()).toBe(201)
       clientId = ((await createRes.json()) as CreateResponse).id as string
@@ -498,7 +503,7 @@ test.describe("CareFirst routing — admin-route validation (B1)", () => {
     try {
       const createRes = await page.request.post(`${BASE_URL}/api/admin/clients`, {
         headers,
-        data: { clientName },
+        data: { clientName, email: TEST_EMAIL, contactNumber: TEST_PHONE },
       })
       expect(createRes.status()).toBe(201)
       clientId = ((await createRes.json()) as CreateResponse).id as string

@@ -120,11 +120,11 @@ test("validatePhone reports a length error for a typed-but-wrong-length number",
 // =============================================================================
 test("validatePhone honours variable-length national numbers (NA 8|9, GB 9|10)", () => {
   // ----- Assert -------------------------------------------------------------
-  // NA allows 8 OR 9 national digits.
-  expect(validatePhone("NA", "+2648123456").valid).toBe(true) // 8 national
-  expect(validatePhone("NA", "+26481234567").valid).toBe(true) // 9 national
+  // NA allows 8 OR 9 national digits (dial +264 is 3 digits).
+  expect(validatePhone("NA", "+26481234567").valid).toBe(true) // 8 national
+  expect(validatePhone("NA", "+264812345678").valid).toBe(true) // 9 national
   // 7 national digits is rejected for NA.
-  expect(validatePhone("NA", "+264812345").valid).toBe(false)
+  expect(validatePhone("NA", "+2648123456").valid).toBe(false)
 
   // GB allows 9 OR 10 national digits.
   expect(validatePhone("GB", "+44123456789").valid).toBe(true) // 9 national
@@ -146,10 +146,10 @@ test("normalizeToE164 produces the canonical +<dial><national> for every accepte
     // ZA — invalid lengths normalise to null.
     ["ZA", "123", null], // too short
     ["ZA", "08212345678", null], // 10 national digits — too long
-    // Variable-length NA: both permitted lengths normalise.
-    ["NA", "+2648123456", "+2648123456"], // 8 national
-    ["NA", "+26481234567", "+26481234567"], // 9 national
-    ["NA", "+264812345", null], // 7 national — rejected
+    // Variable-length NA: both permitted lengths normalise (dial +264 = 3 digits).
+    ["NA", "+26481234567", "+26481234567"], // 8 national
+    ["NA", "+264812345678", "+264812345678"], // 9 national
+    ["NA", "+2648123456", null], // 7 national — rejected
     // Variable-length GB: both permitted lengths normalise.
     ["GB", "+44123456789", "+44123456789"], // 9 national
     ["GB", "+441234567890", "+441234567890"], // 10 national

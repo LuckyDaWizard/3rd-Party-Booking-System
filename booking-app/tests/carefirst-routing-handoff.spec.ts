@@ -63,11 +63,13 @@ import { getSeededUserId, readBooking } from "./_helpers/fixtures"
 // Must match the env key suffix CAREFIRST_API_KEY__PWMAPPED in playwright.config.ts.
 const MAPPED_CODE = "PWMAPPED"
 
-// Env-default clientCode the dev server boots with (playwright.config.ts
-// webServer.env: CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT"). The un-mapped
-// case must resolve to this. We read the same fallback the config uses so the
-// two stay in sync if the shell overrides it.
-const ENV_DEFAULT_CODE = process.env.CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT"
+// Env-default clientCode the dev server boots with. Read via the dedicated
+// PW_ key the config publishes from the RUNNER process — NOT
+// process.env.CAREFIRST_CLIENT_CODE, which loadEnvLocal() overwrites with the
+// real staging code from .env.local once any earlier spec in the shared
+// worker touches getAdmin() (full-run-only mismatch; see playwright.config.ts).
+const ENV_DEFAULT_CODE =
+  process.env.PW_CAREFIRST_ENV_DEFAULT_CODE ?? "PLAYWRIGHT-CLIENT"
 
 const MOCK_PORT = Number(process.env.CAREFIRST_MOCK_PORT ?? 4747)
 const MOCK_URL = `http://localhost:${MOCK_PORT}`

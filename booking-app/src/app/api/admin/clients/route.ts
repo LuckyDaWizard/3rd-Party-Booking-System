@@ -22,8 +22,8 @@ const CAREFIRST_CLIENT_CODE_RE = /^[A-Z0-9]+$/
 //     clientName: string
 //     contactPersonName?: string
 //     contactPersonSurname?: string
-//     email?: string
-//     contactNumber?: string
+//     email: string           // required — clients.email is NOT NULL
+//     contactNumber: string   // required — clients.contact_number is NOT NULL
 //     initialUnitName?: string | null  // null / "-" / omitted → no unit created
 //   }
 //
@@ -39,7 +39,9 @@ interface CreateClientBody {
   clientName: string
   contactPersonName?: string
   contactPersonSurname?: string
+  /** Required (400 when absent/empty) — clients.email is NOT NULL. */
   email?: string
+  /** Required (400 when absent/empty/invalid) — clients.contact_number is NOT NULL. */
   contactNumber?: string
   initialUnitName?: string | null
   /** Hex like '#3ea3db', or null to leave the system default. */
@@ -80,6 +82,15 @@ export async function POST(request: Request) {
 
   if (!body.clientName?.trim()) {
     return apiError("clientName is required", 400)
+  }
+
+  // Email is required: the Add Client wizard gates step 1 on it and
+  // clients.email is NOT NULL in the live schema (the table predates the
+  // migration files). Reject early with a clear 400 rather than letting the
+  // constraint violation surface as a 500 from the insert.
+  const email = typeof body.email === "string" ? body.email.trim() : ""
+  if (email === "") {
+    return apiError("Email address is required", 400)
   }
 
   let accentColor: string | null
@@ -141,20 +152,20 @@ export async function POST(request: Request) {
     carefirstApiDomain = normalized
   }
 
-  // Server-authority contact-number normalization. The clients table has no
-  // country_code column, so derive the country from the number itself, then
-  // normalize to canonical E.164. Present-but-invalid → 400; empty/absent
-  // stays allowed (the field is optional).
-  let normalizedContact: string | null = body.contactNumber ?? null
-  if (typeof body.contactNumber === "string" && body.contactNumber.trim() !== "") {
-    const normalized = normalizeToE164(
-      deriveCountryFromNumber(body.contactNumber),
-      body.contactNumber
-    )
-    if (normalized === null) {
-      return apiError("Invalid contact number", 400)
-    }
-    normalizedContact = normalized
+  // Server-authority contact-number normalization. Required — the Add Client
+  // wizard gates step 1 on a valid phone and clients.contact_number is
+  // NOT NULL in the live schema (same situation as email above). The clients
+  // table has no country_code column, so derive the country from the number
+  // itself, then normalize to canonical E.164.
+  if (typeof body.contactNumber !== "string" || body.contactNumber.trim() === "") {
+    return apiError("Contact number is required", 400)
+  }
+  const normalizedContact = normalizeToE164(
+    deriveCountryFromNumber(body.contactNumber),
+    body.contactNumber
+  )
+  if (normalizedContact === null) {
+    return apiError("Invalid contact number", 400)
   }
 
   let admin
@@ -170,7 +181,7 @@ export async function POST(request: Request) {
       client_name: body.clientName,
       contact_person_name: body.contactPersonName ?? null,
       contact_person_surname: body.contactPersonSurname ?? null,
-      email: body.email ?? null,
+      email,
       contact_number: normalizedContact,
       status: "Active",
       accent_color: accentColor,
