@@ -43,16 +43,24 @@ export async function GET() {
     // Cheapest possible check — HEAD-equivalent count on a tiny table.
     // `head: true` makes Supabase return only the count header without
     // actual row data.
+    //
+    // The 3s abort is load-bearing: during the 2026-09-09 Supabase outage
+    // the database died at the TCP layer while the API gateway stayed up,
+    // and this query hung indefinitely — so the route never answered,
+    // Docker's healthcheck timed out, Traefik dropped the route, and the
+    // site showed a bare 404 with nothing useful in a curl. With the
+    // abort, a dead DB degrades to a prompt 503 instead.
     const { error } = await admin
       .from("users")
       .select("*", { count: "exact", head: true })
       .limit(1)
+      .abortSignal(AbortSignal.timeout(3_000))
 
     if (!error) {
       body.checks.db = "ok"
     }
   } catch {
-    // Leave body.checks.db = "fail"
+    // Leave body.checks.db = "fail" (thrown aborts land here too)
   }
 
   if (body.checks.db === "fail") {

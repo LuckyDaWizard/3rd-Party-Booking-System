@@ -51,9 +51,16 @@ const PAYFAST_MOCK_PORT = Number(process.env.PAYFAST_MOCK_PORT ?? 4748)
 // touched getAdmin() would read the staging code instead of the value the
 // dev server actually booted with. Bit carefirst-routing-handoff.spec.ts on
 // 2026-08-25 (full-run-only failure; passed in isolation).
-const DEV_SERVER_CLIENT_CODE =
+// FIRST-WRITE-WINS (??=), not plain assignment: with PLAYWRIGHT_SEED=1 the
+// seed runs in the RUNNER's globalSetup and loadEnvLocal() pollutes the
+// runner's own env; workers inherit that env and re-evaluate this config, so
+// a plain `=` would recompute the PW_ key from the polluted
+// CAREFIRST_CLIENT_CODE and reintroduce the exact mismatch this key exists
+// to prevent (bit run 10 on 2026-09-09 — seeded runs only). The runner's
+// first, pre-globalSetup evaluation is the authoritative one.
+process.env.PW_CAREFIRST_ENV_DEFAULT_CODE ??=
   process.env.CAREFIRST_CLIENT_CODE ?? "PLAYWRIGHT-CLIENT"
-process.env.PW_CAREFIRST_ENV_DEFAULT_CODE = DEV_SERVER_CLIENT_CODE
+const DEV_SERVER_CLIENT_CODE = process.env.PW_CAREFIRST_ENV_DEFAULT_CODE
 
 export default defineConfig({
   testDir: "./tests",
