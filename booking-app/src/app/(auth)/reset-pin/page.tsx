@@ -122,7 +122,7 @@ function ResetPinForm() {
         default:
           setState("error-invalid")
           setErrorDetail(
-            "That code didn't work. It may be wrong, expired, or already used."
+            "That code didn't work. It may be wrong, expired, or already used. If you requested more than one code, use the one from the most recent email."
           )
           setCode("")
       }
@@ -224,6 +224,10 @@ function ResetPinForm() {
             disabled={state === "loading"}
             ariaLabel="6-digit reset code"
           />
+          <p className="self-start text-xs text-ink-muted">
+            Codes expire after 15 minutes. Requested more than one? Only the
+            code in the most recent email will work.
+          </p>
         </div>
 
         {/* New PIN */}
