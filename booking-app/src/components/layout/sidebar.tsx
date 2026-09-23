@@ -532,7 +532,7 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
             data-testid="app-version"
             className="mt-2 text-center text-xs text-ink-muted"
           >
-            {`Version ${process.env.NEXT_PUBLIC_APP_VERSION} (${process.env.NEXT_PUBLIC_APP_BUILD})`}
+            Version {process.env.NEXT_PUBLIC_APP_VERSION}
           </p>
         )}
       </div>

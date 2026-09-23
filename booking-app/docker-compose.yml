@@ -5,9 +5,6 @@ services:
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        # Build id (short SHA) shown next to the version under the sidebar's
-        # Contact Support button. Same value as the image tag.
-        APP_BUILD: ${IMAGE_TAG:-dev}
     # Tag the image with both :latest and :${IMAGE_TAG} so every deploy
     # leaves the previous build in `docker images` for instant rollback.
     # Set IMAGE_TAG to the short git SHA on each deploy (see the deploy

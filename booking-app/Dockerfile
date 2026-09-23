@@ -17,10 +17,6 @@ ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-# Build id (short git SHA, passed from IMAGE_TAG by compose). .git is
-# dockerignored, so it can't be read inside the build — it must come in here.
-ARG APP_BUILD=dev
-ENV NEXT_PUBLIC_APP_BUILD=$APP_BUILD
 
 RUN npm run build
 

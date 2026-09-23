@@ -478,9 +478,6 @@ What this does:
 4. The previous `booking-app:<old-sha>` stays in `docker images` until
    pruned — that's our rollback target.
 
-`IMAGE_TAG` also becomes the build id in the sidebar label
-("Version 1.3.5 (e47880b)"). If it isn't exported, the label shows `(dev)`.
-
 ### Versioning
 
 The app follows SemVer — `MAJOR.MINOR.PATCH` in `booking-app/package.json`,
