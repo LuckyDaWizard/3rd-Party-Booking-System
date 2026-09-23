@@ -527,6 +527,14 @@ export function Sidebar({ mode = "desktop" }: SidebarProps = {}) {
             </>
           )}
         </Button>
+        {!collapsed && (
+          <p
+            data-testid="app-version"
+            className="mt-2 text-center text-xs text-ink-muted"
+          >
+            Version {process.env.NEXT_PUBLIC_APP_VERSION}
+          </p>
+        )}
       </div>
     </aside>
   )
