@@ -4,6 +4,10 @@ Versioning rules: see [OPERATIONS.md → Versioning](OPERATIONS.md#versioning).
 MAJOR = something people must prepare for · MINOR = new user-visible capability
 · PATCH = fixes, copy, dependency/security updates.
 
+## 1.3.6 — 2026-09-23
+
+- Sidebar version label shows the version number only (build id removed).
+
 ## 1.3.5 — 2026-09-23
 
 First versioned release. Earlier history lives in git (`git log`).
