@@ -478,6 +478,33 @@ What this does:
 4. The previous `booking-app:<old-sha>` stays in `docker images` until
    pruned — that's our rollback target.
 
+`IMAGE_TAG` also becomes the build id in the sidebar label
+("Version 1.3.5 (e47880b)"). If it isn't exported, the label shows `(dev)`.
+
+### Versioning
+
+The app follows SemVer — `MAJOR.MINOR.PATCH` in `booking-app/package.json`,
+shown under the sidebar's Contact Support button. Bump **once per deploy**,
+by the biggest change in it:
+
+| Bump | When | Examples |
+|---|---|---|
+| **MAJOR** | Something people must prepare for: changed workflow, coordinated cutover, irreversible data migration | PayFast live cutover, Auth/RLS migration, multi-client routing |
+| **MINOR** | A new user-visible capability | coupons, self-collect, per-client accent colour |
+| **PATCH** | Fixes, copy, dependency / security updates, internal work | Node 24 upgrade, reset-PIN hint |
+
+Release steps (before the deploy above):
+
+```bash
+cd booking-app
+npm version patch --no-git-tag-version   # or minor / major
+# add the release to CHANGELOG.md, then:
+git commit -am "Release vX.Y.Z" && git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin main --follow-tags
+```
+
+No leading zeros (`1.3.5`, not `1.3.05`) — npm rejects them.
+
 > ✅ **Compose drift — resolved (backlog B4).** The repo's
 > `booking-app/docker-compose.yml` IS now the source of truth and
 > contains the full production Traefik config (Host rule, websecure

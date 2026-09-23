@@ -1,11 +1,14 @@
 import type { NextConfig } from "next";
 import { execSync } from "child_process";
+import pkg from "./package.json";
 
-// Build identifier shown under the sidebar's Contact Support button. Docker
-// builds pass it in via the APP_VERSION build-arg (= IMAGE_TAG); local builds
-// fall back to the checkout's short SHA, then "dev".
-function appVersion(): string {
-  if (process.env.NEXT_PUBLIC_APP_VERSION) return process.env.NEXT_PUBLIC_APP_VERSION;
+// Version shown under the sidebar's Contact Support button, e.g.
+// "Version 1.3.5 (e47880b)". The number is package.json's SemVer (bumping
+// rules in OPERATIONS.md → Versioning); the build id is the short git SHA.
+// Docker builds get the SHA via the APP_BUILD build-arg (= IMAGE_TAG) since
+// .git is dockerignored; local builds read the checkout, then fall back to "dev".
+function appBuild(): string {
+  if (process.env.NEXT_PUBLIC_APP_BUILD) return process.env.NEXT_PUBLIC_APP_BUILD;
   try {
     return execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
       .toString()
@@ -18,7 +21,8 @@ function appVersion(): string {
 const nextConfig: NextConfig = {
   output: "standalone",
   env: {
-    NEXT_PUBLIC_APP_VERSION: appVersion(),
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
+    NEXT_PUBLIC_APP_BUILD: appBuild(),
   },
   // Disable Next.js image optimizer. The runner stage of our Docker image
   // (node:24-alpine) doesn't ship with sharp / vips, so /next/image requests
