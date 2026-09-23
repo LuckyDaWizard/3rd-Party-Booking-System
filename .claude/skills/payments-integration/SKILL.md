@@ -12,7 +12,7 @@ The two outbound integrations:
 - **PayFast** — South African payment gateway. ITN webhook (push) plus Transaction History Query API (pull for reconcile). Currently in **sandbox** during pilot; see memory `project_payfast_mode`.
 - **CareFirst Patient SSO** — single outbound call `POST /api/external/client-sso/auto-register` on Start Consult. The boundary out of our system.
 
-No third practice-management API. No Zod. No Supabase Edge Functions. The codebase uses Next.js 16 App Router with `.ts` API routes running on Node 20 in production.
+No third practice-management API. No Zod. No Supabase Edge Functions. The codebase uses Next.js 16 App Router with `.ts` API routes running on Node 24 in production.
 
 ---
 

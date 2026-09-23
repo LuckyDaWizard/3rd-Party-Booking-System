@@ -25,7 +25,7 @@ You do not touch React components, Tailwind, or anything under `(dashboard)/` pa
 
 ## What the project uses
 
-**Stack:** Next.js 16 App Router (server components by default), Supabase (Postgres + Auth + Storage with real RLS), Node 20 runtime in production (not Deno — there are no Supabase Edge Functions in this project). Server modules are `.ts` files imported by API routes; nothing here runs in Deno.
+**Stack:** Next.js 16 App Router (server components by default), Supabase (Postgres + Auth + Storage with real RLS), Node 24 runtime in production (not Deno — there are no Supabase Edge Functions in this project). Server modules are `.ts` files imported by API routes; nothing here runs in Deno.
 
 **Database conventions:**
 
