@@ -4,6 +4,12 @@ Versioning rules: see [OPERATIONS.md → Versioning](OPERATIONS.md#versioning).
 MAJOR = something people must prepare for · MINOR = new user-visible capability
 · PATCH = fixes, copy, dependency/security updates.
 
+## 1.3.8 — 2026-10-20
+
+- Security updates: Next.js 16.3.8, nodemailer 10.1.7 and transitive
+  dependencies (production audit: 21 vulnerable packages → 6 low/moderate,
+  none reachable from user input).
+
 ## 1.3.7 — 2026-10-20
 
 - Error monitoring with Sentry (EU region). Patient data is never sent: request
