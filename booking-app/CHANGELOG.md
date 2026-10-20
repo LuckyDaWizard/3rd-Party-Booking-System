@@ -4,6 +4,14 @@ Versioning rules: see [OPERATIONS.md → Versioning](OPERATIONS.md#versioning).
 MAJOR = something people must prepare for · MINOR = new user-visible capability
 · PATCH = fixes, copy, dependency/security updates.
 
+## 1.3.7 — 2026-10-20
+
+- Error monitoring with Sentry (EU region). Patient data is never sent: request
+  data, cookies, query strings and IP addresses are stripped, and ID numbers,
+  phone numbers, emails and PINs are masked before anything leaves the app.
+- Clearer handling when CareFirst drops a connection mid-response during
+  Start Consult (friendly network error instead of a server error).
+
 ## 1.3.6 — 2026-09-23
 
 - Sidebar version label shows the version number only (build id removed).
