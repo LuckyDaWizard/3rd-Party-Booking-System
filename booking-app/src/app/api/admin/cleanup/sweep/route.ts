@@ -11,6 +11,7 @@ import {
   SYSTEM_ACTOR_ID,
 } from "@/lib/audit-log"
 import { NextResponse } from "next/server"
+import { withCronMonitor } from "@/lib/sentry-cron"
 
 // =============================================================================
 // POST /api/admin/cleanup/sweep
@@ -68,7 +69,7 @@ interface SweepErrors {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   // Auth: cron-secret header bypasses session auth. Synthesize a system
   // caller so the audit log still has a recognisable actor for cron-driven
   // sweeps.
@@ -251,3 +252,6 @@ export async function POST(request: Request) {
     ...(Object.keys(errors).length > 0 ? { errors } : {}),
   })
 }
+
+// Crontab calls (X-Cron-Secret) are reported to Sentry — see src/lib/sentry-cron.ts.
+export const POST = withCronMonitor("cleanup-sweep", handlePost)

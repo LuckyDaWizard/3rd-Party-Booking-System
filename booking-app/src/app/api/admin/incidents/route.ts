@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin"
 import { requireSystemAdmin, isAuthorizedCronCall } from "@/lib/api-auth"
 import { sweepStaleIncidents } from "@/lib/incidents"
 import { apiError } from "@/lib/api-response"
+import { withCronMonitor } from "@/lib/sentry-cron"
 
 // =============================================================================
 // GET /api/admin/incidents
@@ -17,7 +18,7 @@ import { apiError } from "@/lib/api-response"
 // Auth: system_admin only.
 // =============================================================================
 
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   // Auth: cron-secret header bypasses session auth (cron hits this purely
   // to trigger sweepStaleIncidents() and doesn't care about the JSON body).
   if (!isAuthorizedCronCall(request)) {
@@ -79,3 +80,6 @@ export async function GET(request: Request) {
     openCount: (data ?? []).filter((r) => r.status === "open").length,
   })
 }
+
+// Crontab calls (X-Cron-Secret) are reported to Sentry — see src/lib/sentry-cron.ts.
+export const GET = withCronMonitor("incident-sweep", handleGet)

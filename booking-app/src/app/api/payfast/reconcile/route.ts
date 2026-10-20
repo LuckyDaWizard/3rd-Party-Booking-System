@@ -14,6 +14,7 @@ import {
   transitionStatus,
   type BookingStatus,
 } from "@/lib/booking-state-machine"
+import { withCronMonitor } from "@/lib/sentry-cron"
 
 // =============================================================================
 // POST /api/payfast/reconcile
@@ -47,11 +48,15 @@ interface ReconcileResult {
   bookingId: string
   updated: boolean
   reason: string
+  /** PayFast query / DB failure — the run couldn't do its job for this
+   *  booking (vs. a normal outcome like "no transaction yet"). Drives the
+   *  `errors` field, which the Sentry cron monitor treats as a failed run. */
+  upstreamError?: boolean
 }
 
 const LOOKBACK_HOURS = 2
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   // Auth: either a signed-in session OR a valid cron-secret header.
   // A cron call is treated as system_admin-equivalent for batch mode.
   const isCron = isAuthorizedCronCall(request)
@@ -163,13 +168,22 @@ export async function POST(request: Request) {
             result.reason instanceof Error
               ? result.reason.message
               : "Unknown error during reconcile",
+          upstreamError: true,
         })
       }
     }
   }
 
   const reconciled = results.filter((r) => r.updated).length
-  return NextResponse.json({ ok: true, reconciled, results })
+  // Surface upstream failures (e.g. every PayFast query 401ing, as in
+  // August) so the cron monitor reports the run as failed instead of "ok".
+  const upstreamErrors = results.filter((r) => r.upstreamError).length
+  return NextResponse.json({
+    ok: true,
+    reconciled,
+    results,
+    ...(upstreamErrors > 0 ? { errors: { upstream: upstreamErrors } } : {}),
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +261,7 @@ async function reconcileOne(
       bookingId,
       updated: false,
       reason: `PayFast query failed: ${msg}`,
+      upstreamError: true,
     }
   }
 
@@ -313,6 +328,7 @@ async function reconcileOne(
       reason: `DB update failed: ${
         result.error instanceof Error ? result.error.message : "unknown"
       }`,
+      upstreamError: true,
     }
   }
 
@@ -348,3 +364,6 @@ async function reconcileOne(
     reason: "Marked Payment Complete via PayFast Query API",
   }
 }
+
+// Crontab calls (X-Cron-Secret) are reported to Sentry — see src/lib/sentry-cron.ts.
+export const POST = withCronMonitor("payfast-reconcile", handlePost, { monitor: true })

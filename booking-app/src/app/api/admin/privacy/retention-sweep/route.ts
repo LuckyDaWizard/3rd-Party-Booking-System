@@ -7,6 +7,7 @@ import {
 } from "@/lib/api-auth"
 import { writeAuditLog, getCallerIp, SYSTEM_ACTOR_ID } from "@/lib/audit-log"
 import { apiError } from "@/lib/api-response"
+import { withCronMonitor } from "@/lib/sentry-cron"
 
 // =============================================================================
 // POST /api/admin/privacy/retention-sweep
@@ -81,7 +82,7 @@ const PII_COLUMNS_TO_CLEAR = [
   "additional_comments",
 ] as const
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   // Auth: cron-secret header bypasses session auth so the 15-min VPS
   // crontab can run the retention sweep. Synthesize a system caller for
   // the audit-log entry.
@@ -182,3 +183,6 @@ export async function POST(request: Request) {
     generatedAt: new Date().toISOString(),
   })
 }
+
+// Crontab calls (X-Cron-Secret) are reported to Sentry — see src/lib/sentry-cron.ts.
+export const POST = withCronMonitor("retention-sweep", handlePost)
