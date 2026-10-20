@@ -5,6 +5,11 @@ services:
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-production}
+      # Source-map upload token — a BuildKit secret, never a build-arg.
+      secrets:
+        - sentry_auth_token
     # Tag the image with both :latest and :${IMAGE_TAG} so every deploy
     # leaves the previous build in `docker images` for instant rollback.
     # Set IMAGE_TAG to the short git SHA on each deploy (see the deploy
@@ -100,3 +105,8 @@ services:
       - "traefik.http.middlewares.hsts.headers.stsIncludeSubdomains=true"
       - "traefik.http.middlewares.hsts.headers.stsPreload=false"
       - "traefik.http.routers.booking.middlewares=hsts"
+
+secrets:
+  # Read from SENTRY_AUTH_TOKEN in .env at build time (see Dockerfile).
+  sentry_auth_token:
+    environment: SENTRY_AUTH_TOKEN

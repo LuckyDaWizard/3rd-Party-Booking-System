@@ -9,6 +9,7 @@
 
 import crypto from "crypto"
 import { getAppUrl } from "./app-url"
+import { providerSpan, reportProviderFailure } from "./sentry-provider"
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -527,16 +528,27 @@ export async function validateItnServerConfirmation(
     .join("&")
 
   try {
-    const res = await fetch(validateUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params,
-      signal: AbortSignal.timeout(PAYFAST_CONFIRM_TIMEOUT_MS),
-    })
+    return await providerSpan("payfast-validate", "POST", validateUrl, async () => {
+      const res = await fetch(validateUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params,
+        signal: AbortSignal.timeout(PAYFAST_CONFIRM_TIMEOUT_MS),
+      })
+      // An "INVALID" body is a legitimate answer (e.g. a forged ITN), not a
+      // provider failure — only non-2xx responses are reported.
+      if (!res.ok) reportProviderFailure("payfast-validate", res.status)
 
-    const text = await res.text()
-    return text.trim() === "VALID"
+      const text = await res.text()
+      return text.trim() === "VALID"
+    })
   } catch (err) {
+    reportProviderFailure(
+      "payfast-validate",
+      err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")
+        ? "timeout"
+        : "network"
+    )
     console.error("PayFast server confirmation failed:", err)
     return false
   }
@@ -668,18 +680,26 @@ export async function fetchPayfastTransactions(
 
   const url = `${getPayfastApiBase()}/transactions/history?${qs}`
 
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      ...headers,
-      signature,
-      accept: "application/json",
-    },
+  const { res, text } = await providerSpan("payfast-query", "GET", url, async () => {
+    let r: Response
+    try {
+      r = await fetch(url, {
+        method: "GET",
+        headers: {
+          ...headers,
+          signature,
+          accept: "application/json",
+        },
+      })
+    } catch (err) {
+      reportProviderFailure("payfast-query", "network")
+      throw err
+    }
+    return { res: r, text: await r.text() }
   })
 
-  const text = await res.text()
-
   if (!res.ok) {
+    reportProviderFailure("payfast-query", res.status)
     throw new Error(
       `PayFast Query API returned ${res.status}: ${text.slice(0, 500)}`
     )

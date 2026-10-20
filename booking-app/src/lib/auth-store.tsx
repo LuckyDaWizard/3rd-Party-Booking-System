@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react"
+import * as Sentry from "@sentry/nextjs"
 import { supabase, pinToEmail } from "./supabase"
 
 // ---------------------------------------------------------------------------
@@ -327,6 +328,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveUnitIdState(unitId)
     localStorage.setItem(ACTIVE_UNIT_STORAGE_KEY, unitId)
   }, [])
+
+  // Sentry context: id + role only (POPIA — never name/email), plus the
+  // active unit and the user's client as tags. Cleared on sign-out.
+  useEffect(() => {
+    Sentry.setUser(user ? { id: user.id, role: user.role } : null)
+    Sentry.setTag("client_id", user?.clientId ?? undefined)
+    Sentry.setTag("unit_id", activeUnitId ?? undefined)
+  }, [user, activeUnitId])
 
   // Resolve active unit name
   const [activeUnitName, setActiveUnitName] = useState<string | null>(null)

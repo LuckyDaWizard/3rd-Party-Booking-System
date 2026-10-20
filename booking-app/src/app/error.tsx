@@ -1,5 +1,6 @@
 "use client"
 
+import * as Sentry from "@sentry/nextjs"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle } from "lucide-react"
@@ -23,9 +24,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log the error server-side on the terminal via console.error — the
-    // Next.js dev/prod server will capture this. No Sentry wiring yet;
-    // that lands with audit item #5.
+    Sentry.captureException(error)
     console.error("[Global error boundary] Caught:", error)
   }, [error])
 

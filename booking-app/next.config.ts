@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import pkg from "./package.json";
 
 const nextConfig: NextConfig = {
@@ -18,4 +19,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: "firstcaresolutions",
+  project: "tpbs-web",
+  sentryUrl: "https://de.sentry.io/",
+  // Build-time only (source-map upload). Supplied as a BuildKit secret in
+  // Docker and never committed; without it the build still succeeds and
+  // just skips the upload.
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Errors are grouped per release = our SemVer, so each maps to CHANGELOG.md.
+  release: { name: `tpbs-web@${pkg.version}` },
+  // No `tunnelRoute`: the built-in one is a blind rewrite that relays to ANY
+  // Sentry org and forwards the browser's cookies (incl. the Supabase session).
+  // Our own src/app/monitoring/route.ts is used instead.
+  widenClientFileUpload: true,
+  // Upload source maps, then delete them so our source is never served.
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
+  silent: !process.env.CI,
+});

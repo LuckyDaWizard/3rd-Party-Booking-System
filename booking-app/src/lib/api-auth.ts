@@ -12,6 +12,7 @@
 
 import { NextResponse } from "next/server"
 import { timingSafeEqual } from "node:crypto"
+import * as Sentry from "@sentry/nextjs"
 import { getSupabaseServer } from "./supabase-server"
 
 // ---------------------------------------------------------------------------
@@ -24,6 +25,14 @@ export interface CallerInfo {
   role: "system_admin" | "unit_manager" | "user"
   unitIds: string[]    // units the caller is assigned to (via user_units)
   name: string         // "First Last" for audit logging
+}
+
+/**
+ * Attach the authenticated caller to this request's Sentry scope — id + role
+ * only (POPIA: never name or email). Sentry isolates scope per request.
+ */
+function tagSentryCaller(id: string, role: string): void {
+  Sentry.setUser({ id, role })
 }
 
 // ---------------------------------------------------------------------------
@@ -47,7 +56,7 @@ export async function requireSystemAdmin(): Promise<NextResponse | null> {
 
   const { data: callerRow, error } = await sb
     .from("users")
-    .select("role, status")
+    .select("id, role, status")
     .eq("auth_user_id", caller.id)
     .single()
 
@@ -68,6 +77,7 @@ export async function requireSystemAdmin(): Promise<NextResponse | null> {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
+  tagSentryCaller(callerRow.id, callerRow.role)
   return null
 }
 
@@ -113,6 +123,7 @@ export async function requireSystemAdminWithCaller(): Promise<
     return { denied: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
 
+  tagSentryCaller(callerRow.id, "system_admin")
   return {
     caller: {
       id: callerRow.id,
@@ -184,6 +195,7 @@ export async function requireAdminOrManager(): Promise<
 
   const unitIds = (unitRows ?? []).map((r) => r.unit_id as string)
 
+  tagSentryCaller(callerRow.id, callerRow.role)
   return {
     caller: {
       id: callerRow.id,
@@ -247,6 +259,7 @@ export async function requireAuthenticated(): Promise<
 
   const unitIds = (unitRows ?? []).map((r) => r.unit_id as string)
 
+  tagSentryCaller(callerRow.id, callerRow.role)
   return {
     caller: {
       id: callerRow.id,

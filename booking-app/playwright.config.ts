@@ -116,6 +116,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      // Keep the suite's deliberate failures (mock 503s, bad signatures) out
+      // of Sentry: an empty DSN disables the SDK (src/lib/sentry-shared.ts).
+      // process env beats .env.local, so this wins over the dev DSN.
+      NEXT_PUBLIC_SENTRY_DSN: "",
       CAREFIRST_API_DOMAIN: `http://localhost:${CAREFIRST_MOCK_PORT}`,
       CAREFIRST_API_KEY: CAREFIRST_MOCK_API_KEY,
       CAREFIRST_CLIENT_CODE: DEV_SERVER_CLIENT_CODE,

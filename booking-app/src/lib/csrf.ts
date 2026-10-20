@@ -50,6 +50,10 @@ export const CSRF_TOKEN_BYTES = 32
  */
 export const CSRF_EXEMPT_PATHS = [
   "/api/payfast/notify",
+  // Sentry tunnel (next.config.ts tunnelRoute). The SDK's transport doesn't
+  // carry our CSRF header; the route only forwards envelopes to our own
+  // Sentry project and changes no app state.
+  "/monitoring",
 ]
 
 /**

@@ -10,6 +10,7 @@
 // =============================================================================
 
 import { getAppUrl } from "./app-url"
+import { providerSpan, reportProviderFailure } from "./sentry-provider"
 
 // ---------------------------------------------------------------------------
 // Config
@@ -433,21 +434,26 @@ export async function callSsoAutoRegister(
   const url = `${base}/api/external/client-sso/auto-register`
 
   let res: Response
+  let rawText: string
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": config.apiKey,
-      },
-      body: JSON.stringify(payload),
-      // AbortSignal.timeout fires a DOMException with name "TimeoutError"
-      // (Node 18.16+) or "AbortError" on older runtimes. isAbortOrTimeout
-      // below handles both shapes so the operator sees a specific
-      // "didn't respond in time" message instead of a generic network error.
-      signal: AbortSignal.timeout(CAREFIRST_TIMEOUT_MS),
-    })
+    ;({ res, rawText } = await providerSpan("carefirst", "POST", url, async () => {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": config.apiKey,
+        },
+        body: JSON.stringify(payload),
+        // AbortSignal.timeout fires a DOMException with name "TimeoutError"
+        // (Node 18.16+) or "AbortError" on older runtimes. isAbortOrTimeout
+        // below handles both shapes so the operator sees a specific
+        // "didn't respond in time" message instead of a generic network error.
+        signal: AbortSignal.timeout(CAREFIRST_TIMEOUT_MS),
+      })
+      return { res: r, rawText: await r.text() }
+    }))
   } catch (err) {
+    reportProviderFailure("carefirst", isAbortOrTimeout(err) ? "timeout" : "network")
     if (isAbortOrTimeout(err)) {
       return {
         ok: false,
@@ -465,7 +471,6 @@ export async function callSsoAutoRegister(
   }
 
   let body: unknown
-  const rawText = await res.text()
   try {
     body = rawText ? JSON.parse(rawText) : null
   } catch {
@@ -473,6 +478,7 @@ export async function callSsoAutoRegister(
   }
 
   if (!res.ok) {
+    reportProviderFailure("carefirst", res.status)
     // Upstream gateway errors usually indicate CareFirst's infrastructure
     // is down — operator-friendly message instead of "rejected the handoff",
     // which sounds like a data problem we caused.
