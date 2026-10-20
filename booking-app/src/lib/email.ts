@@ -8,7 +8,7 @@
 // Node.js-only library and will break the browser bundle.
 // =============================================================================
 
-import nodemailer from "nodemailer"
+import nodemailer, { type Transporter } from "nodemailer"
 import { getAppUrl } from "./app-url"
 
 const SMTP_HOST = process.env.SMTP_HOST
@@ -49,9 +49,9 @@ function escapeUrlAttribute(value: string): string {
   return escapeHtml(trimmed)
 }
 
-let transporter: nodemailer.Transporter | null = null
+let transporter: Transporter | null = null
 
-function getTransporter(): nodemailer.Transporter {
+function getTransporter(): Transporter {
   if (transporter) return transporter
 
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
