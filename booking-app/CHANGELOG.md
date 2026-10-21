@@ -4,6 +4,15 @@ Versioning rules: see [OPERATIONS.md → Versioning](OPERATIONS.md#versioning).
 MAJOR = something people must prepare for · MINOR = new user-visible capability
 · PATCH = fixes, copy, dependency/security updates.
 
+## 1.3.9 — 2026-10-21
+
+- Monitoring for the 15-minute background jobs. The PayFast reconcile job now
+  reports each run to Sentry; two failed runs in a row, or a run that never
+  arrives (crontab, container or database down), raise an alert. Failures in
+  the cleanup, retention and incident sweeps show up as Sentry issues.
+- Reconcile now reports a run as failed when PayFast lookups or database
+  updates fail, instead of reporting it as ok.
+
 ## 1.3.8 — 2026-10-20
 
 - Security updates: Next.js 16.3.8, nodemailer 10.1.7 and transitive
