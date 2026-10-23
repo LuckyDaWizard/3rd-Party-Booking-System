@@ -4,6 +4,13 @@ Versioning rules: see [OPERATIONS.md → Versioning](OPERATIONS.md#versioning).
 MAJOR = something people must prepare for · MINOR = new user-visible capability
 · PATCH = fixes, copy, dependency/security updates.
 
+## 1.3.10 — 2026-10-23
+
+- Security update: Node.js 24.22.1 (security release; fixes in HTTP, DNS, TLS,
+  crypto and brotli handling, plus OpenSSL 3.5.9). The server image is now
+  pinned to this exact Node version instead of the floating `24-alpine` tag,
+  so a rebuild can't silently reuse an older cached base image.
+
 ## 1.3.9 — 2026-10-21
 
 - Monitoring for the 15-minute background jobs. The PayFast reconcile job now
